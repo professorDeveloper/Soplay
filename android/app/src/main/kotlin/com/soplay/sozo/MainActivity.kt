@@ -1,4 +1,4 @@
-package com.soplay.soplay
+package com.soplay.sozo
 
 import android.Manifest
 import android.app.PendingIntent
@@ -26,7 +26,7 @@ class MainActivity : FlutterActivity() {
     private val channelName = "soplay/pip"
     private val downloadChannelName = "soplay/downloads"
     private val systemControlsChannelName = "soplay/system_controls"
-    private val actionBroadcastName = "com.soplay.soplay.PIP_ACTION"
+    private val actionBroadcastName = "com.soplay.sozo.PIP_ACTION"
     private val actionExtraId = "action_id"
 
     private var methodChannel: MethodChannel? = null
@@ -151,6 +151,10 @@ class MainActivity : FlutterActivity() {
                     setWindowBrightness(value)
                     result.success(getWindowBrightness())
                 }
+                "resetBrightness" -> {
+                    resetWindowBrightness()
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -187,6 +191,14 @@ class MainActivity : FlutterActivity() {
         runOnUiThread {
             val attrs = window.attributes
             attrs.screenBrightness = value.coerceIn(0.01, 1.0).toFloat()
+            window.attributes = attrs
+        }
+    }
+
+    private fun resetWindowBrightness() {
+        runOnUiThread {
+            val attrs = window.attributes
+            attrs.screenBrightness = -1f
             window.attributes = attrs
         }
     }
