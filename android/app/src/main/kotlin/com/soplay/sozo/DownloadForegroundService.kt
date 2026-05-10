@@ -1,4 +1,4 @@
-package com.soplay.soplay
+package com.soplay.sozo
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -408,9 +408,9 @@ class DownloadForegroundService : Service() {
     }
 
     companion object {
-        const val ACTION_START = "com.soplay.soplay.download.START"
-        const val ACTION_CANCEL = "com.soplay.soplay.download.CANCEL"
-        const val ACTION_CANCEL_ALL = "com.soplay.soplay.download.CANCEL_ALL"
+        const val ACTION_START = "com.soplay.sozo.download.START"
+        const val ACTION_CANCEL = "com.soplay.sozo.download.CANCEL"
+        const val ACTION_CANCEL_ALL = "com.soplay.sozo.download.CANCEL_ALL"
 
         const val EXTRA_ID = "id"
         const val EXTRA_TITLE = "title"
