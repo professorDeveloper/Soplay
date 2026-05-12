@@ -66,6 +66,7 @@ dependencies:
   cached_network_image: ^3.4.1
   palette_generator: ^0.3.3+5
   video_player: ^2.9.5
+  flutter_inappwebview: ^6.1.5
   wakelock_plus: ^1.2.10
   floating: ^6.0.0
   showcaseview: ^5.0.2

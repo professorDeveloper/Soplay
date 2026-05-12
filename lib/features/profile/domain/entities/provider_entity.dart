@@ -1,3 +1,5 @@
+import 'package:soplay/core/extractor/extractor_entity.dart';
+
 class ProviderEntity {
   final String id;
   final String name;
@@ -5,6 +7,8 @@ class ProviderEntity {
   final String url;
   final String description;
   final List<String> domains;
+  final String mode; // "server" | "hybrid" | "client"
+  final ExtractorEntity? extractor;
 
   const ProviderEntity({
     required this.id,
@@ -13,5 +17,7 @@ class ProviderEntity {
     required this.url,
     required this.description,
     required this.domains,
+    this.mode = 'server',
+    this.extractor,
   });
 }

@@ -1,3 +1,4 @@
+import 'package:soplay/core/extractor/extractor_model.dart';
 import '../../domain/entities/provider_entity.dart';
 
 class ProviderModel extends ProviderEntity {
@@ -8,6 +9,8 @@ class ProviderModel extends ProviderEntity {
     required super.url,
     required super.description,
     required super.domains,
+    super.mode,
+    super.extractor,
   });
 
   factory ProviderModel.fromJson(Map<String, dynamic> json) {
@@ -18,6 +21,8 @@ class ProviderModel extends ProviderEntity {
         '';
     final name = json['name'] as String? ?? id;
 
+    final extractorJson = json['extractor'] as Map<String, dynamic>?;
+
     return ProviderModel(
       id: id,
       name: name,
@@ -27,6 +32,10 @@ class ProviderModel extends ProviderEntity {
       domains: (json['domains'] as List<dynamic>? ?? [])
           .map((e) => e as String)
           .toList(),
+      mode: json['mode'] as String? ?? 'server',
+      extractor: extractorJson != null
+          ? ExtractorModel.fromJson(extractorJson)
+          : null,
     );
   }
 }

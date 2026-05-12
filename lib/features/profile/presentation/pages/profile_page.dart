@@ -616,20 +616,30 @@ class _ProviderListTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        provider.name,
-                        style: TextStyle(
-                          color: selected
-                              ? AppColors.textPrimary
-                              : AppColors.textSecondary,
-                          fontSize: 14,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          height: 1.2,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              provider.name,
+                              style: TextStyle(
+                                color: selected
+                                    ? AppColors.textPrimary
+                                    : AppColors.textSecondary,
+                                fontSize: 14,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                height: 1.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (provider.mode != 'server') ...[
+                            const SizedBox(width: 6),
+                            _ModeBadge(mode: provider.mode),
+                          ],
+                        ],
                       ),
                       if (provider.description.isNotEmpty) ...[
                         const SizedBox(height: 2),
@@ -671,6 +681,38 @@ class _ProviderListTile extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeBadge extends StatelessWidget {
+  const _ModeBadge({required this.mode});
+
+  final String mode;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (mode) {
+      'hybrid' => ('Hybrid', const Color(0xFFFF9800)),
+      'client' => ('Client', const Color(0xFF2196F3)),
+      _ => (mode, AppColors.textHint),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
         ),
       ),
     );

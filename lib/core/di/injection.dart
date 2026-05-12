@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
+import 'package:soplay/core/extractor/extractor_runner.dart';
+import 'package:soplay/core/extractor/provider_manager.dart';
 import 'package:soplay/core/network/auth_interceptor.dart';
 import 'package:soplay/core/network/dio_client.dart';
 import 'package:soplay/core/network/logging_interceptor.dart';
@@ -88,6 +90,9 @@ Future<void> configureDependencies() async {
     ),
   );
   getIt.registerSingleton<Dio>(dio);
+  getIt.registerSingleton<ExtractorRunner>(
+    ExtractorRunner(dio: dio),
+  );
 
   getIt.registerSingleton<AuthRemoteDataSource>(
     AuthRemoteDataSource(dio: getIt<Dio>()),
@@ -98,6 +103,14 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<SearchDataSource>(
     SearchDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<ProviderManager>(
+    ProviderManager(
+      detailDataSource: getIt<DetailDataSource>(),
+      homeDataSource: getIt<HomeDataSource>(),
+      searchDataSource: getIt<SearchDataSource>(),
+      extractor: getIt<ExtractorRunner>(),
+    ),
   );
 
   getIt.registerSingleton<AuthRepository>(
@@ -233,6 +246,7 @@ Future<void> configureDependencies() async {
     () => ProviderBloc(
       useCase: getIt<GetProvidersUseCase>(),
       hiveService: getIt<HiveService>(),
+      providerManager: getIt<ProviderManager>(),
     ),
   );
   getIt.registerFactory(
