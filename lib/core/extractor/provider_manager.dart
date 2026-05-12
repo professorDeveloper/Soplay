@@ -1,15 +1,23 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/extractor/extractor_runner.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/detail/data/datasources/detail_data_source.dart';
+import 'package:soplay/features/detail/data/models/detail_model.dart';
 import 'package:soplay/features/detail/data/models/media_resolve_model.dart';
+import 'package:soplay/features/detail/data/models/playback_model.dart';
+import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
+import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
 import 'package:soplay/features/home/data/datasources/home_data_source.dart';
 import 'package:soplay/features/home/data/models/home_data_model.dart';
 import 'package:soplay/features/home/domain/entities/home_data_entity.dart';
+import 'package:soplay/features/home/domain/entities/view_all_paging_entity.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/search/data/datasources/search_data_source.dart';
 import 'package:soplay/features/search/data/model/search_model.dart';
+import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 import 'package:soplay/features/search/domain/entities/search_entity.dart';
 
 class ProviderManager {
@@ -17,6 +25,7 @@ class ProviderManager {
   final HomeDataSource _homeDataSource;
   final SearchDataSource _searchDataSource;
   final ExtractorRunner _extractor;
+  final HiveService _hiveService;
   final List<ProviderEntity> _providers = [];
 
   ProviderManager({
@@ -24,10 +33,12 @@ class ProviderManager {
     required HomeDataSource homeDataSource,
     required SearchDataSource searchDataSource,
     required ExtractorRunner extractor,
+    required HiveService hiveService,
   })  : _detailDataSource = detailDataSource,
         _homeDataSource = homeDataSource,
         _searchDataSource = searchDataSource,
-        _extractor = extractor;
+        _extractor = extractor,
+        _hiveService = hiveService;
 
   void updateProviders(List<ProviderEntity> providers) {
     _providers
@@ -42,169 +53,185 @@ class ProviderManager {
     return null;
   }
 
-  bool isServerMode(String providerId) {
-    final provider = getProvider(providerId);
-    return provider == null || provider.mode == 'server';
-  }
+  String get currentProviderId => _hiveService.getCurrentProvider();
 
-  /// Runtime + extractor ni tayyorlaydi (agar kerak bo'lsa)
+  bool _canExtract(ProviderEntity? info) =>
+      info != null && info.mode != 'server' && info.extractor != null;
+
+  bool _hasFullScope(ProviderEntity? info) =>
+      _canExtract(info) && info!.extractor!.scope == 'all';
+
   Future<void> _ensureExtractorReady(ProviderEntity provider) async {
     await _extractor.loadRuntime();
     await _extractor.loadExtractor(provider.extractor!);
   }
 
-  // --- Resolve Media ---
+  // ── Home ───────────────────────────────────────────────────────
+
+  Future<Result<HomeDataEntity>> getHome({String? providerId}) async {
+    final pid = providerId ?? currentProviderId;
+    final info = getProvider(pid);
+    if (_hasFullScope(info)) {
+      return _extractorCall(info!, 'getHome', {}, HomeDataModel.fromJson);
+    }
+    return _serverCall(() => _homeDataSource.loadHome());
+  }
+
+  Future<Result<List<GenreEntity>>> getGenres() =>
+      _serverCall(() => _homeDataSource.loadGenres());
+
+  Future<Result<ViewAllPagingEntity>> loadViewAll({
+    required String key,
+    required String slug,
+    int page = 1,
+  }) =>
+      _serverCall(
+        () => _homeDataSource.loadViewAll(type: key, slug: slug, page: page),
+      );
+
+  // ── Search ─────────────────────────────────────────────────────
+
+  Future<Result<SearchEntity>> search({
+    String? providerId,
+    required String query,
+    int page = 1,
+  }) async {
+    final pid = providerId ?? currentProviderId;
+    final info = getProvider(pid);
+    if (_hasFullScope(info)) {
+      return _extractorCall(
+        info!,
+        'search',
+        {'query': query, 'page': page},
+        SearchModel.fromJson,
+      );
+    }
+    return _serverCall(
+      () => _searchDataSource.searchMovies(query, page: page),
+    );
+  }
+
+  Future<Result<List<GenreEntity>>> searchGenres() =>
+      _serverCall(() => _searchDataSource.getGenres());
+
+  Future<Result<SearchEntity>> getMoviesByGenre(
+    String genre, {
+    int page = 1,
+  }) =>
+      _serverCall(
+        () => _searchDataSource.getMoviesByGenre(genre, page: page),
+      );
+
+  // ── Detail ─────────────────────────────────────────────────────
+
+  Future<Result<DetailEntity>> getDetail(
+    String contentUrl, {
+    String? provider,
+  }) async {
+    final pid = provider ?? currentProviderId;
+    final info = getProvider(pid);
+    if (_hasFullScope(info)) {
+      return _extractorCall(
+        info!,
+        'getDetail',
+        {'url': contentUrl},
+        DetailModel.fromJson,
+      );
+    }
+    return _serverCall(
+      () => _detailDataSource.getDetail(contentUrl, provider: pid),
+    );
+  }
+
+  Future<Result<PlaybackEntity>> getEpisodes(
+    String contentUrl, {
+    int page = 1,
+    int size = 100,
+    String sort = 'asc',
+    String? provider,
+  }) async {
+    final pid = provider ?? currentProviderId;
+    final info = getProvider(pid);
+    if (_hasFullScope(info)) {
+      return _extractorCall(
+        info!,
+        'getEpisodes',
+        {'url': contentUrl, 'page': page, 'size': size, 'sort': sort},
+        PlaybackModel.fromJson,
+      );
+    }
+    return _serverCall(
+      () => _detailDataSource.getEpisodes(
+        contentUrl,
+        page: page,
+        size: size,
+        sort: sort,
+        provider: pid,
+      ),
+    );
+  }
+
+  // ── Resolve Media ──────────────────────────────────────────────
 
   Future<Result<MediaResolveEntity>> resolveMedia({
     required String ref,
     required String provider,
     String? lang,
   }) async {
-    final providerInfo = getProvider(provider);
-
-    if (providerInfo == null ||
-        providerInfo.mode == 'server' ||
-        providerInfo.extractor == null) {
-      return _resolveViaServer(ref: ref, provider: provider, lang: lang);
+    final info = getProvider(provider);
+    if (_canExtract(info)) {
+      final args = <String, dynamic>{'ref': ref};
+      if (lang != null && lang.isNotEmpty) args['lang'] = lang;
+      return _extractorCall(
+        info!,
+        'resolveMedia',
+        args,
+        MediaResolveModel.fromJson,
+      );
     }
-
-    return _resolveViaExtractor(
-      providerInfo: providerInfo,
-      ref: ref,
-      lang: lang,
-    );
-  }
-
-  Future<Result<MediaResolveEntity>> _resolveViaServer({
-    required String ref,
-    required String provider,
-    String? lang,
-  }) async {
-    try {
-      final result = await _detailDataSource.resolveMedia(
+    return _serverCall(
+      () => _detailDataSource.resolveMedia(
         ref: ref,
         provider: provider,
         lang: lang,
-      );
-      return Success(result);
+      ),
+    );
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────
+
+  Future<Result<T>> _serverCall<T>(Future<T> Function() fn) async {
+    try {
+      return Success(await fn());
+    } on DioException catch (e) {
+      final raw = e.response?.data;
+      final message =
+          (raw is Map ? raw['message'] : null) ??
+          e.message ??
+          'Server xatolik';
+      return Failure(Exception(message.toString()));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
   }
 
-  Future<Result<MediaResolveEntity>> _resolveViaExtractor({
-    required ProviderEntity providerInfo,
-    required String ref,
-    String? lang,
-  }) async {
+  Future<Result<T>> _extractorCall<T>(
+    ProviderEntity provider,
+    String method,
+    Map<String, dynamic> args,
+    T Function(Map<String, dynamic>) fromJson,
+  ) async {
     try {
-      await _ensureExtractorReady(providerInfo);
-
-      final args = <String, dynamic>{'ref': ref};
-      if (lang != null && lang.isNotEmpty) args['lang'] = lang;
-
+      await _ensureExtractorReady(provider);
       final json = await _extractor.call(
-        providerInfo.extractor!.name,
-        'resolveMedia',
+        provider.extractor!.name,
+        method,
         args,
       );
-      final result = MediaResolveModel.fromJson(json);
-      return Success(result);
+      return Success(fromJson(json));
     } catch (e) {
-      debugPrint('[ProviderManager] extractor resolveMedia error: $e');
-      return Failure(Exception('Extractor xatolik: ${e.toString()}'));
-    }
-  }
-
-  // --- Home ---
-
-  Future<Result<HomeDataEntity>> getHome(String providerId) async {
-    final providerInfo = getProvider(providerId);
-
-    if (providerInfo != null &&
-        providerInfo.mode == 'client' &&
-        providerInfo.extractor != null &&
-        providerInfo.extractor!.scope == 'all') {
-      return _getHomeViaExtractor(providerInfo);
-    }
-
-    return _getHomeViaServer();
-  }
-
-  Future<Result<HomeDataEntity>> _getHomeViaServer() async {
-    try {
-      final result = await _homeDataSource.loadHome();
-      return Success(result);
-    } catch (e) {
+      debugPrint('[ProviderManager] extractor $method error: $e');
       return Failure(Exception(e.toString()));
-    }
-  }
-
-  Future<Result<HomeDataEntity>> _getHomeViaExtractor(
-    ProviderEntity providerInfo,
-  ) async {
-    try {
-      await _ensureExtractorReady(providerInfo);
-
-      final json = await _extractor.call(
-        providerInfo.extractor!.name,
-        'getHome',
-        {},
-      );
-      final result = HomeDataModel.fromJson(json);
-      return Success(result);
-    } catch (e) {
-      debugPrint('[ProviderManager] extractor getHome error: $e');
-      return Failure(Exception('Extractor xatolik: ${e.toString()}'));
-    }
-  }
-
-  // --- Search ---
-
-  Future<Result<SearchEntity>> search({
-    required String providerId,
-    required String query,
-    int page = 1,
-  }) async {
-    final providerInfo = getProvider(providerId);
-
-    if (providerInfo != null &&
-        providerInfo.mode == 'client' &&
-        providerInfo.extractor != null &&
-        providerInfo.extractor!.scope == 'all') {
-      return _searchViaExtractor(providerInfo, query, page);
-    }
-
-    return _searchViaServer(query, page);
-  }
-
-  Future<Result<SearchEntity>> _searchViaServer(String query, int page) async {
-    try {
-      final result = await _searchDataSource.searchMovies(query, page: page);
-      return Success(result);
-    } catch (e) {
-      return Failure(Exception(e.toString()));
-    }
-  }
-
-  Future<Result<SearchEntity>> _searchViaExtractor(
-    ProviderEntity providerInfo,
-    String query,
-    int page,
-  ) async {
-    try {
-      await _ensureExtractorReady(providerInfo);
-
-      final json = await _extractor.call(
-        providerInfo.extractor!.name,
-        'search',
-        {'query': query, 'page': page},
-      );
-      final result = SearchModel.fromJson(json);
-      return Success(result);
-    } catch (e) {
-      debugPrint('[ProviderManager] extractor search error: $e');
-      return Failure(Exception('Extractor xatolik: ${e.toString()}'));
     }
   }
 

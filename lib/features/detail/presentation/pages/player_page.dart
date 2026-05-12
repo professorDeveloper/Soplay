@@ -14,8 +14,6 @@ import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
-import 'package:soplay/core/extractor/provider_manager.dart';
-import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
@@ -58,7 +56,6 @@ class _PlayerPageState extends State<PlayerPage>
   );
 
   final ResolveMediaUseCase _resolve = getIt<ResolveMediaUseCase>();
-  final ProviderManager _providerManager = getIt<ProviderManager>();
   final HiveService _hive = getIt<HiveService>();
   final HistoryService _history = getIt<HistoryService>();
   final DownloadService _downloads = getIt<DownloadService>();
@@ -400,20 +397,11 @@ class _PlayerPageState extends State<PlayerPage>
     final resolveSw = Stopwatch()..start();
     final provider = widget.args.provider;
     debugPrint('[PLAYER] resolving ref=${ep.mediaRef} lang=$lang');
-    final Result<MediaResolveEntity> result;
-    if (_providerManager.isServerMode(provider)) {
-      result = await _resolve(
-        ref: ep.mediaRef,
-        provider: provider,
-        lang: lang,
-      );
-    } else {
-      result = await _providerManager.resolveMedia(
-        ref: ep.mediaRef,
-        provider: provider,
-        lang: lang,
-      );
-    }
+    final result = await _resolve(
+      ref: ep.mediaRef,
+      provider: provider,
+      lang: lang,
+    );
     debugPrint(
       '[PLAYER] resolve completed in ${resolveSw.elapsedMilliseconds}ms',
     );

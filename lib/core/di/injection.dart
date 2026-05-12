@@ -110,6 +110,7 @@ Future<void> configureDependencies() async {
       homeDataSource: getIt<HomeDataSource>(),
       searchDataSource: getIt<SearchDataSource>(),
       extractor: getIt<ExtractorRunner>(),
+      hiveService: getIt<HiveService>(),
     ),
   );
 
@@ -117,13 +118,13 @@ Future<void> configureDependencies() async {
     AuthRepositoryImpl(getIt<AuthRemoteDataSource>(), getIt<HiveService>()),
   );
   getIt.registerSingleton<HomeRepository>(
-    HomeRepositoryImp(getIt<HomeDataSource>()),
+    HomeRepositoryImp(getIt<ProviderManager>()),
   );
   getIt.registerSingleton<SearchRepository>(
-    SearchRepositoryImp(dataSource: getIt<SearchDataSource>()),
+    SearchRepositoryImp(providerManager: getIt<ProviderManager>()),
   );
   getIt.registerSingleton<DetailRepository>(
-    DetailRepositoryImpl(getIt<DetailDataSource>()),
+    DetailRepositoryImpl(getIt<ProviderManager>()),
   );
   getIt.registerSingleton<ProviderDataSource>(
     ProviderDataSource(dio: getIt<Dio>()),

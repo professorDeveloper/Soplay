@@ -635,10 +635,8 @@ class _ProviderListTile extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (provider.mode != 'server') ...[
-                            const SizedBox(width: 6),
-                            _ModeBadge(mode: provider.mode),
-                          ],
+                          const SizedBox(width: 6),
+                          _ModeBadge(mode: provider.mode),
                         ],
                       ),
                       if (provider.description.isNotEmpty) ...[
@@ -694,26 +692,33 @@ class _ModeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (mode) {
-      'hybrid' => ('Hybrid', const Color(0xFFFF9800)),
-      'client' => ('Client', const Color(0xFF2196F3)),
-      _ => (mode, AppColors.textHint),
+    final (label, icon, color) = switch (mode) {
+      'client' => ('On-Device', Icons.phone_android_rounded, const Color(0xFF4CAF50)),
+      'hybrid' => ('Hybrid', Icons.sync_alt_rounded, const Color(0xFFFF9800)),
+      _ => ('Cloud', Icons.cloud_outlined, const Color(0xFF78909C)),
     };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.3,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: color),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
       ),
     );
   }

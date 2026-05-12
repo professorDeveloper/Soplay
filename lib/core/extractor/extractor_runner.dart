@@ -20,7 +20,7 @@ class ExtractorRunner {
   Future<void> loadRuntime() async {
     if (_runtimeLoaded) return;
     final response = await _dio.get<String>(
-      '/api/extractors/runtime',
+      '/extractors/runtime',
       options: Options(
         responseType: ResponseType.plain,
         extra: const {'skipAuthInterceptor': true},
