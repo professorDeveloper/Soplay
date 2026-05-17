@@ -1,7 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
-import 'package:soplay/core/extractor/extractor_runner.dart';
-import 'package:soplay/core/extractor/provider_manager.dart';
+import 'package:soplay/core/js/dart_fetch.dart';
+import 'package:soplay/core/js/extractor_cache.dart';
+import 'package:soplay/core/js/extractor_remote.dart';
+import 'package:soplay/core/js/js_runtime_service.dart';
+import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/core/network/auth_interceptor.dart';
 import 'package:soplay/core/network/dio_client.dart';
 import 'package:soplay/core/network/logging_interceptor.dart';
@@ -15,10 +18,26 @@ import 'package:soplay/features/auth/domain/usecases/resend_otp_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/verify_otp_usecase.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
+import 'package:soplay/features/app_updater/data/datasources/app_updater_data_source.dart';
+import 'package:soplay/features/app_updater/data/repositories/app_updater_repository_impl.dart';
+import 'package:soplay/features/app_updater/domain/repositories/app_updater_repository.dart';
+import 'package:soplay/features/app_updater/presentation/services/update_checker.dart';
+import 'package:soplay/features/banners/data/datasources/banners_data_source.dart';
+import 'package:soplay/features/banners/data/repositories/banners_repository_impl.dart';
+import 'package:soplay/features/banners/domain/repositories/banners_repository.dart';
+import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
 import 'package:soplay/features/comments/data/datasources/comments_data_source.dart';
 import 'package:soplay/features/comments/data/repositories/comments_repository_impl.dart';
 import 'package:soplay/features/comments/domain/repositories/comments_repository.dart';
 import 'package:soplay/features/comments/presentation/blocs/comments_bloc/comments_bloc.dart';
+import 'package:soplay/features/notifications/data/datasources/notifications_data_source.dart';
+import 'package:soplay/features/notifications/data/repositories/notifications_repository_impl.dart';
+import 'package:soplay/features/notifications/data/services/notification_service.dart';
+import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
+import 'package:soplay/features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'package:soplay/features/reports/data/datasources/reports_data_source.dart';
+import 'package:soplay/features/reports/data/repositories/reports_repository_impl.dart';
+import 'package:soplay/features/reports/domain/repositories/reports_repository.dart';
 import 'package:soplay/features/detail/data/datasources/detail_data_source.dart';
 import 'package:soplay/features/detail/data/repositories/detail_repository_impl.dart';
 import 'package:soplay/features/detail/domain/repositories/detail_repository.dart';
@@ -90,9 +109,6 @@ Future<void> configureDependencies() async {
     ),
   );
   getIt.registerSingleton<Dio>(dio);
-  getIt.registerSingleton<ExtractorRunner>(
-    ExtractorRunner(dio: dio),
-  );
 
   getIt.registerSingleton<AuthRemoteDataSource>(
     AuthRemoteDataSource(dio: getIt<Dio>()),
@@ -104,30 +120,49 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<SearchDataSource>(
     SearchDataSource(dio: getIt<Dio>()),
   );
-  getIt.registerSingleton<ProviderManager>(
-    ProviderManager(
-      detailDataSource: getIt<DetailDataSource>(),
-      homeDataSource: getIt<HomeDataSource>(),
-      searchDataSource: getIt<SearchDataSource>(),
-      extractor: getIt<ExtractorRunner>(),
-      hiveService: getIt<HiveService>(),
-    ),
-  );
 
   getIt.registerSingleton<AuthRepository>(
     AuthRepositoryImpl(getIt<AuthRemoteDataSource>(), getIt<HiveService>()),
   );
-  getIt.registerSingleton<HomeRepository>(
-    HomeRepositoryImp(getIt<ProviderManager>()),
-  );
-  getIt.registerSingleton<SearchRepository>(
-    SearchRepositoryImp(providerManager: getIt<ProviderManager>()),
-  );
-  getIt.registerSingleton<DetailRepository>(
-    DetailRepositoryImpl(getIt<ProviderManager>()),
-  );
   getIt.registerSingleton<ProviderDataSource>(
     ProviderDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<ProviderRegistry>(
+    ProviderRegistry(source: getIt<ProviderDataSource>()),
+  );
+  getIt.registerSingleton<ExtractorRemote>(
+    ExtractorRemote(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<ExtractorCache>(ExtractorCache());
+  getIt.registerSingleton<DartFetch>(DartFetch.create());
+  getIt.registerSingleton<JsRuntimeService>(
+    JsRuntimeService(
+      remote: getIt<ExtractorRemote>(),
+      cache: getIt<ExtractorCache>(),
+      dartFetch: getIt<DartFetch>(),
+      providers: getIt<ProviderRegistry>(),
+    ),
+  );
+  getIt.registerSingleton<HomeRepository>(
+    HomeRepositoryImp(
+      getIt<HomeDataSource>(),
+      jsRuntime: getIt<JsRuntimeService>(),
+      hive: getIt<HiveService>(),
+    ),
+  );
+  getIt.registerSingleton<SearchRepository>(
+    SearchRepositoryImp(
+      dataSource: getIt<SearchDataSource>(),
+      jsRuntime: getIt<JsRuntimeService>(),
+      hive: getIt<HiveService>(),
+    ),
+  );
+  getIt.registerSingleton<DetailRepository>(
+    DetailRepositoryImpl(
+      getIt<DetailDataSource>(),
+      jsRuntime: getIt<JsRuntimeService>(),
+      hive: getIt<HiveService>(),
+    ),
   );
   getIt.registerSingleton<CommentsDataSource>(
     CommentsDataSource(dio: getIt<Dio>()),
@@ -143,6 +178,36 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<ShortsRepository>(
     ShortsRepositoryImpl(getIt<ShortsRemoteDataSource>()),
+  );
+  getIt.registerSingleton<NotificationsDataSource>(
+    NotificationsDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<NotificationsRepository>(
+    NotificationsRepositoryImpl(getIt<NotificationsDataSource>()),
+  );
+  getIt.registerSingleton<NotificationService>(
+    NotificationService(repository: getIt<NotificationsRepository>()),
+  );
+  getIt.registerSingleton<BannersDataSource>(
+    BannersDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<BannersRepository>(
+    BannersRepositoryImpl(getIt<BannersDataSource>()),
+  );
+  getIt.registerSingleton<ReportsDataSource>(
+    ReportsDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<ReportsRepository>(
+    ReportsRepositoryImpl(getIt<ReportsDataSource>()),
+  );
+  getIt.registerSingleton<AppUpdaterDataSource>(
+    AppUpdaterDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<AppUpdaterRepository>(
+    AppUpdaterRepositoryImpl(getIt<AppUpdaterDataSource>()),
+  );
+  getIt.registerSingleton<UpdateChecker>(
+    UpdateChecker(repository: getIt<AppUpdaterRepository>()),
   );
 
   getIt.registerSingleton<MyListRemoteDataSource>(
@@ -214,7 +279,14 @@ Future<void> configureDependencies() async {
       resendOtpUseCase: getIt<ResendOtpUseCase>(),
       authRepository: getIt<AuthRepository>(),
       hiveService: getIt<HiveService>(),
+      notificationService: getIt<NotificationService>(),
     ),
+  );
+  getIt.registerFactory(
+    () => NotificationsBloc(repository: getIt<NotificationsRepository>()),
+  );
+  getIt.registerFactory(
+    () => BannersBloc(repository: getIt<BannersRepository>()),
   );
   getIt.registerFactory(() => DetailBloc(useCase: getIt<GetDetailUseCase>()));
   getIt.registerFactory(
@@ -247,7 +319,6 @@ Future<void> configureDependencies() async {
     () => ProviderBloc(
       useCase: getIt<GetProvidersUseCase>(),
       hiveService: getIt<HiveService>(),
-      providerManager: getIt<ProviderManager>(),
     ),
   );
   getIt.registerFactory(

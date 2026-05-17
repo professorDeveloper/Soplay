@@ -1,4 +1,3 @@
-import 'package:soplay/core/extractor/extractor_model.dart';
 import '../../domain/entities/provider_entity.dart';
 
 class ProviderModel extends ProviderEntity {
@@ -21,8 +20,6 @@ class ProviderModel extends ProviderEntity {
         '';
     final name = json['name'] as String? ?? id;
 
-    final extractorJson = json['extractor'] as Map<String, dynamic>?;
-
     return ProviderModel(
       id: id,
       name: name,
@@ -33,9 +30,17 @@ class ProviderModel extends ProviderEntity {
           .map((e) => e as String)
           .toList(),
       mode: json['mode'] as String? ?? 'server',
-      extractor: extractorJson != null
-          ? ExtractorModel.fromJson(extractorJson)
-          : null,
+      extractor: _parseExtractor(json['extractor']),
     );
+  }
+
+  static ExtractorRef? _parseExtractor(dynamic raw) {
+    if (raw is! Map) return null;
+    final name = raw['name'] as String?;
+    final url = raw['url'] as String?;
+    if (name == null || name.isEmpty || url == null || url.isEmpty) return null;
+    final version = (raw['version'] as num?)?.toInt() ?? 0;
+    final scope = raw['scope'] as String? ?? 'resolveMedia';
+    return ExtractorRef(name: name, version: version, scope: scope, url: url);
   }
 }

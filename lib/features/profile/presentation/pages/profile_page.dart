@@ -636,7 +636,7 @@ class _ProviderListTile extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          _ModeBadge(mode: provider.mode),
+                          _ProviderModeBadge(mode: provider.mode),
                         ],
                       ),
                       if (provider.description.isNotEmpty) ...[
@@ -685,40 +685,34 @@ class _ProviderListTile extends StatelessWidget {
   }
 }
 
-class _ModeBadge extends StatelessWidget {
-  const _ModeBadge({required this.mode});
-
+class _ProviderModeBadge extends StatelessWidget {
+  const _ProviderModeBadge({required this.mode});
   final String mode;
 
   @override
   Widget build(BuildContext context) {
-    final (label, icon, color) = switch (mode) {
-      'client' => ('On-Device', Icons.phone_android_rounded, const Color(0xFF4CAF50)),
-      'hybrid' => ('Hybrid', Icons.sync_alt_rounded, const Color(0xFFFF9800)),
-      _ => ('Cloud', Icons.cloud_outlined, const Color(0xFF78909C)),
+    final normalized = mode.toLowerCase();
+    final (label, color) = switch (normalized) {
+      'client' => ('Local', const Color(0xFF34A853)),
+      'hybrid' => ('Hybrid', const Color(0xFFF59E0B)),
+      'server' => ('Cloud', const Color(0xFF6B7280)),
+      _ => (mode.isEmpty ? 'Cloud' : mode, const Color(0xFF6B7280)),
     };
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 0.8),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 10, color: color),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ],
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
       ),
     );
   }

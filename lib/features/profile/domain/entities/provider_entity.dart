@@ -1,4 +1,16 @@
-import 'package:soplay/core/extractor/extractor_entity.dart';
+class ExtractorRef {
+  final String name;
+  final int version;
+  final String scope;
+  final String url;
+
+  const ExtractorRef({
+    required this.name,
+    required this.version,
+    required this.scope,
+    required this.url,
+  });
+}
 
 class ProviderEntity {
   final String id;
@@ -7,8 +19,8 @@ class ProviderEntity {
   final String url;
   final String description;
   final List<String> domains;
-  final String mode; // "server" | "hybrid" | "client"
-  final ExtractorEntity? extractor;
+  final String mode;
+  final ExtractorRef? extractor;
 
   const ProviderEntity({
     required this.id,
@@ -20,4 +32,10 @@ class ProviderEntity {
     this.mode = 'server',
     this.extractor,
   });
+
+  bool get scopesResolveMedia =>
+      extractor != null &&
+      (extractor!.scope == 'all' || extractor!.scope == 'resolveMedia');
+
+  bool get scopesAll => extractor != null && extractor!.scope == 'all';
 }
