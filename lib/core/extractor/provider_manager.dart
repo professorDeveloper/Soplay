@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/extractor/extractor_entity.dart';
 import 'package:soplay/core/extractor/extractor_runner.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/detail/data/datasources/detail_data_source.dart';
@@ -62,8 +63,16 @@ class ProviderManager {
       _canExtract(info) && info!.extractor!.scope == 'all';
 
   Future<void> _ensureExtractorReady(ProviderEntity provider) async {
+    final ref = provider.extractor!;
     await _extractor.loadRuntime();
-    await _extractor.loadExtractor(provider.extractor!);
+    await _extractor.loadExtractor(
+      ExtractorEntity(
+        name: ref.name,
+        version: ref.version,
+        scope: ref.scope,
+        url: ref.url,
+      ),
+    );
   }
 
   // ── Home ───────────────────────────────────────────────────────
@@ -71,10 +80,14 @@ class ProviderManager {
   Future<Result<HomeDataEntity>> getHome({String? providerId}) async {
     final pid = providerId ?? currentProviderId;
     final info = getProvider(pid);
-    if (_hasFullScope(info)) {
-      return _extractorCall(info!, 'getHome', {}, HomeDataModel.fromJson);
-    }
-    return _serverCall(() => _homeDataSource.loadHome());
+    return _resolve(
+      info: info,
+      fullScopeRequired: true,
+      method: 'getHome',
+      args: {},
+      fromJson: HomeDataModel.fromJson,
+      serverFn: () => _homeDataSource.loadHome(),
+    );
   }
 
   Future<Result<List<GenreEntity>>> getGenres() =>
@@ -98,16 +111,13 @@ class ProviderManager {
   }) async {
     final pid = providerId ?? currentProviderId;
     final info = getProvider(pid);
-    if (_hasFullScope(info)) {
-      return _extractorCall(
-        info!,
-        'search',
-        {'query': query, 'page': page},
-        SearchModel.fromJson,
-      );
-    }
-    return _serverCall(
-      () => _searchDataSource.searchMovies(query, page: page),
+    return _resolve(
+      info: info,
+      fullScopeRequired: true,
+      method: 'search',
+      args: {'query': query, 'page': page},
+      fromJson: SearchModel.fromJson,
+      serverFn: () => _searchDataSource.searchMovies(query, page: page),
     );
   }
 
@@ -130,16 +140,13 @@ class ProviderManager {
   }) async {
     final pid = provider ?? currentProviderId;
     final info = getProvider(pid);
-    if (_hasFullScope(info)) {
-      return _extractorCall(
-        info!,
-        'getDetail',
-        {'url': contentUrl},
-        DetailModel.fromJson,
-      );
-    }
-    return _serverCall(
-      () => _detailDataSource.getDetail(contentUrl, provider: pid),
+    return _resolve(
+      info: info,
+      fullScopeRequired: true,
+      method: 'getDetail',
+      args: {'url': contentUrl},
+      fromJson: DetailModel.fromJson,
+      serverFn: () => _detailDataSource.getDetail(contentUrl, provider: pid),
     );
   }
 
@@ -152,16 +159,13 @@ class ProviderManager {
   }) async {
     final pid = provider ?? currentProviderId;
     final info = getProvider(pid);
-    if (_hasFullScope(info)) {
-      return _extractorCall(
-        info!,
-        'getEpisodes',
-        {'url': contentUrl, 'page': page, 'size': size, 'sort': sort},
-        PlaybackModel.fromJson,
-      );
-    }
-    return _serverCall(
-      () => _detailDataSource.getEpisodes(
+    return _resolve(
+      info: info,
+      fullScopeRequired: true,
+      method: 'getEpisodes',
+      args: {'url': contentUrl, 'page': page, 'size': size, 'sort': sort},
+      fromJson: PlaybackModel.fromJson,
+      serverFn: () => _detailDataSource.getEpisodes(
         contentUrl,
         page: page,
         size: size,
@@ -179,18 +183,16 @@ class ProviderManager {
     String? lang,
   }) async {
     final info = getProvider(provider);
-    if (_canExtract(info)) {
-      final args = <String, dynamic>{'ref': ref};
-      if (lang != null && lang.isNotEmpty) args['lang'] = lang;
-      return _extractorCall(
-        info!,
-        'resolveMedia',
-        args,
-        MediaResolveModel.fromJson,
-      );
-    }
-    return _serverCall(
-      () => _detailDataSource.resolveMedia(
+    return _resolve(
+      info: info,
+      fullScopeRequired: false,
+      method: 'resolveMedia',
+      args: {
+        'ref': ref,
+        if (lang != null && lang.isNotEmpty) 'lang': lang,
+      },
+      fromJson: MediaResolveModel.fromJson,
+      serverFn: () => _detailDataSource.resolveMedia(
         ref: ref,
         provider: provider,
         lang: lang,
@@ -198,39 +200,53 @@ class ProviderManager {
     );
   }
 
-  // ── Helpers ────────────────────────────────────────────────────
+  // ── Routing ────────────────────────────────────────────────────
+
+  Future<Result<T>> _resolve<T>({
+    required ProviderEntity? info,
+    required bool fullScopeRequired,
+    required String method,
+    required Map<String, dynamic> args,
+    required T Function(Map<String, dynamic>) fromJson,
+    required Future<T> Function() serverFn,
+  }) async {
+    final useExtractor =
+        fullScopeRequired ? _hasFullScope(info) : _canExtract(info);
+
+    if (useExtractor) {
+      try {
+        await _ensureExtractorReady(info!);
+        final json = await _extractor.call(
+          info.extractor!.name,
+          method,
+          args,
+        );
+        return Success(fromJson(json));
+      } catch (e) {
+        debugPrint(
+          '[ProviderManager] extractor $method failed, falling back to server: $e',
+        );
+      }
+    }
+
+    return _serverCall(serverFn);
+  }
 
   Future<Result<T>> _serverCall<T>(Future<T> Function() fn) async {
     try {
-      return Success(await fn());
+      final data = await fn();
+      debugPrint('[ProviderManager] _serverCall success: ${data.runtimeType}');
+      return Success(data);
     } on DioException catch (e) {
       final raw = e.response?.data;
       final message =
           (raw is Map ? raw['message'] : null) ??
           e.message ??
           'Server xatolik';
+      debugPrint('[ProviderManager] _serverCall DioError: $message');
       return Failure(Exception(message.toString()));
     } catch (e) {
-      return Failure(Exception(e.toString()));
-    }
-  }
-
-  Future<Result<T>> _extractorCall<T>(
-    ProviderEntity provider,
-    String method,
-    Map<String, dynamic> args,
-    T Function(Map<String, dynamic>) fromJson,
-  ) async {
-    try {
-      await _ensureExtractorReady(provider);
-      final json = await _extractor.call(
-        provider.extractor!.name,
-        method,
-        args,
-      );
-      return Success(fromJson(json));
-    } catch (e) {
-      debugPrint('[ProviderManager] extractor $method error: $e');
+      debugPrint('[ProviderManager] _serverCall error: $e');
       return Failure(Exception(e.toString()));
     }
   }

@@ -51,8 +51,6 @@ dependencies:
   dio_cookie_manager: ^3.2.0
   cookie_jar: ^4.0.8
 
-  # JS engine
-  flutter_inappwebview: ^6.1.5
 
   # Firebase / Push
   firebase_core: ^3.6.0

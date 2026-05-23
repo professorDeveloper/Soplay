@@ -63,21 +63,27 @@ class ExtractorRunner {
     }
 
     final argsJson = args != null ? jsonEncode(args) : '{}';
-    final script =
-        '''
-(async () => {
-  try {
-    $_runtimeJs
-    $js
-    const result = await Provider.$method($argsJson);
-    return JSON.stringify(result);
-  } catch (e) {
-    return JSON.stringify({ "__error": true, "message": e.message || String(e) });
+    final functionBody = '''
+try {
+  $_runtimeJs
+  $js
+  if (typeof Provider === 'undefined' || typeof Provider.$method !== 'function') {
+    return JSON.stringify({ "__error": true, "message": "Method $method not available" });
   }
-})();
+  const __args = $argsJson;
+  const __fn = Provider.$method.bind(Provider);
+  const result = await (__fn.length <= 1 ? __fn(__args) : __fn(...Object.values(__args)));
+  if (result === undefined || result === null) {
+    return JSON.stringify({ "__error": true, "message": "Method $method returned empty" });
+  }
+  return JSON.stringify(result);
+} catch (e) {
+  return JSON.stringify({ "__error": true, "message": e.message || String(e) });
+}
 ''';
 
-    final result = await _evaluateJs(script);
+    final result = await _evaluateJs(functionBody);
+    debugPrint('[ExtractorRunner] $method raw result: ${result == null ? 'null' : '${result.substring(0, result.length.clamp(0, 200))}${result.length > 200 ? '...' : ''}'}');
     if (result == null || result == 'null') {
       throw Exception('Extractor returned null');
     }
@@ -89,11 +95,20 @@ class ExtractorRunner {
     return decoded;
   }
 
-  Future<String?> _evaluateJs(String script) async {
+  Future<String?> _evaluateJs(String functionBody) async {
     final controller = await _getOrCreateController();
-    final result = await controller.evaluateJavascript(source: script);
-    if (result is String) return result;
-    return result?.toString();
+    try {
+      final result = await controller
+          .callAsyncJavaScript(functionBody: functionBody)
+          .timeout(const Duration(seconds: 15));
+      if (result == null || result.error != null) return null;
+      final value = result.value;
+      if (value is String) return value;
+      return value?.toString();
+    } on TimeoutException {
+      debugPrint('[ExtractorRunner] JS evaluation timed out');
+      return null;
+    }
   }
 
   Future<InAppWebViewController> _getOrCreateController() async {

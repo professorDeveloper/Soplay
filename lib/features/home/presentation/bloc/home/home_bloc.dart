@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/home/domain/usecase/home_usecase.dart';
@@ -18,9 +19,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
 
     final genreResult = await useCase.callGenres();
+    debugPrint('[HomeBloc] genres: ${genreResult.isSuccess ? 'ok (${genreResult.getOrNull()?.length})' : 'fail'}');
     final result = await useCase();
+    debugPrint('[HomeBloc] home: ${result.isSuccess ? 'ok' : 'fail: ${result.getErrorOrNull()}'}');
     switch (result) {
       case Success(:final value):
+        debugPrint('[HomeBloc] banner=${value.banner.length} sections=${value.sections.length}');
         emit(HomeLoaded(genreResult.getOrNull() ?? [], value));
       case Failure(:final error):
         emit(HomeError(error.toString()));

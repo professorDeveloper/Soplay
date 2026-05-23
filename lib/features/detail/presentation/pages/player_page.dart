@@ -634,7 +634,9 @@ class _PlayerPageState extends State<PlayerPage>
         uri,
         httpHeaders: mergedHeaders,
         formatHint: isHls ? VideoFormat.hls : null,
-        videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
+        videoPlayerOptions: VideoPlayerOptions(
+          allowBackgroundPlayback: false,
+        ),
       );
       _headers = mergedHeaders;
     }
