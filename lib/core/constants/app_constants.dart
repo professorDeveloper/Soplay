@@ -27,4 +27,11 @@ class AppConstants {
   static const String telegramPromoSeenKey = 'telegram_promo_seen';
   static const String amoledModeKey = 'amoled_mode';
   static const String onboardingSeenKey = 'onboarding_seen';
+
+  static const String appLockEnabledKey = 'app_lock_enabled';
+  static const String appLockPinLengthKey = 'app_lock_pin_length';
+  static const String appLockBiometricKey = 'app_lock_biometric';
+
+  static const String appLockPinHashSecureKey = 'app_lock_pin_hash';
+  static const String appLockPinSaltSecureKey = 'app_lock_pin_salt';
 }

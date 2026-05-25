@@ -50,8 +50,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSessionExpired event,
     Emitter<AuthState> emit,
   ) async {
-    await hiveService.clearAuth();
+    if (state is AuthInitial) return;
     await notificationService.unregister();
+    await hiveService.clearAuth();
     emit(AuthInitial());
   }
 

@@ -53,6 +53,10 @@ class _RegisterPageState extends State<RegisterPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: BlocListener<AuthBloc, AuthState>(
+        listenWhen: (previous, current) =>
+            current is AuthLoaded ||
+            current is AuthError ||
+            (current is AuthOtpPending && previous is! AuthOtpPending),
         listener: (context, state) {
           if (state is AuthLoaded) {
             context.go('/main');

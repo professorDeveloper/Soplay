@@ -1,5 +1,6 @@
 import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
 import 'episode_model.dart';
+import 'thumbnails_model.dart';
 import 'video_source_model.dart';
 
 class PlaybackModel extends PlaybackEntity {
@@ -31,7 +32,6 @@ class PlaybackModel extends PlaybackEntity {
 
     final src = json['playerSrc'] as String?;
     final typeRaw = json['type'] as String?;
-    final thumbs = json['thumbnails'] as String?;
 
     return PlaybackModel(
       provider: json['provider'] as String? ?? '',
@@ -42,7 +42,7 @@ class PlaybackModel extends PlaybackEntity {
       playerSrc: src == null || src.isEmpty ? null : src,
       type: typeRaw == null || typeRaw.isEmpty ? null : typeRaw.toLowerCase(),
       headers: _parseHeaders(json['headers']),
-      thumbnails: thumbs == null || thumbs.isEmpty ? null : thumbs,
+      thumbnails: ThumbnailsModel.fromJson(json['thumbnails']),
       page: (json['page'] as num?)?.toInt() ?? 1,
       size: (json['size'] as num?)?.toInt() ?? 100,
       total: (json['total'] as num?)?.toInt() ?? episodes.length,

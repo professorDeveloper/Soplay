@@ -1,4 +1,5 @@
 import 'episode_entity.dart';
+import 'thumbnails_entity.dart';
 import 'video_source_entity.dart';
 
 class PlaybackEntity {
@@ -10,7 +11,7 @@ class PlaybackEntity {
   final String? playerSrc;
   final String? type;
   final Map<String, String> headers;
-  final String? thumbnails;
+  final ThumbnailsEntity? thumbnails;
   final int page;
   final int size;
   final int total;

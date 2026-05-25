@@ -109,7 +109,7 @@ class _ReportSheetState extends State<_ReportSheet> {
               ),
               const SizedBox(height: 14),
               const Text(
-                'Shikoyat qilish',
+                'Report',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 18,
@@ -150,7 +150,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                 maxLength: 500,
                 style: const TextStyle(color: AppColors.textPrimary),
                 decoration: InputDecoration(
-                  hintText: 'Qo\'shimcha izoh (ixtiyoriy)',
+                  hintText: 'Additional note (optional)',
                   hintStyle: const TextStyle(color: AppColors.textHint),
                   filled: true,
                   fillColor: AppColors.surfaceVariant,
@@ -190,7 +190,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                           ),
                         )
                       : const Text(
-                          'Yuborish',
+                          'Submit',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,

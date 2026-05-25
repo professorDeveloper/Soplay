@@ -1,4 +1,5 @@
 import 'episode_entity.dart';
+import 'thumbnails_entity.dart';
 import 'video_source_entity.dart';
 
 class PlayerArgs {
@@ -15,7 +16,7 @@ class PlayerArgs {
   final String? initialLang;
   final Duration resumePosition;
   final bool showDownloadAction;
-  final String? thumbnails;
+  final ThumbnailsEntity? thumbnails;
 
   const PlayerArgs({
     required this.title,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_updater/domain/entities/app_version_check.dart';
+import 'package:soplay/features/app_updater/presentation/widgets/release_notes_view.dart';
 
 const Color _androidAccent = Color(0xFF10B981);
 const Color _iosAccent = Color(0xFF0F172A);
@@ -23,7 +24,7 @@ class ForceUpdatePage extends StatelessWidget {
     final accent = Platform.isIOS ? _iosAccent : _androidAccent;
     final hasAction = Platform.isAndroid ||
         (check.storeUrl != null && check.storeUrl!.isNotEmpty);
-    final actionLabel = Platform.isIOS ? 'App Store\'da ochish' : 'Yangilash';
+    final actionLabel = Platform.isIOS ? 'Open in App Store' : 'Update';
 
     return PopScope(
       canPop: false,
@@ -50,7 +51,7 @@ class ForceUpdatePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 const Text(
-                  'Yangilash majburiy',
+                  'Update required',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.textPrimary,
@@ -60,7 +61,7 @@ class ForceUpdatePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Ilovadan foydalanish uchun yangi versiyani (v${check.version}) o\'rnating.',
+                  'Please install the new version (v${check.version}) to continue using the app.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.textSecondary,
@@ -68,7 +69,7 @@ class ForceUpdatePage extends StatelessWidget {
                     height: 1.4,
                   ),
                 ),
-                if ((check.releaseNotes ?? '').isNotEmpty) ...[
+                if ((check.releaseNotes ?? '').trim().isNotEmpty) ...[
                   const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(14),
@@ -76,13 +77,9 @@ class ForceUpdatePage extends StatelessWidget {
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      check.releaseNotes!,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
+                    child: ReleaseNotesView(
+                      text: check.releaseNotes!,
+                      fontSize: 13,
                     ),
                   ),
                 ],
@@ -112,7 +109,7 @@ class ForceUpdatePage extends StatelessWidget {
                 TextButton(
                   onPressed: () => SystemNavigator.pop(),
                   child: const Text(
-                    'Ilovadan chiqish',
+                    'Exit app',
                     style: TextStyle(color: AppColors.textHint),
                   ),
                 ),

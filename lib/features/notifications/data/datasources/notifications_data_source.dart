@@ -50,6 +50,10 @@ class NotificationsDataSource {
   }
 
   Future<void> unregisterFcmToken(String token) async {
-    await dio.post('/notifications/fcm/unregister', data: {'token': token});
+    await dio.post(
+      '/notifications/fcm/unregister',
+      data: {'token': token},
+      options: Options(extra: const {'skipAuthInterceptor': true}),
+    );
   }
 }

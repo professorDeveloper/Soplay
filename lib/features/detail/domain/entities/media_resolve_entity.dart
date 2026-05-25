@@ -1,4 +1,5 @@
 import 'subtitle_entity.dart';
+import 'thumbnails_entity.dart';
 import 'video_source_entity.dart';
 
 class MediaResolveEntity {
@@ -9,7 +10,7 @@ class MediaResolveEntity {
   final List<String> languagesAvailable;
   final String? activeLang;
   final List<SubtitleEntity> subtitles;
-  final String? thumbnails;
+  final ThumbnailsEntity? thumbnails;
 
   const MediaResolveEntity({
     required this.videoUrl,

@@ -526,7 +526,7 @@ class _ShortReelItemState extends State<ShortReelItem>
     );
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Shikoyat yuborildi, rahmat')),
+        const SnackBar(content: Text('Report submitted, thank you')),
       );
     }
   }

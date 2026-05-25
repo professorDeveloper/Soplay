@@ -20,24 +20,24 @@ class ReportsRepositoryImpl implements ReportsRepository {
       switch (code) {
         case 400:
           return Failure(
-            Exception(serverMessage ?? 'Sabab yoki turi noto\'g\'ri'),
+            Exception(serverMessage ?? 'Invalid reason or type'),
           );
         case 403:
           return Failure(Exception(
             serverMessage ??
-                'Yangi akkauntdan shikoyat yuborib bo\'lmaydi',
+                'New accounts cannot submit reports',
           ));
         case 409:
           return Failure(
-            Exception('Bu obyektga shikoyatingiz allaqachon yuborilgan'),
+            Exception('You have already reported this item'),
           );
         case 429:
           return Failure(Exception(
-            serverMessage ?? 'Juda ko\'p so\'rov, keyinroq urinib ko\'ring',
+            serverMessage ?? 'Too many requests, try again later',
           ));
       }
       return Failure(
-        Exception(serverMessage ?? e.message ?? 'Xatolik yuz berdi'),
+        Exception(serverMessage ?? e.message ?? 'Something went wrong'),
       );
     } catch (e) {
       return Failure(Exception(e.toString()));

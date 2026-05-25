@@ -127,4 +127,37 @@ class HiveService {
   Future<void> markOnboardingSeen() async {
     await _settingsBox.put(AppConstants.onboardingSeenKey, true);
   }
+
+  bool get isAppLockEnabled {
+    return _settingsBox.get(
+          AppConstants.appLockEnabledKey,
+          defaultValue: false,
+        ) ==
+        true;
+  }
+
+  Future<void> setAppLockEnabled(bool enabled) async {
+    await _settingsBox.put(AppConstants.appLockEnabledKey, enabled);
+  }
+
+  int get appLockPinLength {
+    final v = _settingsBox.get(AppConstants.appLockPinLengthKey, defaultValue: 4);
+    return (v is int && (v == 4 || v == 6)) ? v : 4;
+  }
+
+  Future<void> setAppLockPinLength(int length) async {
+    await _settingsBox.put(AppConstants.appLockPinLengthKey, length);
+  }
+
+  bool get isAppLockBiometricEnabled {
+    return _settingsBox.get(
+          AppConstants.appLockBiometricKey,
+          defaultValue: false,
+        ) ==
+        true;
+  }
+
+  Future<void> setAppLockBiometricEnabled(bool enabled) async {
+    await _settingsBox.put(AppConstants.appLockBiometricKey, enabled);
+  }
 }

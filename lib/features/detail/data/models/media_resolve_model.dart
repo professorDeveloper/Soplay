@@ -1,4 +1,5 @@
 import 'package:soplay/features/detail/data/models/subtitle_model.dart';
+import 'package:soplay/features/detail/data/models/thumbnails_model.dart';
 import 'package:soplay/features/detail/data/models/video_source_model.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 
@@ -24,7 +25,6 @@ class MediaResolveModel extends MediaResolveEntity {
         .whereType<Map<String, dynamic>>()
         .map(SubtitleModel.fromJson)
         .toList(growable: false);
-    final thumbs = json['thumbnails'] as String?;
     return MediaResolveModel(
       videoUrl: json['videoUrl'] as String? ?? '',
       type: typeRaw == null || typeRaw.isEmpty ? null : typeRaw.toLowerCase(),
@@ -33,7 +33,7 @@ class MediaResolveModel extends MediaResolveEntity {
       languagesAvailable: _parseLangs(json['languagesAvailable']),
       activeLang: _parseActiveLang(json['server']),
       subtitles: subs,
-      thumbnails: thumbs == null || thumbs.isEmpty ? null : thumbs,
+      thumbnails: ThumbnailsModel.fromJson(json['thumbnails']),
     );
   }
 

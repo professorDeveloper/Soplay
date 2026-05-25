@@ -13,6 +13,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
+import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/download/data/download_service.dart';
@@ -88,8 +89,9 @@ class _PlayerPageState extends State<PlayerPage>
   int _activeSubtitleIndex = -1;
   ClosedCaptionFile? _captionFile;
 
-  String? _thumbnailsUrl;
+  String? _thumbnailsKey;
   List<_VttThumbnail> _vttThumbnails = const [];
+  ThumbnailsEntity? _storyboard;
   final ValueNotifier<double?> _sliderDragValue = ValueNotifier<double?>(null);
 
   double _playbackSpeed = 1.0;
@@ -343,7 +345,7 @@ class _PlayerPageState extends State<PlayerPage>
           : null;
       _currentQuality = source?.quality;
       if (mounted) setState(() => _stage = _LoadingStage.loading);
-      unawaited(_loadThumbnailsVtt(widget.args.thumbnails));
+      unawaited(_loadThumbnails(widget.args.thumbnails));
       await _initializeWith(
         url: source?.videoUrl ?? widget.args.movieUrl ?? '',
         headers: widget.args.headers,
@@ -425,7 +427,7 @@ class _PlayerPageState extends State<PlayerPage>
           _activeSubtitleIndex = -1;
           _captionFile = null;
         });
-        unawaited(_loadThumbnailsVtt(value.thumbnails));
+        unawaited(_loadThumbnails(value.thumbnails));
         await _initializeWith(
           url: url,
           headers: value.headers,
@@ -1267,14 +1269,32 @@ class _PlayerPageState extends State<PlayerPage>
     }
   }
 
-  Future<void> _loadThumbnailsVtt(String? url) async {
-    if (url == null || url.isEmpty) {
-      _thumbnailsUrl = null;
+  Future<void> _loadThumbnails(ThumbnailsEntity? thumbnails) async {
+    if (thumbnails == null) {
+      _thumbnailsKey = null;
       _vttThumbnails = const [];
+      _storyboard = null;
       return;
     }
-    if (url == _thumbnailsUrl && _vttThumbnails.isNotEmpty) return;
-    _thumbnailsUrl = url;
+    if (thumbnails.isStoryboard) {
+      final key = 'sb:${thumbnails.template}';
+      if (key == _thumbnailsKey && _storyboard != null) return;
+      _thumbnailsKey = key;
+      _vttThumbnails = const [];
+      _storyboard = thumbnails;
+      return;
+    }
+    if (!thumbnails.isVtt) {
+      _thumbnailsKey = null;
+      _vttThumbnails = const [];
+      _storyboard = null;
+      return;
+    }
+    final url = thumbnails.url!;
+    final key = 'vtt:$url';
+    if (key == _thumbnailsKey && _vttThumbnails.isNotEmpty) return;
+    _thumbnailsKey = key;
+    _storyboard = null;
     try {
       final response = await Dio().get<String>(
         url,
@@ -1292,7 +1312,38 @@ class _PlayerPageState extends State<PlayerPage>
     }
   }
 
+  bool get _hasThumbnails =>
+      _vttThumbnails.isNotEmpty || _storyboard != null;
+
   _VttThumbnail? _thumbnailAt(Duration position) {
+    final sb = _storyboard;
+    if (sb != null && sb.isStoryboard) {
+      final c = _controller;
+      final durMs = c != null && c.value.isInitialized
+          ? c.value.duration.inMilliseconds
+          : 0;
+      if (durMs <= 0) return null;
+      final cols = sb.columns!;
+      final rows = sb.rows!;
+      final totalCells = cols * rows;
+      final ratio = position.inMilliseconds / durMs;
+      final idx = (ratio * totalCells)
+          .clamp(0, totalCells - 1)
+          .floor();
+      final col = idx % cols;
+      final row = idx ~/ cols;
+      final cellW = (sb.width! / cols).round();
+      final cellH = (sb.height! / rows).round();
+      return _VttThumbnail(
+        start: Duration.zero,
+        end: Duration.zero,
+        imageUrl: sb.template!,
+        x: col * cellW,
+        y: row * cellH,
+        w: cellW,
+        h: cellH,
+      );
+    }
     for (final t in _vttThumbnails) {
       if (t.contains(position)) return t;
     }
@@ -2488,7 +2539,7 @@ class _PlayerPageState extends State<PlayerPage>
                         return Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (dragVal != null && _vttThumbnails.isNotEmpty)
+                          if (dragVal != null && _hasThumbnails)
                             Builder(builder: (_) {
                               final thumb = _thumbnailAt(displayPos);
                               if (thumb == null) return const SizedBox.shrink();

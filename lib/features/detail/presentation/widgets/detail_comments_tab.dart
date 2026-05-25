@@ -13,6 +13,14 @@ class DetailCommentsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CommentsPanel(provider: provider, contentUrl: contentUrl);
+    final size = MediaQuery.sizeOf(context);
+    final padding = MediaQuery.paddingOf(context);
+    final tabsArea = padding.top + kToolbarHeight + kTextTabBarHeight + 36;
+    final height = (size.height - tabsArea - padding.bottom)
+        .clamp(320.0, double.infinity);
+    return SizedBox(
+      height: height,
+      child: CommentsPanel(provider: provider, contentUrl: contentUrl),
+    );
   }
 }

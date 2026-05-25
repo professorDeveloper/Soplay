@@ -39,7 +39,7 @@ class CommentCard extends StatelessWidget {
     );
     if (ok && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Shikoyat yuborildi, rahmat')),
+        const SnackBar(content: Text('Report submitted, thank you')),
       );
     }
   }
@@ -267,7 +267,7 @@ class _MoreButton extends StatelessWidget {
               children: [
                 Icon(Icons.flag_rounded, size: 16, color: Colors.orangeAccent),
                 SizedBox(width: 8),
-                Text('Shikoyat qilish',
+                Text('Report',
                     style: TextStyle(color: Colors.orangeAccent)),
               ],
             ),

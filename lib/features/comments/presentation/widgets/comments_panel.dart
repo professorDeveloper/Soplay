@@ -78,6 +78,101 @@ class _CommentsViewState extends State<_CommentsView> {
     _cancel();
   }
 
+  Widget _buildList(
+    BuildContext context,
+    CommentsState state,
+    CommentsBloc bloc,
+    String? currentUserId,
+    bool loggedIn,
+  ) {
+    if (state.loading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: AppColors.primary,
+          strokeWidth: 2.4,
+        ),
+      );
+    }
+    if (state.items.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: AppColors.textHint,
+              size: 48,
+            ),
+            SizedBox(height: 12),
+            Text(
+              'No comments yet',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Be the first to share your thoughts',
+              style: TextStyle(
+                color: AppColors.textHint,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 8),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(
+            children: [
+              Text(
+                state.total == 1 ? '1 comment' : '${state.total} comments',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (final c in state.items)
+          _CommentTree(
+            comment: c,
+            replies: state.repliesByParent[c.id] ?? const [],
+            repliesLoading: state.repliesLoading.contains(c.id),
+            expanded: state.expandedIds.contains(c.id),
+            currentUserId: currentUserId,
+            canInteract: loggedIn,
+            onLike: () => bloc.add(CommentsToggleLike(c.id)),
+            onReply: () => _startReply(c),
+            onEdit: () => _startEdit(c),
+            onDelete: () => _confirmDelete(c),
+            onToggle: () => bloc.add(CommentsToggleReplies(c.id)),
+            onReplyLike: (id) => bloc.add(CommentsToggleLike(id)),
+            onReplyEdit: _startEdit,
+            onReplyDelete: _confirmDelete,
+          ),
+        if (state.hasMore)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 16),
+            child: TextButton(
+              onPressed: state.loadingMore
+                  ? null
+                  : () => bloc.add(const CommentsLoadMore()),
+              child: Text(state.loadingMore ? 'Loading...' : 'Show more'),
+            ),
+          ),
+      ],
+    );
+  }
+
   Future<void> _confirmDelete(CommentEntity c) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -129,117 +224,29 @@ class _CommentsViewState extends State<_CommentsView> {
         final currentUserId = bloc.currentUserId;
         final loggedIn = bloc.isLoggedIn;
         return Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            if (state.loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 60),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primary,
-                    strokeWidth: 2.4,
-                  ),
-                ),
-              )
-            else if (state.items.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 60),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.chat_bubble_outline_rounded,
-                        color: AppColors.textHint,
-                        size: 48,
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        'No comments yet',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Be the first to share your thoughts',
-                        style: TextStyle(
-                          color: AppColors.textHint,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: Row(
-                      children: [
-                        Text(
-                          state.total == 1
-                              ? '1 comment'
-                              : '${state.total} comments',
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  for (final c in state.items)
-                    _CommentTree(
-                      comment: c,
-                      replies: state.repliesByParent[c.id] ?? const [],
-                      repliesLoading: state.repliesLoading.contains(c.id),
-                      expanded: state.expandedIds.contains(c.id),
-                      currentUserId: currentUserId,
-                      canInteract: loggedIn,
-                      onLike: () =>
-                          bloc.add(CommentsToggleLike(c.id)),
-                      onReply: () => _startReply(c),
-                      onEdit: () => _startEdit(c),
-                      onDelete: () => _confirmDelete(c),
-                      onToggle: () =>
-                          bloc.add(CommentsToggleReplies(c.id)),
-                      onReplyLike: (id) =>
-                          bloc.add(CommentsToggleLike(id)),
-                      onReplyEdit: _startEdit,
-                      onReplyDelete: _confirmDelete,
-                    ),
-                  if (state.hasMore)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8, bottom: 16),
-                      child: TextButton(
-                        onPressed: state.loadingMore
-                            ? null
-                            : () => bloc.add(const CommentsLoadMore()),
-                        child: Text(
-                          state.loadingMore ? 'Loading...' : 'Show more',
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            const SizedBox(height: 4),
+            Expanded(
+              child: _buildList(context, state, bloc, currentUserId, loggedIn),
+            ),
             if (!loggedIn)
               const _SignInPrompt()
             else
-              CommentCompose(
-                enabled: loggedIn,
-                submitting: state.submitting,
-                onSubmit: _submit,
-                replyTarget: _replyToName,
-                editTarget: _editId,
-                initialText: _initialText,
-                onCancel: _cancel,
+              Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.background,
+                  border: Border(
+                    top: BorderSide(color: AppColors.divider, width: 0.6),
+                  ),
+                ),
+                child: CommentCompose(
+                  enabled: loggedIn,
+                  submitting: state.submitting,
+                  onSubmit: _submit,
+                  replyTarget: _replyToName,
+                  editTarget: _editId,
+                  initialText: _initialText,
+                  onCancel: _cancel,
+                ),
               ),
           ],
         );

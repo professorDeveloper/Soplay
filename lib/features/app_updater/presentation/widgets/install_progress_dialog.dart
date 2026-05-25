@@ -52,7 +52,7 @@ void showInstallProgressDialog(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Yangilanish yuklab olinmoqda...',
+                    'Downloading update...',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w700,

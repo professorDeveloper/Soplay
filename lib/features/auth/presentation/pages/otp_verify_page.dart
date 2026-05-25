@@ -48,11 +48,14 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
-        if (_controller.text.length < _length) {
-          _focus.requestFocus();
-        }
+        if (_controller.text.length >= _length) return;
+        _focus.unfocus();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        if (!mounted) return;
+        _focus.requestFocus();
+        SystemChannels.textInput.invokeMethod<void>('TextInput.show');
       });
     }
   }

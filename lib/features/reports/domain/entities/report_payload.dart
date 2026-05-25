@@ -29,15 +29,15 @@ class ReportReason {
       case spam:
         return 'Spam';
       case abuse:
-        return 'Haqorat';
+        return 'Harassment';
       case sexual:
         return 'Sexual content';
       case violence:
-        return 'Zo\'ravonlik';
+        return 'Violence';
       case copyright:
-        return 'Mualliflik huquqi';
+        return 'Copyright';
       default:
-        return 'Boshqa';
+        return 'Other';
     }
   }
 }
