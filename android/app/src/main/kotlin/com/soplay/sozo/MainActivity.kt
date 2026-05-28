@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.media.AudioManager
 import android.graphics.drawable.Icon
 import android.os.Build
@@ -26,12 +27,14 @@ class MainActivity : FlutterFragmentActivity() {
     private val channelName = "soplay/pip"
     private val downloadChannelName = "soplay/downloads"
     private val systemControlsChannelName = "soplay/system_controls"
+    private val deeplinkSettingsChannelName = "soplay/deeplink_settings"
     private val actionBroadcastName = "com.soplay.sozo.PIP_ACTION"
     private val actionExtraId = "action_id"
 
     private var methodChannel: MethodChannel? = null
     private var downloadChannel: MethodChannel? = null
     private var systemControlsChannel: MethodChannel? = null
+    private var deeplinkSettingsChannel: MethodChannel? = null
     private var pipReceiver: BroadcastReceiver? = null
     private var notificationPermissionResult: MethodChannel.Result? = null
 
@@ -157,6 +160,44 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 else -> result.notImplemented()
             }
+        }
+
+        deeplinkSettingsChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            deeplinkSettingsChannelName
+        )
+        deeplinkSettingsChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "openDefaultLinksSettings" -> {
+                    result.success(openDefaultLinksSettings())
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun openDefaultLinksSettings(): Boolean {
+        val pkgUri = Uri.parse("package:$packageName")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val intent = Intent(
+                    Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
+                    pkgUri
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                return true
+            } catch (_: Exception) {
+            }
+        }
+        return try {
+            val fallback = Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                pkgUri
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(fallback)
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 

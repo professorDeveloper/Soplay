@@ -15,6 +15,7 @@ import 'package:soplay/core/network/dio_client.dart';
 import 'package:soplay/core/network/logging_interceptor.dart';
 import 'package:soplay/core/network/no_internet_interceptor.dart';
 import 'package:soplay/core/network/provider_interceptor.dart';
+import 'package:soplay/core/player/local_hls_proxy.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/history/data/history_service.dart';
@@ -154,6 +155,9 @@ Future<void> configureDependencies() async {
     cfService:  getIt<CfBypassService>(),
     backendDio: getIt<Dio>(),
   ));
+  getIt.registerLazySingleton<LocalHlsProxy>(
+    () => LocalHlsProxy(getIt<DartFetch>().dio),
+  );
   getIt.registerSingleton<JsRuntimeService>(
     JsRuntimeService(
       remote: getIt<ExtractorRemote>(),

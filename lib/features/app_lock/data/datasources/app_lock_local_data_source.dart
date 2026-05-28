@@ -42,8 +42,26 @@ class AppLockLocalDataSource {
   Future<bool> verifyPin(String pin) async {
     final salt = await _secure.read(key: AppConstants.appLockPinSaltSecureKey);
     final stored = await _secure.read(key: AppConstants.appLockPinHashSecureKey);
-    if (salt == null || stored == null) return false;
+    if (salt == null || stored == null) {
+      await disable();
+      return false;
+    }
     return _hashPin(pin, salt) == stored;
+  }
+
+  Future<void> ensureConsistent() async {
+    if (!_hive.isAppLockEnabled) return;
+    try {
+      final salt =
+          await _secure.read(key: AppConstants.appLockPinSaltSecureKey);
+      final hash =
+          await _secure.read(key: AppConstants.appLockPinHashSecureKey);
+      if (salt == null || hash == null) {
+        await disable();
+      }
+    } catch (_) {
+      await disable();
+    }
   }
 
   Future<void> disable() async {

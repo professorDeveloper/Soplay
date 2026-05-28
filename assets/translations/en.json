@@ -205,5 +205,12 @@
     "disable_subtitle": "Your PIN and biometric preference will be removed.",
     "enabled_hint": "You'll be asked for your PIN when the app starts.",
     "disabled_hint": "App lock is off. Turn it on to protect what you watch."
+  },
+  "deeplink": {
+    "opt_in_title": "Open Sozo links in this app?",
+    "opt_in_body_android": "Shared sozo.azamov.me links will open directly inside Sozo. Enable \"Open supported links\" in your system settings.",
+    "opt_in_body_ios": "Sozo links open in the app automatically. If a link opens in Safari, long-press it and choose \"Open in Sozo\".",
+    "opt_in_enable": "Enable",
+    "opt_in_later": "Later"
   }
 }

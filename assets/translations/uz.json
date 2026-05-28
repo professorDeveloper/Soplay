@@ -205,5 +205,12 @@
     "disable_subtitle": "PIN-kod va biometrik sozlamalari o'chiriladi.",
     "enabled_hint": "Ilova ishga tushganda PIN-kod so'raladi.",
     "disabled_hint": "Ilova qulfi o'chirilgan. Yoqib qo'ying — kontentingiz boshqalardan himoyalanadi."
+  },
+  "deeplink": {
+    "opt_in_title": "Sozo havolalarini ushbu ilovada ochasizmi?",
+    "opt_in_body_android": "Do'stlaringiz ulashgan sozo.azamov.me havolalari to'g'ridan-to'g'ri Sozo ilovasida ochiladi. Tizim sozlamalarida \"Qo'llab-quvvatlanadigan havolalarni ochish\" bo'limini yoqing.",
+    "opt_in_body_ios": "Sozo havolalari ilovada avtomatik ochiladi. Agar Safari ichida ochilsa, manzilni uzun bosib \"Sozo ilovasida ochish\"ni tanlang.",
+    "opt_in_enable": "Yoqish",
+    "opt_in_later": "Keyinroq"
   }
 }

@@ -30,6 +30,27 @@ import UIKit
     guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "AppOrientation") else {
       return
     }
+    let deeplinkChannel = FlutterMethodChannel(
+      name: "soplay/deeplink_settings",
+      binaryMessenger: registrar.messenger()
+    )
+    deeplinkChannel.setMethodCallHandler { call, result in
+      guard call.method == "openDefaultLinksSettings" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      DispatchQueue.main.async {
+        if let url = URL(string: UIApplication.openSettingsURLString),
+           UIApplication.shared.canOpenURL(url) {
+          UIApplication.shared.open(url, options: [:]) { success in
+            result(success)
+          }
+        } else {
+          result(false)
+        }
+      }
+    }
+
     let channel = FlutterMethodChannel(
       name: "app/orientation",
       binaryMessenger: registrar.messenger()

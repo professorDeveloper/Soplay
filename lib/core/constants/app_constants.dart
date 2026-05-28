@@ -27,6 +27,8 @@ class AppConstants {
   static const String telegramPromoSeenKey = 'telegram_promo_seen';
   static const String amoledModeKey = 'amoled_mode';
   static const String onboardingSeenKey = 'onboarding_seen';
+  static const String deeplinkPromptSeenKey = 'deeplink_prompt_seen';
+  static const String deeplinkOptInKey = 'deeplink_opt_in';
 
   static const String appLockEnabledKey = 'app_lock_enabled';
   static const String appLockPinLengthKey = 'app_lock_pin_length';

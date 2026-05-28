@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/player/local_hls_proxy.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -589,6 +590,31 @@ class _PlayerPageState extends State<PlayerPage>
     );
   }
 
+  Future<_ProxiedTarget?> _maybeRouteThroughLocalProxy({
+    required String url,
+    required Map<String, String> headers,
+  }) async {
+    if (_currentSourceIndex < 0 ||
+        _currentSourceIndex >= _videoSources.length) {
+      return null;
+    }
+    final source = _videoSources[_currentSourceIndex];
+    if (!source.useLocalProxy) return null;
+    if (source.videoUrl != url) return null;
+    final upstreamHeaders = source.headers.isNotEmpty ? source.headers : headers;
+    try {
+      final proxied = await getIt<LocalHlsProxy>().register(
+        upstreamUrl: url,
+        headers: upstreamHeaders,
+      );
+      debugPrint('[PLAYER] routing through local HLS proxy: $proxied');
+      return _ProxiedTarget(url: proxied, headers: const {});
+    } catch (e) {
+      debugPrint('[PLAYER] local proxy register failed: $e — using direct url');
+      return null;
+    }
+  }
+
   Future<void> _initializeWith({
     required String url,
     required Map<String, String> headers,
@@ -608,12 +634,18 @@ class _PlayerPageState extends State<PlayerPage>
     final isLocal = url.startsWith('/') || isFileUri;
     final isHls = _isHlsType(type);
 
-    debugPrint('[PLAYER] loading url: $url');
+    final proxied = !isLocal && isHls
+        ? await _maybeRouteThroughLocalProxy(url: url, headers: headers)
+        : null;
+    final effectiveUrl = proxied?.url ?? url;
+    final effectiveHeaders = proxied?.headers ?? headers;
+
+    debugPrint('[PLAYER] loading url: $effectiveUrl');
     debugPrint('[PLAYER] type: ${type ?? 'unknown'} local: $isLocal');
 
     VideoPlayerController controller;
     if (isLocal && isHls) {
-      final fileUri = isFileUri ? Uri.parse(url) : Uri.file(url);
+      final fileUri = isFileUri ? Uri.parse(effectiveUrl) : Uri.file(effectiveUrl);
       controller = VideoPlayerController.networkUrl(
         fileUri,
         formatHint: VideoFormat.hls,
@@ -621,23 +653,29 @@ class _PlayerPageState extends State<PlayerPage>
       );
       _headers = const {};
     } else if (isLocal) {
-      final file = isFileUri ? File(Uri.parse(url).toFilePath()) : File(url);
+      final file = isFileUri
+          ? File(Uri.parse(effectiveUrl).toFilePath())
+          : File(effectiveUrl);
       controller = VideoPlayerController.file(
         file,
         videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
       );
       _headers = const {};
     } else {
-      final uri = Uri.parse(url);
-      final mergedHeaders = <String, String>{
-        'User-Agent':
-            'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        'Accept': '*/*',
-        'Accept-Language': 'uz,ru;q=0.9,en;q=0.8',
-      };
-      final defaultReferer = _defaultRefererFor(widget.args.provider);
-      if (defaultReferer != null) mergedHeaders['Referer'] = defaultReferer;
-      mergedHeaders.addAll(headers);
+      final uri = Uri.parse(effectiveUrl);
+      final isLoopback = uri.host == '127.0.0.1' || uri.host == 'localhost';
+      final mergedHeaders = <String, String>{};
+      if (!isLoopback) {
+        mergedHeaders.addAll(<String, String>{
+          'User-Agent':
+              'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+          'Accept': '*/*',
+          'Accept-Language': 'uz,ru;q=0.9,en;q=0.8',
+        });
+        final defaultReferer = _defaultRefererFor(widget.args.provider);
+        if (defaultReferer != null) mergedHeaders['Referer'] = defaultReferer;
+        mergedHeaders.addAll(effectiveHeaders);
+      }
 
       debugPrint('[PLAYER] provider: ${widget.args.provider}');
       debugPrint('[PLAYER] headers (${mergedHeaders.length}):');
@@ -656,7 +694,7 @@ class _PlayerPageState extends State<PlayerPage>
       _headers = mergedHeaders;
     }
     _controller = controller;
-    _videoUrl = url;
+    _videoUrl = effectiveUrl;
     _mediaType = type;
 
     try {
@@ -4027,4 +4065,10 @@ class _Chip extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ProxiedTarget {
+  const _ProxiedTarget({required this.url, required this.headers});
+  final String url;
+  final Map<String, String> headers;
 }

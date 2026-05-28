@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -13,8 +15,13 @@ class SplashPage extends StatefulWidget {
 
 class _SplashPageState extends State<SplashPage> {
   void _onComplete() {
-    if (!mounted) return;
+    unawaited(_resolveRoute());
+  }
+
+  Future<void> _resolveRoute() async {
     final lock = getIt<AppLockRepository>();
+    await lock.ensureConsistent();
+    if (!mounted) return;
     if (lock.isEnabled) {
       context.go('/pin-verify?redirect=/main');
     } else {

@@ -25,6 +25,9 @@ class AppLockRepositoryImpl implements AppLockRepository {
   Future<void> disable() => _source.disable();
 
   @override
+  Future<void> ensureConsistent() => _source.ensureConsistent();
+
+  @override
   Future<bool> isBiometricAvailable() => _source.isBiometricAvailable();
 
   @override

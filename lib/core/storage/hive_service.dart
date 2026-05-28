@@ -129,6 +129,30 @@ class HiveService {
     await _settingsBox.put(AppConstants.onboardingSeenKey, true);
   }
 
+  bool get hasDeeplinkPromptSeen {
+    return _settingsBox.get(
+          AppConstants.deeplinkPromptSeenKey,
+          defaultValue: false,
+        ) ==
+        true;
+  }
+
+  Future<void> markDeeplinkPromptSeen() async {
+    await _settingsBox.put(AppConstants.deeplinkPromptSeenKey, true);
+  }
+
+  bool get isDeeplinkOptIn {
+    return _settingsBox.get(
+          AppConstants.deeplinkOptInKey,
+          defaultValue: false,
+        ) ==
+        true;
+  }
+
+  Future<void> setDeeplinkOptIn(bool value) async {
+    await _settingsBox.put(AppConstants.deeplinkOptInKey, value);
+  }
+
   bool get isAppLockEnabled {
     return _settingsBox.get(
           AppConstants.appLockEnabledKey,

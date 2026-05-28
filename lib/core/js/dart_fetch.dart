@@ -3,10 +3,10 @@ import 'dart:convert';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
 import '../network/cf_bypass_service.dart';
 import 'js_log.dart';
+import 'safe_cookie_manager.dart';
 
 /// HTTP bridge for JS extractors. Runs every call through dio so we can:
 ///   - keep cookies sticky inside a single playback session (per-host
@@ -28,6 +28,11 @@ class DartFetch {
 
   DartFetch._(this._dio, this._cfService, this._backendDio);
 
+  /// Exposed so the in-process HLS proxy can talk to upstream CDNs with the
+  /// same cookie jar — extractors save dailymotion session cookies in this
+  /// jar and the proxy must replay them on segment requests.
+  Dio get dio => _dio;
+
   /// `backendDio` is the app-wide dio used to POST solved cookies to
   /// `/api/cf-cookies`. Both params are optional — if either is missing the
   /// CF bypass simply doesn't run and a 428 propagates back to the JS side
@@ -43,7 +48,7 @@ class DartFetch {
         validateStatus: (_) => true,
         responseType: ResponseType.plain,
       ),
-    )..interceptors.add(CookieManager(CookieJar()));
+    )..interceptors.add(SafeCookieManager(CookieJar()));
     return DartFetch._(dio, cfService, backendDio);
   }
 

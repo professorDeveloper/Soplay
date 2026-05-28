@@ -6,6 +6,7 @@ abstract class AppLockRepository {
   Future<void> setPin(String pin);
   Future<bool> verifyPin(String pin);
   Future<void> disable();
+  Future<void> ensureConsistent();
 
   Future<bool> isBiometricAvailable();
   Future<void> setBiometricPreferred(bool value);
