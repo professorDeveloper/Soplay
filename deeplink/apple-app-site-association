@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "3Y3KP6ZH6U.com.soplay.sozo",
+        "paths": [
+          "/detail",
+          "/detail/*",
+          "/play",
+          "/play/*"
+        ]
+      }
+    ]
+  }
+}

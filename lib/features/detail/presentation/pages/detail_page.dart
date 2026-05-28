@@ -310,8 +310,10 @@ class _DetailViewState extends State<_DetailView>
   }
 
   void _onShare() {
-    final url = Uri.encodeFull(widget.detail.contentUrl);
-    final link = 'https://sozo.azamov.me/detail?url=$url';
+    final params = <String, String>{'url': widget.detail.contentUrl};
+    final provider = widget.detail.provider.trim();
+    if (provider.isNotEmpty) params['provider'] = provider;
+    final link = Uri.https('sozo.azamov.me', '/detail', params).toString();
     Share.share('${widget.detail.title}\n$link');
   }
 

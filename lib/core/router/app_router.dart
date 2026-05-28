@@ -50,11 +50,20 @@ class AppRouter {
       GoRoute(
         path: '/detail',
         builder: (context, state) {
-          // Support deep link: /detail?url=<contentUrl>
+          // Support deep link: /detail?url=<contentUrl>&provider=<id>
           final extra = state.extra;
           if (extra is DetailArgs) return DetailPage(args: extra);
-          final url = state.uri.queryParameters['url'] ?? '';
-          return DetailPage(args: DetailArgs(contentUrl: url));
+          final q = state.uri.queryParameters;
+          final url = q['url'] ?? '';
+          final provider = q['provider']?.trim();
+          return DetailPage(
+            args: DetailArgs(
+              contentUrl: url,
+              provider: provider != null && provider.isNotEmpty
+                  ? provider
+                  : null,
+            ),
+          );
         },
       ),
       GoRoute(

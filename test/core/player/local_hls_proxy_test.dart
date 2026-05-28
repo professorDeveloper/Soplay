@@ -48,8 +48,9 @@ void main() {
       expect(received, isNotNull);
       expect(received!.containsKey('origin'), isFalse,
           reason: 'Origin must be stripped before sending upstream');
+      expect(received.containsKey('referer'), isFalse,
+          reason: 'Referer must be stripped before sending upstream');
       expect(received['user-agent'], contains('Android'));
-      expect(received['referer'], 'https://www.dailymotion.com/');
     });
 
     test('rewrites same-host playlist URIs to loopback paths', () async {

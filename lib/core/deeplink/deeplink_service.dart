@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/router/app_router.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 
 /// Listens for incoming universal links and custom-scheme URLs and routes
 /// them through go_router.
@@ -53,7 +55,7 @@ class DeeplinkService {
     _started = false;
   }
 
-  void _handle(Uri uri) {
+  Future<void> _handle(Uri uri) async {
     debugPrint('$_tag received: $uri');
 
     final isUniversal = uri.scheme == 'https' && uri.host == _host;
@@ -65,6 +67,15 @@ class DeeplinkService {
 
     final path = uri.path.isEmpty ? '/${uri.host}' : uri.path;
     final query = uri.queryParameters;
+
+    final provider = query['provider']?.trim();
+    if (provider != null && provider.isNotEmpty) {
+      try {
+        await getIt<HiveService>().saveCurrentProvider(provider);
+      } catch (e) {
+        debugPrint('$_tag failed to save provider: $e');
+      }
+    }
 
     final route = _resolveRoute(path, query);
     if (route == null) {
@@ -86,7 +97,7 @@ class DeeplinkService {
       case 'detail':
         final url = q['url']?.trim();
         if (url == null || url.isEmpty) return null;
-        return '/detail?url=${Uri.encodeQueryComponent(url)}';
+        return _detailRoute(url, q['provider']?.trim());
       case 'play':
       case 'player':
         // Player needs PlayerArgs via extra — universal link only opens
@@ -94,9 +105,18 @@ class DeeplinkService {
         // Forwarding to detail is the safest entry point.
         final url = q['url']?.trim();
         if (url == null || url.isEmpty) return null;
-        return '/detail?url=${Uri.encodeQueryComponent(url)}';
+        return _detailRoute(url, q['provider']?.trim());
       default:
         return null;
     }
+  }
+
+  String _detailRoute(String url, String? provider) {
+    final params = <String, String>{'url': url};
+    if (provider != null && provider.isNotEmpty) {
+      params['provider'] = provider;
+    }
+    final qs = Uri(queryParameters: params).query;
+    return '/detail?$qs';
   }
 }

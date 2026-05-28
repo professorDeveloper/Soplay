@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.soplay.sozo",
+      "sha256_cert_fingerprints": [
+        "39:00:4B:DD:6A:E4:CA:9B:FD:4B:7A:2A:65:D2:1E:41:82:8B:CD:AA:06:C9:CC:F1:5D:0F:70:F3:B4:F2:06:8C",
+        "CD:A9:17:DD:F9:AA:9E:51:8B:A8:56:27:7D:2B:5E:66:1F:B5:A7:DF:24:5A:8F:59:6A:32:36:9E:05:A1:DD:77"
+      ]
+    }
+  }
+]

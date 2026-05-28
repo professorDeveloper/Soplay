@@ -123,7 +123,10 @@ class LocalHlsProxy {
     final upstreamHeaders = <String, String>{};
     sess.headers.forEach((k, v) {
       final lower = k.toLowerCase();
-      if (lower == 'origin' || lower == 'host' || lower == 'content-length') {
+      if (lower == 'origin' ||
+          lower == 'host' ||
+          lower == 'content-length' ||
+          lower == 'referer') {
         return;
       }
       upstreamHeaders[k] = v;
