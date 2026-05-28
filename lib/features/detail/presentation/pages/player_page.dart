@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -305,7 +306,7 @@ class _PlayerPageState extends State<PlayerPage>
   Future<void> _enterFullscreen() async {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     try {
-      await SystemChrome.setPreferredOrientations([
+      await AppOrientation.set([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
@@ -317,11 +318,11 @@ class _PlayerPageState extends State<PlayerPage>
     _isPortrait = !_isPortrait;
     try {
       if (_isPortrait) {
-        await SystemChrome.setPreferredOrientations([
+        await AppOrientation.set([
           DeviceOrientation.portraitUp,
         ]);
       } else {
-        await SystemChrome.setPreferredOrientations([
+        await AppOrientation.set([
           DeviceOrientation.landscapeLeft,
           DeviceOrientation.landscapeRight,
         ]);
@@ -337,7 +338,7 @@ class _PlayerPageState extends State<PlayerPage>
         SystemUiMode.edgeToEdge,
         overlays: SystemUiOverlay.values,
       );
-      await SystemChrome.setPreferredOrientations([
+      await AppOrientation.set([
         DeviceOrientation.portraitUp,
       ]);
     } catch (_) {}

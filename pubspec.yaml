@@ -86,6 +86,7 @@ dependencies:
   floating: ^6.0.0
   showcaseview: ^5.0.2
   share_plus: ^10.1.4
+  app_links: ^6.3.2
   path_provider: ^2.1.5
   flutter_dotenv: ^5.1.0
   open_filex: ^4.5.0

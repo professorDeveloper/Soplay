@@ -10,8 +10,10 @@ import 'package:flutter/services.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/deeplink/deeplink_service.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
+import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
@@ -37,8 +39,9 @@ void main() async {
     getIt<NotificationService>().ensureInitialized(),
     'fcm',
   );
+  _fireAndForget(getIt<DeeplinkService>().start(), 'deeplink');
   unawaited(
-    SystemChrome.setPreferredOrientations([
+    AppOrientation.set([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]).catchError((Object _) {}),

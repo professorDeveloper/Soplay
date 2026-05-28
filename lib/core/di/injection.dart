@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
+import 'package:soplay/core/deeplink/deeplink_service.dart';
 import 'package:soplay/core/js/dart_fetch.dart';
 import 'package:soplay/core/js/extractor_cache.dart';
 import 'package:soplay/core/js/extractor_remote.dart';
@@ -96,6 +97,7 @@ import '../navigation/nav_controller.dart';
 final getIt = GetIt.instance;
 
 Future<void> configureDependencies() async {
+  getIt.registerSingleton<DeeplinkService>(DeeplinkService());
   getIt.registerSingleton<HiveService>(HiveService());
   getIt.registerSingleton<HistoryService>(HistoryService());
   getIt.registerSingleton<DownloadService>(DownloadService());

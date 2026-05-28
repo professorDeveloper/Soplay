@@ -532,16 +532,15 @@ class _ProvidersSheetState extends State<_ProvidersSheet> {
                   subtitle: state is ProviderLoaded
                       ? '${_filteredProviders(state.providers).length} of ${state.providers.length} shown'
                       : null,
+                  trailing: state is ProviderLoaded
+                      ? _CategoryFilterButton(
+                          providers: state.providers,
+                          selected: _selectedCategory,
+                          onSelected: (cat) =>
+                              setState(() => _selectedCategory = cat),
+                        )
+                      : null,
                 ),
-                if (state is ProviderLoaded) ...[
-                  _CategoryChipsRow(
-                    providers: state.providers,
-                    selected: _selectedCategory,
-                    onSelected: (cat) =>
-                        setState(() => _selectedCategory = cat),
-                  ),
-                  const SizedBox(height: 4),
-                ],
                 Expanded(
                   child: switch (state) {
                     ProviderLoaded() => () {
@@ -578,11 +577,12 @@ class _ProvidersSheetState extends State<_ProvidersSheet> {
   }
 }
 
-/// Horizontal scrollable category chip row. The "All" chip is always first;
-/// the rest are derived from the providers list (preserving the canonical
-/// order tmdb → anime → movies → other so the layout stays stable).
-class _CategoryChipsRow extends StatelessWidget {
-  const _CategoryChipsRow({
+/// Compact category filter dropdown shown in the providers sheet header.
+/// Defaults to "All"; opens a popup menu listing only categories that have
+/// at least one provider (preserving the canonical order tmdb → anime →
+/// movies → other).
+class _CategoryFilterButton extends StatelessWidget {
+  const _CategoryFilterButton({
     required this.providers,
     required this.selected,
     required this.onSelected,
@@ -594,128 +594,124 @@ class _CategoryChipsRow extends StatelessWidget {
 
   static const _canonicalOrder = ['tmdb', 'anime', 'movies', 'other'];
 
-  // (label, icon)
   static const _meta = <String, (String, IconData)>{
-    'all':    ('All',    Icons.apps_rounded),
+    'all':    ('All',         Icons.apps_rounded),
     'tmdb':   ('Movies & TV', Icons.movie_outlined),
-    'anime':  ('Anime',  Icons.auto_awesome_outlined),
-    'movies': ('Local',  Icons.public_off_outlined),
-    'other':  ('Other',  Icons.more_horiz_rounded),
+    'anime':  ('Anime',       Icons.auto_awesome_outlined),
+    'movies': ('Local',       Icons.public_off_outlined),
+    'other':  ('Other',       Icons.more_horiz_rounded),
   };
 
   @override
   Widget build(BuildContext context) {
-    // Count per category and only show chips with at least one provider.
     final counts = <String, int>{};
     for (final p in providers) {
       counts[p.category] = (counts[p.category] ?? 0) + 1;
     }
     final available = _canonicalOrder.where(counts.containsKey).toList();
-    // Hide the chip row entirely if there's only one category (or none).
+    // Nothing to filter when there's only one category.
     if (available.length < 2) return const SizedBox.shrink();
 
-    final chips = <Widget>[
-      _CategoryChip(
-        label: _meta['all']!.$1,
-        icon: _meta['all']!.$2,
-        count: providers.length,
-        selected: selected == 'all',
-        onTap: () => onSelected('all'),
-      ),
+    final selectedMeta = _meta[selected] ?? _meta['all']!;
+    final selectedCount = selected == 'all'
+        ? providers.length
+        : (counts[selected] ?? 0);
+
+    final entries = <(String, String, IconData, int)>[
+      ('all', _meta['all']!.$1, _meta['all']!.$2, providers.length),
       ...available.map((cat) {
         final meta = _meta[cat] ?? (cat, Icons.label_outline);
-        return _CategoryChip(
-          label: meta.$1,
-          icon: meta.$2,
-          count: counts[cat] ?? 0,
-          selected: selected == cat,
-          onTap: () => onSelected(cat),
-        );
+        return (cat, meta.$1, meta.$2, counts[cat] ?? 0);
       }),
     ];
 
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: chips.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (_, i) => chips[i],
+    return PopupMenuButton<String>(
+      tooltip: 'Filter',
+      offset: const Offset(0, 44),
+      color: AppColors.surfaceVariant,
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
       ),
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({
-    required this.label,
-    required this.icon,
-    required this.count,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final int count;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = selected ? Colors.white : AppColors.textSecondary;
-    final bg = selected ? AppColors.primary : AppColors.surfaceVariant;
-    final borderColor =
-        selected ? AppColors.primary : AppColors.textHint.withValues(alpha: 0.25);
-
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: borderColor, width: 1),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: fg),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: fg,
-                  fontSize: 12.5,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+      onSelected: onSelected,
+      itemBuilder: (_) => [
+        for (final (id, label, icon, count) in entries)
+          PopupMenuItem<String>(
+            value: id,
+            height: 42,
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: selected == id
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
                 ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? Colors.white.withValues(alpha: 0.22)
-                      : AppColors.textHint.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '$count',
+                const SizedBox(width: 10),
+                Text(
+                  label,
                   style: TextStyle(
-                    color: fg,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
+                    color: selected == id
+                        ? AppColors.primary
+                        : AppColors.textPrimary,
+                    fontSize: 13.5,
+                    fontWeight: selected == id
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 16),
+                const Spacer(),
+                Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: AppColors.textHint,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 7, 8, 7),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(selectedMeta.$2, size: 14, color: AppColors.textSecondary),
+            const SizedBox(width: 6),
+            Text(
+              selectedMeta.$1,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              '$selectedCount',
+              style: const TextStyle(
+                color: AppColors.textHint,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 16,
+              color: AppColors.textHint,
+            ),
+          ],
         ),
       ),
     );
@@ -1450,14 +1446,15 @@ class _SheetHandle extends StatelessWidget {
 }
 
 class _SheetHeader extends StatelessWidget {
-  const _SheetHeader({required this.title, this.subtitle});
+  const _SheetHeader({required this.title, this.subtitle, this.trailing});
   final String title;
   final String? subtitle;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 16, 12),
+      padding: const EdgeInsets.fromLTRB(20, 10, 12, 12),
       child: Row(
         children: [
           Expanded(
@@ -1485,6 +1482,10 @@ class _SheetHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (trailing != null) ...[
+            trailing!,
+            const SizedBox(width: 4),
+          ],
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(
