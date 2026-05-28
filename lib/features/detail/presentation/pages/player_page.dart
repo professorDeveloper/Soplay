@@ -13,6 +13,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
+import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
@@ -40,6 +41,15 @@ class _SwipeIndicator {
 
 const _kSubLang = 'sub';
 const _kDubLang = 'dub';
+
+const List<int> _subtitleColorPresets = <int>[
+  0xFFFFFFFF,
+  0xFFFFEB3B,
+  0xFF00E5FF,
+  0xFF76FF03,
+  0xFFFF80AB,
+  0xFFFF5252,
+];
 
 class PlayerPage extends StatefulWidget {
   const PlayerPage({super.key, required this.args});
@@ -88,6 +98,7 @@ class _PlayerPageState extends State<PlayerPage>
   List<SubtitleEntity> _subtitles = const [];
   int _activeSubtitleIndex = -1;
   ClosedCaptionFile? _captionFile;
+  SubtitleStyle _subtitleStyle = SubtitleStyle.defaults();
 
   String? _thumbnailsKey;
   List<_VttThumbnail> _vttThumbnails = const [];
@@ -127,6 +138,7 @@ class _PlayerPageState extends State<PlayerPage>
   @override
   void initState() {
     super.initState();
+    _subtitleStyle = _hive.getSubtitleStyle();
     _episodeIndex = widget.args.initialEpisodeIndex.clamp(
       0,
       widget.args.episodes.isEmpty ? 0 : widget.args.episodes.length - 1,
@@ -1418,6 +1430,274 @@ class _PlayerPageState extends State<PlayerPage>
     );
   }
 
+  void _openSubtitleAppearanceSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            void apply(SubtitleStyle next) {
+              setSheet(() {});
+              _applySubtitleStyle(next);
+            }
+
+            return SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.subtitles_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Subtitle style',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => apply(SubtitleStyle.defaults()),
+                            icon: const Icon(
+                              Icons.restart_alt_rounded,
+                              size: 16,
+                              color: Colors.white70,
+                            ),
+                            label: const Text(
+                              'Reset',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(color: Colors.white12, height: 1),
+                    _SubtitlePreview(style: _subtitleStyle),
+                    const SizedBox(height: 4),
+                    _SheetSectionLabel('Font size'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          const Text(
+                            'A',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Expanded(
+                            child: SliderTheme(
+                              data: SliderTheme.of(ctx).copyWith(
+                                activeTrackColor: AppColors.primary,
+                                inactiveTrackColor: Colors.white12,
+                                thumbColor: AppColors.primary,
+                                overlayColor: AppColors.primary.withValues(
+                                  alpha: 0.15,
+                                ),
+                                trackHeight: 3,
+                              ),
+                              child: Slider(
+                                min: 12,
+                                max: 32,
+                                divisions: 20,
+                                value: _subtitleStyle.fontSize.clamp(12, 32),
+                                label: '${_subtitleStyle.fontSize.round()}',
+                                onChanged: (v) => apply(
+                                  _subtitleStyle.copyWith(fontSize: v),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const Text(
+                            'A',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 36,
+                            child: Text(
+                              '${_subtitleStyle.fontSize.round()}',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _SheetSectionLabel('Text color'),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                      child: Wrap(
+                        spacing: 14,
+                        runSpacing: 10,
+                        children: [
+                          for (final c in _subtitleColorPresets)
+                            _ColorDot(
+                              color: Color(c),
+                              selected: _subtitleStyle.textColor == c,
+                              onTap: () => apply(
+                                _subtitleStyle.copyWith(textColor: c),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    _SheetSectionLabel('Background'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SliderTheme(
+                        data: SliderTheme.of(ctx).copyWith(
+                          activeTrackColor: AppColors.primary,
+                          inactiveTrackColor: Colors.white12,
+                          thumbColor: AppColors.primary,
+                          overlayColor: AppColors.primary.withValues(
+                            alpha: 0.15,
+                          ),
+                          trackHeight: 3,
+                        ),
+                        child: Slider(
+                          min: 0,
+                          max: 1,
+                          divisions: 20,
+                          value: _subtitleStyle.bgOpacity.clamp(0, 1),
+                          label:
+                              '${(_subtitleStyle.bgOpacity * 100).round()}%',
+                          onChanged: (v) =>
+                              apply(_subtitleStyle.copyWith(bgOpacity: v)),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: const [
+                          Text(
+                            'None',
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            'Solid',
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _SheetSectionLabel('Edge'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _ChipRow<SubtitleEdge>(
+                        value: _subtitleStyle.edge,
+                        items: const [
+                          (SubtitleEdge.none, 'None'),
+                          (SubtitleEdge.shadow, 'Shadow'),
+                          (SubtitleEdge.outline, 'Outline'),
+                        ],
+                        onChanged: (v) =>
+                            apply(_subtitleStyle.copyWith(edge: v)),
+                      ),
+                    ),
+                    _SheetSectionLabel('Position'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _ChipRow<SubtitlePosition>(
+                        value: _subtitleStyle.position,
+                        items: const [
+                          (SubtitlePosition.lower, 'Lower'),
+                          (SubtitlePosition.normal, 'Default'),
+                          (SubtitlePosition.higher, 'Higher'),
+                        ],
+                        onChanged: (v) =>
+                            apply(_subtitleStyle.copyWith(position: v)),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      child: InkWell(
+                        onTap: () =>
+                            apply(_subtitleStyle.copyWith(bold: !_subtitleStyle.bold)),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 4,
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.format_bold_rounded,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Bold',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              Switch.adaptive(
+                                value: _subtitleStyle.bold,
+                                activeThumbColor: AppColors.primary,
+                                onChanged: (v) =>
+                                    apply(_subtitleStyle.copyWith(bold: v)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _startDownload() async {
     final url = _videoUrl;
     if (url == null || url.isEmpty) return;
@@ -1592,6 +1872,15 @@ class _PlayerPageState extends State<PlayerPage>
                         Navigator.of(sheetContext).pop();
                         _openSubtitleSheet();
                       },
+              ),
+              _SettingsTile(
+                icon: Icons.text_fields_rounded,
+                label: 'Subtitle style',
+                value: '${_subtitleStyle.fontSize.round()}px',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _openSubtitleAppearanceSheet();
+                },
               ),
               if (!hasLangs)
                 const _SettingsTile(
@@ -1883,7 +2172,7 @@ class _PlayerPageState extends State<PlayerPage>
     return Positioned(
       left: 16,
       right: 16,
-      bottom: _controlsVisible ? 100 : 24,
+      bottom: _subtitleBottomOffset,
       child: IgnorePointer(
         child: ValueListenableBuilder<VideoPlayerValue>(
           valueListenable: c,
@@ -1901,31 +2190,98 @@ class _PlayerPageState extends State<PlayerPage>
             }
             return Align(
               alignment: Alignment.bottomCenter,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.75),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  active.text,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    height: 1.3,
-                  ),
-                ),
-              ),
+              child: _styledSubtitle(active.text),
             );
           },
         ),
       ),
     );
+  }
+
+  double get _subtitleBottomOffset {
+    final base = _controlsVisible ? 100.0 : 24.0;
+    switch (_subtitleStyle.position) {
+      case SubtitlePosition.lower:
+        return base - 12;
+      case SubtitlePosition.normal:
+        return base;
+      case SubtitlePosition.higher:
+        return base + 60;
+    }
+  }
+
+  Widget _styledSubtitle(String text) {
+    final style = _subtitleStyle;
+    final color = Color(style.textColor);
+    final weight = style.bold ? FontWeight.w800 : FontWeight.w500;
+    final hasBg = style.bgOpacity > 0.01;
+
+    List<Shadow>? shadows;
+    Paint? strokePaint;
+    switch (style.edge) {
+      case SubtitleEdge.none:
+        break;
+      case SubtitleEdge.shadow:
+        shadows = const [
+          Shadow(
+            color: Color(0xCC000000),
+            offset: Offset(0, 1.5),
+            blurRadius: 4,
+          ),
+        ];
+      case SubtitleEdge.outline:
+        strokePaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..color = const Color(0xFF000000);
+    }
+
+    Widget textWidget = Text(
+      text,
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: color,
+        fontSize: style.fontSize,
+        fontWeight: weight,
+        height: 1.3,
+        shadows: shadows,
+      ),
+    );
+
+    if (strokePaint != null) {
+      textWidget = Stack(
+        alignment: Alignment.center,
+        children: [
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: style.fontSize,
+              fontWeight: weight,
+              height: 1.3,
+              foreground: strokePaint,
+            ),
+          ),
+          textWidget,
+        ],
+      );
+    }
+
+    if (!hasBg) return textWidget;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: style.bgOpacity),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: textWidget,
+    );
+  }
+
+  void _applySubtitleStyle(SubtitleStyle next) {
+    setState(() => _subtitleStyle = next);
+    _hive.saveSubtitleStyle(next);
   }
 
   Widget _buildSpeedBoostBadge() {
@@ -3432,5 +3788,239 @@ class _VttThumbnail {
       ));
     }
     return results;
+  }
+}
+
+class _SheetSectionLabel extends StatelessWidget {
+  const _SheetSectionLabel(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 16, 6),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white54,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+}
+
+class _SubtitlePreview extends StatelessWidget {
+  const _SubtitlePreview({required this.style});
+  final SubtitleStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Color(style.textColor);
+    final weight = style.bold ? FontWeight.w800 : FontWeight.w500;
+    final hasBg = style.bgOpacity > 0.01;
+
+    List<Shadow>? shadows;
+    Paint? strokePaint;
+    switch (style.edge) {
+      case SubtitleEdge.none:
+        break;
+      case SubtitleEdge.shadow:
+        shadows = const [
+          Shadow(
+            color: Color(0xCC000000),
+            offset: Offset(0, 1.5),
+            blurRadius: 4,
+          ),
+        ];
+      case SubtitleEdge.outline:
+        strokePaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..color = const Color(0xFF000000);
+    }
+
+    Widget textWidget = Text(
+      'The quick brown fox',
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: color,
+        fontSize: style.fontSize,
+        fontWeight: weight,
+        height: 1.3,
+        shadows: shadows,
+      ),
+    );
+
+    if (strokePaint != null) {
+      textWidget = Stack(
+        alignment: Alignment.center,
+        children: [
+          Text(
+            'The quick brown fox',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: style.fontSize,
+              fontWeight: weight,
+              height: 1.3,
+              foreground: strokePaint,
+            ),
+          ),
+          textWidget,
+        ],
+      );
+    }
+
+    Widget body = textWidget;
+    if (hasBg) {
+      body = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: style.bgOpacity),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: textWidget,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      child: Container(
+        height: 120,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF1F2A44),
+              Color(0xFF2D1B36),
+              Color(0xFF1A1A1A),
+            ],
+          ),
+        ),
+        alignment: Alignment.bottomCenter,
+        padding: const EdgeInsets.only(bottom: 12, left: 12, right: 12),
+        child: body,
+      ),
+    );
+  }
+}
+
+class _ColorDot extends StatelessWidget {
+  const _ColorDot({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+          border: Border.all(
+            color: selected ? AppColors.primary : Colors.white24,
+            width: selected ? 3 : 1.5,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.4),
+                    blurRadius: 8,
+                  ),
+                ]
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _ChipRow<T> extends StatelessWidget {
+  const _ChipRow({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final T value;
+  final List<(T, String)> items;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          Expanded(
+            child: _Chip(
+              label: items[i].$2,
+              selected: items[i].$1 == value,
+              onTap: () => onChanged(items[i].$1),
+            ),
+          ),
+          if (i < items.length - 1) const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? AppColors.primary.withValues(alpha: 0.18)
+          : Colors.white10,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? AppColors.primary : Colors.white12,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.white70,
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/features/app_lock/presentation/pages/app_lock_settings_page.dart';
+import 'package:soplay/features/app_lock/presentation/pages/pin_setup_page.dart';
+import 'package:soplay/features/app_lock/presentation/pages/pin_verify_page.dart';
 import 'package:soplay/features/auth/presentation/pages/login_page.dart';
 import 'package:soplay/features/auth/presentation/pages/otp_verify_page.dart';
 import 'package:soplay/features/auth/presentation/pages/register_page.dart';
@@ -104,6 +107,24 @@ class AppRouter {
           final email = state.extra as String? ?? '';
           return OtpVerifyPage(email: email);
         },
+      ),
+      GoRoute(
+        path: '/pin-verify',
+        builder: (context, state) {
+          final redirect = state.uri.queryParameters['redirect'] ?? '/main';
+          return PinVerifyPage(redirectTo: redirect);
+        },
+      ),
+      GoRoute(
+        path: '/pin-setup',
+        builder: (context, state) {
+          final change = state.extra == true;
+          return PinSetupPage(changeMode: change);
+        },
+      ),
+      GoRoute(
+        path: '/app-lock-settings',
+        builder: (context, state) => const AppLockSettingsPage(),
       ),
     ],
   );

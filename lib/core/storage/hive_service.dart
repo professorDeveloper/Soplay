@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
 import '../../features/auth/data/models/user_model.dart';
+import '../../features/detail/domain/entities/subtitle_style.dart';
 
 class HiveService {
   final Box _authBox = Hive.box(AppConstants.authBox);
@@ -159,5 +160,20 @@ class HiveService {
 
   Future<void> setAppLockBiometricEnabled(bool enabled) async {
     await _settingsBox.put(AppConstants.appLockBiometricKey, enabled);
+  }
+
+  SubtitleStyle getSubtitleStyle() {
+    final raw = _settingsBox.get(AppConstants.subtitleStyleKey);
+    if (raw is String && raw.isNotEmpty) {
+      return SubtitleStyle.fromJsonString(raw);
+    }
+    return SubtitleStyle.defaults();
+  }
+
+  Future<void> saveSubtitleStyle(SubtitleStyle style) async {
+    await _settingsBox.put(
+      AppConstants.subtitleStyleKey,
+      style.toJsonString(),
+    );
   }
 }

@@ -34,4 +34,6 @@ class AppConstants {
 
   static const String appLockPinHashSecureKey = 'app_lock_pin_hash';
   static const String appLockPinSaltSecureKey = 'app_lock_pin_salt';
+
+  static const String subtitleStyleKey = 'subtitle_style';
 }

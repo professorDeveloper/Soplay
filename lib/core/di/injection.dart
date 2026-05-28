@@ -18,6 +18,9 @@ import 'package:soplay/features/auth/domain/usecases/resend_otp_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/verify_otp_usecase.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
+import 'package:soplay/features/app_lock/data/datasources/app_lock_local_data_source.dart';
+import 'package:soplay/features/app_lock/data/repositories/app_lock_repository_impl.dart';
+import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/app_updater/data/datasources/app_updater_data_source.dart';
 import 'package:soplay/features/app_updater/data/repositories/app_updater_repository_impl.dart';
 import 'package:soplay/features/app_updater/domain/repositories/app_updater_repository.dart';
@@ -326,6 +329,13 @@ Future<void> configureDependencies() async {
       repository: getIt<CommentsRepository>(),
       hiveService: getIt<HiveService>(),
     ),
+  );
+
+  getIt.registerSingleton<AppLockLocalDataSource>(
+    AppLockLocalDataSource(hiveService: getIt<HiveService>()),
+  );
+  getIt.registerSingleton<AppLockRepository>(
+    AppLockRepositoryImpl(getIt<AppLockLocalDataSource>()),
   );
 
   getIt.registerLazySingleton<NavController>(() => NavController());

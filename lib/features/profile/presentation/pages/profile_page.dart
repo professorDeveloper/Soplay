@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
@@ -112,6 +114,8 @@ class _ProfileViewState extends State<_ProfileView> {
                 const SliverToBoxAdapter(child: _ProvidersSection()),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(child: _WatchHistorySection()),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                const SliverToBoxAdapter(child: _SecuritySection()),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(child: _AboutSection()),
                 SliverToBoxAdapter(child: SizedBox(height: bottomPad + 96)),
@@ -855,6 +859,67 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
                   ],
                 ),
                 onTap: () => context.push('/downloads'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SecuritySection extends StatefulWidget {
+  const _SecuritySection();
+
+  @override
+  State<_SecuritySection> createState() => _SecuritySectionState();
+}
+
+class _SecuritySectionState extends State<_SecuritySection> {
+  late final AppLockRepository _lock = getIt<AppLockRepository>();
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = _lock.isEnabled;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionLabel('app_lock.section_label'.tr()),
+          const SizedBox(height: 8),
+          _SectionCard(
+            children: [
+              _Tile(
+                icon: Icons.lock_rounded,
+                title: 'app_lock.app_lock'.tr(),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      enabled
+                          ? 'app_lock.state_on'.tr()
+                          : 'app_lock.state_off'.tr(),
+                      style: TextStyle(
+                        color: enabled
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.textHint,
+                      size: 20,
+                    ),
+                  ],
+                ),
+                onTap: () async {
+                  await context.push('/app-lock-settings');
+                  if (mounted) setState(() {});
+                },
               ),
             ],
           ),
