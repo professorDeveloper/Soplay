@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/extractor/provider_manager.dart';
+import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.dart';
@@ -11,11 +12,18 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
   final GetProvidersUseCase useCase;
   final HiveService hiveService;
   final ProviderManager providerManager;
+  // ProviderRegistry feeds the legacy JsRuntimeService path. It caches the
+  // provider list in-memory for the lifetime of the app, so a backend change
+  // (e.g. a provider flipping from `server` → `hybrid`) wouldn't take effect
+  // until the user killed the app. Invalidating it on every successful
+  // ProviderLoad keeps both caches in sync.
+  final ProviderRegistry providerRegistry;
 
   ProviderBloc({
     required this.useCase,
     required this.hiveService,
     required this.providerManager,
+    required this.providerRegistry,
   }) : super(ProviderInitial()) {
     on<ProviderLoad>(_onLoad);
     on<ProviderSelect>(_onSelect);
@@ -47,6 +55,9 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         }
 
         providerManager.updateProviders(providers);
+        // Drop the legacy registry's in-memory cache so JsRuntimeService
+        // re-fetches /providers next time it needs scope/mode info.
+        providerRegistry.invalidate();
 
         emit(
           ProviderLoaded(providers: providers, currentProviderId: resolvedId),

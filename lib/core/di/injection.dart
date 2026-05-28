@@ -351,6 +351,7 @@ Future<void> configureDependencies() async {
       useCase: getIt<GetProvidersUseCase>(),
       hiveService: getIt<HiveService>(),
       providerManager: getIt<ProviderManager>(),
+      providerRegistry: getIt<ProviderRegistry>(),
     ),
   );
   getIt.registerFactory(
