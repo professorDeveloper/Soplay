@@ -148,7 +148,10 @@ Future<void> configureDependencies() async {
     ExtractorRemote(dio: getIt<Dio>()),
   );
   getIt.registerSingleton<ExtractorCache>(ExtractorCache());
-  getIt.registerSingleton<DartFetch>(DartFetch.create());
+  getIt.registerSingleton<DartFetch>(DartFetch.create(
+    cfService:  getIt<CfBypassService>(),
+    backendDio: getIt<Dio>(),
+  ));
   getIt.registerSingleton<JsRuntimeService>(
     JsRuntimeService(
       remote: getIt<ExtractorRemote>(),
