@@ -79,13 +79,13 @@ void main() {
     });
 
     test('rewrites cross-host segment URIs into base64 _h/ form', () async {
-      const altHost = '127.0.0.1';
+      const altAuthority = 'vod3.dmcdn.net';
       upstream.respond(
         path: '/cdn/manifest/video/x.m3u8',
         contentType: 'application/vnd.apple.mpegurl',
         body: '#EXTM3U\n'
             '#EXT-X-STREAM-INF:BANDWIDTH=1000000\n'
-            'https://$altHost:1/seg/720p.m3u8?t=1\n',
+            'https://$altAuthority/seg/720p.m3u8?t=1\n',
       );
 
       final loopback = await proxy.register(
@@ -94,8 +94,8 @@ void main() {
       );
 
       final body = await _httpGetString(loopback);
-      final expectedTag = base64UrlEncode(utf8.encode('$altHost:1'))
-          .replaceAll('=', '');
+      final expectedTag =
+          base64UrlEncode(utf8.encode(altAuthority)).replaceAll('=', '');
       expect(body, contains('/_h/$expectedTag/seg/720p.m3u8?t=1'));
     });
 
@@ -119,12 +119,12 @@ void main() {
 
       final manifestBody = await _httpGetString(loopback);
       final loopbackUri = Uri.parse(loopback);
-      final base =
-          'http://127.0.0.1:${loopbackUri.port}/hls/${loopbackUri.pathSegments[1]}';
-      expect(manifestBody, contains('$base/cdn/manifest/video/seg0.ts'));
+      final sid = loopbackUri.pathSegments[1];
+      expect(manifestBody, contains('/hls/$sid/cdn/manifest/video/seg0.ts'));
 
+      final base = 'http://127.0.0.1:${loopbackUri.port}';
       final segBytes =
-          await _httpGetBytes('$base/cdn/manifest/video/seg0.ts');
+          await _httpGetBytes('$base/hls/$sid/cdn/manifest/video/seg0.ts');
       expect(segBytes, equals(segmentBytes));
     });
 

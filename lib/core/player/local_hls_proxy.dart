@@ -210,7 +210,7 @@ class LocalHlsProxy {
     required String sessionOrigin,
     required String upstreamUrl,
   }) {
-    final sessionHost = Uri.parse(sessionOrigin).host;
+    final sessionAuthority = Uri.parse(sessionOrigin).authority;
     final upstreamUri = Uri.parse(upstreamUrl);
 
     String rewriteUrl(String raw) {
@@ -224,10 +224,10 @@ class LocalHlsProxy {
         return '$base/$trimmed';
       }
       final query = abs.hasQuery ? '?${abs.query}' : '';
-      if (abs.host == sessionHost) {
+      if (abs.authority == sessionAuthority) {
         return '$base${abs.path}$query';
       }
-      final tag = _b64UrlEncode(abs.host);
+      final tag = _b64UrlEncode(abs.authority);
       return '$base/_h/$tag${abs.path}$query';
     }
 
