@@ -9,6 +9,8 @@ class ProviderModel extends ProviderEntity {
     required super.description,
     required super.domains,
     super.mode,
+    super.category,
+    super.requiresCfBypass,
     super.extractor,
   });
 
@@ -30,6 +32,10 @@ class ProviderModel extends ProviderEntity {
           .map((e) => e as String)
           .toList(),
       mode: json['mode'] as String? ?? 'server',
+      category: (json['category'] as String?)?.trim().isNotEmpty == true
+          ? json['category'] as String
+          : 'other',
+      requiresCfBypass: json['requiresCfBypass'] == true,
       extractor: _parseExtractor(json['extractor']),
     );
   }

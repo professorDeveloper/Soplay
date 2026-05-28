@@ -473,7 +473,7 @@ class _ProvidersSection extends StatelessWidget {
   }
 }
 
-class _ProvidersSheet extends StatelessWidget {
+class _ProvidersSheet extends StatefulWidget {
   const _ProvidersSheet({required this.initialSize, required this.maxSize});
 
   final double initialSize;
@@ -483,9 +483,10 @@ class _ProvidersSheet extends StatelessWidget {
     final screenH = MediaQuery.sizeOf(context).height;
     const rowH = 64.0;
     const gap = 8.0;
-    final contentH = count * rowH + (count - 1) * gap + 150;
-    final initial = (contentH / screenH).clamp(0.3, 0.85);
-    final max = count >= 6 ? 0.9 : initial;
+    // Chip row adds ~56px on top of the prior layout estimate.
+    final contentH = count * rowH + (count - 1) * gap + 200;
+    final initial = (contentH / screenH).clamp(0.35, 0.85);
+    final max = count >= 6 ? 0.92 : initial;
 
     showModalBottomSheet<void>(
       context: context,
@@ -499,13 +500,22 @@ class _ProvidersSheet extends StatelessWidget {
   }
 
   @override
+  State<_ProvidersSheet> createState() => _ProvidersSheetState();
+}
+
+class _ProvidersSheetState extends State<_ProvidersSheet> {
+  // 'all' means no filter; otherwise it's a category id from the backend
+  // (`tmdb`, `anime`, `movies`, `other`).
+  String _selectedCategory = 'all';
+
+  @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
     return DraggableScrollableSheet(
-      initialChildSize: initialSize,
-      minChildSize: initialSize.clamp(0.3, 0.92),
-      maxChildSize: maxSize,
+      initialChildSize: widget.initialSize,
+      minChildSize: widget.initialSize.clamp(0.35, 0.92),
+      maxChildSize: widget.maxSize,
       expand: false,
       builder: (ctx, scrollController) => Container(
         decoration: BoxDecoration(
@@ -520,16 +530,32 @@ class _ProvidersSheet extends StatelessWidget {
                 _SheetHeader(
                   title: 'Choose Provider',
                   subtitle: state is ProviderLoaded
-                      ? '${state.providers.length} available'
+                      ? '${_filteredProviders(state.providers).length} of ${state.providers.length} shown'
                       : null,
                 ),
+                if (state is ProviderLoaded) ...[
+                  _CategoryChipsRow(
+                    providers: state.providers,
+                    selected: _selectedCategory,
+                    onSelected: (cat) =>
+                        setState(() => _selectedCategory = cat),
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 Expanded(
                   child: switch (state) {
-                    ProviderLoaded() => _ProvidersList(
-                      state: state,
-                      scrollController: scrollController,
-                      bottomPad: bottomPad,
-                    ),
+                    ProviderLoaded() => () {
+                      final filtered = _filteredProviders(state.providers);
+                      if (filtered.isEmpty) {
+                        return const _ProvidersEmpty();
+                      }
+                      return _ProvidersList(
+                        providers: filtered,
+                        currentProviderId: state.currentProviderId,
+                        scrollController: scrollController,
+                        bottomPad: bottomPad,
+                      );
+                    }(),
                     ProviderError() => _ProvidersError(
                       onRetry: () => context.read<ProviderBloc>().add(
                         const ProviderLoad(),
@@ -545,16 +571,167 @@ class _ProvidersSheet extends StatelessWidget {
       ),
     );
   }
+
+  List<ProviderEntity> _filteredProviders(List<ProviderEntity> all) {
+    if (_selectedCategory == 'all') return all;
+    return all.where((p) => p.category == _selectedCategory).toList();
+  }
+}
+
+/// Horizontal scrollable category chip row. The "All" chip is always first;
+/// the rest are derived from the providers list (preserving the canonical
+/// order tmdb → anime → movies → other so the layout stays stable).
+class _CategoryChipsRow extends StatelessWidget {
+  const _CategoryChipsRow({
+    required this.providers,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<ProviderEntity> providers;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  static const _canonicalOrder = ['tmdb', 'anime', 'movies', 'other'];
+
+  // (label, icon)
+  static const _meta = <String, (String, IconData)>{
+    'all':    ('All',    Icons.apps_rounded),
+    'tmdb':   ('Movies & TV', Icons.movie_outlined),
+    'anime':  ('Anime',  Icons.auto_awesome_outlined),
+    'movies': ('Local',  Icons.public_off_outlined),
+    'other':  ('Other',  Icons.more_horiz_rounded),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    // Count per category and only show chips with at least one provider.
+    final counts = <String, int>{};
+    for (final p in providers) {
+      counts[p.category] = (counts[p.category] ?? 0) + 1;
+    }
+    final available = _canonicalOrder.where(counts.containsKey).toList();
+    // Hide the chip row entirely if there's only one category (or none).
+    if (available.length < 2) return const SizedBox.shrink();
+
+    final chips = <Widget>[
+      _CategoryChip(
+        label: _meta['all']!.$1,
+        icon: _meta['all']!.$2,
+        count: providers.length,
+        selected: selected == 'all',
+        onTap: () => onSelected('all'),
+      ),
+      ...available.map((cat) {
+        final meta = _meta[cat] ?? (cat, Icons.label_outline);
+        return _CategoryChip(
+          label: meta.$1,
+          icon: meta.$2,
+          count: counts[cat] ?? 0,
+          selected: selected == cat,
+          onTap: () => onSelected(cat),
+        );
+      }),
+    ];
+
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: chips.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, i) => chips[i],
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.label,
+    required this.icon,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? Colors.white : AppColors.textSecondary;
+    final bg = selected ? AppColors.primary : AppColors.surfaceVariant;
+    final borderColor =
+        selected ? AppColors.primary : AppColors.textHint.withValues(alpha: 0.25);
+
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: borderColor, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: fg),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: fg,
+                  fontSize: 12.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? Colors.white.withValues(alpha: 0.22)
+                      : AppColors.textHint.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ProvidersList extends StatelessWidget {
   const _ProvidersList({
-    required this.state,
+    required this.providers,
+    required this.currentProviderId,
     required this.scrollController,
     required this.bottomPad,
   });
 
-  final ProviderLoaded state;
+  final List<ProviderEntity> providers;
+  final String currentProviderId;
   final ScrollController scrollController;
   final double bottomPad;
 
@@ -563,11 +740,11 @@ class _ProvidersList extends StatelessWidget {
     return ListView.separated(
       controller: scrollController,
       padding: EdgeInsets.fromLTRB(16, 4, 16, bottomPad + 16),
-      itemCount: state.providers.length,
+      itemCount: providers.length,
       separatorBuilder: (context, i) => const SizedBox(height: 8),
       itemBuilder: (context, i) {
-        final provider = state.providers[i];
-        final selected = provider.id == state.currentProviderId;
+        final provider = providers[i];
+        final selected = provider.id == currentProviderId;
         return _ProviderListTile(
           provider: provider,
           selected: selected,
@@ -577,6 +754,47 @@ class _ProvidersList extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+class _ProvidersEmpty extends StatelessWidget {
+  const _ProvidersEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search_off_rounded,
+              size: 44,
+              color: AppColors.textHint.withValues(alpha: 0.7),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'No providers in this category',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Try selecting "All" to see every provider',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textHint.withValues(alpha: 0.85),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -641,6 +859,10 @@ class _ProviderListTile extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           _ProviderModeBadge(mode: provider.mode),
+                          if (provider.requiresCfBypass) ...[
+                            const SizedBox(width: 4),
+                            const _CfBypassBadge(),
+                          ],
                         ],
                       ),
                       if (provider.description.isNotEmpty) ...[
@@ -717,6 +939,42 @@ class _ProviderModeBadge extends StatelessWidget {
           fontWeight: FontWeight.w700,
           letterSpacing: 0.4,
         ),
+      ),
+    );
+  }
+}
+
+/// Hint that the provider sits behind a Cloudflare challenge — the
+/// CfBypassInterceptor will silently solve it on first use, so the first call
+/// of the session may take a few extra seconds.
+class _CfBypassBadge extends StatelessWidget {
+  const _CfBypassBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFFF38020); // Cloudflare orange
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 0.8),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.shield_outlined, size: 9, color: color),
+          SizedBox(width: 3),
+          Text(
+            'CF',
+            style: TextStyle(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
       ),
     );
   }

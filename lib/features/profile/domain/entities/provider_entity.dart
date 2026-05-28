@@ -20,6 +20,8 @@ class ProviderEntity {
   final String description;
   final List<String> domains;
   final String mode;
+  final String category;
+  final bool requiresCfBypass;
   final ExtractorRef? extractor;
 
   const ProviderEntity({
@@ -30,6 +32,8 @@ class ProviderEntity {
     required this.description,
     required this.domains,
     this.mode = 'server',
+    this.category = 'other',
+    this.requiresCfBypass = false,
     this.extractor,
   });
 
