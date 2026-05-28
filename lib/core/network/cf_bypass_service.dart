@@ -73,12 +73,12 @@ class CfBypassService {
         final cookies = await CookieManager.instance()
             .getCookies(url: WebUri('https://$host/'));
         final hasClearance = cookies.any(
-          (c) => c.name == 'cf_clearance' && (c.value as String?)?.isNotEmpty == true,
+          (c) => c.name == 'cf_clearance' && '${c.value}'.isNotEmpty,
         );
         if (!hasClearance) return;
 
         final header = cookies
-            .where((c) => (c.value as String?)?.isNotEmpty == true)
+            .where((c) => '${c.value}'.isNotEmpty)
             .map((c) => '${c.name}=${c.value}')
             .join('; ');
         if (!completer.isCompleted) completer.complete(header);

@@ -6,6 +6,8 @@ import 'package:soplay/core/js/extractor_remote.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/core/network/auth_interceptor.dart';
+import 'package:soplay/core/network/cf_bypass_interceptor.dart';
+import 'package:soplay/core/network/cf_bypass_service.dart';
 import 'package:soplay/core/network/dio_client.dart';
 import 'package:soplay/core/network/logging_interceptor.dart';
 import 'package:soplay/core/network/no_internet_interceptor.dart';
@@ -110,6 +112,13 @@ Future<void> configureDependencies() async {
         }
       },
     ),
+  );
+  // Cloudflare 428 challenges are solved in a hidden WebView, cached
+  // server-side, and the original request is retried — all transparent
+  // to the rest of the app.
+  getIt.registerSingleton<CfBypassService>(CfBypassService());
+  dio.interceptors.add(
+    CfBypassInterceptor(dio: dio, service: getIt<CfBypassService>()),
   );
   getIt.registerSingleton<Dio>(dio);
 
