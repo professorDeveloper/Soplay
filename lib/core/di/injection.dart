@@ -5,6 +5,8 @@ import 'package:soplay/core/js/extractor_cache.dart';
 import 'package:soplay/core/js/extractor_remote.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/js/provider_registry.dart';
+import 'package:soplay/core/extractor/extractor_runner.dart';
+import 'package:soplay/core/extractor/provider_manager.dart';
 import 'package:soplay/core/network/auth_interceptor.dart';
 import 'package:soplay/core/network/cf_bypass_interceptor.dart';
 import 'package:soplay/core/network/cf_bypass_service.dart';
@@ -153,6 +155,18 @@ Future<void> configureDependencies() async {
       cache: getIt<ExtractorCache>(),
       dartFetch: getIt<DartFetch>(),
       providers: getIt<ProviderRegistry>(),
+    ),
+  );
+  getIt.registerLazySingleton<ExtractorRunner>(
+    () => ExtractorRunner(dio: getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<ProviderManager>(
+    () => ProviderManager(
+      detailDataSource: getIt<DetailDataSource>(),
+      homeDataSource: getIt<HomeDataSource>(),
+      searchDataSource: getIt<SearchDataSource>(),
+      extractor: getIt<ExtractorRunner>(),
+      hiveService: getIt<HiveService>(),
     ),
   );
   getIt.registerSingleton<HomeRepository>(
@@ -331,6 +345,7 @@ Future<void> configureDependencies() async {
     () => ProviderBloc(
       useCase: getIt<GetProvidersUseCase>(),
       hiveService: getIt<HiveService>(),
+      providerManager: getIt<ProviderManager>(),
     ),
   );
   getIt.registerFactory(

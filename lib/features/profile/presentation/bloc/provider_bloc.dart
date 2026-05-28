@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/extractor/provider_manager.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.dart';
@@ -9,9 +10,13 @@ import 'provider_state.dart';
 class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
   final GetProvidersUseCase useCase;
   final HiveService hiveService;
+  final ProviderManager providerManager;
 
-  ProviderBloc({required this.useCase, required this.hiveService})
-    : super(ProviderInitial()) {
+  ProviderBloc({
+    required this.useCase,
+    required this.hiveService,
+    required this.providerManager,
+  }) : super(ProviderInitial()) {
     on<ProviderLoad>(_onLoad);
     on<ProviderSelect>(_onSelect);
   }
@@ -40,6 +45,8 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         if (resolvedId != hiveService.getCurrentProvider()) {
           await hiveService.saveCurrentProvider(resolvedId);
         }
+
+        providerManager.updateProviders(providers);
 
         emit(
           ProviderLoaded(providers: providers, currentProviderId: resolvedId),

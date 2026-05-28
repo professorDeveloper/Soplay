@@ -409,10 +409,11 @@ class _PlayerPageState extends State<PlayerPage>
     final lang = _resolveLangForEpisode(ep);
 
     final resolveSw = Stopwatch()..start();
+    final provider = widget.args.provider;
     debugPrint('[PLAYER] resolving ref=${ep.mediaRef} lang=$lang');
     final result = await _resolve(
       ref: ep.mediaRef,
-      provider: widget.args.provider,
+      provider: provider,
       lang: lang,
     );
     debugPrint(
@@ -647,7 +648,9 @@ class _PlayerPageState extends State<PlayerPage>
         uri,
         httpHeaders: mergedHeaders,
         formatHint: isHls ? VideoFormat.hls : null,
-        videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
+        videoPlayerOptions: VideoPlayerOptions(
+          allowBackgroundPlayback: false,
+        ),
       );
       _headers = mergedHeaders;
     }

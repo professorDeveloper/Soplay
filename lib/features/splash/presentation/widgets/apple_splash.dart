@@ -120,7 +120,7 @@ class _AppleSplashState extends State<AppleSplash>
                           );
                         },
                         child: const Text(
-                          'soplay',
+                          'sozo read',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 56,
