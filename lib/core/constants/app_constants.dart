@@ -1,9 +1,22 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:convert';
 
 class AppConstants {
   AppConstants._();
 
-  static String get baseUrl => dotenv.env['BASE_URL'] ?? '';
+  static String? _baseUrl;
+  static String get baseUrl => _baseUrl ??= _decode(_obf);
+
+  static const String _obf = 'G0QuQCxKHkE+G1oKMEMJHAAlF1wcRnRdOl9QHjY=';
+
+  static String _decode(String payload) {
+    final key = utf8.encode(
+      String.fromCharCodes('1v_a2f9_y3k_n1p_0Z0s'.codeUnits.reversed),
+    );
+    final bytes = base64.decode(payload);
+    return utf8.decode(
+      List<int>.generate(bytes.length, (i) => bytes[i] ^ key[i % key.length]),
+    );
+  }
   static const String authBox = 'auth_box';
   static const String settingsBox = 'settings_box';
   static const String historyBox = 'history_box';
@@ -38,4 +51,7 @@ class AppConstants {
   static const String appLockPinSaltSecureKey = 'app_lock_pin_salt';
 
   static const String subtitleStyleKey = 'subtitle_style';
+
+  static const String streakBox = 'streak_box';
+  static const String streakStateKey = 'streak_state';
 }

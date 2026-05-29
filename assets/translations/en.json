@@ -212,5 +212,28 @@
     "opt_in_body_ios": "Sozo links open in the app automatically. If a link opens in Safari, long-press it and choose \"Open in Sozo\".",
     "opt_in_enable": "Enable",
     "opt_in_later": "Later"
+  },
+  "streak": {
+    "section_label": "STREAK",
+    "empty_title": "Start a streak",
+    "empty_subtitle": "Watch one episode today to begin your daily streak.",
+    "current_n_days": "{} days",
+    "locked_today": "Today's locked in. Come back tomorrow!",
+    "keep_going": "Keep your streak alive — don't forget to watch today.",
+    "risk_subtitle": "Your streak resets at midnight. Watch something now to save it.",
+    "record_label": "Best",
+    "next_milestone": "Next goal",
+    "weekday_mon": "Mon",
+    "weekday_tue": "Tue",
+    "weekday_wed": "Wed",
+    "weekday_thu": "Thu",
+    "weekday_fri": "Fri",
+    "weekday_sat": "Sat",
+    "weekday_sun": "Sun",
+    "milestone_title": "{}-day streak!",
+    "milestone_subtitle": "Incredible consistency. Keep showing up and set a new personal best.",
+    "share_text": "Hit a {}-day streak on Sozo! 🔥",
+    "cta_continue": "Continue",
+    "cta_share": "Share"
   }
 }

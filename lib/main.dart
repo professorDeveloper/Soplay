@@ -19,10 +19,8 @@ import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 
 import 'app.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
-  await dotenv.load(fileName: ".env");
   WidgetsFlutterBinding.ensureInitialized();
   await Future.wait([
     EasyLocalization.ensureInitialized(),
@@ -68,6 +66,7 @@ Future<void> _initHive() async {
     Hive.openBox(AppConstants.historyBox),
     Hive.openBox(AppConstants.downloadBox),
     Hive.openBox(AppConstants.extractorsBox),
+    Hive.openBox(AppConstants.streakBox),
   ]);
 }
 

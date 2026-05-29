@@ -11,6 +11,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
+import 'package:soplay/features/streak/presentation/widgets/streak_badge.dart';
 
 class HomeTopBar extends StatelessWidget {
   const HomeTopBar({super.key, required this.blurProgress});
@@ -37,6 +38,7 @@ class HomeTopBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
+          const StreakBadge(),
           _TopBarIcon(
             icon: Icons.search_rounded,
             onTap: () => getIt<NavController>().goTo(1),

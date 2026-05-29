@@ -19,6 +19,8 @@ import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
+import 'package:soplay/features/streak/data/streak_service.dart';
+import 'package:soplay/features/streak/presentation/dialogs/streak_milestone_dialog.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/history/data/history_service.dart';
@@ -136,6 +138,7 @@ class _PlayerPageState extends State<PlayerPage>
   int _retryAttempts = 0;
   bool _autoRetrying = false;
   final Stopwatch _playbackWatch = Stopwatch();
+  bool _streakPingScheduled = false;
 
   @override
   void initState() {
@@ -828,6 +831,14 @@ class _PlayerPageState extends State<PlayerPage>
         l.contains('renderer');
   }
 
+  Future<void> _pingStreak() async {
+    try {
+      final milestone = await getIt<StreakService>().ping();
+      if (milestone == null || !mounted) return;
+      await StreakMilestoneDialog.show(context, milestone);
+    } catch (_) {}
+  }
+
   void _onMajorChange() {
     final c = _controller;
     if (c == null) return;
@@ -868,6 +879,10 @@ class _PlayerPageState extends State<PlayerPage>
         _playbackWatch.stop();
         _saveHistory();
       }
+    }
+    if (!_streakPingScheduled && _playbackWatch.elapsed.inSeconds >= 60) {
+      _streakPingScheduled = true;
+      _pingStreak();
     }
     if (v.isBuffering != _wasBuffering) {
       _wasBuffering = v.isBuffering;

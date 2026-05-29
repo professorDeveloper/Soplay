@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_bloc.dart';
@@ -60,6 +61,8 @@ class _MyAppState extends State<MyApp> {
       case 'admin_broadcast':
       case 'admin_direct':
         router.push('/notifications');
+      case 'streak_risk':
+        getIt<NavController>().goTo(4);
       default:
         router.push('/notifications');
     }
@@ -67,7 +70,6 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    print(AppConstants.baseUrl);
     return MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>.value(value: getIt<AuthBloc>()),

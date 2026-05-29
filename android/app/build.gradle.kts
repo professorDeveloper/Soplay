@@ -54,9 +54,13 @@ android {
             // 3. Debug imzosini "release" imzosiga almashtirish
             signingConfig = signingConfigs.getByName("release")
 
-            // Ilovani optimizatsiya qilish (ixtiyoriy)
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // Ilovani optimizatsiya qilish (R8 + resurs siqish)
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }

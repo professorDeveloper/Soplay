@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
+import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 
@@ -10,33 +12,79 @@ class HistorySection extends StatelessWidget {
 
   final List<HistoryItem> items;
 
+  static const double _completedThreshold = 0.95;
+
+  List<HistoryItem> _continueWatching() {
+    final byContent = <String, HistoryItem>{};
+    for (final item in items) {
+      if (item.progress >= _completedThreshold && !item.isSerial) continue;
+      final existing = byContent[item.contentUrl];
+      if (existing == null || item.watchedAt > existing.watchedAt) {
+        byContent[item.contentUrl] = item;
+      }
+    }
+    final sorted = byContent.values.toList()
+      ..sort((a, b) => b.watchedAt.compareTo(a.watchedAt));
+    return sorted;
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SizedBox.shrink();
+    final filtered = _continueWatching();
+    if (filtered.isEmpty) return const SizedBox.shrink();
+    final visible = filtered.length > 20 ? filtered.sublist(0, 20) : filtered;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(17, 18, 16, 14),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(17, 18, 12, 14),
             child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.history_rounded,
                   color: AppColors.textSecondary,
                   size: 18,
                 ),
-                SizedBox(width: 8),
-                Text(
-                  'Continue Watching',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    height: 1.1,
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Continue Watching',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
                   ),
                 ),
+                if (filtered.length > visible.length || filtered.length >= 3)
+                  TextButton(
+                    onPressed: () => context.push('/history'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'View all',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Icon(Icons.chevron_right_rounded, size: 18),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -45,8 +93,8 @@ class HistorySection extends StatelessWidget {
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: items.length > 20 ? 20 : items.length,
-              itemBuilder: (_, i) => _HistoryCard(item: items[i]),
+              itemCount: visible.length,
+              itemBuilder: (_, i) => _HistoryCard(item: visible[i]),
             ),
           ),
         ],
@@ -60,22 +108,104 @@ class _HistoryCard extends StatelessWidget {
 
   final HistoryItem item;
 
+  void _openDetail(BuildContext context) {
+    if (item.contentUrl.isEmpty) return;
+    context.push(
+      '/detail',
+      extra: DetailArgs(
+        contentUrl: item.contentUrl,
+        autoPlay: true,
+        resumeEpisodeIndex: item.episodeIndex,
+        provider: item.provider,
+      ),
+    );
+  }
+
+  Future<void> _showActions(BuildContext context) async {
+    final action = await showModalBottomSheet<_HistoryAction>(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textSecondary.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(
+                Icons.play_arrow_rounded,
+                color: AppColors.primary,
+              ),
+              title: const Text(
+                'Resume',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () => Navigator.of(sheetCtx).pop(_HistoryAction.resume),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+              ),
+              title: const Text(
+                'Remove from continue watching',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () => Navigator.of(sheetCtx).pop(_HistoryAction.remove),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    switch (action) {
+      case _HistoryAction.resume:
+        _openDetail(context);
+      case _HistoryAction.remove:
+        await getIt<HistoryService>().remove(item.storageKey);
+      case null:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        if (item.contentUrl.isNotEmpty) {
-          context.push(
-            '/detail',
-            extra: DetailArgs(
-              contentUrl: item.contentUrl,
-              autoPlay: true,
-              resumeEpisodeIndex: item.episodeIndex,
-              provider: item.provider,
-            ),
-          );
-        }
-      },
+      onTap: () => _openDetail(context),
+      onLongPress: () => _showActions(context),
       child: SizedBox(
         width: 150,
         child: Padding(
@@ -94,7 +224,6 @@ class _HistoryCard extends StatelessWidget {
                         borderRadius: BorderRadius.zero,
                         placeholderIcon: Icons.movie_outlined,
                       ),
-                      // Dark gradient at bottom
                       const Positioned(
                         left: 0,
                         right: 0,
@@ -115,7 +244,6 @@ class _HistoryCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // Episode label
                       if (item.isSerial && item.episodeNumber != null)
                         Positioned(
                           top: 6,
@@ -140,14 +268,13 @@ class _HistoryCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      // Play icon
                       Positioned(
                         right: 8,
                         bottom: 12,
                         child: Container(
                           width: 28,
                           height: 28,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             color: AppColors.primary,
                             shape: BoxShape.circle,
                           ),
@@ -158,7 +285,6 @@ class _HistoryCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // Progress bar
                       if (item.progress > 0)
                         Positioned(
                           left: 0,
@@ -209,3 +335,5 @@ class _HistoryCard extends StatelessWidget {
     );
   }
 }
+
+enum _HistoryAction { resume, remove }

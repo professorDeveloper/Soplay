@@ -16,6 +16,7 @@ import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
+import 'package:soplay/features/streak/presentation/widgets/streak_card.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
@@ -111,6 +112,8 @@ class _ProfileViewState extends State<_ProfileView> {
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                const SliverToBoxAdapter(child: StreakCard()),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(child: _ProvidersSection()),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(child: _WatchHistorySection()),

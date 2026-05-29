@@ -17,6 +17,8 @@ import 'package:soplay/core/network/no_internet_interceptor.dart';
 import 'package:soplay/core/network/provider_interceptor.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/streak/data/streak_remote_data_source.dart';
+import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/auth/domain/usecases/register_usecase.dart';
@@ -155,6 +157,15 @@ Future<void> configureDependencies() async {
     cfService:  getIt<CfBypassService>(),
     backendDio: getIt<Dio>(),
   ));
+  getIt.registerSingleton<StreakRemoteDataSource>(
+    StreakRemoteDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<StreakService>(
+    StreakService(
+      remote: getIt<StreakRemoteDataSource>(),
+      hive: getIt<HiveService>(),
+    ),
+  );
   getIt.registerLazySingleton<LocalHlsProxy>(
     () => LocalHlsProxy(getIt<DartFetch>().dio),
   );

@@ -212,5 +212,28 @@
     "opt_in_body_ios": "Sozo havolalari ilovada avtomatik ochiladi. Agar Safari ichida ochilsa, manzilni uzun bosib \"Sozo ilovasida ochish\"ni tanlang.",
     "opt_in_enable": "Yoqish",
     "opt_in_later": "Keyinroq"
+  },
+  "streak": {
+    "section_label": "STREAK",
+    "empty_title": "Streak'ni boshlang",
+    "empty_subtitle": "Bugun bir epizod ko'ring va kunlik seriyani boshlang.",
+    "current_n_days": "{} kun",
+    "locked_today": "Bugun saqlangan. Ertaga davom eting!",
+    "keep_going": "Streak'ni davom ettiring. Bugun ham ko'rishni unutmang.",
+    "risk_subtitle": "Bugun tunda streak yo'qoladi. Hozir bir epizod yoqing.",
+    "record_label": "Rekord",
+    "next_milestone": "Keyingi belgi",
+    "weekday_mon": "Du",
+    "weekday_tue": "Se",
+    "weekday_wed": "Ch",
+    "weekday_thu": "Pa",
+    "weekday_fri": "Ju",
+    "weekday_sat": "Sh",
+    "weekday_sun": "Ya",
+    "milestone_title": "{}-kunlik streak!",
+    "milestone_subtitle": "Ajoyib davomiylik. O'tkazib yubormay, yangi rekord o'rnatishga davom eting.",
+    "share_text": "Sozo'da {}-kunlik streak yig'dim! 🔥",
+    "cta_continue": "Davom etish",
+    "cta_share": "Ulashish"
   }
 }
