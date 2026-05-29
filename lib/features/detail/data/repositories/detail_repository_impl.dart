@@ -145,19 +145,10 @@ class DetailRepositoryImpl implements DetailRepository {
   Future<Result<MediaResolveEntity>> _postProcess(
     MediaResolveEntity media,
   ) async {
-    if (media.type != 'webview-extract') return Success(media);
-
-    // Anti-scraping providers (uzmovi.net) sign every CDN request in-page
-    // with rotating per-call tokens we cannot replicate from outside the
-    // page's JS. We tried: raw HTTP w/ captured headers (works for master,
-    // fails for .ts), local proxy + active WebView bridge (worked for ~10
-    // sec then signing state exhausted), fullscreen iframe (UX rejected).
-    // No clean integration is currently possible — surface a clear error
-    // until either the upstream signing is reverse-engineered or uzmovi is
-    // removed from the catalog.
-    return Failure(Exception(
-      'Bu provider video ko\'rishni qo\'llab-quvvatlamaydi',
-    ));
+    // No special post-processing currently. webview-extract was used by
+    // uzmovi which has been removed — kept here as a no-op pass-through so
+    // future webview-extract providers (if any) don't break the flow.
+    return Success(media);
   }
 
   String _normalizeJsError(Object error) {
