@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
+import 'package:soplay/core/player/webview_stream_extractor.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/detail/data/datasources/detail_data_source.dart';
 import 'package:soplay/features/detail/data/models/detail_model.dart';
@@ -16,11 +17,13 @@ class DetailRepositoryImpl implements DetailRepository {
   final DetailDataSource dataSource;
   final JsRuntimeService? jsRuntime;
   final HiveService? hive;
+  final WebViewStreamExtractor? webViewExtractor;
 
   const DetailRepositoryImpl(
     this.dataSource, {
     this.jsRuntime,
     this.hive,
+    this.webViewExtractor,
   });
 
   String? _resolveProvider(String? provider) {
@@ -106,7 +109,7 @@ class DetailRepositoryImpl implements DetailRepository {
           lang: lang,
         );
         if (map != null) {
-          return Success(MediaResolveModel.fromJson(map));
+          return _postProcess(MediaResolveModel.fromJson(map));
         }
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] JS path failed: $e');
@@ -115,7 +118,7 @@ class DetailRepositoryImpl implements DetailRepository {
     }
 
     try {
-      return Success(
+      return _postProcess(
         await dataSource.resolveMedia(
           ref: ref,
           provider: provider,
@@ -136,6 +139,40 @@ class DetailRepositoryImpl implements DetailRepository {
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
+  }
+
+  Future<Result<MediaResolveEntity>> _postProcess(
+    MediaResolveEntity media,
+  ) async {
+    if (media.type != 'webview-extract') return Success(media);
+
+    final config = media.extractor;
+    final extractor = webViewExtractor;
+    if (config == null || extractor == null || media.videoUrl.isEmpty) {
+      return Failure(Exception('Video manbasi topilmadi'));
+    }
+
+    final stream = await extractor.extract(
+      pageUrl: media.videoUrl,
+      config: config,
+      pageHeaders: media.headers,
+    );
+    if (stream == null) {
+      return Failure(Exception('Video manbasini olishda xatolik'));
+    }
+
+    return Success(
+      MediaResolveEntity(
+        videoUrl: stream.url,
+        headers: stream.headers,
+        type: stream.playType,
+        videoSources: media.videoSources,
+        languagesAvailable: media.languagesAvailable,
+        activeLang: media.activeLang,
+        subtitles: media.subtitles,
+        thumbnails: media.thumbnails,
+      ),
+    );
   }
 
   String _normalizeJsError(Object error) {

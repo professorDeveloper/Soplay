@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
+const Color _ember = Color(0xFFFFA94D);
+const Color _emberDeep = Color(0xFFEF7A35);
+const Color _emberSoft = Color(0xFFFFC078);
+
 /// Celebration shown when the user crosses a milestone (7 / 30 / 100 / 365…).
 /// Lightweight on purpose — a CustomPaint confetti burst, gradient flame, and
 /// two CTAs. Dismiss returns control to the player.
@@ -87,18 +91,18 @@ class _StreakMilestoneDialogState extends State<StreakMilestoneDialog>
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF2A1015), Color(0xFF160A0C)],
+                    colors: [Color(0xFF222222), Color(0xFF161616)],
                   ),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: const Color(0xFFE50914).withValues(alpha: 0.35),
+                    color: _ember.withValues(alpha: 0.22),
                     width: 0.8,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFE50914).withValues(alpha: 0.3),
-                      blurRadius: 40,
-                      spreadRadius: 4,
+                      color: _emberDeep.withValues(alpha: 0.16),
+                      blurRadius: 34,
+                      spreadRadius: 2,
                     ),
                   ],
                 ),
@@ -196,14 +200,14 @@ class _Flame extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: const RadialGradient(
-          colors: [Color(0xFFFFC089), Color(0xFFE50914)],
+          colors: [_emberSoft, _emberDeep],
           stops: [0, 1],
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFE50914).withValues(alpha: 0.5),
-            blurRadius: 30,
-            spreadRadius: 4,
+            color: _emberDeep.withValues(alpha: 0.4),
+            blurRadius: 28,
+            spreadRadius: 2,
           ),
         ],
       ),
@@ -222,11 +226,11 @@ class _ConfettiPainter extends CustomPainter {
 
   static const _seedCount = 36;
   static const _palette = <Color>[
-    Color(0xFFE50914),
-    Color(0xFFFFB97A),
+    Color(0xFFFFA94D),
+    Color(0xFFFFC078),
     Color(0xFFFFD86B),
     Color(0xFFFFFFFF),
-    Color(0xFFFF6A2C),
+    Color(0xFFEF7A35),
   ];
 
   @override

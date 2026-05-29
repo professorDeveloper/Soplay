@@ -16,6 +16,7 @@ import 'package:soplay/core/network/logging_interceptor.dart';
 import 'package:soplay/core/network/no_internet_interceptor.dart';
 import 'package:soplay/core/network/provider_interceptor.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
+import 'package:soplay/core/player/webview_stream_extractor.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/streak/data/streak_remote_data_source.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
@@ -203,11 +204,13 @@ Future<void> configureDependencies() async {
       hive: getIt<HiveService>(),
     ),
   );
+  getIt.registerSingleton<WebViewStreamExtractor>(WebViewStreamExtractor());
   getIt.registerSingleton<DetailRepository>(
     DetailRepositoryImpl(
       getIt<DetailDataSource>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
+      webViewExtractor: getIt<WebViewStreamExtractor>(),
     ),
   );
   getIt.registerSingleton<CommentsDataSource>(

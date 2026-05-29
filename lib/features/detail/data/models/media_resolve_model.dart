@@ -1,6 +1,7 @@
 import 'package:soplay/features/detail/data/models/subtitle_model.dart';
 import 'package:soplay/features/detail/data/models/thumbnails_model.dart';
 import 'package:soplay/features/detail/data/models/video_source_model.dart';
+import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 
 class MediaResolveModel extends MediaResolveEntity {
@@ -13,6 +14,7 @@ class MediaResolveModel extends MediaResolveEntity {
     super.activeLang,
     super.subtitles,
     super.thumbnails,
+    super.extractor,
   });
 
   factory MediaResolveModel.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,32 @@ class MediaResolveModel extends MediaResolveEntity {
       activeLang: _parseActiveLang(json['server']),
       subtitles: subs,
       thumbnails: ThumbnailsModel.fromJson(json['thumbnails']),
+      extractor: _parseExtractor(json['extractor']),
+    );
+  }
+
+  static ExtractorConfigEntity? _parseExtractor(dynamic raw) {
+    if (raw is! Map) return null;
+    final hostPattern = raw['hostPattern'] as String?;
+    if (hostPattern == null || hostPattern.isEmpty) return null;
+    final patterns = (raw['urlPatterns'] as List? ?? const [])
+        .whereType<String>()
+        .toList(growable: false);
+    if (patterns.isEmpty) return null;
+    final headers = (raw['captureHeaders'] as List? ?? const [])
+        .whereType<String>()
+        .toList(growable: false);
+    final timeout = raw['timeoutMs'];
+    final loginUrl = raw['loginUrl'] as String?;
+    final playType = (raw['playType'] as String?)?.toLowerCase();
+    return ExtractorConfigEntity(
+      mode: raw['mode'] as String? ?? 'shouldInterceptRequest',
+      hostPattern: hostPattern,
+      urlPatterns: patterns,
+      captureHeaders: headers,
+      timeoutMs: timeout is num ? timeout.toInt() : 20000,
+      loginUrl: loginUrl != null && loginUrl.isNotEmpty ? loginUrl : null,
+      playType: playType == null || playType.isEmpty ? 'hls' : playType,
     );
   }
 

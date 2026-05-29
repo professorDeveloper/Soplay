@@ -235,5 +235,15 @@
     "share_text": "Sozo'da {}-kunlik streak yig'dim! 🔥",
     "cta_continue": "Davom etish",
     "cta_share": "Ulashish"
+  },
+  "notifications": {
+    "title": "Bildirishnomalar",
+    "mark_all_read": "Hammasini o'qildi",
+    "empty_title": "Hozircha bildirishnoma yo'q",
+    "empty_subtitle": "Yangi narsa kelganda, shu yerda ko'rasiz.",
+    "time_now": "hozir",
+    "time_minutes": "{} daq",
+    "time_hours": "{} soat",
+    "time_days": "{} kun"
   }
 }

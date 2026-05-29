@@ -1,3 +1,4 @@
+import 'extractor_config_entity.dart';
 import 'subtitle_entity.dart';
 import 'thumbnails_entity.dart';
 import 'video_source_entity.dart';
@@ -11,6 +12,7 @@ class MediaResolveEntity {
   final String? activeLang;
   final List<SubtitleEntity> subtitles;
   final ThumbnailsEntity? thumbnails;
+  final ExtractorConfigEntity? extractor;
 
   const MediaResolveEntity({
     required this.videoUrl,
@@ -21,5 +23,6 @@ class MediaResolveEntity {
     this.activeLang,
     this.subtitles = const [],
     this.thumbnails,
+    this.extractor,
   });
 }

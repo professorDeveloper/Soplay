@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
@@ -10,6 +11,7 @@ import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/features/home/domain/entities/hero_slide.dart';
+import 'package:soplay/features/home/domain/entities/home_section_entity.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/home/presentation/widgets/home_banner.dart';
@@ -20,6 +22,17 @@ import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 
 import '../bloc/home/home_state.dart';
 import 'genre_card.dart';
+
+bool _isMyListSection(HomeSectionEntity section) {
+  final hay = '${section.key} ${section.viewAll.type} ${section.viewAll.slug}'
+      .toLowerCase();
+  return hay.contains('my-list') ||
+      hay.contains('mylist') ||
+      hay.contains('my_list') ||
+      hay.contains('favorite') ||
+      hay.contains('favourite') ||
+      hay.contains('watchlist');
+}
 
 class HomeContent extends StatefulWidget {
   const HomeContent({super.key, required this.state});
@@ -203,6 +216,9 @@ class _HomeContentBody extends StatelessWidget {
                             movies: section.items,
                             type: section.viewAll.type,
                             slug: section.viewAll.slug,
+                            onSeeAll: _isMyListSection(section)
+                                ? () => getIt<NavController>().goTo(3)
+                                : null,
                           ),
                         ),
                       ),

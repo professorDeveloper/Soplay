@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -54,15 +55,17 @@ class _NotificationsViewState extends State<_NotificationsView> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/main'),
         ),
-        title: const Text(
-          'Bildirishnomalar',
-          style: TextStyle(color: AppColors.textPrimary),
+        title: Text(
+          'notifications.title'.tr(),
+          style: const TextStyle(color: AppColors.textPrimary),
         ),
         actions: [
           BlocBuilder<NotificationsBloc, NotificationsState>(
@@ -73,9 +76,9 @@ class _NotificationsViewState extends State<_NotificationsView> {
                 onPressed: () => context
                     .read<NotificationsBloc>()
                     .add(const NotificationsMarkAllRead()),
-                child: const Text(
-                  'Hammasini o\'qildi',
-                  style: TextStyle(color: AppColors.primary),
+                child: Text(
+                  'notifications.mark_all_read'.tr(),
+                  style: const TextStyle(color: AppColors.primary),
                 ),
               );
             },
@@ -307,10 +310,16 @@ class _NotificationTile extends StatelessWidget {
   String _formatDate(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return 'hozir';
-    if (diff.inHours < 1) return '${diff.inMinutes} daq';
-    if (diff.inDays < 1) return '${diff.inHours} soat';
-    if (diff.inDays < 7) return '${diff.inDays} kun';
+    if (diff.inMinutes < 1) return 'notifications.time_now'.tr();
+    if (diff.inHours < 1) {
+      return 'notifications.time_minutes'.tr(args: ['${diff.inMinutes}']);
+    }
+    if (diff.inDays < 1) {
+      return 'notifications.time_hours'.tr(args: ['${diff.inHours}']);
+    }
+    if (diff.inDays < 7) {
+      return 'notifications.time_days'.tr(args: ['${diff.inDays}']);
+    }
     return '${dt.day}.${dt.month}.${dt.year}';
   }
 }
@@ -321,17 +330,63 @@ class _EmptyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(Icons.notifications_off_outlined,
-              color: AppColors.textHint, size: 56),
-          SizedBox(height: 12),
-          Text(
-            'Bildirishnomalar yo\'q',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+        builder: (context, t, child) => Opacity(
+          opacity: t.clamp(0, 1),
+          child: Transform.scale(scale: 0.92 + t * 0.08, child: child),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withValues(alpha: 0.07),
+                      Colors.white.withValues(alpha: 0.015),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    width: 0.8,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.notifications_none_rounded,
+                  color: AppColors.textSecondary,
+                  size: 46,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                'notifications.empty_title'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'notifications.empty_subtitle'.tr(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 13,
+                  height: 1.45,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -361,9 +416,9 @@ class _ErrorView extends StatelessWidget {
           const SizedBox(height: 16),
           TextButton(
             onPressed: onRetry,
-            child: const Text(
-              'Qayta urinish',
-              style: TextStyle(color: AppColors.primary),
+            child: Text(
+              'general.retry'.tr(),
+              style: const TextStyle(color: AppColors.primary),
             ),
           ),
         ],

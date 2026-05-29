@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
@@ -343,6 +347,29 @@ class _DetailViewState extends State<_DetailView>
       return;
     }
 
+    if (kDebugMode) {
+      debugPrint(
+        '[DETAIL] movie playback — type=${playback.type} '
+        'playerSrc=${playback.playerSrc} '
+        'sources=${playback.videoSources.length} '
+        'ref=${playback.episodes.isNotEmpty ? playback.episodes.first.mediaRef : '-'}',
+      );
+    }
+
+    final ref =
+        playback.episodes.isNotEmpty ? playback.episodes.first.mediaRef : '';
+    final needsResolve = playback.type == 'webview-extract' ||
+        playback.playerSrc == null ||
+        playback.playerSrc!.isEmpty;
+    if (needsResolve && ref.isNotEmpty) {
+      unawaited(_resolveAndPlayMovie(playback, ref));
+      return;
+    }
+
+    _playMovieDirect(playback);
+  }
+
+  void _playMovieDirect(PlaybackEntity playback) {
     var movieUrl = playback.playerSrc;
     if (movieUrl == null || movieUrl.isEmpty) {
       final sources = playback.videoSources;
@@ -388,6 +415,55 @@ class _DetailViewState extends State<_DetailView>
         thumbnails: playback.thumbnails,
       ),
     );
+  }
+
+  Future<void> _resolveAndPlayMovie(PlaybackEntity playback, String ref) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+    );
+
+    final result = await getIt<ResolveMediaUseCase>()(
+      ref: ref,
+      provider: playback.provider,
+    );
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    switch (result) {
+      case Success(:final value):
+        if (value.videoUrl.isEmpty) {
+          _playMovieDirect(playback);
+          return;
+        }
+        Duration resumePos = Duration.zero;
+        final historyItem =
+            getIt<HistoryService>().get(widget.detail.contentUrl);
+        if (historyItem != null) {
+          resumePos = Duration(milliseconds: historyItem.positionMs);
+        }
+        context.push(
+          '/player',
+          extra: PlayerArgs(
+            title: widget.detail.title,
+            provider: playback.provider,
+            headers: value.headers,
+            contentUrl: widget.detail.contentUrl,
+            thumbnail: widget.detail.thumbnail,
+            movieUrl: value.videoUrl,
+            type: value.type,
+            videoSources: value.videoSources,
+            resumePosition: resumePos,
+            thumbnails: value.thumbnails,
+          ),
+        );
+      case Failure(:final error):
+        _showSnack(error.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   @override

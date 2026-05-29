@@ -117,12 +117,12 @@ class _BadgeBody extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFFF6A2C), Color(0xFFE50914)],
+          colors: [Color(0xFFFFC078), Color(0xFFEF7A35)],
         ),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFE50914).withValues(alpha: 0.35 + pulse * 0.4),
+            color: const Color(0xFFEF7A35).withValues(alpha: 0.28 + pulse * 0.35),
             blurRadius: 10 + glow,
             spreadRadius: 0,
           ),

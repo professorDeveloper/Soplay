@@ -15,6 +15,7 @@ class MovieSection extends StatelessWidget {
     this.isHighlighted = false,
     required this.type,
     required this.slug,
+    this.onSeeAll,
   });
 
   final String title;
@@ -22,6 +23,7 @@ class MovieSection extends StatelessWidget {
   final String slug;
   final List<MovieEntity> movies;
   final bool isHighlighted;
+  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +40,10 @@ class MovieSection extends StatelessWidget {
                 bottomRight: Radius.circular(8),
               ),
               onTap: () {
+                if (onSeeAll != null) {
+                  onSeeAll!();
+                  return;
+                }
                 context.push(
                   '/view-all',
                   extra: ViewAllEntity(type: type, slug: slug, ),

@@ -235,5 +235,15 @@
     "share_text": "На Sozo серия {} дней подряд! 🔥",
     "cta_continue": "Продолжить",
     "cta_share": "Поделиться"
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "mark_all_read": "Прочитать все",
+    "empty_title": "Уведомлений пока нет",
+    "empty_subtitle": "Когда появится что-то новое, вы увидите это здесь.",
+    "time_now": "сейчас",
+    "time_minutes": "{} мин",
+    "time_hours": "{} ч",
+    "time_days": "{} дн"
   }
 }

@@ -235,5 +235,15 @@
     "share_text": "Hit a {}-day streak on Sozo! 🔥",
     "cta_continue": "Continue",
     "cta_share": "Share"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Mark all read",
+    "empty_title": "No notifications yet",
+    "empty_subtitle": "When something new arrives, you'll see it here.",
+    "time_now": "now",
+    "time_minutes": "{} min",
+    "time_hours": "{} h",
+    "time_days": "{} d"
   }
 }

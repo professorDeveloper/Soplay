@@ -22,6 +22,7 @@ import 'package:soplay/features/main/presentation/pages/main_page.dart';
 import 'package:soplay/features/network/presentation/pages/no_internet_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:soplay/features/splash/presentation/pages/splash_page.dart';
+import 'package:soplay/features/streak/presentation/pages/streak_page.dart';
 
 import '../../features/home/presentation/pages/home_view_all_page.dart';
 
@@ -102,6 +103,10 @@ class AppRouter {
       GoRoute(
         path: '/notifications',
         builder: (context, state) => const NotificationsPage(),
+      ),
+      GoRoute(
+        path: '/streak',
+        builder: (context, state) => const StreakPage(),
       ),
       GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
       GoRoute(path: '/main', builder: (context, state) => const MainPage()),
