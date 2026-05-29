@@ -11,7 +11,6 @@ import 'package:soplay/features/detail/data/models/playback_model.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
-import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/repositories/detail_repository.dart';
 
 class DetailRepositoryImpl implements DetailRepository {
