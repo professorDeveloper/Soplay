@@ -11,6 +11,7 @@ import 'package:soplay/features/detail/data/models/playback_model.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
+import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/repositories/detail_repository.dart';
 
 class DetailRepositoryImpl implements DetailRepository {
@@ -146,33 +147,17 @@ class DetailRepositoryImpl implements DetailRepository {
   ) async {
     if (media.type != 'webview-extract') return Success(media);
 
-    final config = media.extractor;
-    final extractor = webViewExtractor;
-    if (config == null || extractor == null || media.videoUrl.isEmpty) {
-      return Failure(Exception('Video manbasi topilmadi'));
-    }
-
-    final stream = await extractor.extract(
-      pageUrl: media.videoUrl,
-      config: config,
-      pageHeaders: media.headers,
-    );
-    if (stream == null) {
-      return Failure(Exception('Video manbasini olishda xatolik'));
-    }
-
-    return Success(
-      MediaResolveEntity(
-        videoUrl: stream.url,
-        headers: stream.headers,
-        type: stream.playType,
-        videoSources: media.videoSources,
-        languagesAvailable: media.languagesAvailable,
-        activeLang: media.activeLang,
-        subtitles: media.subtitles,
-        thumbnails: media.thumbnails,
-      ),
-    );
+    // Anti-scraping providers (uzmovi.net) sign every CDN request in-page
+    // with rotating per-call tokens we cannot replicate from outside the
+    // page's JS. We tried: raw HTTP w/ captured headers (works for master,
+    // fails for .ts), local proxy + active WebView bridge (worked for ~10
+    // sec then signing state exhausted), fullscreen iframe (UX rejected).
+    // No clean integration is currently possible — surface a clear error
+    // until either the upstream signing is reverse-engineered or uzmovi is
+    // removed from the catalog.
+    return Failure(Exception(
+      'Bu provider video ko\'rishni qo\'llab-quvvatlamaydi',
+    ));
   }
 
   String _normalizeJsError(Object error) {

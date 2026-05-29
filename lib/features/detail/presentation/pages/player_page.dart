@@ -19,6 +19,7 @@ import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
+import 'package:soplay/features/detail/presentation/pages/iframe_player_page.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/streak/presentation/dialogs/streak_milestone_dialog.dart';
 import 'package:soplay/features/download/data/download_service.dart';
