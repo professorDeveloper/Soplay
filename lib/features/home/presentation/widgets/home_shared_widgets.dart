@@ -62,14 +62,29 @@ class HomeNetworkImage extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: borderRadius,
-      child: Image.network(
-        imageUrl,
-        fit: fit,
-        width: double.infinity,
-        height: double.infinity,
-        errorBuilder: (_, _, _) => HomeImagePlaceholder(icon: placeholderIcon),
-        loadingBuilder: (_, child, chunk) =>
-            chunk == null ? child : HomeImagePlaceholder(icon: placeholderIcon),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Decode at the on-screen width (× DPR) instead of the source's full
+          // resolution. Posters/banners are small on screen, so this slashes the
+          // decoded-bitmap memory that was OOM-killing the app on heavy home
+          // pages — with no visible quality change.
+          final dpr = MediaQuery.devicePixelRatioOf(context);
+          final w = constraints.maxWidth.isFinite
+              ? (constraints.maxWidth * dpr).round()
+              : null;
+          return Image.network(
+            imageUrl,
+            fit: fit,
+            width: double.infinity,
+            height: double.infinity,
+            cacheWidth: (w != null && w > 0) ? w : null,
+            errorBuilder: (_, _, _) =>
+                HomeImagePlaceholder(icon: placeholderIcon),
+            loadingBuilder: (_, child, chunk) => chunk == null
+                ? child
+                : HomeImagePlaceholder(icon: placeholderIcon),
+          );
+        },
       ),
     );
   }

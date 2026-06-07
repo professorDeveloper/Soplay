@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -25,15 +27,27 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
   bool _busy = false;
   String? _status;
   bool _statusError = false;
+  StreamSubscription<({int current, int total})>? _progressSub;
 
   @override
   void initState() {
     super.initState();
     _refresh();
+    // Live "N / M installed" updates while a repo downloads.
+    _progressSub = CloudStreamChannel.installProgress.listen((p) {
+      if (!mounted || !_busy) return;
+      setState(() {
+        _status = p.total > 0
+            ? 'Installing ${p.current} / ${p.total} plugins…'
+            : 'Installing plugins…';
+        _statusError = false;
+      });
+    });
   }
 
   @override
   void dispose() {
+    _progressSub?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -184,6 +198,7 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
               controller: _controller,
               enabled: !_busy,
               style: const TextStyle(color: Colors.white),
+              onChanged: (_) => setState(() {}), // toggle the clear button
               decoration: InputDecoration(
                 labelText: 'Repo URL',
                 hintText: 'https://…/repo.json',
@@ -194,6 +209,15 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
                 ),
+                suffixIcon: _controller.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear, color: AppColors.textHint),
+                        tooltip: 'Clear',
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() => _controller.clear()),
+                      ),
               ),
               onSubmitted: (_) => _add(),
             ),

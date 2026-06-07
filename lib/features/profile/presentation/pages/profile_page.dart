@@ -457,10 +457,6 @@ class _ProvidersSection extends StatelessWidget {
                   ? state.currentProvider
                   : null;
 
-              final count = state is ProviderLoaded
-                  ? state.providers.length
-                  : 1;
-
               return _SectionCard(
                 children: [
                   _Tile(
@@ -501,8 +497,7 @@ class _ProvidersSection extends StatelessWidget {
                       ],
                     ),
                     onTap: () {
-                      final bloc = context.read<ProviderBloc>();
-                      _ProvidersSheet.show(context, bloc, count);
+                      _ProvidersPage.open(context, context.read<ProviderBloc>());
                     },
                   ),
                 ],
@@ -529,107 +524,142 @@ String providerGroup(ProviderEntity p) {
 /// sheet keeps the same view.
 String _providerSheetFilter = 'all';
 
-class _ProvidersSheet extends StatefulWidget {
-  const _ProvidersSheet({required this.initialSize, required this.maxSize});
+/// Full-screen provider picker (replaces the old bottom sheet) with a search box
+/// and the category filter. A page scrolls long lists (60+ CloudStream
+/// providers) far more comfortably than a draggable sheet.
+class _ProvidersPage extends StatefulWidget {
+  const _ProvidersPage();
 
-  final double initialSize;
-  final double maxSize;
-
-  static void show(BuildContext context, ProviderBloc bloc, int count) {
-    final screenH = MediaQuery.sizeOf(context).height;
-    const rowH = 64.0;
-    const gap = 8.0;
-    // Chip row adds ~56px on top of the prior layout estimate.
-    final contentH = count * rowH + (count - 1) * gap + 200;
-    final initial = (contentH / screenH).clamp(0.45, 0.85);
-    // Allow expanding to (almost) full screen so long lists scroll comfortably.
-    final max = count >= 6 ? 0.97 : initial;
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => BlocProvider.value(
-        value: bloc,
-        child: _ProvidersSheet(initialSize: initial, maxSize: max),
+  static void open(BuildContext context, ProviderBloc bloc) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BlocProvider.value(
+          value: bloc,
+          child: const _ProvidersPage(),
+        ),
       ),
     );
   }
 
   @override
-  State<_ProvidersSheet> createState() => _ProvidersSheetState();
+  State<_ProvidersPage> createState() => _ProvidersPageState();
 }
 
-class _ProvidersSheetState extends State<_ProvidersSheet> {
+class _ProvidersPageState extends State<_ProvidersPage> {
   // Filter group: 'all' | 'cloud' | 'hybrid' | 'local' | 'cloudstream'.
-  // Restored from the session so the sheet reopens on the last-picked filter.
   String _selectedCategory = _providerSheetFilter;
+  final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
-
-    return DraggableScrollableSheet(
-      initialChildSize: widget.initialSize,
-      minChildSize: 0.4,
-      maxChildSize: widget.maxSize,
-      expand: false,
-      snap: true,
-      snapSizes: widget.maxSize > widget.initialSize
-          ? [widget.initialSize, widget.maxSize]
-          : null,
-      builder: (ctx, scrollController) => Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: BlocBuilder<ProviderBloc, ProviderState>(
-          builder: (context, state) {
-            return Column(
-              children: [
-                _SheetHandle(),
-                _SheetHeader(
-                  title: 'Choose Provider',
-                  subtitle: state is ProviderLoaded
-                      ? '${_filteredProviders(state.providers).length} of ${state.providers.length} shown'
-                      : null,
-                  trailing: state is ProviderLoaded
-                      ? _CategoryFilterButton(
-                          providers: state.providers,
-                          selected: _selectedCategory,
-                          onSelected: (cat) => setState(() {
-                            _selectedCategory = cat;
-                            _providerSheetFilter = cat; // remember for next open
-                          }),
-                        )
-                      : null,
-                ),
-                Expanded(
-                  child: switch (state) {
-                    ProviderLoaded() => () {
-                      final filtered = _filteredProviders(state.providers);
-                      if (filtered.isEmpty) {
-                        return const _ProvidersEmpty();
-                      }
-                      return _ProvidersList(
-                        providers: filtered,
-                        currentProviderId: state.currentProviderId,
-                        scrollController: scrollController,
-                        bottomPad: bottomPad,
-                      );
-                    }(),
-                    ProviderError() => _ProvidersError(
-                      onRetry: () => context.read<ProviderBloc>().add(
-                        const ProviderLoad(),
-                      ),
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        // Kill the Material 3 scroll-under tint (it pulls the seed colour and
+        // looked red as content scrolled under the bar).
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        title: const Text('Choose Provider'),
+        actions: [
+          BlocBuilder<ProviderBloc, ProviderState>(
+            builder: (context, state) => state is ProviderLoaded
+                ? Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: _CategoryFilterButton(
+                      providers: state.providers,
+                      selected: _selectedCategory,
+                      onSelected: (cat) => setState(() {
+                        _selectedCategory = cat;
+                        _providerSheetFilter = cat; // remember for next open
+                      }),
                     ),
-                    _ => const _ProvidersLoading(),
-                  },
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+      body: BlocBuilder<ProviderBloc, ProviderState>(
+        builder: (context, state) {
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _query = v.trim()),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Search providers…',
+                    hintStyle: const TextStyle(color: AppColors.textHint),
+                    prefixIcon: const Icon(Icons.search,
+                        color: AppColors.textHint, size: 20),
+                    suffixIcon: _query.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear,
+                                color: AppColors.textHint, size: 20),
+                            onPressed: () => setState(() {
+                              _searchController.clear();
+                              _query = '';
+                            }),
+                          ),
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
                 ),
-              ],
-            );
-          },
-        ),
+              ),
+              if (state is ProviderLoaded)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
+                    child: Text(
+                      '${_filteredProviders(state.providers).length} of ${state.providers.length} shown',
+                      style: const TextStyle(
+                          color: AppColors.textHint, fontSize: 12),
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: switch (state) {
+                  ProviderLoaded() => () {
+                    final filtered = _filteredProviders(state.providers);
+                    if (filtered.isEmpty) return const _ProvidersEmpty();
+                    return _ProvidersList(
+                      providers: filtered,
+                      currentProviderId: state.currentProviderId,
+                      scrollController: _scrollController,
+                      bottomPad: bottomPad,
+                    );
+                  }(),
+                  ProviderError() => _ProvidersError(
+                    onRetry: () =>
+                        context.read<ProviderBloc>().add(const ProviderLoad()),
+                  ),
+                  _ => const _ProvidersLoading(),
+                },
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -637,10 +667,14 @@ class _ProvidersSheetState extends State<_ProvidersSheet> {
   List<ProviderEntity> _filteredProviders(List<ProviderEntity> all) {
     // "All" excludes CloudStream — it has its own filter group. Otherwise match
     // the delivery-mode group (cloud/hybrid/local) or cloudstream.
-    if (_selectedCategory == 'all') {
-      return all.where((p) => providerGroup(p) != 'cloudstream').toList();
+    Iterable<ProviderEntity> list = _selectedCategory == 'all'
+        ? all.where((p) => providerGroup(p) != 'cloudstream')
+        : all.where((p) => providerGroup(p) == _selectedCategory);
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      list = list.where((p) => p.name.toLowerCase().contains(q));
     }
-    return all.where((p) => providerGroup(p) == _selectedCategory).toList();
+    return list.toList();
   }
 }
 
@@ -1520,77 +1554,6 @@ class _SocialIcon extends StatelessWidget {
   }
 }
 
-class _SheetHandle extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12, bottom: 4),
-      child: Container(
-        width: 40,
-        height: 4,
-        decoration: BoxDecoration(
-          color: AppColors.border,
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
-}
-
-class _SheetHeader extends StatelessWidget {
-  const _SheetHeader({required this.title, this.subtitle, this.trailing});
-  final String title;
-  final String? subtitle;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 12, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle!,
-                    style: const TextStyle(
-                      color: AppColors.textHint,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (trailing != null) ...[
-            trailing!,
-            const SizedBox(width: 4),
-          ],
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(
-              Icons.close_rounded,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SectionCard extends StatelessWidget {
   const _SectionCard({required this.children});
   final List<Widget> children;
@@ -1758,6 +1721,10 @@ class _ProviderLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Decode at display size (× DPR), not full resolution. With 60+ provider
+    // tiles sharing the same icon URL this keeps the image cache tiny instead
+    // of holding dozens of full-res bitmaps (a major OOM/jank source).
+    final cache = (size * MediaQuery.devicePixelRatioOf(context)).round();
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: provider.image.isEmpty
@@ -1767,6 +1734,8 @@ class _ProviderLogo extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.cover,
+              cacheWidth: cache,
+              cacheHeight: cache,
               errorBuilder: (_, e, s) =>
                   _ProviderFallback(name: provider.name, size: size),
             ),

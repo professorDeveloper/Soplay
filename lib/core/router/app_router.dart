@@ -40,7 +40,11 @@ class AppRouter {
         builder: (context, state) {
           final args = state.extra as ViewAllEntity;
           final slug = args.slug;
-          final title = slug.isEmpty ? args.type : args.slug;
+          // Prefer the section's real label; fall back to slug/type. Never show a
+          // raw CloudStream API URL (slug) as the title.
+          final title = args.name.isNotEmpty
+              ? args.name
+              : (slug.isEmpty ? args.type : slug);
           return HomeViewAllPage(
             keyCat: args.type,
             slug: args.slug,

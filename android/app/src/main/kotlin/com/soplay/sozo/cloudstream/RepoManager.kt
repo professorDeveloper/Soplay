@@ -61,7 +61,9 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
         if (ensured) return
         ensured = true
         val meta = loadMeta()
+        val names = loadNames()
         for (repo in savedRepos()) {
+            val repoName = names.optString(repo).ifEmpty { fallbackName(repo) }
             val entries = meta.optJSONArray(repo)
             if (entries == null) {
                 // Legacy repo without metadata → load once (also persists metadata).
@@ -75,6 +77,7 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                     e.optString("icon").ifEmpty { null },
                     e.optString("internalName"),
                     e.optString("cs3Path"),
+                    repoName,
                 )
             }
         }
@@ -167,8 +170,8 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
      * Add a repo (url or shortcode): download all plugins, load them, and return
      * the registered provider names. Synchronous network — call off the main thread.
      */
-    fun addRepo(input: String): JSONObject {
-        val result = addRepoInternal(input)
+    fun addRepo(input: String, progress: ((Int, Int) -> Unit)? = null): JSONObject {
+        val result = addRepoInternal(input, progress)
         if (result.optInt("pluginCount") > 0) {
             val repos = savedRepos()
             val v = input.trim()
@@ -183,12 +186,20 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
         return try { java.net.URL(url).host ?: url } catch (_: Throwable) { url }
     }
 
-    private fun addRepoInternal(input: String): JSONObject {
+    private data class PluginRef(
+        val url: String, val internalName: String, val version: Int, val iconUrl: String?,
+    )
+
+    private fun addRepoInternal(input: String, progress: ((Int, Int) -> Unit)? = null): JSONObject {
         val repoUrl = input.trim()
         val info = fetchRepo(repoUrl)
         val providers = JSONArray()
         val metaEntries = JSONArray()
         var pluginCount = 0
+
+        // Gather every plugin descriptor first so the total is known up front and
+        // we can report "downloaded N / M" progress to the install UI.
+        val all = ArrayList<PluginRef>()
         for (listUrl in info.pluginListUrls) {
             val body = httpGet(listUrl) ?: continue
             val plugins = try { JSONArray(body) } catch (t: Throwable) { continue }
@@ -198,20 +209,30 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
                 val internalName = p.optString("internalName").ifEmpty { p.optString("name", "plugin$i") }
                 val version = if (p.has("version")) p.optInt("version") else 0
                 val iconUrl = p.optString("iconUrl").ifEmpty { null }
-                val file = downloadCs3(internalName, version, url) ?: continue
+                all.add(PluginRef(url, internalName, version, iconUrl))
+            }
+        }
+
+        val total = all.size
+        val repoName = info.name ?: fallbackName(repoUrl)
+        progress?.invoke(0, total)
+        for ((index, ref) in all.withIndex()) {
+            val file = downloadCs3(ref.internalName, ref.version, ref.url)
+            if (file != null) {
                 pluginCount++
                 // Load now to discover provider names (one-time on add); persist
                 // metadata so future launches can lazy-load without this cost.
-                host.loadCs3(file, internalName, iconUrl).forEach { name ->
+                host.loadCs3(file, ref.internalName, ref.iconUrl, repoName).forEach { name ->
                     providers.put(name)
                     metaEntries.put(JSONObject().apply {
                         put("provider", name)
-                        if (iconUrl != null) put("icon", iconUrl)
-                        put("internalName", internalName)
+                        if (ref.iconUrl != null) put("icon", ref.iconUrl)
+                        put("internalName", ref.internalName)
                         put("cs3Path", file.absolutePath)
                     })
                 }
             }
+            progress?.invoke(index + 1, total)
         }
         // Persist this repo's provider metadata for lazy loading on next launch.
         val meta = loadMeta(); meta.put(input.trim(), metaEntries); saveMeta(meta)

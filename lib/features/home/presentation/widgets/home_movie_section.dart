@@ -46,7 +46,7 @@ class MovieSection extends StatelessWidget {
                 }
                 context.push(
                   '/view-all',
-                  extra: ViewAllEntity(type: type, slug: slug, ),
+                  extra: ViewAllEntity(type: type, slug: slug, name: title),
                 );
               },
               child: Row(

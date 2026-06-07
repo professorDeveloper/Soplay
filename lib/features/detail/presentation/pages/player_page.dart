@@ -87,6 +87,10 @@ class _PlayerPageState extends State<PlayerPage>
   String? _mediaType;
   Map<String, String> _headers = const {};
   bool _isNetworkVideo = false;
+  // HLS can't be frame-sampled by MediaMetadataRetriever, so the *generated*
+  // preview is skipped for it. Provider-supplied VTT/storyboard thumbnails
+  // (e.g. anikai) are images and still show on HLS via `_thumbnailAt`.
+  bool _isHls = false;
   List<VideoSourceEntity> _videoSources = const [];
   int _currentSourceIndex = -1;
   bool _autoFallbackUsed = false;
@@ -637,7 +641,8 @@ class _PlayerPageState extends State<PlayerPage>
     final stopwatch = Stopwatch()..start();
     final isFileUri = url.startsWith('file://');
     final isLocal = url.startsWith('/') || isFileUri;
-    final isHls = _isHlsType(type);
+    final isHls = _isHlsType(type) || url.toLowerCase().contains('.m3u8');
+    _isHls = isHls;
 
     final proxied = !isLocal && isHls
         ? await _maybeRouteThroughLocalProxy(url: url, headers: headers)
@@ -722,6 +727,12 @@ class _PlayerPageState extends State<PlayerPage>
               : _humanizeError(raw);
         });
         return;
+      }
+      // Warm the seek-preview generator so the very first scrub already has a
+      // frame ready. `_canGeneratePreview` already encodes the platform/HLS
+      // rules (Android skips HLS, iOS allows it).
+      if (_canGeneratePreview) {
+        FramePreviewService.open(_videoUrl!, _headers);
       }
       controller.addListener(_onMajorChange);
       await controller.setLooping(false);
@@ -2400,7 +2411,12 @@ class _PlayerPageState extends State<PlayerPage>
   // Generated frames stand in for VTT/storyboard previews on network videos
   // (most CloudStream providers ship no thumbnails).
   bool get _canGeneratePreview =>
-      FramePreviewService.isSupported && _isNetworkVideo && _videoUrl != null;
+      FramePreviewService.isSupported &&
+      _isNetworkVideo &&
+      _videoUrl != null &&
+      // HLS frame-sampling: iOS AVAssetImageGenerator handles m3u8, but Android
+      // MediaMetadataRetriever can't — so only attempt HLS previews on iOS.
+      (!_isHls || Platform.isIOS);
 
   Widget _buildScrubOverlay() {
     return ValueListenableBuilder<_ScrubState?>(
@@ -4140,6 +4156,7 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
   static const double _w = 160;
   static const double _h = 90;
   Uint8List? _bytes;
+  bool _failed = false;
 
   int get _bucket => widget.positionMs ~/ FramePreviewService.bucketMs;
 
@@ -4161,32 +4178,49 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
   Future<void> _fetch() async {
     final bytes = await FramePreviewService.previewFrame(
         widget.url, widget.headers, widget.positionMs);
-    if (mounted && bytes != null) setState(() => _bytes = bytes);
+    if (!mounted) return;
+    if (bytes != null) {
+      // Got a frame → show it and keep it. Once we have any frame we never go
+      // back to a spinner/blank, so the preview can't "disappear" mid-scrub.
+      setState(() {
+        _bytes = bytes;
+        _failed = false;
+      });
+    } else if (_bytes == null && !_failed) {
+      // Very first attempt produced nothing (source still opening / unframeable)
+      // → collapse quietly once. Later buckets still retry (null isn't cached);
+      // if any yields a frame it shows and stays. No spinner⇄blank flicker.
+      setState(() => _failed = true);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final b = _bytes;
-    if (b == null) {
-      return Container(
+    if (b != null) {
+      return Image.memory(
+        b,
         width: _w,
         height: _h,
-        color: Colors.white12,
-        alignment: Alignment.center,
-        child: const SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
-        ),
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.low,
       );
     }
-    return Image.memory(
-      b,
+    // Couldn't extract a frame (e.g. headers/CDN) → show nothing rather than a
+    // broken-image placeholder; a later scrub bucket will retry (null isn't
+    // cached). While the first attempt is in flight, show a small spinner.
+    if (_failed) return const SizedBox.shrink();
+    return Container(
       width: _w,
       height: _h,
-      fit: BoxFit.cover,
-      gaplessPlayback: true,
-      filterQuality: FilterQuality.low,
+      color: Colors.black54,
+      alignment: Alignment.center,
+      child: const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+      ),
     );
   }
 }

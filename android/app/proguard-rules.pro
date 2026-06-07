@@ -80,6 +80,33 @@
 # Rhino JS engine + parsers transitively pulled by the library (used by extractors).
 -keep class org.mozilla.javascript.** { *; }
 -dontwarn org.mozilla.javascript.**
--dontwarn org.jsoup.**
+
+# Runtime-loaded .cs3 plugins reference the CloudStream library's transitive deps
+# BY ORIGINAL NAME (they're compiled against the full app). R8 can't see those
+# reflective uses, so without explicit keeps it shrinks/obfuscates them and every
+# plugin fails to load in release (works in debug where R8 is off). Keep the whole
+# dependency surface the plugins touch.
+-keep class okhttp3.** { *; }
+-keep interface okhttp3.** { *; }
+-keep class okio.** { *; }
 -dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class org.jsoup.** { *; }
+-dontwarn org.jsoup.**
+-keep class org.schabi.newpipe.** { *; }
 -dontwarn org.schabi.newpipe.**
+# CloudStream parses JSON with Jackson (+ jackson-module-kotlin via reflection).
+-keep class com.fasterxml.jackson.** { *; }
+-keep class com.fasterxml.** { *; }
+-dontwarn com.fasterxml.jackson.**
+# nicehttp (com.lagradost.* — already kept above) + NanoHTTPD if present.
+-dontwarn fi.iki.elonen.**
+-keep class fi.iki.elonen.** { *; }
+# Plugins use Kotlin stdlib/coroutines/reflection that our own app may not, so R8
+# would otherwise strip them. Keep + preserve Kotlin metadata for reflection.
+-keep class kotlin.** { *; }
+-keep class kotlinx.coroutines.** { *; }
+-keep class kotlin.reflect.** { *; }
+-keep class kotlin.Metadata { *; }
+-dontwarn kotlin.**
+-dontwarn kotlinx.coroutines.**

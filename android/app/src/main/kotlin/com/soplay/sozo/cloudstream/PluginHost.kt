@@ -51,12 +51,18 @@ class PluginHost(private val appContext: Context) {
     // Lazy-load registry: providerName -> where to load it from. Populated cheaply
     // on startup (no DexClassLoader) so the provider list is instant; the actual
     // .cs3 is loaded only when that provider is first used.
-    data class Meta(val provider: String, val icon: String?, val internalName: String, val cs3Path: String)
+    data class Meta(
+        val provider: String, val icon: String?, val internalName: String,
+        val cs3Path: String, val repo: String? = null,
+    )
     private val metas = LinkedHashMap<String, Meta>()
 
     /** Register provider metadata WITHOUT loading the plugin (startup path). */
-    fun registerMeta(provider: String, icon: String?, internalName: String, cs3Path: String) {
-        metas[provider] = Meta(provider, icon, internalName, cs3Path)
+    fun registerMeta(
+        provider: String, icon: String?, internalName: String,
+        cs3Path: String, repo: String? = null,
+    ) {
+        metas[provider] = Meta(provider, icon, internalName, cs3Path, repo)
         if (!icon.isNullOrEmpty()) providerIcons[provider] = icon
     }
 
@@ -86,7 +92,7 @@ class PluginHost(private val appContext: Context) {
     }
 
     /** Load a downloaded .cs3; returns the provider names it registered. */
-    fun loadCs3(file: File, internalName: String, iconUrl: String? = null): List<String> {
+    fun loadCs3(file: File, internalName: String, iconUrl: String? = null, repo: String? = null): List<String> {
         // Already loaded this process → don't register twice (avoids duplicates).
         loaded[internalName]?.let { return pluginProviders[internalName] ?: emptyList() }
         return try {
@@ -118,7 +124,7 @@ class PluginHost(private val appContext: Context) {
 
             val added = APIHolder.allProviders.map { it.name }.filter { it !in before }
             pluginProviders[internalName] = added
-            added.forEach { metas[it] = Meta(it, iconUrl, internalName, file.absolutePath) }
+            added.forEach { metas[it] = Meta(it, iconUrl, internalName, file.absolutePath, repo) }
             if (!iconUrl.isNullOrEmpty()) added.forEach { providerIcons[it] = iconUrl }
             Log.i(TAG, "loaded ${file.name}: providers=$added")
             added
@@ -157,6 +163,7 @@ class PluginHost(private val appContext: Context) {
                 put("id", "cs:${m.provider}")
                 put("name", m.provider)
                 m.icon?.let { put("icon", it) }
+                m.repo?.let { if (it.isNotEmpty()) put("repo", it) }
             })
         }
         return arr.toString()
@@ -173,15 +180,26 @@ class PluginHost(private val appContext: Context) {
     }
 
     suspend fun getMainPageJson(providerName: String, page: Int): String {
-        val api = apiByName(providerName)
-            ?: return JSONObject(mapOf("provider" to providerName, "banner" to JSONArray(), "sections" to JSONArray())).toString()
+        val api = apiByName(providerName) ?: run {
+            Log.e(TAG, "getMainPage: provider '$providerName' not found (loaded=${APIHolder.allProviders.size})")
+            return JSONObject(mapOf("provider" to providerName, "banner" to JSONArray(), "sections" to JSONArray())).toString()
+        }
         val sections = JSONArray()
         val banner = JSONArray()
-        val requests = api.mainPage.ifEmpty { return JSONObject(mapOf("provider" to "cs:${api.name}", "banner" to banner, "sections" to sections)).toString() }
-        for (mp in requests) {
+        if (api.mainPage.isEmpty()) {
+            Log.w(TAG, "getMainPage ${api.name}: provider has no mainPage list")
+            return JSONObject(mapOf("provider" to "cs:${api.name}", "banner" to banner, "sections" to sections)).toString()
+        }
+        // Home shows at most a handful of rows; capping the sections also caps the
+        // number of getMainPage network calls we make per provider (perf).
+        val maxSections = 5
+        for (mp in api.mainPage) {
+            if (sections.length() >= maxSections) break
             try {
-                val resp = api.getMainPage(page, MainPageRequest(mp.name, mp.data, false)) ?: continue
+                val resp = api.getMainPage(page, MainPageRequest(mp.name, mp.data, false))
+                if (resp == null) { Log.w(TAG, "getMainPage ${api.name}: '${mp.name}' returned null"); continue }
                 for (list in resp.items) {
+                    if (sections.length() >= maxSections) break
                     val items = JSONArray()
                     for (sr in list.list) items.put(cardJson(sr, api.name))
                     if (items.length() == 0) continue
@@ -199,8 +217,14 @@ class PluginHost(private val appContext: Context) {
                         put("items", items)
                     })
                 }
-            } catch (_: Throwable) { }
+            } catch (t: Throwable) {
+                // Log (don't swallow) — most empty-home failures are a plugin
+                // referencing an app-module class our embedded `library` lacks
+                // (NoClassDefFoundError), surfaced here per section.
+                Log.e(TAG, "getMainPage ${api.name} '${mp.name}': ${t.javaClass.simpleName}: ${t.message}")
+            }
         }
+        Log.i(TAG, "getMainPage ${api.name}: ${sections.length()} sections, ${banner.length()} banner")
         return JSONObject().apply {
             put("provider", "cs:${api.name}"); put("banner", banner); put("sections", sections)
         }.toString()
@@ -232,7 +256,9 @@ class PluginHost(private val appContext: Context) {
         val api = apiByName(providerName)
         val items = JSONArray()
         if (api != null) {
-            val results = try { api.search(query) } catch (_: Throwable) { null } ?: emptyList()
+            val results = try { api.search(query) } catch (t: Throwable) {
+                Log.e(TAG, "search ${api.name}: ${t.javaClass.simpleName}: ${t.message}"); null
+            } ?: emptyList()
             for (r in results) items.put(cardJson(r, api.name))
         }
         return JSONObject().apply {
@@ -258,8 +284,12 @@ class PluginHost(private val appContext: Context) {
     }
 
     suspend fun loadJson(providerName: String, url: String): String {
-        val api = apiByName(providerName) ?: return "{}"
-        val resp = api.load(url) ?: return "{}"
+        val api = apiByName(providerName) ?: run {
+            Log.e(TAG, "load: provider '$providerName' not found"); return "{}"
+        }
+        val resp = try { api.load(url) } catch (t: Throwable) {
+            Log.e(TAG, "load ${api.name}: ${t.javaClass.simpleName}: ${t.message}"); null
+        } ?: return "{}"
         val episodes = JSONArray()
         var isSerial = false
         when (resp) {
@@ -364,7 +394,10 @@ class PluginHost(private val appContext: Context) {
                         }
                     }
                 )
-            } catch (_: Throwable) { }
+            } catch (t: Throwable) {
+                Log.e(TAG, "loadLinks ${api.name}: ${t.javaClass.simpleName}: ${t.message}")
+            }
+            Log.i(TAG, "loadLinks ${api.name}: ${videoSources.length()} source(s), ${subs.length()} sub(s)")
         }
         // Shape matches MediaResolveModel.fromJson (videoUrl/type/headers + videoSources + subtitles).
         val first = if (videoSources.length() > 0) videoSources.getJSONObject(0) else null

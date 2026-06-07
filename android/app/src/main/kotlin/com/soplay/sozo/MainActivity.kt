@@ -209,7 +209,17 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 "addRepo" -> {
                     val url = call.argument<String>("url").orEmpty()
-                    csAsync(result) { repoManager.addRepo(url).toString() }
+                    csAsync(result) {
+                        repoManager.addRepo(url) { current, total ->
+                            // Push live "N / M installed" to the Flutter install UI.
+                            runOnUiThread {
+                                cloudstreamChannel?.invokeMethod(
+                                    "installProgress",
+                                    mapOf("current" to current, "total" to total),
+                                )
+                            }
+                        }.toString()
+                    }
                 }
                 "getMainPage" -> {
                     val provider = call.argument<String>("provider").orEmpty()

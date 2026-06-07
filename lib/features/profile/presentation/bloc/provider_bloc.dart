@@ -114,7 +114,11 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
               ? m['icon'] as String
               : _kCloudStreamIcon,
           url: (m['mainUrl'] as String?) ?? '',
-          description: 'CloudStream',
+          // Show which repo this provider came from (e.g. "phisher98/…") as the
+          // subtitle; fall back to a generic label for legacy entries.
+          description: (m['repo'] as String?)?.isNotEmpty == true
+              ? m['repo'] as String
+              : 'CloudStream',
           domains: const [],
           mode: 'client',
           category: 'cloudstream',

@@ -98,4 +98,9 @@ dependencies {
     implementation("com.github.recloudstream.cloudstream:library:v4.7.0")
     // CloudStream plugins/extractors use coroutines on the IO dispatcher.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    // compileOnly: lets our clean-room CloudflareKiller implement okhttp3.Interceptor.
+    // okhttp itself is supplied at runtime by the CloudStream `library` above (it's
+    // `implementation`-scoped there, so it isn't on our compile classpath). The
+    // Interceptor/Response/Headers APIs used are stable across okhttp 4.x/5.x.
+    compileOnly("com.squareup.okhttp3:okhttp:4.12.0")
 }

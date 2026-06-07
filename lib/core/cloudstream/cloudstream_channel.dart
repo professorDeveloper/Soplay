@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 
@@ -20,6 +21,36 @@ class CloudStreamChannel {
 
   /// CloudStream plugins are Android DEX — unsupported on iOS.
   static bool get isSupported => Platform.isAndroid;
+
+  // Live install progress (current/total plugins) streamed from native during
+  // [addRepo], so the install UI can show "Installing 12 / 65…" instead of an
+  // opaque spinner on big repos.
+  static final StreamController<({int current, int total})> _progressCtrl =
+      StreamController<({int current, int total})>.broadcast();
+  static bool _handlerSet = false;
+
+  static void _ensureHandler() {
+    if (_handlerSet || !isSupported) return;
+    _handlerSet = true;
+    _ch.setMethodCallHandler((call) async {
+      if (call.method == 'installProgress') {
+        final a = call.arguments;
+        if (a is Map) {
+          _progressCtrl.add((
+            current: (a['current'] as num?)?.toInt() ?? 0,
+            total: (a['total'] as num?)?.toInt() ?? 0,
+          ));
+        }
+      }
+      return null;
+    });
+  }
+
+  /// Stream of (current, total) plugin counts emitted while a repo installs.
+  static Stream<({int current, int total})> get installProgress {
+    _ensureHandler();
+    return _progressCtrl.stream;
+  }
 
   static Future<String?> _call(String method, [Map<String, dynamic>? args]) async {
     if (!isSupported) return null;

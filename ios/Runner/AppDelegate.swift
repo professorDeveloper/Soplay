@@ -1,3 +1,4 @@
+import AVFoundation
 import Flutter
 import UIKit
 
@@ -9,6 +10,14 @@ import UIKit
   /// channel; defaults to portrait so the rest of the app keeps its existing
   /// behavior.
   static var orientationLock: UIInterfaceOrientationMask = .portrait
+
+  // Seek-preview frame generator (`soplay/preview` channel). AVAssetImageGenerator
+  // samples frames from progressive AND HLS sources — so iOS gets working scrub
+  // thumbnails even for CloudStream-style m3u8 streams (Android's
+  // MediaMetadataRetriever can't do HLS).
+  private var previewGenerator: AVAssetImageGenerator?
+  private var previewURL: String?
+  private let previewQueue = DispatchQueue(label: "soplay.preview", qos: .userInitiated)
 
   override func application(
     _ application: UIApplication,
@@ -48,6 +57,39 @@ import UIKit
         } else {
           result(false)
         }
+      }
+    }
+
+    let previewChannel = FlutterMethodChannel(
+      name: "soplay/preview",
+      binaryMessenger: registrar.messenger()
+    )
+    previewChannel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else { result(nil); return }
+      let args = call.arguments as? [String: Any]
+      switch call.method {
+      case "open":
+        let urlStr = (args?["url"] as? String) ?? ""
+        let headers = (args?["headers"] as? [String: String]) ?? [:]
+        self.previewQueue.async {
+          self.openPreview(urlStr, headers)
+          DispatchQueue.main.async { result(true) }
+        }
+      case "frame":
+        let posMs = (args?["posMs"] as? NSNumber)?.int64Value ?? 0
+        self.previewQueue.async {
+          let data = self.previewFrame(posMs)
+          DispatchQueue.main.async {
+            result(data == nil ? nil : FlutterStandardTypedData(bytes: data!))
+          }
+        }
+      case "close":
+        self.previewQueue.async {
+          self.closePreview()
+          DispatchQueue.main.async { result(true) }
+        }
+      default:
+        result(FlutterMethodNotImplemented)
       }
     }
 
@@ -96,5 +138,46 @@ import UIKit
         result(nil)
       }
     }
+  }
+
+  // MARK: - Seek-preview frame generation
+
+  private func openPreview(_ urlStr: String, _ headers: [String: String]) {
+    if previewURL == urlStr && previewGenerator != nil { return }
+    closePreview()
+    guard let url = URL(string: urlStr) else { return }
+    var options: [String: Any] = [:]
+    // Pass playback headers (Referer/User-Agent/cookies) so protected CDNs serve
+    // the asset to the generator the same way the player gets it.
+    if !headers.isEmpty {
+      options["AVURLAssetHTTPHeaderFieldsKey"] = headers
+    }
+    let asset = AVURLAsset(url: url, options: options)
+    let gen = AVAssetImageGenerator(asset: asset)
+    gen.appliesPreferredTrackTransform = true
+    gen.maximumSize = CGSize(width: 320, height: 320)
+    // Allow a couple seconds of tolerance so it can snap to the nearest decodable
+    // frame quickly instead of decoding an exact (slow) position.
+    gen.requestedTimeToleranceBefore = CMTime(seconds: 2, preferredTimescale: 600)
+    gen.requestedTimeToleranceAfter = CMTime(seconds: 2, preferredTimescale: 600)
+    previewGenerator = gen
+    previewURL = urlStr
+  }
+
+  private func previewFrame(_ posMs: Int64) -> Data? {
+    guard let gen = previewGenerator else { return nil }
+    let time = CMTime(value: posMs, timescale: 1000)
+    do {
+      let cg = try gen.copyCGImage(at: time, actualTime: nil)
+      return UIImage(cgImage: cg).jpegData(compressionQuality: 0.7)
+    } catch {
+      return nil
+    }
+  }
+
+  private func closePreview() {
+    previewGenerator?.cancelAllCGImageGeneration()
+    previewGenerator = nil
+    previewURL = nil
   }
 }
