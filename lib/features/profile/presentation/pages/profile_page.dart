@@ -665,11 +665,19 @@ class _ProvidersPageState extends State<_ProvidersPage> {
   }
 
   List<ProviderEntity> _filteredProviders(List<ProviderEntity> all) {
-    // "All" excludes CloudStream — it has its own filter group. Otherwise match
-    // the delivery-mode group (cloud/hybrid/local) or cloudstream.
-    Iterable<ProviderEntity> list = _selectedCategory == 'all'
-        ? all.where((p) => providerGroup(p) != 'cloudstream')
-        : all.where((p) => providerGroup(p) == _selectedCategory);
+    // "All" excludes CloudStream (its own group). `repo:<name>` shows just one
+    // CloudStream repo's providers (their `description` carries the repo name).
+    // Otherwise match the delivery-mode group (cloud/hybrid/local) or cloudstream.
+    Iterable<ProviderEntity> list;
+    if (_selectedCategory == 'all') {
+      list = all.where((p) => providerGroup(p) != 'cloudstream');
+    } else if (_selectedCategory.startsWith('repo:')) {
+      final repo = _selectedCategory.substring(5);
+      list = all.where(
+          (p) => providerGroup(p) == 'cloudstream' && p.description == repo);
+    } else {
+      list = all.where((p) => providerGroup(p) == _selectedCategory);
+    }
     if (_query.isNotEmpty) {
       final q = _query.toLowerCase();
       list = list.where((p) => p.name.toLowerCase().contains(q));
@@ -704,6 +712,12 @@ class _CategoryFilterButton extends StatelessWidget {
     'cloudstream':('CloudStream', Icons.extension_outlined),
   };
 
+  /// Short, chip-friendly form of a repo name (drops the GitHub owner, trims).
+  String _repoShort(String repo) {
+    final seg = repo.contains('/') ? repo.split('/').last : repo;
+    return seg.length > 18 ? '${seg.substring(0, 17)}…' : seg;
+  }
+
   @override
   Widget build(BuildContext context) {
     final counts = <String, int>{};
@@ -711,14 +725,27 @@ class _CategoryFilterButton extends StatelessWidget {
       final g = providerGroup(p);
       counts[g] = (counts[g] ?? 0) + 1;
     }
+    // Per-repo counts for CloudStream providers (their `description` = repo name).
+    final repoCounts = <String, int>{};
+    for (final p in providers) {
+      if (providerGroup(p) != 'cloudstream') continue;
+      final r = p.description;
+      if (r.isEmpty || r == 'CloudStream') continue;
+      repoCounts[r] = (repoCounts[r] ?? 0) + 1;
+    }
     final available = _canonicalOrder.where(counts.containsKey).toList();
-    // Nothing to filter when there's only one category.
-    if (available.length < 2) return const SizedBox.shrink();
+    final repos = repoCounts.keys.toList()..sort();
+    // Nothing to filter when there's only one category and no repos.
+    if (available.length < 2 && repos.isEmpty) return const SizedBox.shrink();
 
-    final selectedMeta = _meta[selected] ?? _meta['all']!;
+    final (String, IconData) selectedMeta = selected.startsWith('repo:')
+        ? (_repoShort(selected.substring(5)), Icons.folder_outlined)
+        : (_meta[selected] ?? _meta['all']!);
     final selectedCount = selected == 'all'
         ? providers.length
-        : (counts[selected] ?? 0);
+        : selected.startsWith('repo:')
+            ? (repoCounts[selected.substring(5)] ?? 0)
+            : (counts[selected] ?? 0);
 
     final entries = <(String, String, IconData, int)>[
       ('all', _meta['all']!.$1, _meta['all']!.$2, providers.length),
@@ -726,6 +753,9 @@ class _CategoryFilterButton extends StatelessWidget {
         final meta = _meta[cat] ?? (cat, Icons.label_outline);
         return (cat, meta.$1, meta.$2, counts[cat] ?? 0);
       }),
+      // One entry per CloudStream repo (e.g. "cs-kraptor", "…-phisher").
+      ...repos.map((r) =>
+          ('repo:$r', _repoShort(r), Icons.folder_outlined, repoCounts[r] ?? 0)),
     ];
 
     return PopupMenuButton<String>(
@@ -753,20 +783,23 @@ class _CategoryFilterButton extends StatelessWidget {
                       : AppColors.textSecondary,
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: selected == id
-                        ? AppColors.primary
-                        : AppColors.textPrimary,
-                    fontSize: 13.5,
-                    fontWeight: selected == id
-                        ? FontWeight.w700
-                        : FontWeight.w500,
+                Expanded(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: selected == id
+                          ? AppColors.primary
+                          : AppColors.textPrimary,
+                      fontSize: 13.5,
+                      fontWeight: selected == id
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                const Spacer(),
+                const SizedBox(width: 12),
                 Text(
                   '$count',
                   style: const TextStyle(

@@ -3062,14 +3062,19 @@ class _PlayerPageState extends State<PlayerPage>
                                     max: maxMs,
                                     onChangeStart: (v) {
                                       _sliderDragValue.value = v;
+                                      // Keep controls + thumbnail preview on
+                                      // screen while the user holds/drags the
+                                      // seekbar (don't let auto-hide fire).
+                                      _hideTimer?.cancel();
                                     },
                                     onChanged: (v) {
                                       _sliderDragValue.value = v;
+                                      _hideTimer?.cancel();
                                     },
                                     onChangeEnd: (v) {
                                       final target = Duration(
                                           milliseconds: v.toInt());
-                                      _seekTo(target);
+                                      _seekTo(target); // reschedules auto-hide
                                       _clearDragAfterSeek(target);
                                     },
                                   ),

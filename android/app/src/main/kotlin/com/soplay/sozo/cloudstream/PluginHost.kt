@@ -169,6 +169,28 @@ class PluginHost(private val appContext: Context) {
         return arr.toString()
     }
 
+    /**
+     * "Genres" for the home chip row = the provider's MainPageData categories.
+     * `slug` carries the MainPageData.data so a tap re-uses getSectionJson (the
+     * same path as a section's view-all).
+     */
+    fun getGenresJson(providerName: String): String {
+        val api = apiByName(providerName)
+        val arr = JSONArray()
+        if (api != null) {
+            for (mp in api.mainPage) {
+                if (mp.name.isBlank()) continue
+                arr.put(JSONObject().apply {
+                    put("provider", "cs:${api.name}")
+                    put("name", mp.name)
+                    put("slug", mp.data) // getSection(data) resolves this category
+                    put("image", "")
+                })
+            }
+        }
+        return arr.toString()
+    }
+
     private fun cardJson(r: SearchResponse, apiName: String) = JSONObject().apply {
         put("provider", "cs:$apiName")
         put("externalId", r.url)

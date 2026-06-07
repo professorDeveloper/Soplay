@@ -226,6 +226,10 @@ class MainActivity : FlutterFragmentActivity() {
                     val page = call.argument<Int>("page") ?: 1
                     csAsync(result) { pluginHost.getMainPageJson(provider, page) }
                 }
+                "getGenres" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    csAsync(result) { pluginHost.getGenresJson(provider) }
+                }
                 "getSection" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val data = call.argument<String>("data").orEmpty()

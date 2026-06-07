@@ -95,6 +95,11 @@ class CloudStreamChannel {
   static Future<Map<String, dynamic>> addRepo(String url) async =>
       _obj(await _call('addRepo', {'url': url}));
 
+  /// Provider categories for the home genre row: `[{provider,name,slug,image}]`.
+  /// Tapping one opens its section via [getSection] (slug = MainPageData.data).
+  static Future<List<dynamic>> getGenres(String provider) async =>
+      _arr(await _call('getGenres', {'provider': provider}));
+
   /// Home rows for a provider: `{provider, banner:[card], sections:[{label,items}]}`.
   static Future<Map<String, dynamic>> getMainPage(String provider, {int page = 1}) async =>
       _obj(await _call('getMainPage', {'provider': provider, 'page': page}));

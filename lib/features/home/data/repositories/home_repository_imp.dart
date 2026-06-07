@@ -9,6 +9,7 @@ import 'package:soplay/features/home/data/models/view_all_paging_model.dart';
 import 'package:soplay/features/home/domain/entities/view_all_paging_entity.dart';
 import 'package:soplay/features/home/domain/repositories/home_repository.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
+import 'package:soplay/features/search/data/model/genre_model.dart';
 
 import '../../domain/entities/home_data_entity.dart';
 
@@ -112,10 +113,19 @@ class HomeRepositoryImp implements HomeRepository {
 
   @override
   Future<Result<List<GenreEntity>>> loadGenres() async {
-    // CloudStream providers have no backend genre catalog.
+    // CloudStream "genres" = the provider's mainPage categories (native side).
     final provider = _currentProvider;
     if (provider != null && provider.startsWith('cs:')) {
-      return const Success(<GenreEntity>[]);
+      try {
+        final list = await CloudStreamChannel.getGenres(provider.substring(3));
+        final genres = list
+            .whereType<Map>()
+            .map((e) => GenreModel.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        return Success(genres);
+      } catch (_) {
+        return const Success(<GenreEntity>[]);
+      }
     }
     try {
       final data = await dataSource.loadGenres();
