@@ -292,6 +292,21 @@ class PluginHost(private val appContext: Context) {
         }
         val related = JSONArray()
         (resp.recommendations ?: emptyList()).forEach { sr -> related.put(cardJson(sr, api.name)) }
+        // Fallback: many providers leave recommendations empty — derive "similar"
+        // from a title search so the section isn't blank.
+        if (related.length() == 0) {
+            try {
+                val q = resp.name.replace(Regex("\\(.*?\\)"), "").trim()
+                if (q.length >= 2) {
+                    val results = api.search(q) ?: emptyList()
+                    for (sr in results) {
+                        if (sr.url == resp.url) continue
+                        related.put(cardJson(sr, api.name))
+                        if (related.length() >= 20) break
+                    }
+                }
+            } catch (_: Throwable) { }
+        }
 
         return JSONObject().apply {
             put("provider", "cs:${api.name}")

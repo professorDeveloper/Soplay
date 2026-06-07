@@ -1,9 +1,7 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/features/home/domain/entities/view_all_paging_entity.dart';
 import 'package:soplay/features/search/data/model/genre_model.dart';
 
 import '../models/home_data_model.dart';
-import '../models/movie_model.dart';
 import '../models/view_all_paging_model.dart';
 
 class HomeDataSource {

@@ -17,6 +17,7 @@ import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
+import 'package:soplay/core/preview/frame_preview_service.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
@@ -85,6 +86,7 @@ class _PlayerPageState extends State<PlayerPage>
   String? _videoUrl;
   String? _mediaType;
   Map<String, String> _headers = const {};
+  bool _isNetworkVideo = false;
   List<VideoSourceEntity> _videoSources = const [];
   int _currentSourceIndex = -1;
   bool _autoFallbackUsed = false;
@@ -699,6 +701,7 @@ class _PlayerPageState extends State<PlayerPage>
     _controller = controller;
     _videoUrl = effectiveUrl;
     _mediaType = type;
+    _isNetworkVideo = !isLocal;
 
     try {
       await controller.initialize();
@@ -1014,6 +1017,7 @@ class _PlayerPageState extends State<PlayerPage>
       c.dispose();
     }
     _controller = null;
+    FramePreviewService.close();
     _restoreSystemUi();
     super.dispose();
   }
@@ -2393,6 +2397,11 @@ class _PlayerPageState extends State<PlayerPage>
     );
   }
 
+  // Generated frames stand in for VTT/storyboard previews on network videos
+  // (most CloudStream providers ship no thumbnails).
+  bool get _canGeneratePreview =>
+      FramePreviewService.isSupported && _isNetworkVideo && _videoUrl != null;
+
   Widget _buildScrubOverlay() {
     return ValueListenableBuilder<_ScrubState?>(
       valueListenable: _scrub,
@@ -2419,6 +2428,18 @@ class _PlayerPageState extends State<PlayerPage>
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: _buildThumbnailImage(thumb),
+                      ),
+                    )
+                  else if (_canGeneratePreview)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: _GeneratedFramePreview(
+                          url: _videoUrl!,
+                          headers: _headers,
+                          positionMs: preview.inMilliseconds,
+                        ),
                       ),
                     ),
                   Row(
@@ -2952,10 +2973,19 @@ class _PlayerPageState extends State<PlayerPage>
                         return Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (dragVal != null && _hasThumbnails)
+                          if (dragVal != null && (_hasThumbnails || _canGeneratePreview))
                             Builder(builder: (_) {
                               final thumb = _thumbnailAt(displayPos);
-                              if (thumb == null) return const SizedBox.shrink();
+                              final Widget? img = thumb != null
+                                  ? _buildThumbnailImage(thumb)
+                                  : (_canGeneratePreview
+                                      ? _GeneratedFramePreview(
+                                          url: _videoUrl!,
+                                          headers: _headers,
+                                          positionMs: displayPos.inMilliseconds,
+                                        )
+                                      : null);
+                              if (img == null) return const SizedBox.shrink();
                               return Padding(
                                 padding: EdgeInsets.only(
                                     left: popupLeft, bottom: 6),
@@ -2967,7 +2997,7 @@ class _PlayerPageState extends State<PlayerPage>
                                       ClipRRect(
                                         borderRadius:
                                             BorderRadius.circular(6),
-                                        child: _buildThumbnailImage(thumb),
+                                        child: img,
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
@@ -4086,4 +4116,77 @@ class _ProxiedTarget {
   const _ProxiedTarget({required this.url, required this.headers});
   final String url;
   final Map<String, String> headers;
+}
+
+/// Seek-preview image built from a natively-generated video frame (for providers
+/// without VTT/storyboard thumbnails). Frames are bucketed + cached by the
+/// service, so scrubbing only extracts a handful.
+class _GeneratedFramePreview extends StatefulWidget {
+  const _GeneratedFramePreview({
+    required this.url,
+    required this.headers,
+    required this.positionMs,
+  });
+
+  final String url;
+  final Map<String, String> headers;
+  final int positionMs;
+
+  @override
+  State<_GeneratedFramePreview> createState() => _GeneratedFramePreviewState();
+}
+
+class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
+  static const double _w = 160;
+  static const double _h = 90;
+  Uint8List? _bytes;
+
+  int get _bucket => widget.positionMs ~/ FramePreviewService.bucketMs;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  @override
+  void didUpdateWidget(_GeneratedFramePreview old) {
+    super.didUpdateWidget(old);
+    if (old.positionMs ~/ FramePreviewService.bucketMs != _bucket ||
+        old.url != widget.url) {
+      _fetch();
+    }
+  }
+
+  Future<void> _fetch() async {
+    final bytes = await FramePreviewService.previewFrame(
+        widget.url, widget.headers, widget.positionMs);
+    if (mounted && bytes != null) setState(() => _bytes = bytes);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final b = _bytes;
+    if (b == null) {
+      return Container(
+        width: _w,
+        height: _h,
+        color: Colors.white12,
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+        ),
+      );
+    }
+    return Image.memory(
+      b,
+      width: _w,
+      height: _h,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      filterQuality: FilterQuality.low,
+    );
+  }
 }

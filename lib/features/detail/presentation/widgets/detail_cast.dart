@@ -86,7 +86,7 @@ class _CastCard extends StatelessWidget {
           extra: ActorArgs(
             name: cast.name.trim(),
             image: cast.image,
-            id: cast.id!,
+            id: cast.id,
           ),
         );
       },

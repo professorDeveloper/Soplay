@@ -787,7 +787,7 @@ class _CategoryFilterButton extends StatelessWidget {
   }
 }
 
-class _ProvidersList extends StatelessWidget {
+class _ProvidersList extends StatefulWidget {
   const _ProvidersList({
     required this.providers,
     required this.currentProviderId,
@@ -801,15 +801,38 @@ class _ProvidersList extends StatelessWidget {
   final double bottomPad;
 
   @override
+  State<_ProvidersList> createState() => _ProvidersListState();
+}
+
+class _ProvidersListState extends State<_ProvidersList> {
+  // tile (~64) + separator (8); good enough to bring the selected row into view.
+  static const double _estItemExtent = 72.0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
+  }
+
+  void _scrollToSelected() {
+    final i = widget.providers.indexWhere((p) => p.id == widget.currentProviderId);
+    if (i <= 2) return; // already near the top
+    final c = widget.scrollController;
+    if (!c.hasClients) return;
+    final target = (i * _estItemExtent - 80).clamp(0.0, c.position.maxScrollExtent);
+    c.jumpTo(target);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      controller: scrollController,
-      padding: EdgeInsets.fromLTRB(16, 4, 16, bottomPad + 16),
-      itemCount: providers.length,
+      controller: widget.scrollController,
+      padding: EdgeInsets.fromLTRB(16, 4, 16, widget.bottomPad + 16),
+      itemCount: widget.providers.length,
       separatorBuilder: (context, i) => const SizedBox(height: 8),
       itemBuilder: (context, i) {
-        final provider = providers[i];
-        final selected = provider.id == currentProviderId;
+        final provider = widget.providers[i];
+        final selected = provider.id == widget.currentProviderId;
         return _ProviderListTile(
           provider: provider,
           selected: selected,

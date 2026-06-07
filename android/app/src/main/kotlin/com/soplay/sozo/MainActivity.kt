@@ -23,6 +23,7 @@ import org.json.JSONObject
 import kotlin.math.roundToInt
 import com.soplay.sozo.cloudstream.PluginHost
 import com.soplay.sozo.cloudstream.RepoManager
+import com.soplay.sozo.preview.FramePreview
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,6 +50,7 @@ class MainActivity : FlutterFragmentActivity() {
     // spins up if the feature is used.
     private val cloudstreamChannelName = "soplay/cloudstream"
     private var cloudstreamChannel: MethodChannel? = null
+    private var previewChannel: MethodChannel? = null
     private val cloudstreamScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val pluginHost by lazy { PluginHost(applicationContext) }
     private val repoManager by lazy { RepoManager(applicationContext, pluginHost) }
@@ -235,6 +237,32 @@ class MainActivity : FlutterFragmentActivity() {
                     val data = call.argument<String>("data").orEmpty()
                     csAsync(result) { pluginHost.loadLinksJson(provider, data) }
                 }
+                else -> result.notImplemented()
+            }
+        }
+
+        previewChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "soplay/preview",
+        )
+        previewChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "open" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
+                    cloudstreamScope.launch {
+                        FramePreview.open(url, headers)
+                        withContext(Dispatchers.Main) { result.success(true) }
+                    }
+                }
+                "frame" -> {
+                    val posMs = (call.argument<Number>("posMs") ?: 0).toLong()
+                    cloudstreamScope.launch {
+                        val bytes = FramePreview.frame(posMs)
+                        withContext(Dispatchers.Main) { result.success(bytes) }
+                    }
+                }
+                "close" -> { FramePreview.close(); result.success(true) }
                 else -> result.notImplemented()
             }
         }

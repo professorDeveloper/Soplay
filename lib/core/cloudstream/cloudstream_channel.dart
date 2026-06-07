@@ -55,14 +55,14 @@ class CloudStreamChannel {
   /// Saved repo URLs/shortcodes: `["https://...", "code", ...]`.
   static Future<List<dynamic>> listRepos() async => _arr(await _call('listRepos'));
 
-  /// Remove a saved repo (persistence only; providers clear on next launch).
-  static Future<Map<String, dynamic>> removeRepo(String urlOrShortcode) async =>
-      _obj(await _call('removeRepo', {'url': urlOrShortcode}));
+  /// Remove a saved repo and unregister its providers immediately.
+  static Future<Map<String, dynamic>> removeRepo(String url) async =>
+      _obj(await _call('removeRepo', {'url': url}));
 
-  /// Add a repo by `repo.json`/`plugins.json` URL or a CloudStream shortcode.
+  /// Add a repo by `repo.json` / `plugins.json` URL.
   /// Returns `{repo, pluginCount, providers:[name...]}`.
-  static Future<Map<String, dynamic>> addRepo(String urlOrShortcode) async =>
-      _obj(await _call('addRepo', {'url': urlOrShortcode}));
+  static Future<Map<String, dynamic>> addRepo(String url) async =>
+      _obj(await _call('addRepo', {'url': url}));
 
   /// Home rows for a provider: `{provider, banner:[card], sections:[{label,items}]}`.
   static Future<Map<String, dynamic>> getMainPage(String provider, {int page = 1}) async =>

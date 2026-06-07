@@ -121,7 +121,6 @@ class HomeRepositoryImp implements HomeRepository {
       final data = await dataSource.loadGenres();
       return Success(data);
     } catch (e) {
-      print("Message:${e.toString()}");
       return Failure(Exception(e.toString()));
     }
   }
