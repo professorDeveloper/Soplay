@@ -7,7 +7,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_sources_page.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
@@ -116,6 +118,43 @@ class _ProfileViewState extends State<_ProfileView> {
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(child: _ProvidersSection()),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                if (CloudStreamChannel.isSupported) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Material(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        child: ListTile(
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.network(
+                              'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTRzeluIShlMnhgHeVHgTSkvsthvQEK2xaS5A&s',
+                              width: 28,
+                              height: 28,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => const Icon(
+                                  Icons.extension_outlined,
+                                  color: AppColors.primary),
+                            ),
+                          ),
+                          title: const Text('CloudStream Sources',
+                              style: TextStyle(color: Colors.white)),
+                          trailing: const Icon(Icons.chevron_right,
+                              color: AppColors.textHint),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const CloudStreamSourcesPage(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                ],
                 const SliverToBoxAdapter(child: _WatchHistorySection()),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(child: _SecuritySection()),
@@ -476,6 +515,20 @@ class _ProvidersSection extends StatelessWidget {
   }
 }
 
+/// Provider filter group: CloudStream first, otherwise by delivery mode.
+String providerGroup(ProviderEntity p) {
+  if (p.category == 'cloudstream') return 'cloudstream';
+  return switch (p.mode) {
+    'hybrid' => 'hybrid',
+    'client' => 'local',
+    _ => 'cloud',
+  };
+}
+
+/// Remembers the last-picked provider filter for the session so reopening the
+/// sheet keeps the same view.
+String _providerSheetFilter = 'all';
+
 class _ProvidersSheet extends StatefulWidget {
   const _ProvidersSheet({required this.initialSize, required this.maxSize});
 
@@ -488,8 +541,9 @@ class _ProvidersSheet extends StatefulWidget {
     const gap = 8.0;
     // Chip row adds ~56px on top of the prior layout estimate.
     final contentH = count * rowH + (count - 1) * gap + 200;
-    final initial = (contentH / screenH).clamp(0.35, 0.85);
-    final max = count >= 6 ? 0.92 : initial;
+    final initial = (contentH / screenH).clamp(0.45, 0.85);
+    // Allow expanding to (almost) full screen so long lists scroll comfortably.
+    final max = count >= 6 ? 0.97 : initial;
 
     showModalBottomSheet<void>(
       context: context,
@@ -507,9 +561,9 @@ class _ProvidersSheet extends StatefulWidget {
 }
 
 class _ProvidersSheetState extends State<_ProvidersSheet> {
-  // 'all' means no filter; otherwise it's a category id from the backend
-  // (`tmdb`, `anime`, `movies`, `other`).
-  String _selectedCategory = 'all';
+  // Filter group: 'all' | 'cloud' | 'hybrid' | 'local' | 'cloudstream'.
+  // Restored from the session so the sheet reopens on the last-picked filter.
+  String _selectedCategory = _providerSheetFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -517,9 +571,13 @@ class _ProvidersSheetState extends State<_ProvidersSheet> {
 
     return DraggableScrollableSheet(
       initialChildSize: widget.initialSize,
-      minChildSize: widget.initialSize.clamp(0.35, 0.92),
+      minChildSize: 0.4,
       maxChildSize: widget.maxSize,
       expand: false,
+      snap: true,
+      snapSizes: widget.maxSize > widget.initialSize
+          ? [widget.initialSize, widget.maxSize]
+          : null,
       builder: (ctx, scrollController) => Container(
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -539,8 +597,10 @@ class _ProvidersSheetState extends State<_ProvidersSheet> {
                       ? _CategoryFilterButton(
                           providers: state.providers,
                           selected: _selectedCategory,
-                          onSelected: (cat) =>
-                              setState(() => _selectedCategory = cat),
+                          onSelected: (cat) => setState(() {
+                            _selectedCategory = cat;
+                            _providerSheetFilter = cat; // remember for next open
+                          }),
                         )
                       : null,
                 ),
@@ -575,8 +635,12 @@ class _ProvidersSheetState extends State<_ProvidersSheet> {
   }
 
   List<ProviderEntity> _filteredProviders(List<ProviderEntity> all) {
-    if (_selectedCategory == 'all') return all;
-    return all.where((p) => p.category == _selectedCategory).toList();
+    // "All" excludes CloudStream — it has its own filter group. Otherwise match
+    // the delivery-mode group (cloud/hybrid/local) or cloudstream.
+    if (_selectedCategory == 'all') {
+      return all.where((p) => providerGroup(p) != 'cloudstream').toList();
+    }
+    return all.where((p) => providerGroup(p) == _selectedCategory).toList();
   }
 }
 
@@ -595,21 +659,23 @@ class _CategoryFilterButton extends StatelessWidget {
   final String selected;
   final ValueChanged<String> onSelected;
 
-  static const _canonicalOrder = ['tmdb', 'anime', 'movies', 'other'];
+  // Filter groups by delivery type (mode) plus CloudStream, per request.
+  static const _canonicalOrder = ['cloud', 'hybrid', 'local', 'cloudstream'];
 
   static const _meta = <String, (String, IconData)>{
-    'all':    ('All',         Icons.apps_rounded),
-    'tmdb':   ('Movies & TV', Icons.movie_outlined),
-    'anime':  ('Anime',       Icons.auto_awesome_outlined),
-    'movies': ('Local',       Icons.public_off_outlined),
-    'other':  ('Other',       Icons.more_horiz_rounded),
+    'all':        ('All',         Icons.apps_rounded),
+    'cloud':      ('Cloud',       Icons.cloud_outlined),
+    'hybrid':     ('Hybrid',      Icons.sync_rounded),
+    'local':      ('Local',       Icons.smartphone_outlined),
+    'cloudstream':('CloudStream', Icons.extension_outlined),
   };
 
   @override
   Widget build(BuildContext context) {
     final counts = <String, int>{};
     for (final p in providers) {
-      counts[p.category] = (counts[p.category] ?? 0) + 1;
+      final g = providerGroup(p);
+      counts[g] = (counts[g] ?? 0) + 1;
     }
     final available = _canonicalOrder.where(counts.containsKey).toList();
     // Nothing to filter when there's only one category.

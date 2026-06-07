@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/player/webview_stream_extractor.dart';
@@ -37,6 +38,15 @@ class DetailRepositoryImpl implements DetailRepository {
   Future<Result<DetailEntity>> getDetail(String contentUrl, {String? provider}) async {
     final js = jsRuntime;
     final effective = _resolveProvider(provider);
+    if (effective != null && effective.startsWith('cs:')) {
+      try {
+        final map = await CloudStreamChannel.load(effective.substring(3), contentUrl);
+        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
+        return Failure(Exception('CloudStream: details not found'));
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
     if (js != null && effective != null) {
       try {
         final map = await js.tryGetDetail(effective, contentUrl);
@@ -64,6 +74,15 @@ class DetailRepositoryImpl implements DetailRepository {
   }) async {
     final js = jsRuntime;
     final effective = _resolveProvider(provider);
+    if (effective != null && effective.startsWith('cs:')) {
+      try {
+        final map = await CloudStreamChannel.load(effective.substring(3), contentUrl);
+        if (map.isNotEmpty) return Success(PlaybackModel.fromJson(map));
+        return Failure(Exception('CloudStream: episodes not found'));
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
     if (js != null && effective != null) {
       try {
         final map = await js.tryGetEpisodes(effective, contentUrl);
@@ -100,6 +119,19 @@ class DetailRepositoryImpl implements DetailRepository {
     required String provider,
     String? lang,
   }) async {
+    if (provider.startsWith('cs:')) {
+      try {
+        final map = await CloudStreamChannel.loadLinks(provider.substring(3), ref);
+        final sources = map['videoSources'];
+        if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
+          return _postProcess(MediaResolveModel.fromJson(map));
+        }
+        return Failure(Exception('CloudStream: oqim topilmadi'));
+      } catch (e) {
+        if (kDebugMode) debugPrint('[resolveMedia] CloudStream path failed: $e');
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
     final js = jsRuntime;
     if (js != null) {
       try {

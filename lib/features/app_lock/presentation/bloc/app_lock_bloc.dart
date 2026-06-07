@@ -6,6 +6,8 @@ import 'app_lock_state.dart';
 
 enum AppLockMode { setup, verify, change }
 
+
+
 class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
   AppLockBloc({
     required AppLockRepository repository,

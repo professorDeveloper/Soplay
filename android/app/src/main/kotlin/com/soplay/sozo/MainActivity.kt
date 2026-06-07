@@ -21,6 +21,13 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONObject
 import kotlin.math.roundToInt
+import com.soplay.sozo.cloudstream.PluginHost
+import com.soplay.sozo.cloudstream.RepoManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : FlutterFragmentActivity() {
 
@@ -37,6 +44,14 @@ class MainActivity : FlutterFragmentActivity() {
     private var deeplinkSettingsChannel: MethodChannel? = null
     private var pipReceiver: BroadcastReceiver? = null
     private var notificationPermissionResult: MethodChannel.Result? = null
+
+    // CloudStream plugin host (Android-only feature). Lazy so the runtime only
+    // spins up if the feature is used.
+    private val cloudstreamChannelName = "soplay/cloudstream"
+    private var cloudstreamChannel: MethodChannel? = null
+    private val cloudstreamScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val pluginHost by lazy { PluginHost(applicationContext) }
+    private val repoManager by lazy { RepoManager(applicationContext, pluginHost) }
 
     companion object {
         const val ACTION_PLAY_PAUSE = "play_pause"
@@ -172,6 +187,66 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(openDefaultLinksSettings())
                 }
                 else -> result.notImplemented()
+            }
+        }
+
+        cloudstreamChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            cloudstreamChannelName
+        )
+        cloudstreamChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "listProviders" -> result.success(pluginHost.providersJson())
+                "ensureLoaded" -> csAsync(result) {
+                    repoManager.ensureLoaded(); pluginHost.providersJson()
+                }
+                "listRepos" -> result.success(repoManager.listReposJson())
+                "removeRepo" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    result.success(repoManager.removeRepo(url))
+                }
+                "addRepo" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    csAsync(result) { repoManager.addRepo(url).toString() }
+                }
+                "getMainPage" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val page = call.argument<Int>("page") ?: 1
+                    csAsync(result) { pluginHost.getMainPageJson(provider, page) }
+                }
+                "getSection" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val data = call.argument<String>("data").orEmpty()
+                    val page = call.argument<Int>("page") ?: 1
+                    csAsync(result) { pluginHost.getSectionJson(provider, data, page) }
+                }
+                "search" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val query = call.argument<String>("query").orEmpty()
+                    csAsync(result) { pluginHost.searchJson(provider, query) }
+                }
+                "load" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val url = call.argument<String>("url").orEmpty()
+                    csAsync(result) { pluginHost.loadJson(provider, url) }
+                }
+                "loadLinks" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val data = call.argument<String>("data").orEmpty()
+                    csAsync(result) { pluginHost.loadLinksJson(provider, data) }
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    /** Run a suspend CloudStream call off the main thread, return JSON to Flutter. */
+    private fun csAsync(result: MethodChannel.Result, block: suspend () -> String) {
+        cloudstreamScope.launch {
+            val out = try { block() } catch (t: Throwable) { null }
+            withContext(Dispatchers.Main) {
+                if (out != null) result.success(out)
+                else result.error("cs_error", "CloudStream call failed", null)
             }
         }
     }

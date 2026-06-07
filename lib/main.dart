@@ -20,6 +20,7 @@ import 'package:soplay/features/notifications/data/services/notification_service
 
 import 'app.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Future.wait([

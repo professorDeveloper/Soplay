@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -27,6 +28,15 @@ class HomeRepositoryImp implements HomeRepository {
   Future<Result<HomeDataEntity>> loadHome() async {
     final js = jsRuntime;
     final provider = _currentProvider;
+    if (provider != null && provider.startsWith('cs:')) {
+      try {
+        final map = await CloudStreamChannel.getMainPage(provider.substring(3));
+        if (map.isNotEmpty) return Success(HomeDataModel.fromJson(map));
+        return Failure(Exception('CloudStream: home not found'));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (js != null && provider != null) {
       try {
         final map = await js.tryGetHome(provider);
@@ -59,6 +69,19 @@ class HomeRepositoryImp implements HomeRepository {
   }) async {
     final js = jsRuntime;
     final provider = _currentProvider;
+    if (provider != null && provider.startsWith('cs:')) {
+      try {
+        // slug = the section's MainPageData.data → fetch just that section.
+        final map = await CloudStreamChannel.getSection(
+          provider.substring(3),
+          slug,
+          page: page,
+        );
+        return Success(ViewAllPagingModel.fromJson(map));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (js != null && provider != null && key == 'category') {
       try {
         final map = await js.tryGetCategory(provider, slug, page);
@@ -89,6 +112,11 @@ class HomeRepositoryImp implements HomeRepository {
 
   @override
   Future<Result<List<GenreEntity>>> loadGenres() async {
+    // CloudStream providers have no backend genre catalog.
+    final provider = _currentProvider;
+    if (provider != null && provider.startsWith('cs:')) {
+      return const Success(<GenreEntity>[]);
+    }
     try {
       final data = await dataSource.loadGenres();
       return Success(data);

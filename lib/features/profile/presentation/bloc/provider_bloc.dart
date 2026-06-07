@@ -1,12 +1,18 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/extractor/provider_manager.dart';
 import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/profile/data/models/provider_model.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.dart';
 import 'provider_event.dart';
 import 'provider_state.dart';
+
+/// Shared icon shown for every CloudStream (`cs:`) provider in the list.
+const String _kCloudStreamIcon =
+    'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTRzeluIShlMnhgHeVHgTSkvsthvQEK2xaS5A&s';
 
 class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
   final GetProvidersUseCase useCase;
@@ -40,7 +46,12 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
       case Success(:final value):
         final providers = value
             .where((p) => p.id.trim().isNotEmpty)
-            .toList(growable: false);
+            .toList();
+
+        // Merge native CloudStream providers (Android-only). They live in the
+        // `cs:` id namespace and are routed to the native channel by the data
+        // repositories; the rest of the app treats them like any provider.
+        await _appendCloudStreamProviders(providers);
 
         if (providers.isEmpty) {
           if (previous is! ProviderLoaded) {
@@ -82,6 +93,35 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
           currentProviderId: event.providerId,
         ),
       );
+    }
+  }
+
+  Future<void> _appendCloudStreamProviders(List<ProviderEntity> into) async {
+    if (!CloudStreamChannel.isSupported) return;
+    try {
+      // ensureLoaded re-adds saved repos (once per process) and returns the
+      // resulting provider list.
+      final list = await CloudStreamChannel.ensureLoaded();
+      for (final e in list) {
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+        final id = (m['id'] as String?)?.trim() ?? '';
+        if (id.isEmpty) continue;
+        into.add(ProviderModel(
+          id: id,
+          name: (m['name'] as String?) ?? id,
+          image: (m['icon'] as String?)?.isNotEmpty == true
+              ? m['icon'] as String
+              : _kCloudStreamIcon,
+          url: (m['mainUrl'] as String?) ?? '',
+          description: 'CloudStream',
+          domains: const [],
+          mode: 'client',
+          category: 'cloudstream',
+        ));
+      }
+    } catch (_) {
+      // CloudStream optional — never block the provider list on it.
     }
   }
 

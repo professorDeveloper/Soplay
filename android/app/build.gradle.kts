@@ -63,6 +63,24 @@ android {
             )
         }
     }
+    // CloudStream's library pulls okhttp5 + jspecify etc., which collide on some
+    // META-INF resources. Drop the duplicates so packaging succeeds.
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/versions/9/OSGI-INF/MANIFEST.MF",
+                "META-INF/DEPENDENCIES",
+                "META-INF/INDEX.LIST",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/LICENSE.md",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/NOTICE.md",
+                "META-INF/{AL2.0,LGPL2.1}",
+            )
+        }
+    }
 }
 
 flutter {
@@ -71,4 +89,13 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+
+    // CloudStream provider runtime (Android-only feature). The `library` module
+    // carries MainAPI/APIHolder/`app` HTTP client/extractors/BasePlugin so .cs3
+    // plugins load against it. Resolves on JitPack (POM/module/jar verified at
+    // v4.7.0; Gradle picks the KMP android variant via .module). See
+    // docs/CLOUDSTREAM_INTEGRATION.md + cloudstream/PluginHost.kt.
+    implementation("com.github.recloudstream.cloudstream:library:v4.7.0")
+    // CloudStream plugins/extractors use coroutines on the IO dispatcher.
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

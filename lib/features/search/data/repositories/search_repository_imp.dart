@@ -1,3 +1,4 @@
+import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -25,6 +26,10 @@ class SearchRepositoryImp extends SearchRepository {
 
   @override
   Future<Result<List<GenreModel>>> getGenres() async {
+    final provider = _currentProvider;
+    if (provider != null && provider.startsWith('cs:')) {
+      return const Success(<GenreModel>[]);
+    }
     try {
       final result = await dataSource.getGenres();
       return Success(result);
@@ -50,6 +55,15 @@ class SearchRepositoryImp extends SearchRepository {
   Future<Result<SearchModel>> searchMovies(String query, {int page = 1}) async  {
     final js = jsRuntime;
     final provider = _currentProvider;
+    if (provider != null && provider.startsWith('cs:')) {
+      try {
+        final map = await CloudStreamChannel.search(provider.substring(3), query);
+        if (map.isNotEmpty) return Success(SearchModel.fromJson(map));
+        return Failure(Exception('CloudStream: no results'));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (js != null && provider != null) {
       try {
         final map = await js.trySearch(provider, query, page);

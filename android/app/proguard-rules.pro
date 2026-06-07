@@ -70,3 +70,16 @@
 -keepclasseswithmembernames class * {
     native <methods>;
 }
+
+# CloudStream runtime (com.github.recloudstream.cloudstream:library) + our locally
+# re-declared Plugin base. Loaded .cs3 plugins resolve these by EXACT class/method
+# name via PathClassLoader, so they must never be stripped or obfuscated.
+-keep class com.lagradost.** { *; }
+-keep interface com.lagradost.** { *; }
+-dontwarn com.lagradost.**
+# Rhino JS engine + parsers transitively pulled by the library (used by extractors).
+-keep class org.mozilla.javascript.** { *; }
+-dontwarn org.mozilla.javascript.**
+-dontwarn org.jsoup.**
+-dontwarn okhttp3.**
+-dontwarn org.schabi.newpipe.**
