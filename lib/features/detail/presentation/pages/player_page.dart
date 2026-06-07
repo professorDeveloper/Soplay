@@ -2504,7 +2504,7 @@ class _PlayerPageState extends State<PlayerPage>
                 thumb.imageUrl,
                 filterQuality: FilterQuality.low,
                 gaplessPlayback: true,
-                errorBuilder: (_, __, ___) => SizedBox(
+                errorBuilder: (_, _, _) => SizedBox(
                   width: displayWidth,
                   height: displayHeight,
                 ),
@@ -2522,7 +2522,7 @@ class _PlayerPageState extends State<PlayerPage>
       fit: BoxFit.cover,
       filterQuality: FilterQuality.low,
       gaplessPlayback: true,
-      errorBuilder: (_, __, ___) => const SizedBox(
+      errorBuilder: (_, _, _) => const SizedBox(
         width: displayWidth,
         height: displayHeight,
       ),

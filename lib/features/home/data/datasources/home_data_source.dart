@@ -24,7 +24,7 @@ class HomeDataSource {
     required String slug,
     required int page,
   }) async {
-    final result;
+    final Response result;
     if (slug.isEmpty) {
       result = await dio.get(
         "/contents/$type",

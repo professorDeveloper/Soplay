@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:bloc/bloc.dart' show Bloc, Emitter;
+import 'package:flutter_bloc/flutter_bloc.dart' show Bloc, Emitter;
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/home/domain/entities/view_all_paging_entity.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_event.dart';
