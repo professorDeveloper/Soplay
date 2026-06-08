@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/diagnostics/log_viewer_sheet.dart';
+import 'package:soplay/core/diagnostics/player_log.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -91,6 +93,9 @@ class _PlayerPageState extends State<PlayerPage>
   // preview is skipped for it. Provider-supplied VTT/storyboard thumbnails
   // (e.g. anikai) are images and still show on HLS via `_thumbnailAt`.
   bool _isHls = false;
+  // Live / IPTV streams report no real duration (sliding window). Detected after
+  // init so the UI can skip resume-seeking and history that don't apply to live.
+  bool _isLive = false;
   List<VideoSourceEntity> _videoSources = const [];
   int _currentSourceIndex = -1;
   bool _autoFallbackUsed = false;
@@ -167,6 +172,16 @@ class _PlayerPageState extends State<PlayerPage>
     WidgetsBinding.instance.addObserver(this);
     _pipChannel.setMethodCallHandler(_onPipMethodCall);
     unawaited(_loadSystemControlValues());
+    // Fresh diagnostics buffer per playback session.
+    PlayerLog.instance
+      ..clear()
+      ..clearContext()
+      ..setContext({
+        'provider': widget.args.provider,
+        'title': widget.args.title,
+        'serial': widget.args.isSerial.toString(),
+      });
+    unawaited(PlayerLog.instance.init());
     _startup();
   }
 
@@ -295,9 +310,9 @@ class _PlayerPageState extends State<PlayerPage>
 
   Future<void> _startup() async {
     final sw = Stopwatch()..start();
-    debugPrint('[PLAYER] startup — entering fullscreen');
+    _plog('startup — entering fullscreen');
     await _enterFullscreen();
-    debugPrint('[PLAYER] fullscreen ready in ${sw.elapsedMilliseconds}ms');
+    _plog('fullscreen ready in ${sw.elapsedMilliseconds}ms');
     if (!mounted) return;
     await _bootstrap();
   }
@@ -312,6 +327,11 @@ class _PlayerPageState extends State<PlayerPage>
   }
 
   bool _isHlsType(String? type) => type?.trim().toLowerCase() == 'hls';
+
+  /// Capture a player log line (mirrored to the debug console) so the in-app
+  /// log viewer can show and share it.
+  void _plog(String message, {LogLevel level = LogLevel.info}) =>
+      PlayerLog.instance.add(message, level: level);
 
   Future<void> _enterFullscreen() async {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -421,15 +441,13 @@ class _PlayerPageState extends State<PlayerPage>
 
     final resolveSw = Stopwatch()..start();
     final provider = widget.args.provider;
-    debugPrint('[PLAYER] resolving ref=${ep.mediaRef} lang=$lang');
+    _plog('resolving ref=${ep.mediaRef} lang=$lang');
     final result = await _resolve(
       ref: ep.mediaRef,
       provider: provider,
       lang: lang,
     );
-    debugPrint(
-      '[PLAYER] resolve completed in ${resolveSw.elapsedMilliseconds}ms',
-    );
+    _plog('resolve completed in ${resolveSw.elapsedMilliseconds}ms');
     if (!mounted) return;
 
     switch (result) {
@@ -616,10 +634,11 @@ class _PlayerPageState extends State<PlayerPage>
         upstreamUrl: url,
         headers: upstreamHeaders,
       );
-      debugPrint('[PLAYER] routing through local HLS proxy: $proxied');
+      _plog('routing through local HLS proxy: $proxied');
       return _ProxiedTarget(url: proxied, headers: const {});
     } catch (e) {
-      debugPrint('[PLAYER] local proxy register failed: $e — using direct url');
+      _plog('local proxy register failed: $e — using direct url',
+          level: LogLevel.warn);
       return null;
     }
   }
@@ -642,6 +661,8 @@ class _PlayerPageState extends State<PlayerPage>
     final isFileUri = url.startsWith('file://');
     final isLocal = url.startsWith('/') || isFileUri;
     final isHls = _isHlsType(type) || url.toLowerCase().contains('.m3u8');
+    final isDash = type?.trim().toLowerCase() == 'dash' ||
+        url.toLowerCase().contains('.mpd');
     _isHls = isHls;
 
     final proxied = !isLocal && isHls
@@ -650,8 +671,19 @@ class _PlayerPageState extends State<PlayerPage>
     final effectiveUrl = proxied?.url ?? url;
     final effectiveHeaders = proxied?.headers ?? headers;
 
-    debugPrint('[PLAYER] loading url: $effectiveUrl');
-    debugPrint('[PLAYER] type: ${type ?? 'unknown'} local: $isLocal');
+    final fmt = isHls
+        ? 'hls'
+        : isDash
+            ? 'dash'
+            : (type ?? 'progressive');
+    PlayerLog.instance.setContext({
+      'url': effectiveUrl,
+      'type': fmt,
+      'local': isLocal.toString(),
+      'quality': _currentQuality,
+    });
+    _plog('loading url: $effectiveUrl');
+    _plog('type: $fmt (raw=${type ?? 'unknown'}) local: $isLocal');
 
     VideoPlayerController controller;
     if (isLocal && isHls) {
@@ -687,16 +719,20 @@ class _PlayerPageState extends State<PlayerPage>
         mergedHeaders.addAll(effectiveHeaders);
       }
 
-      debugPrint('[PLAYER] provider: ${widget.args.provider}');
-      debugPrint('[PLAYER] headers (${mergedHeaders.length}):');
+      _plog('provider: ${widget.args.provider}');
+      _plog('headers (${mergedHeaders.length}):');
       mergedHeaders.forEach((k, v) {
-        debugPrint('[PLAYER]   $k: $v');
+        _plog('  $k: $v');
       });
 
       controller = VideoPlayerController.networkUrl(
         uri,
         httpHeaders: mergedHeaders,
-        formatHint: isHls ? VideoFormat.hls : null,
+        formatHint: isHls
+            ? VideoFormat.hls
+            : isDash
+                ? VideoFormat.dash
+                : null,
         videoPlayerOptions: VideoPlayerOptions(
           allowBackgroundPlayback: false,
         ),
@@ -710,16 +746,14 @@ class _PlayerPageState extends State<PlayerPage>
 
     try {
       await controller.initialize();
-      debugPrint(
-        '[PLAYER] initialize completed in ${stopwatch.elapsedMilliseconds}ms',
-      );
+      _plog('initialize completed in ${stopwatch.elapsedMilliseconds}ms');
       if (!mounted) {
         await controller.dispose();
         return;
       }
       if (controller.value.hasError) {
         final raw = controller.value.errorDescription;
-        debugPrint('[PLAYER] init error: $raw');
+        _plog('init error: $raw', level: LogLevel.error);
         setState(() {
           _initializing = false;
           _errorMessage = raw == null
@@ -728,22 +762,30 @@ class _PlayerPageState extends State<PlayerPage>
         });
         return;
       }
+      // Live / IPTV detection: a live HLS has no real duration (it's a sliding
+      // window), so video_player reports zero or an absurd length. When live we
+      // skip resume-seeking and generated previews, which don't apply.
+      final dur = controller.value.duration;
+      _isLive = dur <= Duration.zero || dur.inHours >= 12;
+      PlayerLog.instance.setContext({
+        'live': _isLive.toString(),
+        'duration': _isLive ? 'live' : dur.toString(),
+      });
+      _plog('initialized — ${_isLive ? 'LIVE stream' : 'duration $dur'}');
       // Warm the seek-preview generator so the very first scrub already has a
       // frame ready. `_canGeneratePreview` already encodes the platform/HLS
-      // rules (Android skips HLS, iOS allows it).
-      if (_canGeneratePreview) {
+      // rules (Android skips HLS, iOS allows it). Live has no seekable window.
+      if (_canGeneratePreview && !_isLive) {
         FramePreviewService.open(_videoUrl!, _headers);
       }
       controller.addListener(_onMajorChange);
       await controller.setLooping(false);
       await controller.setPlaybackSpeed(_playbackSpeed);
-      if (resumeAt > Duration.zero) {
+      if (resumeAt > Duration.zero && !_isLive) {
         await controller.seekTo(resumeAt);
       }
       await controller.play();
-      debugPrint(
-        '[PLAYER] play started — total ${stopwatch.elapsedMilliseconds}ms',
-      );
+      _plog('play started — total ${stopwatch.elapsedMilliseconds}ms');
       setState(() {
         _initializing = false;
         _errorMessage = null;
@@ -751,7 +793,8 @@ class _PlayerPageState extends State<PlayerPage>
       });
       _scheduleHide();
     } on PlatformException catch (e) {
-      debugPrint('[PLAYER] platform exception ${e.code}: ${e.message}');
+      _plog('platform exception ${e.code}: ${e.message}',
+          level: LogLevel.error);
       if (!mounted) return;
       final raw = e.message ?? '';
       String msg;
@@ -770,7 +813,8 @@ class _PlayerPageState extends State<PlayerPage>
         msg =
             'This video format is not supported on your device. You can try playing it in your browser.';
       } else if (_isRecoverableError(raw) && _retryAttempts < 2) {
-        debugPrint('[PLAYER] recoverable error, retrying (attempt ${_retryAttempts + 1})');
+        _plog('recoverable error, retrying (attempt ${_retryAttempts + 1})',
+            level: LogLevel.warn);
         _retryAttempts++;
         _autoRetrying = true;
         _autoRetry();
@@ -783,7 +827,7 @@ class _PlayerPageState extends State<PlayerPage>
         _errorMessage = msg;
       });
     } catch (e) {
-      debugPrint('[PLAYER] init threw: $e');
+      _plog('init threw: $e', level: LogLevel.error);
       if (!mounted) return;
       setState(() {
         _initializing = false;
@@ -862,6 +906,7 @@ class _PlayerPageState extends State<PlayerPage>
       final msg = v.errorDescription;
       if (msg != null && msg != _lastError && mounted) {
         _lastError = msg;
+        _plog('playback error: $msg', level: LogLevel.error);
         if (!_autoRetrying && _retryAttempts < 2 && _isRecoverableError(msg)) {
           _retryAttempts++;
           _autoRetrying = true;
@@ -1349,7 +1394,7 @@ class _PlayerPageState extends State<PlayerPage>
         });
       }
     } catch (e) {
-      debugPrint('[PLAYER] subtitle load error: $e');
+      _plog('subtitle load error: $e', level: LogLevel.warn);
     }
   }
 
@@ -1388,10 +1433,10 @@ class _PlayerPageState extends State<PlayerPage>
       final body = response.data;
       if (body != null && body.isNotEmpty) {
         _vttThumbnails = _VttThumbnail.parse(body, url);
-        debugPrint('[PLAYER] loaded ${_vttThumbnails.length} VTT thumbnails');
+        _plog('loaded ${_vttThumbnails.length} VTT thumbnails');
       }
     } catch (e) {
-      debugPrint('[PLAYER] VTT thumbnails load error: $e');
+      _plog('VTT thumbnails load error: $e', level: LogLevel.warn);
       _vttThumbnails = const [];
     }
   }
@@ -1972,6 +2017,15 @@ class _PlayerPageState extends State<PlayerPage>
                     _startDownload();
                   },
                 ),
+              _SettingsTile(
+                icon: Icons.bug_report_outlined,
+                label: 'Diagnostics / Logs',
+                value: _isLive ? 'live' : '',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  LogViewerSheet.show(context);
+                },
+              ),
               const SizedBox(height: 8),
             ],
           ),
@@ -2217,6 +2271,15 @@ class _PlayerPageState extends State<PlayerPage>
                     label: const Text('Play in Browser'),
                   ),
                 ],
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: () => LogViewerSheet.show(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white60,
+                  ),
+                  icon: const Icon(Icons.bug_report_outlined, size: 18),
+                  label: const Text('View logs'),
+                ),
               ],
             ),
           ),
@@ -2988,7 +3051,9 @@ class _PlayerPageState extends State<PlayerPage>
 
                         return Column(
                         mainAxisSize: MainAxisSize.min,
-                        children: [
+                        children: _isLive
+                            ? [_buildLiveBar()]
+                            : [
                           if (dragVal != null && (_hasThumbnails || _canGeneratePreview))
                             Builder(builder: (_) {
                               final thumb = _thumbnailAt(displayPos);
@@ -3147,6 +3212,42 @@ class _PlayerPageState extends State<PlayerPage>
     );
   }
 
+  /// Replaces the seek bar for live / IPTV streams (no fixed duration to scrub).
+  Widget _buildLiveBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          const _LiveDot(),
+          const SizedBox(width: 7),
+          const Text(
+            'LIVE',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const Spacer(),
+          // Jump back to the live edge after a pause / DVR rewind.
+          _BottomTextButton(
+            icon: Icons.fiber_manual_record_rounded,
+            label: 'Go live',
+            enabled: true,
+            onTap: () {
+              final c = _controller;
+              if (c == null || !c.value.isInitialized) return;
+              final end = c.value.duration;
+              if (end > Duration.zero) _seekTo(end);
+              c.play();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSidePanel() {
     final isQuality = _panel == _SidePanel.quality;
     return Positioned(
@@ -3214,6 +3315,43 @@ class _PlayerPageState extends State<PlayerPage>
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pulsing red dot used by the LIVE indicator.
+class _LiveDot extends StatefulWidget {
+  const _LiveDot();
+
+  @override
+  State<_LiveDot> createState() => _LiveDotState();
+}
+
+class _LiveDotState extends State<_LiveDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: Tween<double>(begin: 1.0, end: 0.3).animate(_c),
+      child: Container(
+        width: 9,
+        height: 9,
+        decoration: const BoxDecoration(
+          color: Color(0xFFFF3B30),
+          shape: BoxShape.circle,
         ),
       ),
     );
