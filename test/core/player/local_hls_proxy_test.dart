@@ -45,10 +45,16 @@ void main() {
 
       final received = upstream.lastHeaders;
       expect(received, isNotNull);
-      expect(received!.containsKey('origin'), isFalse,
-          reason: 'Origin must be stripped before sending upstream');
-      expect(received.containsKey('referer'), isFalse,
-          reason: 'Referer must be stripped before sending upstream');
+      expect(
+        received!.containsKey('origin'),
+        isFalse,
+        reason: 'Origin must be stripped before sending upstream',
+      );
+      expect(
+        received.containsKey('referer'),
+        isFalse,
+        reason: 'Referer must be stripped before sending upstream',
+      );
       expect(received['user-agent'], contains('Android'));
     });
 
@@ -56,7 +62,8 @@ void main() {
       upstream.respond(
         path: '/cdn/manifest/video/x.m3u8',
         contentType: 'application/vnd.apple.mpegurl',
-        body: '#EXTM3U\n'
+        body:
+            '#EXTM3U\n'
             '#EXT-X-STREAM-INF:BANDWIDTH=800000\n'
             '${upstream.origin}/cdn/manifest/video/variant_low.m3u8?sec=tok\n'
             '#EXT-X-STREAM-INF:BANDWIDTH=2000000\n'
@@ -72,10 +79,11 @@ void main() {
 
       final loopbackUri = Uri.parse(loopback);
       final base = '/hls/${loopbackUri.pathSegments[1]}';
-      expect(body,
-          contains('$base/cdn/manifest/video/variant_low.m3u8?sec=tok'));
-      expect(body,
-          contains('$base/cdn/manifest/video/variant_high.m3u8'));
+      expect(
+        body,
+        contains('$base/cdn/manifest/video/variant_low.m3u8?sec=tok'),
+      );
+      expect(body, contains('$base/cdn/manifest/video/variant_high.m3u8'));
     });
 
     test('rewrites cross-host segment URIs into base64 _h/ form', () async {
@@ -83,7 +91,8 @@ void main() {
       upstream.respond(
         path: '/cdn/manifest/video/x.m3u8',
         contentType: 'application/vnd.apple.mpegurl',
-        body: '#EXTM3U\n'
+        body:
+            '#EXTM3U\n'
             '#EXT-X-STREAM-INF:BANDWIDTH=1000000\n'
             'https://$altAuthority/seg/720p.m3u8?t=1\n',
       );
@@ -94,8 +103,9 @@ void main() {
       );
 
       final body = await _httpGetString(loopback);
-      final expectedTag =
-          base64UrlEncode(utf8.encode(altAuthority)).replaceAll('=', '');
+      final expectedTag = base64UrlEncode(
+        utf8.encode(altAuthority),
+      ).replaceAll('=', '');
       expect(body, contains('/_h/$expectedTag/seg/720p.m3u8?t=1'));
     });
 
@@ -123,28 +133,90 @@ void main() {
       expect(manifestBody, contains('/hls/$sid/cdn/manifest/video/seg0.ts'));
 
       final base = 'http://127.0.0.1:${loopbackUri.port}';
-      final segBytes =
-          await _httpGetBytes('$base/hls/$sid/cdn/manifest/video/seg0.ts');
+      final segBytes = await _httpGetBytes(
+        '$base/hls/$sid/cdn/manifest/video/seg0.ts',
+      );
       expect(segBytes, equals(segmentBytes));
+    });
+
+    test('applies uzmovi rc4 transform per upstream request', () async {
+      final menuData = base64.encode(utf8.encode('menu-data'));
+      upstream.respondWhere(
+        matches: (uri) {
+          final parts = uri.pathSegments;
+          return parts.length == 2 &&
+              parts[0].length == 30 &&
+              parts[1].length == 14 &&
+              parts[1].endsWith('.mpd');
+        },
+        contentType: 'application/vnd.apple.mpegurl',
+        body: '#EXTM3U\nseg0.ts\n',
+      );
+
+      final loopback = await proxy.register(
+        upstreamUrl: '${upstream.origin}/live/show/index.m3u8',
+        headers: const {
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 13)',
+          'Origin': 'https://uzmovi.net',
+          'Referer': 'https://uzmovi.net/movie.html',
+        },
+        localProxy: {
+          'transform': 'uzmovi-rc4-v1',
+          'targetHost': Uri.parse(upstream.origin).host,
+        },
+        requestTransform: {
+          'type': 'uzmovi-rc4-v1',
+          'pageHost': 'uzmovi.net',
+          'menuData': menuData,
+          'randomPath': {'first': 30, 'second': 10, 'extension': '.mpd'},
+          'headerNames': {
+            'deviceId': 'X-ATT-DeviceId',
+            'match': 'X-Match',
+            'path': 'X-Path',
+          },
+        },
+      );
+
+      final body = await _httpGetString(loopback);
+      final loopbackUri = Uri.parse(loopback);
+      final sid = loopbackUri.pathSegments[1];
+      expect(body, contains('/hls/$sid/live/show/seg0.ts'));
+
+      final received = upstream.lastHeaders;
+      expect(received, isNotNull);
+      expect(received!['origin'], 'https://uzmovi.net');
+      expect(received['referer'], 'https://uzmovi.net/movie.html');
+      expect(
+        received['x-att-deviceid'],
+        base64.encode(_rc4Bytes('movie', base64.decode(menuData))),
+      );
+      expect(received['x-path']?.length, 40);
+
+      final matchHeader = received['x-match'];
+      expect(matchHeader, isNotNull);
+      final decodedMatch = utf8.decode(
+        _rc4Bytes('uzmovi.net', base64.decode(matchHeader!)),
+      );
+      final matchJson = jsonDecode(decodedMatch) as Map<String, dynamic>;
+      expect(matchJson['path'], '/live/show/index.m3u8');
+      expect(matchJson['time'], isA<num>());
+      expect(upstream.lastUri?.path, isNot('/live/show/index.m3u8'));
     });
 
     test('returns 410 for unknown session id', () async {
       await proxy.register(
-        upstreamUrl:
-            '${upstream.origin}/cdn/manifest/video/x.m3u8?sec=tok',
+        upstreamUrl: '${upstream.origin}/cdn/manifest/video/x.m3u8?sec=tok',
         headers: const {'User-Agent': 'test'},
       );
       final port = proxy.debugPort;
       final res = await _httpGetStatus(
-          'http://127.0.0.1:$port/hls/deadbeef/cdn/manifest/video/x.m3u8');
+        'http://127.0.0.1:$port/hls/deadbeef/cdn/manifest/video/x.m3u8',
+      );
       expect(res, 410);
     });
 
     test('returns upstream status code on 4xx', () async {
-      upstream.respondStatus(
-        path: '/cdn/manifest/video/x.m3u8',
-        status: 403,
-      );
+      upstream.respondStatus(path: '/cdn/manifest/video/x.m3u8', status: 403);
 
       final loopback = await proxy.register(
         upstreamUrl: '${upstream.origin}/cdn/manifest/video/x.m3u8',
@@ -161,13 +233,14 @@ class _MockUpstream {
 
   final HttpServer _server;
   final Map<String, _MockResponse> _routes = {};
+  final List<_MockMatcher> _matchers = [];
   Map<String, String>? lastHeaders;
+  Uri? lastUri;
 
   String get origin => 'http://${_server.address.host}:${_server.port}';
 
   static Future<_MockUpstream> start() async {
-    final server =
-        await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final mock = _MockUpstream._(server);
     server.listen(mock._handle);
     return mock;
@@ -201,14 +274,40 @@ class _MockUpstream {
     _routes[path] = _MockResponse(status: status, bytes: const []);
   }
 
+  void respondWhere({
+    required bool Function(Uri uri) matches,
+    required String body,
+    String? contentType,
+  }) {
+    _matchers.add(
+      _MockMatcher(
+        matches: matches,
+        response: _MockResponse(
+          status: 200,
+          bytes: utf8.encode(body),
+          contentType: contentType,
+        ),
+      ),
+    );
+  }
+
   Future<void> close() => _server.close(force: true);
 
   Future<void> _handle(HttpRequest req) async {
     lastHeaders = {};
+    lastUri = req.uri;
     req.headers.forEach((name, values) {
       lastHeaders![name.toLowerCase()] = values.join(',');
     });
-    final route = _routes[req.uri.path];
+    var route = _routes[req.uri.path];
+    if (route == null) {
+      for (final matcher in _matchers) {
+        if (matcher.matches(req.uri)) {
+          route = matcher.response;
+          break;
+        }
+      }
+    }
     if (route == null) {
       req.response.statusCode = 404;
       await req.response.close();
@@ -216,8 +315,10 @@ class _MockUpstream {
     }
     req.response.statusCode = route.status;
     if (route.contentType != null) {
-      req.response.headers
-          .set(HttpHeaders.contentTypeHeader, route.contentType!);
+      req.response.headers.set(
+        HttpHeaders.contentTypeHeader,
+        route.contentType!,
+      );
     }
     req.response.add(route.bytes);
     await req.response.close();
@@ -229,6 +330,13 @@ class _MockResponse {
   final int status;
   final List<int> bytes;
   final String? contentType;
+}
+
+class _MockMatcher {
+  _MockMatcher({required this.matches, required this.response});
+
+  final bool Function(Uri uri) matches;
+  final _MockResponse response;
 }
 
 Future<String> _httpGetString(String url) async {
@@ -268,4 +376,30 @@ Future<int> _httpGetStatus(String url) async {
   } finally {
     client.close();
   }
+}
+
+List<int> _rc4Bytes(String key, List<int> input) {
+  final keyBytes = utf8.encode(key);
+  final state = List<int>.generate(256, (i) => i);
+  var j = 0;
+  for (var i = 0; i < 256; i++) {
+    j = (j + state[i] + keyBytes[i % keyBytes.length]) & 0xff;
+    final tmp = state[i];
+    state[i] = state[j];
+    state[j] = tmp;
+  }
+
+  final out = List<int>.filled(input.length, 0);
+  var i = 0;
+  j = 0;
+  for (var n = 0; n < input.length; n++) {
+    i = (i + 1) & 0xff;
+    j = (j + state[i]) & 0xff;
+    final tmp = state[i];
+    state[i] = state[j];
+    state[j] = tmp;
+    final k = state[(state[i] + state[j]) & 0xff];
+    out[n] = input[n] ^ k;
+  }
+  return out;
 }

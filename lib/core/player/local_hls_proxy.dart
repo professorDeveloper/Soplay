@@ -36,6 +36,8 @@ class LocalHlsProxy {
   Future<String> register({
     required String upstreamUrl,
     required Map<String, String> headers,
+    Map<String, dynamic> localProxy = const {},
+    Map<String, dynamic> requestTransform = const {},
   }) async {
     await _ensureStarted();
     final id = _randomId();
@@ -47,6 +49,10 @@ class LocalHlsProxy {
       basePath: basePath,
       cdnQuery: parsed.query,
       headers: Map<String, String>.from(headers),
+      transform: _RequestTransform.fromMaps(
+        localProxy: localProxy,
+        requestTransform: requestTransform,
+      ),
       lastAccess: DateTime.now(),
     );
     final query = parsed.hasQuery ? '?${parsed.query}' : '';
@@ -67,17 +73,18 @@ class LocalHlsProxy {
     _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     _port = _server!.port;
     debugPrint('[HLS_PROXY] listening on 127.0.0.1:$_port');
-    _server!.listen(_handle, onError: (Object e) {
-      debugPrint('[HLS_PROXY] server error: $e');
-    });
+    _server!.listen(
+      _handle,
+      onError: (Object e) {
+        debugPrint('[HLS_PROXY] server error: $e');
+      },
+    );
     _cleanupTimer = Timer.periodic(_cleanupInterval, (_) => _evictStale());
   }
 
   void _evictStale() {
     final now = DateTime.now();
-    _sessions.removeWhere(
-      (_, s) => now.difference(s.lastAccess) > _sessionTtl,
-    );
+    _sessions.removeWhere((_, s) => now.difference(s.lastAccess) > _sessionTtl);
   }
 
   Future<void> _handle(HttpRequest req) async {
@@ -97,8 +104,7 @@ class LocalHlsProxy {
     sess.lastAccess = DateTime.now();
 
     var origin = sess.origin;
-    final hMatch =
-        RegExp(r'^/_h/([A-Za-z0-9_-]+)(/.*)$').firstMatch(cdnPath);
+    final hMatch = RegExp(r'^/_h/([A-Za-z0-9_-]+)(/.*)$').firstMatch(cdnPath);
     if (hMatch != null) {
       try {
         origin = 'https://${_b64UrlDecode(hMatch.group(1)!)}';
@@ -109,34 +115,40 @@ class LocalHlsProxy {
       }
     }
 
-    final resolved =
-        cdnPath.startsWith(sess.basePath) || origin != sess.origin
-            ? cdnPath
-            : '${sess.basePath}$cdnPath';
+    final resolved = cdnPath.startsWith(sess.basePath) || origin != sess.origin
+        ? cdnPath
+        : '${sess.basePath}$cdnPath';
     final queryString = req.requestedUri.hasQuery
         ? '?${req.requestedUri.query}'
         : (origin == sess.origin && sess.cdnQuery.isNotEmpty
-            ? '?${sess.cdnQuery}'
-            : '');
+              ? '?${sess.cdnQuery}'
+              : '');
     final upstreamUrl = '$origin$resolved$queryString';
 
     final upstreamHeaders = <String, String>{};
+    final keepOriginHeaders = sess.transform?.keepsOriginHeaders == true;
     sess.headers.forEach((k, v) {
       final lower = k.toLowerCase();
-      if (lower == 'origin' ||
-          lower == 'host' ||
+      if (lower == 'host' ||
           lower == 'content-length' ||
-          lower == 'referer') {
+          (!keepOriginHeaders && (lower == 'origin' || lower == 'referer'))) {
         return;
       }
       upstreamHeaders[k] = v;
     });
 
     try {
+      final transformed = sess.transform?.apply(
+        origin: origin,
+        logicalPath: resolved,
+        headers: upstreamHeaders,
+      );
+      final requestUrl = transformed?.url ?? upstreamUrl;
+      final requestHeaders = transformed?.headers ?? upstreamHeaders;
       final resp = await _dio.get<List<int>>(
-        upstreamUrl,
+        requestUrl,
         options: Options(
-          headers: upstreamHeaders,
+          headers: requestHeaders,
           responseType: ResponseType.bytes,
           followRedirects: true,
           validateStatus: (_) => true,
@@ -146,15 +158,16 @@ class LocalHlsProxy {
       if (status >= 400) {
         debugPrint(
           '[HLS_PROXY] upstream $status: $upstreamUrl '
-          'sent=${upstreamHeaders.keys.toList()}',
+          'sent=${requestHeaders.keys.toList()}',
         );
         await _reject(req, status);
         return;
       }
 
-      final contentType =
-          (resp.headers.value('content-type') ?? '').toLowerCase();
-      final isManifest = contentType.contains('mpegurl') ||
+      final contentType = (resp.headers.value('content-type') ?? '')
+          .toLowerCase();
+      final isManifest =
+          contentType.contains('mpegurl') ||
           contentType.contains('m3u8') ||
           resolved.endsWith('.m3u8');
       final body = resp.data ?? const <int>[];
@@ -179,13 +192,14 @@ class LocalHlsProxy {
           debugPrint('[HLS_PROXY] rewrite error: $e\n$st');
           rewritten = text;
         }
-        req.response.headers.contentType =
-            ContentType('application', 'vnd.apple.mpegurl');
+        req.response.headers.contentType = ContentType(
+          'application',
+          'vnd.apple.mpegurl',
+        );
         req.response.add(utf8.encode(rewritten));
       } else {
         if (contentType.isNotEmpty) {
-          req.response.headers
-              .set(HttpHeaders.contentTypeHeader, contentType);
+          req.response.headers.set(HttpHeaders.contentTypeHeader, contentType);
         }
         final len = resp.headers.value('content-length');
         if (len != null) {
@@ -244,10 +258,12 @@ class LocalHlsProxy {
         continue;
       }
       if (stripped.startsWith('#')) {
-        out.add(line.replaceAllMapped(
-          keyAttrPattern,
-          (m) => 'URI="${rewriteUrl(m.group(1)!)}"',
-        ));
+        out.add(
+          line.replaceAllMapped(
+            keyAttrPattern,
+            (m) => 'URI="${rewriteUrl(m.group(1)!)}"',
+          ),
+        );
         continue;
       }
       out.add(rewriteUrl(line));
@@ -271,12 +287,183 @@ class LocalHlsProxy {
   }
 }
 
+class _TransformedRequest {
+  const _TransformedRequest({required this.url, required this.headers});
+
+  final String url;
+  final Map<String, String> headers;
+}
+
+class _RequestTransform {
+  _RequestTransform._({
+    required this.type,
+    required this.pageHost,
+    required this.menuData,
+    required this.firstPathLength,
+    required this.secondPathLength,
+    required this.extension,
+    required this.deviceHeader,
+    required this.matchHeader,
+    required this.pathHeader,
+    required this.targetHost,
+  });
+
+  static const _uzmoviType = 'uzmovi-rc4-v1';
+  static const _chars =
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  static final _rng = Random.secure();
+
+  final String type;
+  final String pageHost;
+  final String menuData;
+  final int firstPathLength;
+  final int secondPathLength;
+  final String extension;
+  final String deviceHeader;
+  final String matchHeader;
+  final String pathHeader;
+  final String? targetHost;
+
+  bool get keepsOriginHeaders => type == _uzmoviType;
+
+  static _RequestTransform? fromMaps({
+    required Map<String, dynamic> localProxy,
+    required Map<String, dynamic> requestTransform,
+  }) {
+    final type =
+        _string(requestTransform['type']) ??
+        _string(localProxy['transform']) ??
+        _string(localProxy['type']);
+    if (type != _uzmoviType) return null;
+
+    final randomPath =
+        _map(requestTransform['randomPath']) ?? _map(localProxy['randomPath']);
+    final headerNames =
+        _map(requestTransform['headerNames']) ??
+        _map(localProxy['headerNames']);
+    final pageHost =
+        _string(requestTransform['pageHost']) ??
+        _string(localProxy['pageHost']) ??
+        'uzmovi.net';
+    final menuData =
+        _string(requestTransform['menuData']) ??
+        _string(localProxy['menuData']);
+    if (menuData == null || menuData.isEmpty) return null;
+
+    return _RequestTransform._(
+      type: _uzmoviType,
+      pageHost: pageHost,
+      menuData: menuData,
+      firstPathLength: _int(randomPath?['first']) ?? 30,
+      secondPathLength: _int(randomPath?['second']) ?? 10,
+      extension: _string(randomPath?['extension']) ?? '.mpd',
+      deviceHeader: _string(headerNames?['deviceId']) ?? 'X-ATT-DeviceId',
+      matchHeader: _string(headerNames?['match']) ?? 'X-Match',
+      pathHeader: _string(headerNames?['path']) ?? 'X-Path',
+      targetHost: _string(localProxy['targetHost']),
+    );
+  }
+
+  _TransformedRequest? apply({
+    required String origin,
+    required String logicalPath,
+    required Map<String, String> headers,
+  }) {
+    if (type != _uzmoviType) return null;
+    final host = Uri.tryParse(origin)?.host.toLowerCase();
+    final expected = targetHost?.toLowerCase();
+    final isUzdown = host != null && host.endsWith('uzdown.space');
+    final isTarget = expected != null && expected.isNotEmpty
+        ? host == expected || isUzdown
+        : isUzdown;
+    if (!isTarget) return null;
+
+    final requestUrl =
+        '$origin/${_randomToken(firstPathLength)}/'
+        '${_randomToken(secondPathLength)}$extension';
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final matchPayload = jsonEncode({'path': logicalPath, 'time': now});
+
+    final nextHeaders = Map<String, String>.from(headers);
+    nextHeaders[deviceHeader] = base64.encode(
+      _rc4Bytes('movie', _decodeBase64Flexible(menuData)),
+    );
+    nextHeaders[matchHeader] = base64.encode(
+      _rc4Bytes(pageHost, utf8.encode(matchPayload)),
+    );
+    nextHeaders[pathHeader] = _randomToken(40);
+    return _TransformedRequest(url: requestUrl, headers: nextHeaders);
+  }
+
+  static String _randomToken(int length) {
+    final safeLength = length <= 0 ? 1 : length;
+    return List.generate(
+      safeLength,
+      (_) => _chars[_rng.nextInt(_chars.length)],
+    ).join();
+  }
+
+  static List<int> _rc4Bytes(String key, List<int> input) {
+    final keyBytes = utf8.encode(key);
+    final state = List<int>.generate(256, (i) => i);
+    var j = 0;
+    for (var i = 0; i < 256; i++) {
+      j = (j + state[i] + keyBytes[i % keyBytes.length]) & 0xff;
+      final tmp = state[i];
+      state[i] = state[j];
+      state[j] = tmp;
+    }
+
+    final out = List<int>.filled(input.length, 0);
+    var i = 0;
+    j = 0;
+    for (var n = 0; n < input.length; n++) {
+      i = (i + 1) & 0xff;
+      j = (j + state[i]) & 0xff;
+      final tmp = state[i];
+      state[i] = state[j];
+      state[j] = tmp;
+      final k = state[(state[i] + state[j]) & 0xff];
+      out[n] = input[n] ^ k;
+    }
+    return out;
+  }
+
+  static List<int> _decodeBase64Flexible(String value) {
+    final normalized = value.trim().replaceAll('-', '+').replaceAll('_', '/');
+    final padded = normalized + '=' * ((4 - normalized.length % 4) % 4);
+    return base64.decode(padded);
+  }
+
+  static Map<String, dynamic>? _map(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is! Map) return null;
+    final out = <String, dynamic>{};
+    raw.forEach((k, v) {
+      if (k is String) out[k] = v;
+    });
+    return out;
+  }
+
+  static String? _string(dynamic raw) {
+    if (raw == null) return null;
+    final value = raw.toString();
+    return value.isEmpty ? null : value;
+  }
+
+  static int? _int(dynamic raw) {
+    if (raw is num) return raw.toInt();
+    return int.tryParse(raw?.toString() ?? '');
+  }
+}
+
 class _Session {
   _Session({
     required this.origin,
     required this.basePath,
     required this.cdnQuery,
     required this.headers,
+    required this.transform,
     required this.lastAccess,
   });
 
@@ -284,5 +471,6 @@ class _Session {
   String basePath;
   final String cdnQuery;
   final Map<String, String> headers;
+  final _RequestTransform? transform;
   DateTime lastAccess;
 }

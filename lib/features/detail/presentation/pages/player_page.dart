@@ -633,6 +633,8 @@ class _PlayerPageState extends State<PlayerPage>
       final proxied = await getIt<LocalHlsProxy>().register(
         upstreamUrl: url,
         headers: upstreamHeaders,
+        localProxy: source.localProxy,
+        requestTransform: source.requestTransform,
       );
       _plog('routing through local HLS proxy: $proxied');
       return _ProxiedTarget(url: proxied, headers: const {});
@@ -3066,7 +3068,9 @@ class _PlayerPageState extends State<PlayerPage>
                                           positionMs: displayPos.inMilliseconds,
                                         )
                                       : null);
-                              if (img == null) return const SizedBox.shrink();
+                              if (img == null) {
+                                return const SizedBox.shrink();
+                              }
                               return Padding(
                                 padding: EdgeInsets.only(
                                     left: popupLeft, bottom: 6),

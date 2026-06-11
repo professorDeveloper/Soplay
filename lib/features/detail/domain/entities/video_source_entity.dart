@@ -6,6 +6,8 @@ class VideoSourceEntity {
   final bool useLocalProxy;
   final String? type;
   final Map<String, String> headers;
+  final Map<String, dynamic> localProxy;
+  final Map<String, dynamic> requestTransform;
 
   const VideoSourceEntity({
     required this.quality,
@@ -15,5 +17,7 @@ class VideoSourceEntity {
     this.useLocalProxy = false,
     this.type,
     this.headers = const {},
+    this.localProxy = const {},
+    this.requestTransform = const {},
   });
 }
