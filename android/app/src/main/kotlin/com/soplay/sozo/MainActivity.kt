@@ -290,6 +290,36 @@ class MainActivity : FlutterFragmentActivity() {
                         }.toString()
                     }
                 }
+                "getMainPage" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val page = call.argument<Int>("page") ?: 1
+                    csAsync(result) { aniyomiHost.getMainPageJson(provider, page) }
+                }
+                "getSection" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val data = call.argument<String>("data").orEmpty()
+                    val page = call.argument<Int>("page") ?: 1
+                    csAsync(result) { aniyomiHost.getSectionJson(provider, data, page) }
+                }
+                "getGenres" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    csAsync(result) { aniyomiHost.getGenresJson(provider) }
+                }
+                "search" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val query = call.argument<String>("query").orEmpty()
+                    csAsync(result) { aniyomiHost.searchJson(provider, query) }
+                }
+                "load" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val url = call.argument<String>("url").orEmpty()
+                    csAsync(result) { aniyomiHost.loadJson(provider, url) }
+                }
+                "loadLinks" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val data = call.argument<String>("data").orEmpty()
+                    csAsync(result) { aniyomiHost.loadLinksJson(provider, data) }
+                }
                 else -> result.notImplemented()
             }
         }

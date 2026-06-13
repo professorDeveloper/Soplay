@@ -13,6 +13,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_updater/presentation/services/update_checker.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
+import 'package:soplay/features/home/presentation/bloc/home/home_state.dart';
 import 'package:soplay/features/home/presentation/pages/home_page.dart';
 import 'package:soplay/features/my_list/presentation/pages/my_list_page.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
@@ -90,6 +91,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     final newId = state.currentProviderId;
     if (_lastProviderId == null) {
       _lastProviderId = newId;
+      // First provider resolution (e.g. fresh install): the home tab already
+      // fired HomeLoad before any provider was selected, so it may have failed
+      // into the retry view. Reload it now that a default provider exists.
+      if (context.read<HomeBloc>().state is! HomeLoaded) {
+        context.read<HomeBloc>().add(HomeLoad(silent: true));
+      }
       return;
     }
     if (_lastProviderId == newId) return;

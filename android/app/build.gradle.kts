@@ -4,6 +4,7 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("kotlin-android")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
     id("com.google.firebase.crashlytics")
@@ -29,6 +30,8 @@ android {
 
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17.toString()
+        // Vendored Aniyomi OkHttpExtensions.parseAs uses context receivers.
+        freeCompilerArgs += "-Xcontext-receivers"
     }
 
     defaultConfig {
@@ -103,4 +106,16 @@ dependencies {
     // `implementation`-scoped there, so it isn't on our compile classpath). The
     // Interceptor/Response/Headers APIs used are stable across okhttp 4.x/5.x.
     compileOnly("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Aniyomi extension runtime (Android-only). Extension APKs compile against the
+    // stub `extensions-lib` as compileOnly, so the host app must supply the real
+    // runtime + these libraries at DexClassLoader time. See docs/ANIYOMI_INTEGRATION.md.
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.2.20")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-okio:1.7.3")
+    implementation("org.jsoup:jsoup:1.18.1")
+    implementation("io.reactivex:rxjava:1.3.8")
+    implementation("androidx.preference:preference-ktx:1.2.1")
+    // JS engine for Aniyomi extractors that deobfuscate links (QuickJS).
+    implementation("app.cash.quickjs:quickjs-android:0.9.2")
 }

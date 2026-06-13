@@ -147,7 +147,9 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         into.add(ProviderModel(
           id: id,
           name: (m['name'] as String?) ?? id,
-          image: _kAniyomiIcon,
+          image: (m['icon'] as String?)?.isNotEmpty == true
+              ? m['icon'] as String
+              : _kAniyomiIcon,
           url: (m['baseUrl'] as String?) ?? '',
           description: (m['repo'] as String?)?.isNotEmpty == true
               ? m['repo'] as String

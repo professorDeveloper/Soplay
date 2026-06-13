@@ -29,12 +29,15 @@ everything lives, and what is still pending.
 
 | Stage | Scope | State |
 |---|---|---|
-| **1** | Separate Aniyomi section: install repos, download APKs, persist metadata, NSFW toggle, list/remove. | **Done** |
-| **2** | Vendored runtime + reflection host + converter + provider routing so sources actually browse/play. | **Pending** |
+| **1** | Separate Aniyomi section: install repos, download APKs, persist metadata, list/remove. | **Done** |
+| **1.5** | Home integration wiring: `an:` providers appended in `provider_bloc`, `an:` routing branches in home/search/detail repos, `Aniyomi` provider-sheet filter group. All compiles, mirrors `cs:`. | **Done** |
+| **2** | Vendored runtime + native reflection host + the `getMainPage/getSection/getGenres/search/load/loadLinks` channel handlers + converter, so sources actually browse/play. | **Pending** |
 
-Stage 1 installs and lists sources; it intentionally does **not** add `an:`
-providers to the browse/search/detail flow yet, because nothing can resolve them
-until the Stage 2 runtime exists. No broken entries appear in the provider sheet.
+Stages 1 + 1.5 install sources and fully wire them into home. Until Stage 2 lands,
+the native side has no `getMainPage/load/loadLinks` handlers, so the Dart calls
+hit `notImplemented` → caught → empty → a graceful "not found" (no crash). The
+moment Stage 2 adds the handlers + runtime, content flows with no further Dart
+changes.
 
 ---
 

@@ -434,11 +434,8 @@ class HomeBannerSkeleton extends StatelessWidget {
     );
     return SizedBox(
       height: height,
-      child: const HomeSkeletonBox(
-        width: double.infinity,
-        height: double.infinity,
-        radius: 0,
-      ),
+      width: double.infinity,
+      child: const ColoredBox(color: AppColors.background),
     );
   }
 }
