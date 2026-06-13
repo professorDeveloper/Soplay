@@ -46,3 +46,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Kotlin compiler build session/cache (transient, Kotlin 2.x)
+.kotlin/
+**/.kotlin/
