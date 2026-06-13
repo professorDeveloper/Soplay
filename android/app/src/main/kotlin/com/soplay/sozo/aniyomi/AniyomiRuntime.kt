@@ -1,5 +1,6 @@
 package com.soplay.sozo.aniyomi
 
+import android.app.Application
 import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
@@ -7,9 +8,11 @@ import dalvik.system.DexClassLoader
 import eu.kanade.tachiyomi.animesource.AnimeCatalogueSource
 import eu.kanade.tachiyomi.animesource.AnimeSource
 import eu.kanade.tachiyomi.animesource.AnimeSourceFactory
+import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.serialization.json.Json
 import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.addSingleton
 import uy.kohesive.injekt.api.addSingletonFactory
 import java.io.File
 
@@ -27,7 +30,9 @@ object AniyomiRuntime {
         synchronized(this) {
             if (bootstrapped) return
             val app = context.applicationContext
+            if (app is Application) Injekt.addSingleton(app)
             Injekt.addSingletonFactory { NetworkHelper(app) }
+            Injekt.addSingletonFactory { JavaScriptEngine(app) }
             Injekt.addSingletonFactory {
                 Json {
                     ignoreUnknownKeys = true
@@ -49,8 +54,14 @@ object AniyomiRuntime {
         if (loadedApks.contains(apkPath)) return sourceCache[sourceId]
         synchronized(this) {
             if (!loadedApks.contains(apkPath)) {
-                loadApk(context, apkPath, pkg)
+                // Mark loaded BEFORE attempting: a failure (bad apk, link error)
+                // must not retry on every home reload — that was an infinite loop.
                 loadedApks.add(apkPath)
+                try {
+                    loadApk(context, apkPath, pkg)
+                } catch (t: Throwable) {
+                    Log.e(TAG, "loadApk failed for $apkPath: ${t.message}")
+                }
             }
         }
         return sourceCache[sourceId]
@@ -65,6 +76,9 @@ object AniyomiRuntime {
         val classList = appInfo.metaData?.getString(METADATA_SOURCE_CLASS) ?: run {
             Log.e(TAG, "no $METADATA_SOURCE_CLASS metadata"); return
         }
+        // Android (API 26+) refuses to DexClassLoad a writable file (W^X). The apk
+        // lives in our writable filesDir, so mark it read-only before loading.
+        try { File(apkPath).setReadOnly() } catch (_: Throwable) {}
         val optimizedDir = File(context.codeCacheDir, "aniyomi_dex").apply { mkdirs() }
         val loader = DexClassLoader(apkPath, optimizedDir.absolutePath, null, javaClass.classLoader)
 

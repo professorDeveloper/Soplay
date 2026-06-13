@@ -138,6 +138,10 @@ class AniyomiHost(private val context: Context) {
         if (src != null) {
             try {
                 val pop = runBlocking { src.getPopularAnime(page) }
+                pop.animes.firstOrNull()?.let {
+                    val t = runCatching { it.title }.getOrDefault("<unset>")
+                    Log.i(TAG, "popular[0] title='$t' url='${it.url}'")
+                }
                 val items = JSONArray()
                 for (a in pop.animes.take(30)) items.put(cardJson(a, id))
                 if (items.length() > 0) {
@@ -201,6 +205,16 @@ class AniyomiHost(private val context: Context) {
 
     fun getGenresJson(id: String): String = "[]"
 
+    private fun statusLabel(status: Int): String? = when (status) {
+        1 -> "Ongoing"
+        2 -> "Completed"
+        3 -> "Licensed"
+        4 -> "Publishing finished"
+        5 -> "Cancelled"
+        6 -> "On hiatus"
+        else -> null
+    }
+
     fun loadJson(id: String, url: String): String {
         val src = sourceFor(id) ?: return "{}"
         val anime = newAnime(url)
@@ -208,29 +222,56 @@ class AniyomiHost(private val context: Context) {
         catch (t: Throwable) { Log.e(TAG, "details $id: ${t.message}"); anime }
         val eps = try { runBlocking { src.getEpisodeList(anime) } }
         catch (t: Throwable) { Log.e(TAG, "episodes $id: ${t.message}"); emptyList() }
+        // A single-episode entry is a movie; multiple episodes is a series.
+        val isMovie = eps.size <= 1
         val episodes = JSONArray()
         eps.sortedBy { it.episode_number }.forEachIndexed { i, e ->
             val num = if (e.episode_number > 0) e.episode_number.toInt() else (i + 1)
             episodes.put(JSONObject().apply {
                 put("episode", num)
-                put("label", e.name.ifEmpty { "Episode $num" })
+                put("label", if (isMovie) "Play" else e.name.ifEmpty { "Episode $num" })
                 put("mediaRef", e.url)
             })
         }
         val title = try { details.title } catch (_: Throwable) { "" }
+        val author = try { details.author } catch (_: Throwable) { null }
+        val status = statusLabel(try { details.status } catch (_: Throwable) { 0 })
+        val desc = buildString {
+            status?.let { append("• ").append(it) }
+            val d = try { details.description } catch (_: Throwable) { null }
+            if (!d.isNullOrBlank()) {
+                if (isNotEmpty()) append("\n\n")
+                append(d)
+            }
+        }
+        // Aniyomi has no "recommendations" API, so derive a "similar" row from a
+        // title search (same fallback CloudStream uses).
+        val related = JSONArray()
+        try {
+            val q = title.replace(Regex("\\(.*?\\)"), "").trim()
+            if (q.length >= 2) {
+                val results = runBlocking { src.getSearchAnime(1, q, AnimeFilterList()) }
+                for (a in results.animes) {
+                    if (a.url == url) continue
+                    related.put(cardJson(a, id))
+                    if (related.length() >= 20) break
+                }
+            }
+        } catch (t: Throwable) { Log.e(TAG, "related $id: ${t.message}") }
         return JSONObject().apply {
             put("provider", "an:$id")
             put("contentId", url); put("contentUrl", url)
             put("title", title)
-            put("description", details.description)
+            put("description", desc)
             put("thumbnail", details.thumbnail_url)
             put("banner", details.thumbnail_url)
             put("year", JSONObject.NULL)
+            if (!author.isNullOrBlank()) put("director", author)
             put("genres", JSONArray(details.getGenres() ?: emptyList<String>()))
-            put("type", "Anime")
-            put("isSerial", true)
+            put("type", if (isMovie) "Movie" else "Anime")
+            put("isSerial", !isMovie)
             put("cast", JSONArray())
-            put("related", JSONArray())
+            put("related", related)
             put("episodes", episodes)
         }.toString()
     }

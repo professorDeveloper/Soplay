@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
@@ -589,13 +590,13 @@ class _ProvidersPageState extends State<_ProvidersPage> {
   // Filter group: 'all' | 'cloud' | 'hybrid' | 'local' | 'cloudstream'.
   String _selectedCategory = _providerSheetFilter;
   final _searchController = TextEditingController();
-  final _scrollController = ScrollController();
   String _query = '';
+  Timer? _searchDebounce;
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -632,13 +633,28 @@ class _ProvidersPageState extends State<_ProvidersPage> {
       ),
       body: BlocBuilder<ProviderBloc, ProviderState>(
         builder: (context, state) {
+          // Filter once per build (was computed twice — count + list — over 300+
+          // providers each frame, the main source of the open jank).
+          final filtered = state is ProviderLoaded
+              ? _filteredProviders(state.providers)
+              : const <ProviderEntity>[];
           return Column(
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
                 child: TextField(
                   controller: _searchController,
-                  onChanged: (v) => setState(() => _query = v.trim()),
+                  // Debounce so each keystroke doesn't re-filter 300+ providers
+                  // and recompute the category counts on the whole tree.
+                  onChanged: (v) {
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(
+                      const Duration(milliseconds: 200),
+                      () {
+                        if (mounted) setState(() => _query = v.trim());
+                      },
+                    );
+                  },
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
@@ -672,7 +688,7 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
                     child: Text(
-                      '${_filteredProviders(state.providers).length} of ${state.providers.length} shown',
+                      '${filtered.length} of ${state.providers.length} shown',
                       style: const TextStyle(
                           color: AppColors.textHint, fontSize: 12),
                     ),
@@ -680,16 +696,13 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                 ),
               Expanded(
                 child: switch (state) {
-                  ProviderLoaded() => () {
-                    final filtered = _filteredProviders(state.providers);
-                    if (filtered.isEmpty) return const _ProvidersEmpty();
-                    return _ProvidersList(
-                      providers: filtered,
-                      currentProviderId: state.currentProviderId,
-                      scrollController: _scrollController,
-                      bottomPad: bottomPad,
-                    );
-                  }(),
+                  ProviderLoaded() => filtered.isEmpty
+                      ? const _ProvidersEmpty()
+                      : _ProvidersList(
+                          providers: filtered,
+                          currentProviderId: state.currentProviderId,
+                          bottomPad: bottomPad,
+                        ),
                   ProviderError() => _ProvidersError(
                     onRetry: () =>
                         context.read<ProviderBloc>().add(const ProviderLoad()),
@@ -906,13 +919,11 @@ class _ProvidersList extends StatefulWidget {
   const _ProvidersList({
     required this.providers,
     required this.currentProviderId,
-    required this.scrollController,
     required this.bottomPad,
   });
 
   final List<ProviderEntity> providers;
   final String currentProviderId;
-  final ScrollController scrollController;
   final double bottomPad;
 
   @override
@@ -922,39 +933,51 @@ class _ProvidersList extends StatefulWidget {
 class _ProvidersListState extends State<_ProvidersList> {
   // tile (~64) + separator (8); good enough to bring the selected row into view.
   static const double _estItemExtent = 72.0;
+  late final ScrollController _controller;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
+    // Open already positioned at the selected provider (via initialScrollOffset)
+    // instead of rendering at the top then post-frame jumping — that reposition
+    // was the visible "opens late then snaps" lag on the 300+ item list. Any
+    // overshoot past maxScrollExtent is clamped by the list on first layout.
+    final i = widget.providers.indexWhere((p) => p.id == widget.currentProviderId);
+    final offset = i > 2 ? (i * _estItemExtent - 80).clamp(0.0, double.infinity) : 0.0;
+    _controller = ScrollController(initialScrollOffset: offset);
   }
 
-  void _scrollToSelected() {
-    final i = widget.providers.indexWhere((p) => p.id == widget.currentProviderId);
-    if (i <= 2) return; // already near the top
-    final c = widget.scrollController;
-    if (!c.hasClients) return;
-    final target = (i * _estItemExtent - 80).clamp(0.0, c.position.maxScrollExtent);
-    c.jumpTo(target);
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      controller: widget.scrollController,
+    return ListView.builder(
+      controller: _controller,
       padding: EdgeInsets.fromLTRB(16, 4, 16, widget.bottomPad + 16),
+      addAutomaticKeepAlives: false,
+      // Fixed extent → the list computes any row's offset in O(1), so opening
+      // already-scrolled to a far-down selected provider is instant. A variable-
+      // extent (ListView.separated) list had to lay out EVERY row above the
+      // target to reach it — that was the ~2s open freeze on the 300+ list.
+      itemExtent: _estItemExtent,
       itemCount: widget.providers.length,
-      separatorBuilder: (context, i) => const SizedBox(height: 8),
       itemBuilder: (context, i) {
         final provider = widget.providers[i];
         final selected = provider.id == widget.currentProviderId;
-        return _ProviderListTile(
-          provider: provider,
-          selected: selected,
-          onTap: () {
-            context.read<ProviderBloc>().add(ProviderSelect(provider.id));
-            Navigator.of(context).pop();
-          },
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _ProviderListTile(
+            provider: provider,
+            selected: selected,
+            onTap: () {
+              context.read<ProviderBloc>().add(ProviderSelect(provider.id));
+              Navigator.of(context).pop();
+            },
+          ),
         );
       },
     );
@@ -1810,14 +1833,20 @@ class _ProviderLogo extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: provider.image.isEmpty
           ? _ProviderFallback(name: provider.name, size: size)
-          : Image.network(
-              provider.image,
+          : CachedNetworkImage(
+              imageUrl: provider.image,
               width: size,
               height: size,
               fit: BoxFit.cover,
-              cacheWidth: cache,
-              cacheHeight: cache,
-              errorBuilder: (_, e, s) =>
+              // Disk-cached + decoded at display size: with 280+ distinct source
+              // icons this avoids re-fetching every scroll/session and keeps the
+              // memory cache small (was a jank source on the Aniyomi list).
+              memCacheWidth: cache,
+              memCacheHeight: cache,
+              fadeInDuration: const Duration(milliseconds: 120),
+              placeholder: (_, _) =>
+                  _ProviderFallback(name: provider.name, size: size),
+              errorWidget: (_, _, _) =>
                   _ProviderFallback(name: provider.name, size: size),
             ),
     );

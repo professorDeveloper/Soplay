@@ -45,6 +45,15 @@ void main() async {
       DeviceOrientation.portraitDown,
     ]).catchError((Object _) {}),
   );
+  // Baseline: system bars visible (non-fullscreen). The player enters immersive
+  // mode itself and restores to this on exit — so a missed restore (e.g. a crash
+  // in the player) can't leave the whole app stuck fullscreen.
+  unawaited(
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    ).catchError((Object _) {}),
+  );
   runApp(
     EasyLocalization(
       supportedLocales: const [

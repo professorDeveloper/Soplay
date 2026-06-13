@@ -145,7 +145,7 @@ class DetailRepositoryImpl implements DetailRepository {
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
           return _postProcess(MediaResolveModel.fromJson(map));
         }
-        return Failure(Exception('CloudStream: oqim topilmadi'));
+        return Failure(Exception('CloudStream: stream not found'));
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] CloudStream path failed: $e');
         return Failure(Exception(_normalizeJsError(e)));
@@ -158,7 +158,7 @@ class DetailRepositoryImpl implements DetailRepository {
         if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
           return _postProcess(MediaResolveModel.fromJson(map));
         }
-        return Failure(Exception('Aniyomi: oqim topilmadi'));
+        return Failure(Exception('Aniyomi: stream not found'));
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] Aniyomi path failed: $e');
         return Failure(Exception(_normalizeJsError(e)));

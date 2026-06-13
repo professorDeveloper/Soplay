@@ -365,7 +365,7 @@ class _PlayerPageState extends State<PlayerPage>
     _isPortrait = false;
     try {
       await SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.edgeToEdge,
+        SystemUiMode.manual,
         overlays: SystemUiOverlay.values,
       );
       await AppOrientation.set([
@@ -2004,15 +2004,16 @@ class _PlayerPageState extends State<PlayerPage>
                         _openSubtitleSheet();
                       },
               ),
-              _SettingsTile(
-                icon: Icons.text_fields_rounded,
-                label: 'Subtitle style',
-                value: '${_subtitleStyle.fontSize.round()}px',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _openSubtitleAppearanceSheet();
-                },
-              ),
+              if (_subtitles.isNotEmpty)
+                _SettingsTile(
+                  icon: Icons.text_fields_rounded,
+                  label: 'Subtitle style',
+                  value: '${_subtitleStyle.fontSize.round()}px',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _openSubtitleAppearanceSheet();
+                  },
+                ),
               if (!hasLangs)
                 const _SettingsTile(
                   icon: Icons.audiotrack_outlined,
@@ -3860,21 +3861,27 @@ class _SettingsTile extends StatelessWidget {
               size: 20,
             ),
             const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: disabled ? Colors.white54 : Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: disabled ? Colors.white54 : Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            Text(
-              value,
-              style: TextStyle(
-                color: disabled ? Colors.white38 : Colors.white70,
-                fontSize: 13,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: disabled ? Colors.white38 : Colors.white70,
+                  fontSize: 13,
+                ),
               ),
             ),
             if (!disabled) ...[
