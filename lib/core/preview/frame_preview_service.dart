@@ -16,17 +16,32 @@ class FramePreviewService {
 
   static String? _openUrl;
   static final Map<int, Uint8List?> _cache = {};
+  // Buckets currently being prefetched, so neighbour warm-ups aren't requested
+  // twice while one is still in flight.
+  static final Set<int> _inFlight = {};
 
   /// Bucket size (ms) — one frame per this window is extracted & cached.
   static const int bucketMs = 5000;
 
-  static Future<void> open(String url, Map<String, String> headers) async {
+  /// Open [url] for preview extraction. [warmMs] (defaults to the start) tells
+  /// the native side which frame to warm the decoder with up front, so the first
+  /// scrub already has a frame ready instead of paying codec-init then.
+  static Future<void> open(
+    String url,
+    Map<String, String> headers, {
+    int warmMs = 0,
+  }) async {
     if (!isSupported) return;
     if (_openUrl == url) return;
     _openUrl = url;
     _cache.clear();
+    _inFlight.clear();
+    final warmBucket = (warmMs ~/ bucketMs) * bucketMs;
     try {
-      await _ch.invokeMethod('open', {'url': url, 'headers': headers});
+      await _ch.invokeMethod(
+        'open',
+        {'url': url, 'headers': headers, 'warmMs': warmBucket},
+      );
     } catch (_) {}
   }
 
@@ -35,17 +50,37 @@ class FramePreviewService {
     if (!isSupported || _openUrl == null) return null;
     final bucket = (positionMs ~/ bucketMs) * bucketMs;
     if (_cache.containsKey(bucket)) return _cache[bucket];
-    Uint8List? bytes;
-    try {
-      bytes = await _ch.invokeMethod<Uint8List>('frame', {'posMs': bucket});
-    } catch (_) {
-      bytes = null;
-    }
+    final bytes = await _extract(bucket);
     // Only cache successes. A null here usually means the retriever is still
     // opening (first scrub race) — caching it would permanently show a
     // placeholder for that bucket; instead let the next scrub retry.
-    if (bytes != null) _cache[bucket] = bytes;
+    if (bytes != null) {
+      _cache[bucket] = bytes;
+      // Warm the neighbouring buckets so continued scrubbing is instant. These
+      // run in the background and only populate the cache; a failure is ignored.
+      _prefetch(bucket + bucketMs);
+      _prefetch(bucket - bucketMs);
+    }
     return bytes;
+  }
+
+  static Future<Uint8List?> _extract(int bucket) async {
+    try {
+      return await _ch.invokeMethod<Uint8List>('frame', {'posMs': bucket});
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Fire-and-forget extraction of [bucket] into the cache (no spinner, no UI).
+  static void _prefetch(int bucket) {
+    if (bucket < 0 || _openUrl == null) return;
+    if (_cache.containsKey(bucket) || _inFlight.contains(bucket)) return;
+    _inFlight.add(bucket);
+    _extract(bucket).then((bytes) {
+      _inFlight.remove(bucket);
+      if (bytes != null) _cache[bucket] = bytes;
+    });
   }
 
   /// Ensure the URL is open (idempotent) then return the bucketed frame.
@@ -73,6 +108,7 @@ class FramePreviewService {
   static Future<void> close() async {
     _openUrl = null;
     _cache.clear();
+    _inFlight.clear();
     if (!isSupported) return;
     try {
       await _ch.invokeMethod('close');

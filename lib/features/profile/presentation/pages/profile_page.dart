@@ -7,8 +7,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
 import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_sources_page.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
@@ -147,6 +149,41 @@ class _ProfileViewState extends State<_ProfileView> {
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const CloudStreamSourcesPage(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                ],
+                if (AniyomiChannel.isSupported) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Material(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        child: ListTile(
+                          leading: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.play_circle_outline,
+                                color: AppColors.primary, size: 18),
+                          ),
+                          title: const Text('Aniyomi Sources',
+                              style: TextStyle(color: Colors.white)),
+                          trailing: const Icon(Icons.chevron_right,
+                              color: AppColors.textHint),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const AniyomiSourcesPage(),
                             ),
                           ),
                         ),

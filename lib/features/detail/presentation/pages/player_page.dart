@@ -778,7 +778,13 @@ class _PlayerPageState extends State<PlayerPage>
       // frame ready. `_canGeneratePreview` already encodes the platform/HLS
       // rules (Android skips HLS, iOS allows it). Live has no seekable window.
       if (_canGeneratePreview && !_isLive) {
-        FramePreviewService.open(_videoUrl!, _headers);
+        // Warm at the resume position (or start) so the first scrub there is
+        // already decoded instead of cold-starting the codec on first drag.
+        FramePreviewService.open(
+          _videoUrl!,
+          _headers,
+          warmMs: resumeAt.inMilliseconds,
+        );
       }
       controller.addListener(_onMajorChange);
       await controller.setLooping(false);

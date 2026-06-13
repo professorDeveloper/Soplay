@@ -22,6 +22,23 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
   static const _icon =
       'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTRzeluIShlMnhgHeVHgTSkvsthvQEK2xaS5A&s';
 
+  // Curated repos so users who don't know what to paste can install a known-good
+  // source in one tap. Tapping a card runs the same install flow as the URL box.
+  static const List<Map<String, String>> _recommended = [
+    {
+      'name': 'Phisher Extensions',
+      'desc': 'Large collection · movies, series & anime',
+      'url':
+          'https://raw.githubusercontent.com/phisher98/cloudstream-extensions-phisher/refs/heads/builds/repo.json',
+    },
+    {
+      'name': 'Redowan CloudStream',
+      'desc': 'Popular providers · movies & series',
+      'url':
+          'https://raw.githubusercontent.com/redowan99/Redowan-CloudStream/master/repo.json',
+    },
+  ];
+
   final _controller = TextEditingController();
   List<Map<String, String>> _repos = const [];
   bool _busy = false;
@@ -69,8 +86,10 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
     } catch (_) {}
   }
 
-  Future<void> _add() async {
-    final input = _controller.text.trim();
+  Future<void> _add() => _install(_controller.text.trim());
+
+  /// Shared install flow used by both the URL box and the recommended cards.
+  Future<void> _install(String input) async {
     if (input.isEmpty || _busy) return;
     FocusScope.of(context).unfocus();
     setState(() {
@@ -144,6 +163,8 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
             const SizedBox(height: 12),
             _statusBanner(),
           ],
+          const SizedBox(height: 24),
+          _recommendedSection(),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -270,6 +291,78 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
     );
   }
 
+  bool _isInstalled(String url) =>
+      _repos.any((r) => (r['url'] ?? '').trim() == url.trim());
+
+  Widget _recommendedSection() => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.star_rounded, size: 16, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Text('RECOMMENDED',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.textHint, letterSpacing: 1)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: Text(
+              "Not sure what to paste? Tap one to install it.",
+              style: TextStyle(color: AppColors.textHint, fontSize: 11.5),
+            ),
+          ),
+          ..._recommended.map(_recommendedTile),
+        ],
+      );
+
+  Widget _recommendedTile(Map<String, String> repo) {
+    final url = repo['url'] ?? '';
+    final name = repo['name'] ?? url;
+    final desc = repo['desc'] ?? '';
+    final installed = _isInstalled(url);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: installed
+              ? Colors.green.withValues(alpha: 0.35)
+              : AppColors.primary.withValues(alpha: 0.25),
+        ),
+      ),
+      child: ListTile(
+        onTap: (_busy || installed) ? null : () => _install(url),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: const Icon(Icons.extension_rounded,
+              color: AppColors.primary, size: 22),
+        ),
+        title: Text(name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+        subtitle: Text(desc,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: AppColors.textHint, fontSize: 11.5)),
+        trailing: installed
+            ? const _InstalledChip()
+            : Icon(Icons.download_rounded,
+                color: _busy ? AppColors.textHint : AppColors.primary),
+      ),
+    );
+  }
+
   Widget _empty() => Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 28),
@@ -319,4 +412,30 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
       ),
     );
   }
+}
+
+/// Small "Installed ✓" pill shown on a recommended card that's already added.
+class _InstalledChip extends StatelessWidget {
+  const _InstalledChip();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.green.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, size: 14, color: Colors.green),
+            SizedBox(width: 4),
+            Text('Installed',
+                style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
 }

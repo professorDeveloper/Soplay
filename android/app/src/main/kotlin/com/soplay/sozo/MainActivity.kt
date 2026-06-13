@@ -23,6 +23,8 @@ import org.json.JSONObject
 import kotlin.math.roundToInt
 import com.soplay.sozo.cloudstream.PluginHost
 import com.soplay.sozo.cloudstream.RepoManager
+import com.soplay.sozo.aniyomi.AniyomiHost
+import com.soplay.sozo.aniyomi.AniyomiRepoManager
 import com.soplay.sozo.preview.FramePreview
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +56,11 @@ class MainActivity : FlutterFragmentActivity() {
     private val cloudstreamScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val pluginHost by lazy { PluginHost(applicationContext) }
     private val repoManager by lazy { RepoManager(applicationContext, pluginHost) }
+
+    private val aniyomiChannelName = "soplay/aniyomi"
+    private var aniyomiChannel: MethodChannel? = null
+    private val aniyomiHost by lazy { AniyomiHost(applicationContext) }
+    private val aniyomiRepoManager by lazy { AniyomiRepoManager(applicationContext, aniyomiHost) }
 
     companion object {
         const val ACTION_PLAY_PAUSE = "play_pause"
@@ -255,6 +262,44 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
+        aniyomiChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            aniyomiChannelName
+        )
+        aniyomiChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "listProviders" -> result.success(aniyomiHost.providersJson())
+                "ensureLoaded" -> csAsync(result) {
+                    aniyomiRepoManager.ensureLoaded(); aniyomiHost.providersJson()
+                }
+                "listRepos" -> result.success(aniyomiRepoManager.listReposJson())
+                "removeRepo" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    result.success(aniyomiRepoManager.removeRepo(url))
+                }
+                "isNsfwEnabled" -> result.success(aniyomiRepoManager.isNsfwEnabled())
+                "setNsfwEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    aniyomiRepoManager.setNsfwEnabled(enabled)
+                    result.success(true)
+                }
+                "addRepo" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    csAsync(result) {
+                        aniyomiRepoManager.addRepo(url) { current, total ->
+                            runOnUiThread {
+                                aniyomiChannel?.invokeMethod(
+                                    "installProgress",
+                                    mapOf("current" to current, "total" to total),
+                                )
+                            }
+                        }.toString()
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
         previewChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "soplay/preview",
@@ -264,8 +309,9 @@ class MainActivity : FlutterFragmentActivity() {
                 "open" -> {
                     val url = call.argument<String>("url").orEmpty()
                     val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
+                    val warmMs = (call.argument<Number>("warmMs") ?: -1).toLong()
                     cloudstreamScope.launch {
-                        FramePreview.open(url, headers)
+                        FramePreview.open(url, headers, warmMs)
                         withContext(Dispatchers.Main) { result.success(true) }
                     }
                 }

@@ -17,6 +17,10 @@ import UIKit
   // MediaMetadataRetriever can't do HLS).
   private var previewGenerator: AVAssetImageGenerator?
   private var previewURL: String?
+  // bucketed-position -> JPEG bytes; holds the warm-up frame and any already
+  // generated frames so repeat scrubs return instantly. Only touched on
+  // previewQueue (serial), so no extra locking is needed.
+  private var previewCache: [Int64: Data] = [:]
   private let previewQueue = DispatchQueue(label: "soplay.preview", qos: .userInitiated)
 
   override func application(
@@ -71,8 +75,9 @@ import UIKit
       case "open":
         let urlStr = (args?["url"] as? String) ?? ""
         let headers = (args?["headers"] as? [String: String]) ?? [:]
+        let warmMs = (args?["warmMs"] as? NSNumber)?.int64Value ?? -1
         self.previewQueue.async {
-          self.openPreview(urlStr, headers)
+          self.openPreview(urlStr, headers, warmMs)
           DispatchQueue.main.async { result(true) }
         }
       case "frame":
@@ -142,7 +147,9 @@ import UIKit
 
   // MARK: - Seek-preview frame generation
 
-  private func openPreview(_ urlStr: String, _ headers: [String: String]) {
+  private func openPreview(
+    _ urlStr: String, _ headers: [String: String], _ warmMs: Int64 = -1
+  ) {
     if previewURL == urlStr && previewGenerator != nil { return }
     closePreview()
     guard let url = URL(string: urlStr) else { return }
@@ -162,14 +169,20 @@ import UIKit
     gen.requestedTimeToleranceAfter = CMTime(seconds: 2, preferredTimescale: 600)
     previewGenerator = gen
     previewURL = urlStr
+    // Warm the generator at the start/resume position so the first scrub there is
+    // already decoded and cached instead of cold-starting on first drag.
+    if warmMs >= 0 { _ = previewFrame(warmMs) }
   }
 
   private func previewFrame(_ posMs: Int64) -> Data? {
+    if let cached = previewCache[posMs] { return cached }
     guard let gen = previewGenerator else { return nil }
     let time = CMTime(value: posMs, timescale: 1000)
     do {
       let cg = try gen.copyCGImage(at: time, actualTime: nil)
-      return UIImage(cgImage: cg).jpegData(compressionQuality: 0.7)
+      let data = UIImage(cgImage: cg).jpegData(compressionQuality: 0.7)
+      if let data = data { previewCache[posMs] = data }
+      return data
     } catch {
       return nil
     }
@@ -179,5 +192,6 @@ import UIKit
     previewGenerator?.cancelAllCGImageGeneration()
     previewGenerator = nil
     previewURL = nil
+    previewCache.removeAll()
   }
 }
