@@ -165,15 +165,17 @@ class _ProfileViewState extends State<_ProfileView> {
                         color: AppColors.surface,
                         borderRadius: BorderRadius.circular(12),
                         child: ListTile(
-                          leading: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.network(
+                              'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s',
+                              width: 28,
+                              height: 28,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => const Icon(
+                                  Icons.play_circle_outline,
+                                  color: AppColors.textHint),
                             ),
-                            child: const Icon(Icons.play_circle_outline,
-                                color: AppColors.primary, size: 18),
                           ),
                           title: const Text('Aniyomi Sources',
                               style: TextStyle(color: Colors.white)),
@@ -550,6 +552,7 @@ class _ProvidersSection extends StatelessWidget {
 /// Provider filter group: CloudStream first, otherwise by delivery mode.
 String providerGroup(ProviderEntity p) {
   if (p.category == 'cloudstream') return 'cloudstream';
+  if (p.category == 'aniyomi') return 'aniyomi';
   return switch (p.mode) {
     'hybrid' => 'hybrid',
     'client' => 'local',
@@ -707,7 +710,8 @@ class _ProvidersPageState extends State<_ProvidersPage> {
     // Otherwise match the delivery-mode group (cloud/hybrid/local) or cloudstream.
     Iterable<ProviderEntity> list;
     if (_selectedCategory == 'all') {
-      list = all.where((p) => providerGroup(p) != 'cloudstream');
+      list = all.where((p) =>
+          providerGroup(p) != 'cloudstream' && providerGroup(p) != 'aniyomi');
     } else if (_selectedCategory.startsWith('repo:')) {
       final repo = _selectedCategory.substring(5);
       list = all.where(
@@ -739,7 +743,13 @@ class _CategoryFilterButton extends StatelessWidget {
   final ValueChanged<String> onSelected;
 
   // Filter groups by delivery type (mode) plus CloudStream, per request.
-  static const _canonicalOrder = ['cloud', 'hybrid', 'local', 'cloudstream'];
+  static const _canonicalOrder = [
+    'cloud',
+    'hybrid',
+    'local',
+    'cloudstream',
+    'aniyomi'
+  ];
 
   static const _meta = <String, (String, IconData)>{
     'all':        ('All',         Icons.apps_rounded),
@@ -747,6 +757,7 @@ class _CategoryFilterButton extends StatelessWidget {
     'hybrid':     ('Hybrid',      Icons.sync_rounded),
     'local':      ('Local',       Icons.smartphone_outlined),
     'cloudstream':('CloudStream', Icons.extension_outlined),
+    'aniyomi':    ('Aniyomi',     Icons.play_circle_outline),
   };
 
   /// Short, chip-friendly form of a repo name (drops the GitHub owner, trims).

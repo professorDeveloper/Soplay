@@ -1,3 +1,4 @@
+import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
@@ -27,7 +28,8 @@ class SearchRepositoryImp extends SearchRepository {
   @override
   Future<Result<List<GenreModel>>> getGenres() async {
     final provider = _currentProvider;
-    if (provider != null && provider.startsWith('cs:')) {
+    if (provider != null &&
+        (provider.startsWith('cs:') || provider.startsWith('an:'))) {
       return const Success(<GenreModel>[]);
     }
     try {
@@ -60,6 +62,15 @@ class SearchRepositoryImp extends SearchRepository {
         final map = await CloudStreamChannel.search(provider.substring(3), query);
         if (map.isNotEmpty) return Success(SearchModel.fromJson(map));
         return Failure(Exception('CloudStream: no results'));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
+    if (provider != null && provider.startsWith('an:')) {
+      try {
+        final map = await AniyomiChannel.search(provider.substring(3), query);
+        if (map.isNotEmpty) return Success(SearchModel.fromJson(map));
+        return Failure(Exception('Aniyomi: no results'));
       } catch (e) {
         return Failure(Exception(e.toString()));
       }

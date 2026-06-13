@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
@@ -47,6 +48,15 @@ class DetailRepositoryImpl implements DetailRepository {
         return Failure(Exception(_normalizeJsError(e)));
       }
     }
+    if (effective != null && effective.startsWith('an:')) {
+      try {
+        final map = await AniyomiChannel.load(effective.substring(3), contentUrl);
+        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
+        return Failure(Exception('Aniyomi: details not found'));
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
     if (js != null && effective != null) {
       try {
         final map = await js.tryGetDetail(effective, contentUrl);
@@ -79,6 +89,15 @@ class DetailRepositoryImpl implements DetailRepository {
         final map = await CloudStreamChannel.load(effective.substring(3), contentUrl);
         if (map.isNotEmpty) return Success(PlaybackModel.fromJson(map));
         return Failure(Exception('CloudStream: episodes not found'));
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
+    if (effective != null && effective.startsWith('an:')) {
+      try {
+        final map = await AniyomiChannel.load(effective.substring(3), contentUrl);
+        if (map.isNotEmpty) return Success(PlaybackModel.fromJson(map));
+        return Failure(Exception('Aniyomi: episodes not found'));
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -129,6 +148,19 @@ class DetailRepositoryImpl implements DetailRepository {
         return Failure(Exception('CloudStream: oqim topilmadi'));
       } catch (e) {
         if (kDebugMode) debugPrint('[resolveMedia] CloudStream path failed: $e');
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
+    if (provider.startsWith('an:')) {
+      try {
+        final map = await AniyomiChannel.loadLinks(provider.substring(3), ref);
+        final sources = map['videoSources'];
+        if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
+          return _postProcess(MediaResolveModel.fromJson(map));
+        }
+        return Failure(Exception('Aniyomi: oqim topilmadi'));
+      } catch (e) {
+        if (kDebugMode) debugPrint('[resolveMedia] Aniyomi path failed: $e');
         return Failure(Exception(_normalizeJsError(e)));
       }
     }

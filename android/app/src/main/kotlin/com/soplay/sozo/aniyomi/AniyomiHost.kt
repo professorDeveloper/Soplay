@@ -19,11 +19,6 @@ class AniyomiHost(private val context: Context) {
     )
 
     private val sources = LinkedHashMap<String, SourceMeta>()
-    @Volatile private var nsfwEnabled = false
-
-    fun setNsfwEnabled(enabled: Boolean) {
-        nsfwEnabled = enabled
-    }
 
     fun registerMeta(entry: JSONObject, repoName: String) {
         val id = entry.optString("id")
@@ -48,7 +43,6 @@ class AniyomiHost(private val context: Context) {
     fun providersJson(): String {
         val arr = JSONArray()
         for (s in sources.values) {
-            if (s.nsfw && !nsfwEnabled) continue
             arr.put(JSONObject().apply {
                 put("id", "an:${s.id}")
                 put("name", s.name)

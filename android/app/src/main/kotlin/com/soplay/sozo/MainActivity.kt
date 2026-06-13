@@ -277,12 +277,6 @@ class MainActivity : FlutterFragmentActivity() {
                     val url = call.argument<String>("url").orEmpty()
                     result.success(aniyomiRepoManager.removeRepo(url))
                 }
-                "isNsfwEnabled" -> result.success(aniyomiRepoManager.isNsfwEnabled())
-                "setNsfwEnabled" -> {
-                    val enabled = call.argument<Boolean>("enabled") ?: false
-                    aniyomiRepoManager.setNsfwEnabled(enabled)
-                    result.success(true)
-                }
                 "addRepo" -> {
                     val url = call.argument<String>("url").orEmpty()
                     csAsync(result) {

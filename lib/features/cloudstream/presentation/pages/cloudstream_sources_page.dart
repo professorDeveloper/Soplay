@@ -42,6 +42,7 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
   final _controller = TextEditingController();
   List<Map<String, String>> _repos = const [];
   bool _busy = false;
+  bool _recommendedHidden = false;
   String? _status;
   bool _statusError = false;
   StreamSubscription<({int current, int total})>? _progressSub;
@@ -151,6 +152,9 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
         title: const Text('CloudStream Sources'),
       ),
       body: ListView(
@@ -299,22 +303,32 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.star_rounded, size: 16, color: AppColors.primary),
+              const Icon(Icons.star_rounded, size: 15, color: AppColors.primary),
               const SizedBox(width: 6),
               Text('RECOMMENDED',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppColors.textHint, letterSpacing: 1)),
+              const Spacer(),
+              InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: () => setState(
+                    () => _recommendedHidden = !_recommendedHidden),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Text(_recommendedHidden ? 'Show' : 'Hide',
+                      style: const TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 4),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 10),
-            child: Text(
-              "Not sure what to paste? Tap one to install it.",
-              style: TextStyle(color: AppColors.textHint, fontSize: 11.5),
-            ),
-          ),
-          ..._recommended.map(_recommendedTile),
+          if (!_recommendedHidden) ...[
+            const SizedBox(height: 8),
+            ..._recommended.map(_recommendedTile),
+          ],
         ],
       );
 
@@ -323,42 +337,66 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
     final name = repo['name'] ?? url;
     final desc = repo['desc'] ?? '';
     final installed = _isInstalled(url);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Material(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: installed
-              ? Colors.green.withValues(alpha: 0.35)
-              : AppColors.primary.withValues(alpha: 0.25),
-        ),
-      ),
-      child: ListTile(
-        onTap: (_busy || installed) ? null : () => _install(url),
-        leading: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(11),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: (_busy || installed) ? null : () => _install(url),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(
+                color: installed
+                    ? Colors.green.withValues(alpha: 0.3)
+                    : AppColors.primary.withValues(alpha: 0.22),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.extension_rounded,
+                      color: AppColors.primary, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
+                      Text(desc,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: AppColors.textHint, fontSize: 11)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                installed
+                    ? const _InstalledChip()
+                    : Icon(Icons.download_rounded,
+                        size: 20,
+                        color: _busy ? AppColors.textHint : AppColors.primary),
+              ],
+            ),
           ),
-          child: const Icon(Icons.extension_rounded,
-              color: AppColors.primary, size: 22),
         ),
-        title: Text(name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-        subtitle: Text(desc,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppColors.textHint, fontSize: 11.5)),
-        trailing: installed
-            ? const _InstalledChip()
-            : Icon(Icons.download_rounded,
-                color: _busy ? AppColors.textHint : AppColors.primary),
       ),
     );
   }

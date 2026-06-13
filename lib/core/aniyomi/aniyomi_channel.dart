@@ -75,9 +75,27 @@ class AniyomiChannel {
   static Future<Map<String, dynamic>> addRepo(String url) async =>
       _obj(await _call<String>('addRepo', {'url': url}));
 
-  static Future<bool> isNsfwEnabled() async =>
-      await _call<bool>('isNsfwEnabled') ?? false;
+  static Future<List<dynamic>> getGenres(String provider) async =>
+      _arr(await _call<String>('getGenres', {'provider': provider}));
 
-  static Future<void> setNsfwEnabled(bool enabled) async =>
-      _call<bool>('setNsfwEnabled', {'enabled': enabled});
+  static Future<Map<String, dynamic>> getMainPage(String provider,
+          {int page = 1}) async =>
+      _obj(await _call<String>('getMainPage', {'provider': provider, 'page': page}));
+
+  static Future<Map<String, dynamic>> getSection(
+    String provider,
+    String data, {
+    int page = 1,
+  }) async =>
+      _obj(await _call<String>(
+          'getSection', {'provider': provider, 'data': data, 'page': page}));
+
+  static Future<Map<String, dynamic>> search(String provider, String query) async =>
+      _obj(await _call<String>('search', {'provider': provider, 'query': query}));
+
+  static Future<Map<String, dynamic>> load(String provider, String url) async =>
+      _obj(await _call<String>('load', {'provider': provider, 'url': url}));
+
+  static Future<Map<String, dynamic>> loadLinks(String provider, String data) async =>
+      _obj(await _call<String>('loadLinks', {'provider': provider, 'data': data}));
 }

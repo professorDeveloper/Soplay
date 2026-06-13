@@ -105,7 +105,7 @@ one or more `sources`:
 |---|---|
 | `aniyomi/AniyomiRepoManager.kt` | Downloads `index.min.json`, caches each `.apk` in `filesDir/aniyomi/<pkg>-v<version>.apk`, persists per-repo metadata + display name + the NSFW flag in SharedPreferences (`aniyomi`). `addRepo` reports `current/total` install progress. |
 | `aniyomi/AniyomiHost.kt` | Holds registered source metadata; `providersJson()` emits `an:<id>` provider cards and filters NSFW unless enabled. **Stage 2**: DexClassLoads an APK on first use and reflects its `AnimeSource`. |
-| `MainActivity.kt` | Registers the `soplay/aniyomi` MethodChannel: `listProviders / ensureLoaded / listRepos / addRepo / removeRepo / isNsfwEnabled / setNsfwEnabled`. Calls run on the shared IO `CoroutineScope`, result posted on Main. |
+| `MainActivity.kt` | Registers the `soplay/aniyomi` MethodChannel: `listProviders / ensureLoaded / listRepos / addRepo / removeRepo`. Calls run on the shared IO `CoroutineScope`, result posted on Main. |
 
 ### Lazy loading (planned, mirrors CloudStream)
 - **First add** (`addRepo`): download every APK once, persist metadata.
@@ -115,9 +115,9 @@ one or more `sources`:
   time its source is opened.
 
 ### NSFW handling
-- Per-package `nsfw` flag is persisted with each source's metadata.
-- A single app-wide toggle (`setNsfwEnabled`) is stored in SharedPreferences.
-- `providersJson()` skips NSFW sources unless the toggle is on. Default **off**.
+- Per-package `nsfw` flag is persisted with each source's metadata and surfaced
+  in `providersJson()` (so the UI can badge them), but all sources — NSFW
+  included — are always listed. There is no 18+ toggle.
 
 ---
 
@@ -125,8 +125,8 @@ one or more `sources`:
 
 | File | Role |
 |---|---|
-| `core/aniyomi/aniyomi_channel.dart` | Typed wrapper over `soplay/aniyomi` (Android-gated; iOS no-ops). Exposes the install-progress stream + NSFW get/set. |
-| `features/aniyomi/presentation/pages/aniyomi_sources_page.dart` | "Aniyomi Sources" screen — add by URL, RECOMMENDED one-tap repos (Yuzono, Secozzi), 18+ toggle, installed list with delete. |
+| `core/aniyomi/aniyomi_channel.dart` | Typed wrapper over `soplay/aniyomi` (Android-gated; iOS no-ops). Exposes the install-progress stream. |
+| `features/aniyomi/presentation/pages/aniyomi_sources_page.dart` | "Aniyomi Sources" screen — add by URL, collapsible RECOMMENDED one-tap repos (Yuzono, Secozzi), installed list with delete. Aniyomi-branded (logo + neutral blue accent, not the app's red). |
 | `features/profile/presentation/pages/profile_page.dart` | Settings entry ("Aniyomi Sources"), shown only when `AniyomiChannel.isSupported`. |
 
 ### Recommended repos (in the page)
@@ -196,8 +196,8 @@ Confirmed upstream layout (`github.com/aniyomiorg/aniyomi`, branch `main`):
 1. `flutter run` (full build — native changes need a rebuild, not hot restart).
 2. Profile ▸ **Aniyomi Sources** → tap a recommended repo (e.g. Yuzono) or paste
    an `index.min.json` URL.
-3. Watch "Installing N / M extensions…", confirm the source count, toggle **18+**,
-   delete a repo.
+3. Watch "Installing N / M extensions…", confirm the source count, hide/show the
+   recommended list, delete a repo.
 4. Logcat tag: `AniyomiRepo`.
 5. Verify CloudStream sources, normal providers, my-list and continue-watching
    are unaffected (separate `an:` namespace + `aniyomi` SharedPreferences).

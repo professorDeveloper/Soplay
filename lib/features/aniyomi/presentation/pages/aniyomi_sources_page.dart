@@ -16,6 +16,10 @@ class AniyomiSourcesPage extends StatefulWidget {
 }
 
 class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
+  static const String _logo =
+      'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s';
+  static const Color _accent = Color(0xFF5B8DEF);
+
   static const List<Map<String, String>> _recommended = [
     {
       'name': 'Yuzono Anime',
@@ -34,7 +38,7 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
   final _controller = TextEditingController();
   List<Map<String, String>> _repos = const [];
   bool _busy = false;
-  bool _nsfw = false;
+  bool _recommendedHidden = false;
   String? _status;
   bool _statusError = false;
   StreamSubscription<({int current, int total})>? _progressSub;
@@ -43,7 +47,6 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
   void initState() {
     super.initState();
     _refresh();
-    _loadNsfw();
     _progressSub = AniyomiChannel.installProgress.listen((p) {
       if (!mounted || !_busy) return;
       setState(() {
@@ -60,18 +63,6 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
     _progressSub?.cancel();
     _controller.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadNsfw() async {
-    final v = await AniyomiChannel.isNsfwEnabled();
-    if (!mounted) return;
-    setState(() => _nsfw = v);
-  }
-
-  Future<void> _toggleNsfw(bool v) async {
-    setState(() => _nsfw = v);
-    await AniyomiChannel.setNsfwEnabled(v);
-    _reloadProviders();
   }
 
   Future<void> _refresh() async {
@@ -155,6 +146,9 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
         title: const Text('Aniyomi Sources'),
       ),
       body: ListView(
@@ -167,8 +161,6 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
             const SizedBox(height: 12),
             _statusBanner(),
           ],
-          const SizedBox(height: 20),
-          _nsfwCard(),
           const SizedBox(height: 24),
           _recommendedSection(),
           const SizedBox(height: 24),
@@ -190,18 +182,26 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
     );
   }
 
+  Widget _logoBox(double size, {double radius = 9}) => ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Image.network(
+          _logo,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => Container(
+            width: size,
+            height: size,
+            color: Colors.white10,
+            child: Icon(Icons.play_circle_outline,
+                color: Colors.white54, size: size * 0.55),
+          ),
+        ),
+      );
+
   Widget _header() => Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.play_circle_outline,
-                color: AppColors.primary, size: 26),
-          ),
+          _logoBox(44, radius: 11),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
@@ -226,10 +226,13 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
             TextField(
               controller: _controller,
               enabled: !_busy,
+              cursorColor: _accent,
               style: const TextStyle(color: Colors.white),
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 labelText: 'Repo URL',
+                labelStyle: const TextStyle(color: AppColors.textHint),
+                floatingLabelStyle: const TextStyle(color: _accent),
                 hintText: 'https://…/index.min.json',
                 hintStyle: const TextStyle(color: AppColors.textHint),
                 filled: true,
@@ -237,6 +240,11 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                      color: _accent.withValues(alpha: 0.6), width: 1.4),
                 ),
                 suffixIcon: _controller.text.isEmpty
                     ? null
@@ -254,7 +262,10 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
             SizedBox(
               height: 46,
               child: FilledButton.icon(
-                style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _accent,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: _busy ? null : _add,
                 icon: _busy
                     ? const SizedBox(
@@ -270,25 +281,6 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
         ),
       );
 
-  Widget _nsfwCard() => Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: SwitchListTile(
-          value: _nsfw,
-          onChanged: _busy ? null : _toggleNsfw,
-          activeThumbColor: AppColors.primary,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-          title: const Text('Show 18+ sources',
-              style: TextStyle(
-                  color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-          subtitle: const Text('Include NSFW extensions in the provider list',
-              style: TextStyle(color: AppColors.textHint, fontSize: 11.5)),
-          secondary: const Icon(Icons.explicit_outlined, color: AppColors.textHint),
-        ),
-      );
-
   bool _isInstalled(String url) =>
       _repos.any((r) => (r['url'] ?? '').trim() == url.trim());
 
@@ -297,22 +289,32 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.star_rounded, size: 16, color: AppColors.primary),
+              const Icon(Icons.star_rounded, size: 15, color: _accent),
               const SizedBox(width: 6),
               Text('RECOMMENDED',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppColors.textHint, letterSpacing: 1)),
+              const Spacer(),
+              InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: () => setState(
+                    () => _recommendedHidden = !_recommendedHidden),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Text(_recommendedHidden ? 'Show' : 'Hide',
+                      style: const TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 4),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 10),
-            child: Text(
-              'Not sure what to paste? Tap one to install it.',
-              style: TextStyle(color: AppColors.textHint, fontSize: 11.5),
-            ),
-          ),
-          ..._recommended.map(_recommendedTile),
+          if (!_recommendedHidden) ...[
+            const SizedBox(height: 8),
+            ..._recommended.map(_recommendedTile),
+          ],
         ],
       );
 
@@ -321,42 +323,59 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
     final name = repo['name'] ?? url;
     final desc = repo['desc'] ?? '';
     final installed = _isInstalled(url);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Material(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: installed
-              ? Colors.green.withValues(alpha: 0.35)
-              : AppColors.primary.withValues(alpha: 0.25),
-        ),
-      ),
-      child: ListTile(
-        onTap: (_busy || installed) ? null : () => _install(url),
-        leading: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(11),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: (_busy || installed) ? null : () => _install(url),
+          splashColor: _accent.withValues(alpha: 0.12),
+          highlightColor: _accent.withValues(alpha: 0.06),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(
+                color: installed
+                    ? Colors.green.withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.06),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                _logoBox(30),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
+                      Text(desc,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: AppColors.textHint, fontSize: 11)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                installed
+                    ? const _InstalledChip()
+                    : Icon(Icons.download_rounded,
+                        size: 20,
+                        color: _busy ? AppColors.textHint : _accent),
+              ],
+            ),
           ),
-          child: const Icon(Icons.play_circle_outline,
-              color: AppColors.primary, size: 22),
         ),
-        title: Text(name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-        subtitle: Text(desc,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppColors.textHint, fontSize: 11.5)),
-        trailing: installed
-            ? const _InstalledChip()
-            : Icon(Icons.download_rounded,
-                color: _busy ? AppColors.textHint : AppColors.primary),
       ),
     );
   }
@@ -409,35 +428,29 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
   Widget _repoTile(Map<String, String> repo) {
     final url = repo['url'] ?? '';
     final name = repo['name'] ?? url;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        leading: Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: _logoBox(34),
+          title: Text(name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600)),
+          subtitle: Text(url,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: AppColors.textHint, fontSize: 11)),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            onPressed: _busy ? null : () => _remove(url),
           ),
-          child: const Icon(Icons.play_circle_outline,
-              color: AppColors.primary, size: 20),
-        ),
-        title: Text(name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-        subtitle: Text(url,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppColors.textHint, fontSize: 11)),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-          onPressed: _busy ? null : () => _remove(url),
         ),
       ),
     );

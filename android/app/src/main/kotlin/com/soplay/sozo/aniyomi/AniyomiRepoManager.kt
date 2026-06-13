@@ -22,13 +22,6 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
 
     @Volatile private var ensured = false
 
-    fun isNsfwEnabled(): Boolean = prefs.getBoolean("nsfw", false)
-
-    fun setNsfwEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean("nsfw", enabled).apply()
-        host.setNsfwEnabled(enabled)
-    }
-
     private fun savedRepos(): MutableList<String> {
         val raw = prefs.getString("repos", "[]") ?: "[]"
         return try {
@@ -57,7 +50,6 @@ class AniyomiRepoManager(private val context: Context, private val host: Aniyomi
     }
 
     fun ensureLoaded() {
-        host.setNsfwEnabled(isNsfwEnabled())
         if (ensured) return
         ensured = true
         val meta = loadMeta()
