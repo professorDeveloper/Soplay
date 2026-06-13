@@ -5,11 +5,30 @@ class SubtitleModel extends SubtitleEntity {
     required super.label,
     required super.file,
     required super.isDefault,
+    super.headers,
   });
 
   factory SubtitleModel.fromJson(Map<String, dynamic> json) => SubtitleModel(
-        label: json['label'] as String? ?? '',
-        file: json['file'] as String? ?? '',
-        isDefault: json['default'] as bool? ?? false,
-      );
+    label:
+        json['label'] as String? ??
+        json['lang'] as String? ??
+        json['language'] as String? ??
+        'Subtitle',
+    file:
+        json['file'] as String? ??
+        json['url'] as String? ??
+        json['src'] as String? ??
+        '',
+    isDefault: json['default'] as bool? ?? json['isDefault'] as bool? ?? false,
+    headers: _parseHeaders(json['headers']),
+  );
+
+  static Map<String, String> _parseHeaders(dynamic raw) {
+    if (raw is! Map) return const {};
+    final out = <String, String>{};
+    raw.forEach((key, value) {
+      if (key is String && value != null) out[key] = value.toString();
+    });
+    return out;
+  }
 }

@@ -136,6 +136,9 @@ class LocalHlsProxy {
       }
       upstreamHeaders[k] = v;
     });
+    _forwardIncomingHeader(req, upstreamHeaders, 'range', 'Range');
+    _forwardIncomingHeader(req, upstreamHeaders, 'if-range', 'If-Range');
+    upstreamHeaders.putIfAbsent('Accept-Encoding', () => 'identity');
 
     try {
       final transformed = sess.transform?.apply(
@@ -145,11 +148,11 @@ class LocalHlsProxy {
       );
       final requestUrl = transformed?.url ?? upstreamUrl;
       final requestHeaders = transformed?.headers ?? upstreamHeaders;
-      final resp = await _dio.get<List<int>>(
+      final resp = await _dio.get<ResponseBody>(
         requestUrl,
         options: Options(
           headers: requestHeaders,
-          responseType: ResponseType.bytes,
+          responseType: ResponseType.stream,
           followRedirects: true,
           validateStatus: (_) => true,
         ),
@@ -160,6 +163,10 @@ class LocalHlsProxy {
           '[HLS_PROXY] upstream $status: $upstreamUrl '
           'sent=${requestHeaders.keys.toList()}',
         );
+        final errorBody = resp.data;
+        if (errorBody != null) {
+          await errorBody.stream.drain<void>();
+        }
         await _reject(req, status);
         return;
       }
@@ -170,16 +177,24 @@ class LocalHlsProxy {
           contentType.contains('mpegurl') ||
           contentType.contains('m3u8') ||
           resolved.endsWith('.m3u8');
-      final body = resp.data ?? const <int>[];
+      final body = resp.data;
+      if (body == null) {
+        await _reject(req, 502);
+        return;
+      }
 
       if (isManifest) {
+        final bytes = <int>[];
+        await for (final chunk in body.stream) {
+          bytes.addAll(chunk);
+        }
         if (origin == sess.origin) {
           final lastSlash = resolved.lastIndexOf('/');
           if (lastSlash >= 0) {
             sess.basePath = resolved.substring(0, lastSlash);
           }
         }
-        final text = utf8.decode(body, allowMalformed: true);
+        final text = utf8.decode(bytes, allowMalformed: true);
         String rewritten;
         try {
           rewritten = _rewriteM3u8(
@@ -198,19 +213,41 @@ class LocalHlsProxy {
         );
         req.response.add(utf8.encode(rewritten));
       } else {
+        req.response.statusCode = status;
         if (contentType.isNotEmpty) {
           req.response.headers.set(HttpHeaders.contentTypeHeader, contentType);
         }
-        final len = resp.headers.value('content-length');
-        if (len != null) {
-          req.response.headers.set(HttpHeaders.contentLengthHeader, len);
-        }
-        req.response.add(body);
+        _copyHeader(resp, req, 'content-length');
+        _copyHeader(resp, req, 'content-range');
+        _copyHeader(resp, req, 'accept-ranges');
+        _copyHeader(resp, req, 'cache-control');
+        _copyHeader(resp, req, 'etag');
+        _copyHeader(resp, req, 'last-modified');
+        await req.response.addStream(body.stream);
       }
       await req.response.close();
     } catch (e) {
       debugPrint('[HLS_PROXY] error: $e');
       await _reject(req, 502);
+    }
+  }
+
+  void _forwardIncomingHeader(
+    HttpRequest req,
+    Map<String, String> headers,
+    String incomingName,
+    String outgoingName,
+  ) {
+    final value = req.headers.value(incomingName);
+    if (value != null && value.isNotEmpty) {
+      headers[outgoingName] = value;
+    }
+  }
+
+  void _copyHeader(Response<dynamic> resp, HttpRequest req, String name) {
+    final value = resp.headers.value(name);
+    if (value != null && value.isNotEmpty) {
+      req.response.headers.set(name, value);
     }
   }
 
@@ -299,6 +336,7 @@ class _RequestTransform {
     required this.type,
     required this.pageHost,
     required this.menuData,
+    required this.deviceId,
     required this.firstPathLength,
     required this.secondPathLength,
     required this.extension,
@@ -311,11 +349,12 @@ class _RequestTransform {
   static const _uzmoviType = 'uzmovi-rc4-v1';
   static const _chars =
       'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  static final _rng = Random.secure();
+  static final _rng = Random();
 
   final String type;
   final String pageHost;
   final String menuData;
+  final String deviceId;
   final int firstPathLength;
   final int secondPathLength;
   final String extension;
@@ -349,11 +388,14 @@ class _RequestTransform {
         _string(requestTransform['menuData']) ??
         _string(localProxy['menuData']);
     if (menuData == null || menuData.isEmpty) return null;
+    final deviceId = _buildDeviceId(menuData);
+    if (deviceId == null) return null;
 
     return _RequestTransform._(
       type: _uzmoviType,
       pageHost: pageHost,
       menuData: menuData,
+      deviceId: deviceId,
       firstPathLength: _int(randomPath?['first']) ?? 30,
       secondPathLength: _int(randomPath?['second']) ?? 10,
       extension: _string(randomPath?['extension']) ?? '.mpd',
@@ -385,9 +427,7 @@ class _RequestTransform {
     final matchPayload = jsonEncode({'path': logicalPath, 'time': now});
 
     final nextHeaders = Map<String, String>.from(headers);
-    nextHeaders[deviceHeader] = base64.encode(
-      _rc4Bytes('movie', _decodeBase64Flexible(menuData)),
-    );
+    nextHeaders[deviceHeader] = deviceId;
     nextHeaders[matchHeader] = base64.encode(
       _rc4Bytes(pageHost, utf8.encode(matchPayload)),
     );
@@ -401,6 +441,14 @@ class _RequestTransform {
       safeLength,
       (_) => _chars[_rng.nextInt(_chars.length)],
     ).join();
+  }
+
+  static String? _buildDeviceId(String menuData) {
+    try {
+      return base64.encode(_rc4Bytes('movie', _decodeBase64Flexible(menuData)));
+    } catch (_) {
+      return null;
+    }
   }
 
   static List<int> _rc4Bytes(String key, List<int> input) {

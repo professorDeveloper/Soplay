@@ -139,6 +139,40 @@ void main() {
       expect(segBytes, equals(segmentBytes));
     });
 
+    test('forwards range requests and preserves 206 response', () async {
+      final segmentBytes = List<int>.generate(10, (i) => i + 10);
+      upstream.respondBytes(
+        path: '/cdn/manifest/video/seg0.ts',
+        status: 206,
+        contentType: 'video/MP2T',
+        headers: const {
+          'content-range': 'bytes 10-19/100',
+          'accept-ranges': 'bytes',
+          'content-length': '10',
+        },
+        body: segmentBytes,
+      );
+
+      final loopback = await proxy.register(
+        upstreamUrl: '${upstream.origin}/cdn/manifest/video/x.m3u8',
+        headers: const {'User-Agent': 'test'},
+      );
+      final loopbackUri = Uri.parse(loopback);
+      final sid = loopbackUri.pathSegments[1];
+      final base = 'http://127.0.0.1:${loopbackUri.port}';
+
+      final response = await _httpGetBytesWithHeaders(
+        '$base/hls/$sid/cdn/manifest/video/seg0.ts',
+        headers: const {'Range': 'bytes=10-19'},
+      );
+
+      expect(upstream.lastHeaders?['range'], 'bytes=10-19');
+      expect(response.statusCode, 206);
+      expect(response.headers['content-range'], 'bytes 10-19/100');
+      expect(response.headers['accept-ranges'], 'bytes');
+      expect(response.bytes, equals(segmentBytes));
+    });
+
     test('applies uzmovi rc4 transform per upstream request', () async {
       final menuData = base64.encode(utf8.encode('menu-data'));
       upstream.respondWhere(
@@ -261,12 +295,15 @@ class _MockUpstream {
   void respondBytes({
     required String path,
     required List<int> body,
+    int status = 200,
     String? contentType,
+    Map<String, String> headers = const {},
   }) {
     _routes[path] = _MockResponse(
-      status: 200,
+      status: status,
       bytes: body,
       contentType: contentType,
+      headers: headers,
     );
   }
 
@@ -320,16 +357,24 @@ class _MockUpstream {
         route.contentType!,
       );
     }
+    route.headers.forEach(req.response.headers.set);
     req.response.add(route.bytes);
     await req.response.close();
   }
 }
 
 class _MockResponse {
-  _MockResponse({required this.status, required this.bytes, this.contentType});
+  _MockResponse({
+    required this.status,
+    required this.bytes,
+    this.contentType,
+    this.headers = const {},
+  });
+
   final int status;
   final List<int> bytes;
   final String? contentType;
+  final Map<String, String> headers;
 }
 
 class _MockMatcher {
@@ -364,6 +409,45 @@ Future<List<int>> _httpGetBytes(String url) async {
   } finally {
     client.close();
   }
+}
+
+Future<_HttpBytesResponse> _httpGetBytesWithHeaders(
+  String url, {
+  Map<String, String> headers = const {},
+}) async {
+  final client = HttpClient();
+  try {
+    final req = await client.getUrl(Uri.parse(url));
+    headers.forEach(req.headers.set);
+    final res = await req.close();
+    final out = <int>[];
+    await for (final chunk in res) {
+      out.addAll(chunk);
+    }
+    final responseHeaders = <String, String>{};
+    res.headers.forEach((name, values) {
+      responseHeaders[name.toLowerCase()] = values.join(',');
+    });
+    return _HttpBytesResponse(
+      statusCode: res.statusCode,
+      headers: responseHeaders,
+      bytes: out,
+    );
+  } finally {
+    client.close();
+  }
+}
+
+class _HttpBytesResponse {
+  const _HttpBytesResponse({
+    required this.statusCode,
+    required this.headers,
+    required this.bytes,
+  });
+
+  final int statusCode;
+  final Map<String, String> headers;
+  final List<int> bytes;
 }
 
 Future<int> _httpGetStatus(String url) async {

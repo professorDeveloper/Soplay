@@ -1381,7 +1381,10 @@ class _PlayerPageState extends State<PlayerPage>
     try {
       final response = await Dio().get<String>(
         sub.file,
-        options: Options(responseType: ResponseType.plain),
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: sub.headers.isEmpty ? null : sub.headers,
+        ),
       );
       if (!mounted) return;
       final body = response.data;
@@ -1429,7 +1432,10 @@ class _PlayerPageState extends State<PlayerPage>
     try {
       final response = await Dio().get<String>(
         url,
-        options: Options(responseType: ResponseType.plain),
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: thumbnails.headers.isEmpty ? null : thumbnails.headers,
+        ),
       );
       if (!mounted) return;
       final body = response.data;

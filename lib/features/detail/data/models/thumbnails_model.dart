@@ -9,6 +9,7 @@ class ThumbnailsModel extends ThumbnailsEntity {
     super.height,
     super.columns,
     super.rows,
+    super.headers,
   });
 
   static ThumbnailsEntity? fromJson(dynamic raw) {
@@ -30,8 +31,18 @@ class ThumbnailsModel extends ThumbnailsEntity {
       height: (json['height'] as num?)?.toInt(),
       columns: (json['columns'] as num?)?.toInt(),
       rows: (json['rows'] as num?)?.toInt(),
+      headers: _parseHeaders(json['headers']),
     );
     if (!model.isVtt && !model.isStoryboard) return null;
     return model;
+  }
+
+  static Map<String, String> _parseHeaders(dynamic raw) {
+    if (raw is! Map) return const {};
+    final out = <String, String>{};
+    raw.forEach((key, value) {
+      if (key is String && value != null) out[key] = value.toString();
+    });
+    return out;
   }
 }

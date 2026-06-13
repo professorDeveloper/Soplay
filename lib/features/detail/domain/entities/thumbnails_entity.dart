@@ -6,6 +6,7 @@ class ThumbnailsEntity {
   final int? height;
   final int? columns;
   final int? rows;
+  final Map<String, String> headers;
 
   const ThumbnailsEntity({
     required this.type,
@@ -15,6 +16,7 @@ class ThumbnailsEntity {
     this.height,
     this.columns,
     this.rows,
+    this.headers = const {},
   });
 
   bool get isVtt => type == 'vtt' && url != null && url!.isNotEmpty;
