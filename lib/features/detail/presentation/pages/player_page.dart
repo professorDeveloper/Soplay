@@ -16,6 +16,7 @@ import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:soplay/core/subtitles/opensubtitles_service.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
@@ -1636,15 +1637,60 @@ class _PlayerPageState extends State<PlayerPage>
     return m != null ? int.tryParse(m.group(1)!) : null;
   }
 
+  String _openSubtitlesKey() {
+    final env = dotenv.isInitialized
+        ? (dotenv.maybeGet('OPENSUBTITLES_API_KEY') ?? '')
+        : '';
+    if (env.trim().isNotEmpty) return env.trim();
+    return _hive.getOpenSubtitlesKey();
+  }
+
+  Future<String?> _promptSearchQuery(String initial) {
+    final controller = TextEditingController(text: initial);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text('Search subtitles',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Title / movie name',
+            hintStyle: TextStyle(color: Colors.white38),
+          ),
+          onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _searchOnlineSubtitles() async {
-    final key = await _promptOpenSubtitlesKey();
-    if (key == null || !mounted) return;
-    final query = widget.args.title.replaceAll(RegExp(r'\(.*?\)'), '').trim();
+    var key = _openSubtitlesKey();
+    if (key.isEmpty) {
+      key = await _promptOpenSubtitlesKey() ?? '';
+      if (key.isEmpty || !mounted) return;
+    }
+    final initial = widget.args.title.replaceAll(RegExp(r'\(.*?\)'), '').trim();
+    final query = await _promptSearchQuery(initial);
+    if (query == null || query.trim().isEmpty || !mounted) return;
     _toast('Searching subtitles…');
     try {
       final results = await OpenSubtitlesService.search(
         apiKey: key,
-        query: query,
+        query: query.trim(),
         episode: _currentEpisodeNumber(),
       );
       if (!mounted) return;
@@ -1702,7 +1748,7 @@ class _PlayerPageState extends State<PlayerPage>
   }
 
   Future<void> _applyOnlineSubtitle(OpenSubtitle sub) async {
-    final key = _hive.getOpenSubtitlesKey();
+    final key = _openSubtitlesKey();
     if (key.isEmpty) return;
     _toast('Downloading subtitle…');
     try {
