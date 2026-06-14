@@ -17,7 +17,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:soplay/core/subtitles/opensubtitles_service.dart';
+import 'package:soplay/core/subtitles/online_subtitles_service.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
@@ -1558,7 +1558,7 @@ class _PlayerPageState extends State<PlayerPage>
               ListTile(
                 leading: const Icon(Icons.travel_explore_rounded,
                     color: Colors.white70, size: 20),
-                title: const Text('Search online (OpenSubtitles)',
+                title: const Text('Search online',
                     style: TextStyle(color: Colors.white, fontSize: 14)),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -1584,22 +1584,20 @@ class _PlayerPageState extends State<PlayerPage>
     );
   }
 
-  Future<String?> _promptOpenSubtitlesKey() async {
-    final existing = _hive.getOpenSubtitlesKey();
-    if (existing.isNotEmpty) return existing;
+  Future<String?> _promptWyzieKey() async {
     final controller = TextEditingController();
     final key = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('OpenSubtitles API key',
+        title: const Text('Subtitle API key',
             style: TextStyle(color: Colors.white, fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Get a free key at opensubtitles.com → API Consumers, then paste it here.',
+              'Claim a free Wyzie key at store.wyzie.io/redeem, then paste it here.',
               style: TextStyle(color: Colors.white60, fontSize: 12.5),
             ),
             const SizedBox(height: 12),
@@ -1637,9 +1635,9 @@ class _PlayerPageState extends State<PlayerPage>
     return m != null ? int.tryParse(m.group(1)!) : null;
   }
 
-  String _openSubtitlesKey() {
+  String _wyzieKey() {
     final env = dotenv.isInitialized
-        ? (dotenv.maybeGet('OPENSUBTITLES_API_KEY') ?? '')
+        ? (dotenv.maybeGet('WYZIE_API_KEY') ?? '')
         : '';
     if (env.trim().isNotEmpty) return env.trim();
     return _hive.getOpenSubtitlesKey();
@@ -1678,9 +1676,9 @@ class _PlayerPageState extends State<PlayerPage>
   }
 
   Future<void> _searchOnlineSubtitles() async {
-    var key = _openSubtitlesKey();
+    var key = _wyzieKey();
     if (key.isEmpty) {
-      key = await _promptOpenSubtitlesKey() ?? '';
+      key = await _promptWyzieKey() ?? '';
       if (key.isEmpty || !mounted) return;
     }
     final initial = widget.args.title.replaceAll(RegExp(r'\(.*?\)'), '').trim();
@@ -1688,9 +1686,10 @@ class _PlayerPageState extends State<PlayerPage>
     if (query == null || query.trim().isEmpty || !mounted) return;
     _toast('Searching subtitles…');
     try {
-      final results = await OpenSubtitlesService.search(
-        apiKey: key,
-        query: query.trim(),
+      final results = await OnlineSubtitlesService.search(
+        wyzieKey: key,
+        title: query.trim(),
+        isSerial: widget.args.isSerial,
         episode: _currentEpisodeNumber(),
       );
       if (!mounted) return;
@@ -1704,7 +1703,7 @@ class _PlayerPageState extends State<PlayerPage>
     }
   }
 
-  void _pickOnlineSubtitle(List<OpenSubtitle> results) {
+  void _pickOnlineSubtitle(List<OnlineSubtitle> results) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),
@@ -1716,19 +1715,20 @@ class _PlayerPageState extends State<PlayerPage>
         child: ListView(
           shrinkWrap: true,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
-              child: Text('OpenSubtitles results',
-                  style: TextStyle(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Text('Online subtitles · ${results.length}',
+                  style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,
                       fontWeight: FontWeight.w800)),
             ),
             const Divider(color: Colors.white12, height: 1),
-            for (final r in results.take(40))
+            for (final r in results.take(60))
               ListTile(
                 dense: true,
-                title: Text(r.release,
+                title: Text(
+                    '${r.display}${r.hearingImpaired ? ' [CC]' : ''}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white, fontSize: 13)),
@@ -1747,28 +1747,16 @@ class _PlayerPageState extends State<PlayerPage>
     );
   }
 
-  Future<void> _applyOnlineSubtitle(OpenSubtitle sub) async {
-    final key = _openSubtitlesKey();
-    if (key.isEmpty) return;
-    _toast('Downloading subtitle…');
-    try {
-      final link = await OpenSubtitlesService.downloadLink(
-          apiKey: key, fileId: sub.fileId);
-      if (link == null || link.isEmpty) {
-        if (mounted) _toast('Download failed');
-        return;
-      }
-      if (!mounted) return;
-      final entity = SubtitleEntity(
-        label: 'OpenSubtitles · ${sub.language}',
-        file: link,
-      );
-      setState(() => _subtitles = [..._subtitles, entity]);
-      await _loadSubtitle(_subtitles.length - 1);
-      if (mounted) _toast('Subtitle loaded');
-    } catch (e) {
-      if (mounted) _toast('Download failed: $e');
-    }
+  Future<void> _applyOnlineSubtitle(OnlineSubtitle sub) async {
+    if (sub.url.isEmpty) return;
+    _toast('Loading subtitle…');
+    final entity = SubtitleEntity(
+      label: '${sub.display} (online)',
+      file: sub.url,
+    );
+    setState(() => _subtitles = [..._subtitles, entity]);
+    await _loadSubtitle(_subtitles.length - 1);
+    if (mounted) _toast('Subtitle loaded');
   }
 
   void _openSubtitleAppearanceSheet() {
