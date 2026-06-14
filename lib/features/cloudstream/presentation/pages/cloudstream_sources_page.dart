@@ -138,6 +138,40 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
     });
   }
 
+  Future<void> _checkUpdates() async {
+    if (_busy || _repos.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _statusError = false;
+      _status = 'Checking for updates…';
+    });
+    try {
+      final res = await CloudStreamChannel.checkUpdates();
+      final updated = (res['updated'] as List?) ?? const [];
+      if (!mounted) return;
+      if (updated.isNotEmpty) {
+        _reloadProviders();
+        await _refresh();
+      }
+      if (!mounted) return;
+      setState(() {
+        _statusError = false;
+        _status = updated.isEmpty
+            ? 'All extensions are up to date.'
+            : 'Updated ${updated.length}: '
+                '${updated.take(6).join(', ')}${updated.length > 6 ? '…' : ''}';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _statusError = true;
+        _status = 'Error: $e';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!CloudStreamChannel.isSupported) {
@@ -156,6 +190,30 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
         scrolledUnderElevation: 0,
         elevation: 0,
         title: const Text('CloudStream Sources'),
+        actions: [
+          PopupMenuButton<String>(
+            enabled: !_busy && _repos.isNotEmpty,
+            icon: const Icon(Icons.more_vert),
+            color: AppColors.surface,
+            onSelected: (v) {
+              if (v == 'updates') _checkUpdates();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem<String>(
+                value: 'updates',
+                child: Row(
+                  children: [
+                    Icon(Icons.system_update_alt,
+                        size: 18, color: Colors.white70),
+                    SizedBox(width: 10),
+                    Text('Check for updates',
+                        style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),

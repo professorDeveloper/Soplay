@@ -245,4 +245,60 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
             put("repo", repoUrl); put("pluginCount", pluginCount); put("providers", providers)
         }
     }
+
+    /**
+     * Re-fetch every saved repo and re-download any plugin whose repo version is
+     * newer than the installed one (parsed from the cached `@<version>.cs3` name).
+     * Updates metadata + reloads the plugin. Returns the updated provider names.
+     */
+    fun checkUpdates(progress: ((Int, Int) -> Unit)? = null): JSONObject {
+        val meta = loadMeta()
+        val names = loadNames()
+        val updated = JSONArray()
+        val repos = savedRepos()
+        progress?.invoke(0, repos.size)
+        for ((rIndex, repo) in repos.withIndex()) {
+            val info = fetchRepo(repo)
+            val latest = HashMap<String, PluginRef>()
+            for (listUrl in info.pluginListUrls) {
+                val body = httpGet(listUrl) ?: continue
+                val plugins = try { JSONArray(body) } catch (_: Throwable) { continue }
+                for (i in 0 until plugins.length()) {
+                    val p = plugins.optJSONObject(i) ?: continue
+                    val url = p.optString("url").ifEmpty { continue }
+                    val internalName = p.optString("internalName").ifEmpty { p.optString("name", "plugin$i") }
+                    val version = if (p.has("version")) p.optInt("version") else 0
+                    val iconUrl = p.optString("iconUrl").ifEmpty { null }
+                    latest[internalName] = PluginRef(url, internalName, version, iconUrl)
+                }
+            }
+            val repoName = names.optString(repo).ifEmpty { info.name ?: fallbackName(repo) }
+            val entries = meta.optJSONArray(repo)
+            if (entries != null) {
+                val downloaded = HashSet<String>()
+                for (i in 0 until entries.length()) {
+                    val e = entries.optJSONObject(i) ?: continue
+                    val internalName = e.optString("internalName")
+                    val ref = latest[internalName] ?: continue
+                    val installedVer = e.optString("cs3Path")
+                        .substringAfterLast('@', "").substringBefore(".cs3").toIntOrNull() ?: 0
+                    if (ref.version <= installedVer) continue
+                    val file = if (downloaded.add(internalName)) {
+                        downloadCs3(ref.internalName, ref.version, ref.url)
+                    } else {
+                        File(cs3Dir, "${ref.internalName}@${ref.version}.cs3").takeIf { it.exists() }
+                    }
+                    if (file != null) {
+                        e.put("cs3Path", file.absolutePath)
+                        host.loadCs3(file, ref.internalName, ref.iconUrl, repoName)
+                        updated.put(e.optString("provider"))
+                    }
+                }
+            }
+            progress?.invoke(rIndex + 1, repos.size)
+        }
+        saveMeta(meta)
+        Log.i(TAG, "checkUpdates: ${updated.length()} updated")
+        return JSONObject().apply { put("updated", updated); put("count", updated.length()) }
+    }
 }

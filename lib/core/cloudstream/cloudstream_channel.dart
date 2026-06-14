@@ -95,6 +95,11 @@ class CloudStreamChannel {
   static Future<Map<String, dynamic>> addRepo(String url) async =>
       _obj(await _call('addRepo', {'url': url}));
 
+  /// Re-check every saved repo for newer plugin versions and update them.
+  /// Returns `{updated:[providerName...], count}`.
+  static Future<Map<String, dynamic>> checkUpdates() async =>
+      _obj(await _call('checkUpdates'));
+
   /// Provider categories for the home genre row: `[{provider,name,slug,image}]`.
   /// Tapping one opens its section via [getSection] (slug = MainPageData.data).
   static Future<List<dynamic>> getGenres(String provider) async =>

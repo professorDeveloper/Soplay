@@ -228,6 +228,18 @@ class MainActivity : FlutterFragmentActivity() {
                         }.toString()
                     }
                 }
+                "checkUpdates" -> {
+                    csAsync(result) {
+                        repoManager.checkUpdates { current, total ->
+                            runOnUiThread {
+                                cloudstreamChannel?.invokeMethod(
+                                    "installProgress",
+                                    mapOf("current" to current, "total" to total),
+                                )
+                            }
+                        }.toString()
+                    }
+                }
                 "getMainPage" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val page = call.argument<Int>("page") ?: 1
