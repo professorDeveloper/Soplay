@@ -74,6 +74,14 @@ class HiveService {
     await _settingsBox.put(AppConstants.currentProviderKey, providerId);
   }
 
+  String getOpenSubtitlesKey() {
+    return _settingsBox.get(AppConstants.openSubtitlesKeyKey, defaultValue: '');
+  }
+
+  Future<void> saveOpenSubtitlesKey(String key) async {
+    await _settingsBox.put(AppConstants.openSubtitlesKeyKey, key.trim());
+  }
+
   bool get hasSeenShortsRefreshShowcase {
     return _settingsBox.get(
           AppConstants.shortsRefreshShowcaseSeenKey,

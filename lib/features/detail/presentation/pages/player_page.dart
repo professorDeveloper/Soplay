@@ -16,6 +16,7 @@ import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
+import 'package:soplay/core/subtitles/opensubtitles_service.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
@@ -1501,7 +1502,6 @@ class _PlayerPageState extends State<PlayerPage>
   }
 
   void _openSubtitleSheet() {
-    if (_subtitles.isEmpty) return;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),
@@ -1553,12 +1553,176 @@ class _PlayerPageState extends State<PlayerPage>
                     _loadSubtitle(i);
                   },
                 ),
+              const Divider(color: Colors.white12, height: 1),
+              ListTile(
+                leading: const Icon(Icons.travel_explore_rounded,
+                    color: Colors.white70, size: 20),
+                title: const Text('Search online (OpenSubtitles)',
+                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _searchOnlineSubtitles();
+                },
+              ),
               const SizedBox(height: 8),
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _toast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<String?> _promptOpenSubtitlesKey() async {
+    final existing = _hive.getOpenSubtitlesKey();
+    if (existing.isNotEmpty) return existing;
+    final controller = TextEditingController();
+    final key = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text('OpenSubtitles API key',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Get a free key at opensubtitles.com → API Consumers, then paste it here.',
+              style: TextStyle(color: Colors.white60, fontSize: 12.5),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'API key',
+                hintStyle: TextStyle(color: Colors.white38),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (key == null || key.isEmpty) return null;
+    await _hive.saveOpenSubtitlesKey(key);
+    return key;
+  }
+
+  int? _currentEpisodeNumber() {
+    if (!widget.args.isSerial) return null;
+    final m = RegExp(r'(\d+)').firstMatch(_episodeTitle());
+    return m != null ? int.tryParse(m.group(1)!) : null;
+  }
+
+  Future<void> _searchOnlineSubtitles() async {
+    final key = await _promptOpenSubtitlesKey();
+    if (key == null || !mounted) return;
+    final query = widget.args.title.replaceAll(RegExp(r'\(.*?\)'), '').trim();
+    _toast('Searching subtitles…');
+    try {
+      final results = await OpenSubtitlesService.search(
+        apiKey: key,
+        query: query,
+        episode: _currentEpisodeNumber(),
+      );
+      if (!mounted) return;
+      if (results.isEmpty) {
+        _toast('No subtitles found');
+        return;
+      }
+      _pickOnlineSubtitle(results);
+    } catch (e) {
+      if (mounted) _toast('Search failed: $e');
+    }
+  }
+
+  void _pickOnlineSubtitle(List<OpenSubtitle> results) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Text('OpenSubtitles results',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800)),
+            ),
+            const Divider(color: Colors.white12, height: 1),
+            for (final r in results.take(40))
+              ListTile(
+                dense: true,
+                title: Text(r.release,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 13)),
+                subtitle: Text('${r.language} · ${r.downloadCount} downloads',
+                    style:
+                        const TextStyle(color: Colors.white54, fontSize: 11)),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _applyOnlineSubtitle(r);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _applyOnlineSubtitle(OpenSubtitle sub) async {
+    final key = _hive.getOpenSubtitlesKey();
+    if (key.isEmpty) return;
+    _toast('Downloading subtitle…');
+    try {
+      final link = await OpenSubtitlesService.downloadLink(
+          apiKey: key, fileId: sub.fileId);
+      if (link == null || link.isEmpty) {
+        if (mounted) _toast('Download failed');
+        return;
+      }
+      if (!mounted) return;
+      final entity = SubtitleEntity(
+        label: 'OpenSubtitles · ${sub.language}',
+        file: link,
+      );
+      setState(() => _subtitles = [..._subtitles, entity]);
+      await _loadSubtitle(_subtitles.length - 1);
+      if (mounted) _toast('Subtitle loaded');
+    } catch (e) {
+      if (mounted) _toast('Download failed: $e');
+    }
   }
 
   void _openSubtitleAppearanceSheet() {
@@ -1993,16 +2157,14 @@ class _PlayerPageState extends State<PlayerPage>
                 icon: Icons.subtitles_outlined,
                 label: 'Subtitles',
                 value: _subtitles.isEmpty
-                    ? 'N/A'
+                    ? 'Search'
                     : _activeSubtitleIndex >= 0
                     ? _subtitles[_activeSubtitleIndex].label
                     : 'Off',
-                onTap: _subtitles.isEmpty
-                    ? null
-                    : () {
-                        Navigator.of(sheetContext).pop();
-                        _openSubtitleSheet();
-                      },
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _openSubtitleSheet();
+                },
               ),
               if (_subtitles.isNotEmpty)
                 _SettingsTile(

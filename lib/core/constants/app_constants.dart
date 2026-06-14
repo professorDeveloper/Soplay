@@ -42,6 +42,7 @@ class AppConstants {
   static const String onboardingSeenKey = 'onboarding_seen';
   static const String deeplinkPromptSeenKey = 'deeplink_prompt_seen';
   static const String deeplinkOptInKey = 'deeplink_opt_in';
+  static const String openSubtitlesKeyKey = 'opensubtitles_api_key';
 
   static const String appLockEnabledKey = 'app_lock_enabled';
   static const String appLockPinLengthKey = 'app_lock_pin_length';
