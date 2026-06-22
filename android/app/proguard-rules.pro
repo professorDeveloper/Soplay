@@ -110,3 +110,33 @@
 -keep class kotlin.Metadata { *; }
 -dontwarn kotlin.**
 -dontwarn kotlinx.coroutines.**
+
+# ---------------------------------------------------------------------------
+# Aniyomi extension runtime. Extension .apk's are DexClassLoad'ed with the app
+# as parent classloader (see AniyomiRuntime.loadApk) and resolve the host's
+# vendored Aniyomi API + its transitive libs BY ORIGINAL NAME. R8 can't see
+# those reflective uses, so without these keeps it shrinks/obfuscates the
+# classes and every extension fails to load in release (works in debug where R8
+# is off) — no Aniyomi providers ever appear. Same failure mode as CloudStream
+# above; keep the whole surface extensions touch.
+-keep class eu.kanade.tachiyomi.** { *; }
+-keep interface eu.kanade.tachiyomi.** { *; }
+-dontwarn eu.kanade.tachiyomi.**
+# Injekt DI: extensions resolve NetworkHelper/JavaScriptEngine via Injekt.get().
+-keep class uy.kohesive.injekt.** { *; }
+-dontwarn uy.kohesive.injekt.**
+# RxJava 1 (io.reactivex:rxjava:1.3.8 → package `rx`): the AnimeSource API exposes
+# Observable-based methods that many extensions still override.
+-keep class rx.** { *; }
+-dontwarn rx.**
+# kotlinx.serialization runtime + generated serializers used to parse responses.
+-keep class kotlinx.serialization.** { *; }
+-keepclassmembers class kotlinx.serialization.** { *; }
+-dontwarn kotlinx.serialization.**
+# QuickJS engine used by extractors that deobfuscate links.
+-keep class app.cash.quickjs.** { *; }
+-dontwarn app.cash.quickjs.**
+# androidx.preference: extension source ctors/overrides reference PreferenceScreen
+# & friends by type; stripping them breaks class verification at load time.
+-keep class androidx.preference.** { *; }
+-dontwarn androidx.preference.**
