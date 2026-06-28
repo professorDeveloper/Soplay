@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:soplay/features/manga/domain/entities/reader_args.dart';
 
 class DownloadsSection extends StatefulWidget {
   const DownloadsSection({super.key});
@@ -88,7 +90,7 @@ class _DownloadsSectionState extends State<DownloadsSection> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               itemCount: _items.length > 20 ? 20 : _items.length,
-              itemBuilder: (_, i) => _DownloadCard(item: _items[i]),
+              itemBuilder: (_, i) => _DownloadCard(item: _items[i], siblings: _items),
             ),
           ),
         ],
@@ -98,32 +100,67 @@ class _DownloadsSectionState extends State<DownloadsSection> {
 }
 
 class _DownloadCard extends StatelessWidget {
-  const _DownloadCard({required this.item});
+  const _DownloadCard({required this.item, required this.siblings});
 
   final DownloadItem item;
+  final List<DownloadItem> siblings;
+
+  void _open(BuildContext context) {
+    if (item.isManga) {
+      final group =
+          siblings
+              .where((d) => d.isManga && d.contentUrl == item.contentUrl)
+              .toList()
+            ..sort(
+              (a, b) => (a.chapterIndex ?? 0).compareTo(b.chapterIndex ?? 0),
+            );
+      final chapters = group
+          .map(
+            (d) => EpisodeEntity(
+              episode: d.episodeNumber ?? 0,
+              label: d.episodeLabel ?? d.title,
+              mediaRef: d.chapterRef ?? '',
+            ),
+          )
+          .toList();
+      var start = group.indexWhere((d) => d.id == item.id);
+      if (start < 0) start = 0;
+      context.push(
+        '/reader',
+        extra: ReaderArgs(
+          title: item.title,
+          provider: item.provider,
+          contentUrl: item.contentUrl,
+          thumbnail: item.displayThumbnail,
+          chapters: chapters,
+          initialChapterIndex: start,
+        ),
+      );
+      return;
+    }
+    context.push(
+      '/player',
+      extra: PlayerArgs(
+        title: item.isSerial && item.episodeNumber != null
+            ? '${item.title} · EP ${item.episodeNumber}'
+            : item.title,
+        provider: item.provider,
+        headers: const {},
+        contentUrl: item.contentUrl,
+        thumbnail: item.displayThumbnail,
+        movieUrl: item.localPath.endsWith('.m3u8')
+            ? Uri.file(item.localPath).toString()
+            : item.localPath,
+        type: item.localPath.endsWith('.m3u8') ? 'hls' : null,
+        showDownloadAction: false,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        context.push(
-          '/player',
-          extra: PlayerArgs(
-            title: item.isSerial && item.episodeNumber != null
-                ? '${item.title} · EP ${item.episodeNumber}'
-                : item.title,
-            provider: item.provider,
-            headers: const {},
-            contentUrl: item.contentUrl,
-            thumbnail: item.displayThumbnail,
-            movieUrl: item.localPath.endsWith('.m3u8')
-                ? Uri.file(item.localPath).toString()
-                : item.localPath,
-            type: item.localPath.endsWith('.m3u8') ? 'hls' : null,
-            showDownloadAction: false,
-          ),
-        );
-      },
+      onTap: () => _open(context),
       child: SizedBox(
         width: 150,
         child: Padding(
@@ -140,7 +177,9 @@ class _DownloadCard extends StatelessWidget {
                       HomeNetworkImage(
                         url: item.displayThumbnail,
                         borderRadius: BorderRadius.zero,
-                        placeholderIcon: Icons.movie_outlined,
+                        placeholderIcon: item.isManga
+                            ? Icons.menu_book_outlined
+                            : Icons.movie_outlined,
                       ),
                       Positioned(
                         right: 6,
@@ -151,8 +190,10 @@ class _DownloadCard extends StatelessWidget {
                             color: AppColors.success.withValues(alpha: 0.9),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.download_done_rounded,
+                          child: Icon(
+                            item.isManga
+                                ? Icons.menu_book_rounded
+                                : Icons.download_done_rounded,
                             color: Colors.white,
                             size: 12,
                           ),

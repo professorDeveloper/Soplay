@@ -19,12 +19,15 @@ import androidx.annotation.RequiresApi
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.roundToInt
 import com.soplay.sozo.cloudstream.PluginHost
 import com.soplay.sozo.cloudstream.RepoManager
 import com.soplay.sozo.aniyomi.AniyomiHost
 import com.soplay.sozo.aniyomi.AniyomiRepoManager
+import com.soplay.sozo.manga.MangaHost
+import com.soplay.sozo.manga.MangaRepoManager
 import com.soplay.sozo.preview.FramePreview
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +64,11 @@ class MainActivity : FlutterFragmentActivity() {
     private var aniyomiChannel: MethodChannel? = null
     private val aniyomiHost by lazy { AniyomiHost(applicationContext) }
     private val aniyomiRepoManager by lazy { AniyomiRepoManager(applicationContext, aniyomiHost) }
+
+    private val mangaChannelName = "soplay/manga"
+    private var mangaChannel: MethodChannel? = null
+    private val mangaHost by lazy { MangaHost(applicationContext) }
+    private val mangaRepoManager by lazy { MangaRepoManager(applicationContext, mangaHost) }
 
     companion object {
         const val ACTION_PLAY_PAUSE = "play_pause"
@@ -111,7 +119,16 @@ class MainActivity : FlutterFragmentActivity() {
                     val url = call.argument<String>("url").orEmpty()
                     val localPath = call.argument<String>("localPath").orEmpty()
                     val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
-                    if (id.isEmpty() || url.isEmpty() || localPath.isEmpty()) {
+                    val kind = call.argument<String>("kind").orEmpty().ifBlank { "video" }
+                    val pageUrls = call.argument<List<String>>("pageUrls") ?: emptyList()
+                    val isManga = kind == "manga"
+                    // Manga has no single url; require the destination folder + page urls instead.
+                    val missingArgs = if (isManga) {
+                        id.isEmpty() || localPath.isEmpty() || pageUrls.isEmpty()
+                    } else {
+                        id.isEmpty() || url.isEmpty() || localPath.isEmpty()
+                    }
+                    if (missingArgs) {
                         result.success(false)
                         return@setMethodCallHandler
                     }
@@ -121,6 +138,11 @@ class MainActivity : FlutterFragmentActivity() {
                         .putExtra(DownloadForegroundService.EXTRA_TITLE, title)
                         .putExtra(DownloadForegroundService.EXTRA_URL, url)
                         .putExtra(DownloadForegroundService.EXTRA_LOCAL_PATH, localPath)
+                        .putExtra(DownloadForegroundService.EXTRA_KIND, kind)
+                        .putExtra(
+                            DownloadForegroundService.EXTRA_PAGE_URLS_JSON,
+                            JSONArray(pageUrls).toString()
+                        )
                         .putExtra(
                             DownloadForegroundService.EXTRA_HEADERS_JSON,
                             JSONObject(headers).toString()
@@ -258,7 +280,8 @@ class MainActivity : FlutterFragmentActivity() {
                 "search" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val query = call.argument<String>("query").orEmpty()
-                    csAsync(result) { pluginHost.searchJson(provider, query) }
+                    val page = call.argument<Int>("page") ?: 1
+                    csAsync(result) { pluginHost.searchJson(provider, query, page) }
                 }
                 "load" -> {
                     val provider = call.argument<String>("provider").orEmpty()
@@ -269,6 +292,10 @@ class MainActivity : FlutterFragmentActivity() {
                     val provider = call.argument<String>("provider").orEmpty()
                     val data = call.argument<String>("data").orEmpty()
                     csAsync(result) { pluginHost.loadLinksJson(provider, data) }
+                }
+                "cloudflareInfo" -> {
+                    val id = call.argument<String>("id").orEmpty()
+                    csAsync(result) { pluginHost.cloudflareInfo(id) }
                 }
                 else -> result.notImplemented()
             }
@@ -320,7 +347,8 @@ class MainActivity : FlutterFragmentActivity() {
                 "search" -> {
                     val provider = call.argument<String>("provider").orEmpty()
                     val query = call.argument<String>("query").orEmpty()
-                    csAsync(result) { aniyomiHost.searchJson(provider, query) }
+                    val page = call.argument<Int>("page") ?: 1
+                    csAsync(result) { aniyomiHost.searchJson(provider, query, page) }
                 }
                 "load" -> {
                     val provider = call.argument<String>("provider").orEmpty()
@@ -331,6 +359,88 @@ class MainActivity : FlutterFragmentActivity() {
                     val provider = call.argument<String>("provider").orEmpty()
                     val data = call.argument<String>("data").orEmpty()
                     csAsync(result) { aniyomiHost.loadLinksJson(provider, data) }
+                }
+                "cloudflareInfo" -> {
+                    val id = call.argument<String>("id").orEmpty()
+                    csAsync(result) { aniyomiHost.cloudflareInfo(id) }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        mangaChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            mangaChannelName
+        )
+        mangaChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "listProviders" -> result.success(mangaHost.providersJson())
+                "ensureLoaded" -> csAsync(result) {
+                    mangaRepoManager.ensureLoaded(); mangaHost.providersJson()
+                }
+                "listRepos" -> result.success(mangaRepoManager.listReposJson())
+                "removeRepo" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    result.success(mangaRepoManager.removeRepo(url))
+                }
+                "addRepo" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    csAsync(result) {
+                        mangaRepoManager.addRepo(url) { current, total ->
+                            runOnUiThread {
+                                mangaChannel?.invokeMethod(
+                                    "installProgress",
+                                    mapOf("current" to current, "total" to total),
+                                )
+                            }
+                        }.toString()
+                    }
+                }
+                "getMainPage" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val page = call.argument<Int>("page") ?: 1
+                    csAsync(result) { mangaHost.getMainPageJson(provider, page) }
+                }
+                "getSection" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val data = call.argument<String>("data").orEmpty()
+                    val page = call.argument<Int>("page") ?: 1
+                    csAsync(result) { mangaHost.getSectionJson(provider, data, page) }
+                }
+                "getGenres" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    csAsync(result) { mangaHost.getGenresJson(provider) }
+                }
+                "search" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val query = call.argument<String>("query").orEmpty()
+                    val page = call.argument<Int>("page") ?: 1
+                    csAsync(result) { mangaHost.searchJson(provider, query, page) }
+                }
+                "load" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val url = call.argument<String>("url").orEmpty()
+                    csAsync(result) { mangaHost.loadJson(provider, url) }
+                }
+                "pageList" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val data = call.argument<String>("data").orEmpty()
+                    csAsync(result) { mangaHost.pageListJson(provider, data) }
+                }
+                "getPreferences" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    csAsync(result) { mangaHost.getPrefsJson(provider) }
+                }
+                "setPreference" -> {
+                    val provider = call.argument<String>("provider").orEmpty()
+                    val key = call.argument<String>("key").orEmpty()
+                    val type = call.argument<String>("type").orEmpty()
+                    val value = call.argument<Any>("value")
+                    csAsync(result) { mangaHost.setPrefJson(provider, key, value, type) }
+                }
+                "cloudflareInfo" -> {
+                    val id = call.argument<String>("id").orEmpty()
+                    csAsync(result) { mangaHost.cloudflareInfo(id) }
                 }
                 else -> result.notImplemented()
             }

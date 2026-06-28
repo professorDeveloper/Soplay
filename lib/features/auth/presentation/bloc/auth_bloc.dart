@@ -10,6 +10,7 @@ import 'package:soplay/features/auth/domain/usecases/register_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/resend_otp_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/verify_otp_usecase.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
+import 'package:soplay/features/my_list/domain/usecases/sync_favorites_usecase.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 
 import 'auth_event.dart';
@@ -22,6 +23,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository authRepository;
   final HiveService hiveService;
   final NotificationService notificationService;
+  final SyncFavoritesUseCase syncFavorites;
 
   static const Duration _resendCooldown = Duration(seconds: 60);
 
@@ -33,6 +35,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.authRepository,
     required this.hiveService,
     required this.notificationService,
+    required this.syncFavorites,
   }) : super(AuthInitial()) {
     on<AuthStarted>(_onStarted);
     on<AuthLoginRequested>(_onLogin);
@@ -74,6 +77,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       ),
     );
 
+    unawaited(syncFavorites());
     unawaited(notificationService.setup());
     add(const AuthProfileRefreshRequested());
   }
@@ -87,6 +91,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     switch (result) {
       case Success(:final value):
         emit(AuthLoaded(token: value));
+        unawaited(syncFavorites());
         unawaited(notificationService.setup());
       case Failure(:final error):
         emit(AuthError(message: _friendlyError(error)));
@@ -128,6 +133,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     switch (result) {
       case Success(:final value):
         emit(AuthLoaded(token: value));
+        unawaited(syncFavorites());
         unawaited(notificationService.setup());
       case Failure(:final error):
         final msg = _friendlyError(error);

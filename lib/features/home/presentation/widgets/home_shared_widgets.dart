@@ -26,12 +26,32 @@ class HomeNetworkImage extends StatelessWidget {
     required this.borderRadius,
     required this.placeholderIcon,
     this.fit = BoxFit.cover,
+    this.headers,
   });
 
   final String? url;
   final BorderRadius borderRadius;
   final IconData placeholderIcon;
   final BoxFit fit;
+
+  /// Optional explicit image request headers (e.g. provider Referer/UA). When
+  /// null, a same-origin Referer + browser UA is derived from the image URL.
+  final Map<String, String>? headers;
+
+  /// Many provider CDNs (CloudStream/aniyomi/manga sources) hotlink-protect
+  /// posters with a `Referer` check and/or reject non-browser User-Agents, so a
+  /// bare `Image.network` 403s and shows a broken placeholder. A same-origin
+  /// Referer + a browser UA satisfies the common cases.
+  static Map<String, String>? _defaultHeaders(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
+    return {
+      'Referer': '${uri.scheme}://${uri.host}/',
+      'User-Agent':
+          'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) '
+              'Chrome/124.0 Mobile Safari/537.36',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +94,7 @@ class HomeNetworkImage extends StatelessWidget {
               : null;
           return Image.network(
             imageUrl,
+            headers: headers ?? _defaultHeaders(imageUrl),
             fit: fit,
             width: double.infinity,
             height: double.infinity,

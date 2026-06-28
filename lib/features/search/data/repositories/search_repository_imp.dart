@@ -1,5 +1,6 @@
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
+import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -29,7 +30,9 @@ class SearchRepositoryImp extends SearchRepository {
   Future<Result<List<GenreModel>>> getGenres() async {
     final provider = _currentProvider;
     if (provider != null &&
-        (provider.startsWith('cs:') || provider.startsWith('an:'))) {
+        (provider.startsWith('cs:') ||
+            provider.startsWith('an:') ||
+            provider.startsWith('mn:'))) {
       return const Success(<GenreModel>[]);
     }
     try {
@@ -59,7 +62,7 @@ class SearchRepositoryImp extends SearchRepository {
     final provider = _currentProvider;
     if (provider != null && provider.startsWith('cs:')) {
       try {
-        final map = await CloudStreamChannel.search(provider.substring(3), query);
+        final map = await CloudStreamChannel.search(provider.substring(3), query, page: page);
         if (map.isNotEmpty) return Success(SearchModel.fromJson(map));
         return Failure(Exception('CloudStream: no results'));
       } catch (e) {
@@ -68,9 +71,18 @@ class SearchRepositoryImp extends SearchRepository {
     }
     if (provider != null && provider.startsWith('an:')) {
       try {
-        final map = await AniyomiChannel.search(provider.substring(3), query);
+        final map = await AniyomiChannel.search(provider.substring(3), query, page: page);
         if (map.isNotEmpty) return Success(SearchModel.fromJson(map));
         return Failure(Exception('Aniyomi: no results'));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
+    if (provider != null && provider.startsWith('mn:')) {
+      try {
+        final map = await MangaChannel.search(provider.substring(3), query, page: page);
+        if (map.isNotEmpty) return Success(SearchModel.fromJson(map));
+        return Failure(Exception('Manga: no results'));
       } catch (e) {
         return Failure(Exception(e.toString()));
       }

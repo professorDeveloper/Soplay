@@ -8,13 +8,18 @@ sealed class FavoriteEvent extends Equatable {
 }
 
 class FavoriteLoad extends FavoriteEvent {
-  const FavoriteLoad({required this.contentUrl, required this.isFavorited});
+  const FavoriteLoad({
+    required this.contentUrl,
+    required this.provider,
+    required this.isFavorited,
+  });
 
   final String contentUrl;
+  final String provider;
   final bool? isFavorited;
 
   @override
-  List<Object?> get props => [contentUrl, isFavorited];
+  List<Object?> get props => [contentUrl, provider, isFavorited];
 }
 
 class FavoriteToggle extends FavoriteEvent {

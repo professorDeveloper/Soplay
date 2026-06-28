@@ -18,9 +18,12 @@ import 'package:soplay/features/detail/presentation/pages/player_page.dart';
 import 'package:soplay/features/download/presentation/pages/downloads_page.dart';
 import 'package:soplay/features/history/presentation/pages/history_page.dart';
 import 'package:soplay/features/home/domain/entities/view_all.dart';
+import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:soplay/features/manga/presentation/pages/reader_page.dart';
 import 'package:soplay/features/main/presentation/pages/main_page.dart';
 import 'package:soplay/features/network/presentation/pages/no_internet_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
+import 'package:soplay/features/private_list/presentation/pages/private_list_page.dart';
 import 'package:soplay/features/splash/presentation/pages/splash_page.dart';
 import 'package:soplay/features/streak/presentation/pages/streak_page.dart';
 
@@ -93,6 +96,13 @@ class AppRouter {
         },
       ),
       GoRoute(
+        path: '/reader',
+        builder: (context, state) {
+          final args = state.extra as ReaderArgs;
+          return ReaderPage(args: args);
+        },
+      ),
+      GoRoute(
         path: '/history',
         builder: (context, state) => const HistoryPage(),
       ),
@@ -143,6 +153,10 @@ class AppRouter {
       GoRoute(
         path: '/app-lock-settings',
         builder: (context, state) => const AppLockSettingsPage(),
+      ),
+      GoRoute(
+        path: '/private-list',
+        builder: (context, state) => const PrivateListPage(),
       ),
     ],
   );

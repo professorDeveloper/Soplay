@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:soplay/features/manga/domain/entities/reader_args.dart';
 
 class DownloadsPage extends StatefulWidget {
   const DownloadsPage({super.key});
@@ -79,6 +81,45 @@ class _DownloadsPageState extends State<DownloadsPage> {
 
   void _play(DownloadItem item) {
     if (item.status != DownloadStatus.completed) return;
+
+    if (item.isManga) {
+      final group =
+          _items
+              .where(
+                (d) =>
+                    d.isManga &&
+                    d.status == DownloadStatus.completed &&
+                    d.contentUrl == item.contentUrl,
+              )
+              .toList()
+            ..sort(
+              (a, b) => (a.chapterIndex ?? 0).compareTo(b.chapterIndex ?? 0),
+            );
+      final chapters = group
+          .map(
+            (d) => EpisodeEntity(
+              episode: d.episodeNumber ?? 0,
+              label: d.episodeLabel ?? d.title,
+              mediaRef: d.chapterRef ?? '',
+            ),
+          )
+          .toList();
+      var start = group.indexWhere((d) => d.id == item.id);
+      if (start < 0) start = 0;
+      context.push(
+        '/reader',
+        extra: ReaderArgs(
+          title: item.title,
+          provider: item.provider,
+          contentUrl: item.contentUrl,
+          thumbnail: item.displayThumbnail,
+          chapters: chapters,
+          initialChapterIndex: start,
+        ),
+      );
+      return;
+    }
+
     final file = File(item.localPath);
     if (!file.existsSync()) {
       ScaffoldMessenger.of(
@@ -249,14 +290,18 @@ class _DownloadRow extends StatelessWidget {
                       HomeNetworkImage(
                         url: item.displayThumbnail,
                         borderRadius: BorderRadius.zero,
-                        placeholderIcon: Icons.movie_outlined,
+                        placeholderIcon: item.isManga
+                            ? Icons.menu_book_outlined
+                            : Icons.movie_outlined,
                       ),
                       if (item.status == DownloadStatus.completed)
-                        const Positioned.fill(
+                        Positioned.fill(
                           child: ColoredBox(
-                            color: Color(0x44000000),
+                            color: const Color(0x44000000),
                             child: Icon(
-                              Icons.play_arrow_rounded,
+                              item.isManga
+                                  ? Icons.menu_book_rounded
+                                  : Icons.play_arrow_rounded,
                               color: Colors.white,
                               size: 28,
                             ),
@@ -310,7 +355,9 @@ class _DownloadRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _isHls(item.videoUrl)
+                        item.isManga
+                            ? '${item.downloadedBytes} / ${item.totalBytes} pages'
+                            : _isHls(item.videoUrl)
                             ? '${item.downloadedBytes} / ${item.totalBytes} segments'
                             : item.totalBytes > 0
                             ? '${_mb(item.downloadedBytes)} / ${_mb(item.totalBytes)}'
@@ -322,7 +369,9 @@ class _DownloadRow extends StatelessWidget {
                       ),
                     ] else if (item.status == DownloadStatus.completed)
                       Text(
-                        item.totalBytes > 0
+                        item.isManga
+                            ? '${item.totalBytes} pages'
+                            : item.totalBytes > 0
                             ? _mb(item.totalBytes)
                             : 'Downloaded',
                         style: const TextStyle(

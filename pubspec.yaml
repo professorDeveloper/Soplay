@@ -79,6 +79,7 @@ dependencies:
   flutter_svg: ^2.0.3
   url_launcher: ^6.3.1
   cached_network_image: ^3.4.1
+  scrollable_positioned_list: ^0.3.8
   palette_generator: ^0.3.3+5
   video_player: ^2.9.5
   flutter_inappwebview: ^6.1.5

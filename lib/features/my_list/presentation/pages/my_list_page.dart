@@ -7,6 +7,9 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
+import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
+import 'package:soplay/features/my_list/data/models/favorite_model.dart';
+import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 import 'package:soplay/features/my_list/domain/usecases/get_favorites_usecase.dart';
 import 'package:soplay/features/my_list/presentation/bloc/my_list_bloc.dart';
@@ -25,8 +28,10 @@ class MyListPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) =>
-          MyListBloc(useCase: getIt<GetFavoritesUseCase>())
-            ..add(const MyListLoad()),
+          MyListBloc(
+            useCase: getIt<GetFavoritesUseCase>(),
+            private: getIt<PrivateListService>(),
+          )..add(const MyListLoad()),
       child: const _MyListView(),
     );
   }
@@ -46,6 +51,8 @@ class _MyListViewState extends State<_MyListView>
   final _scrollController = ScrollController();
   final _headerBlur = ValueNotifier<double>(0.0);
   late final NavController _navController;
+  late final MyListLocalDataSource _localFavorites;
+  late final PrivateListService _privateFavorites;
 
   @override
   bool get wantKeepAlive => true;
@@ -54,13 +61,19 @@ class _MyListViewState extends State<_MyListView>
   void initState() {
     super.initState();
     _navController = getIt<NavController>();
+    _localFavorites = getIt<MyListLocalDataSource>();
+    _privateFavorites = getIt<PrivateListService>();
     _navController.index.addListener(_onNavChange);
+    _localFavorites.revision.addListener(_onFavoritesChanged);
+    _privateFavorites.revision.addListener(_onFavoritesChanged);
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _navController.index.removeListener(_onNavChange);
+    _localFavorites.revision.removeListener(_onFavoritesChanged);
+    _privateFavorites.revision.removeListener(_onFavoritesChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _headerBlur.dispose();
@@ -72,6 +85,13 @@ class _MyListViewState extends State<_MyListView>
     final bloc = context.read<MyListBloc>();
     if (bloc.state is MyListLoading) return;
     bloc.add(const MyListLoad());
+  }
+
+  void _onFavoritesChanged() {
+    if (!mounted) return;
+    final bloc = context.read<MyListBloc>();
+    if (bloc.state is MyListLoading) return;
+    bloc.add(const MyListRefresh());
   }
 
   void _onScroll() {
@@ -168,10 +188,14 @@ class _MyListViewState extends State<_MyListView>
                     childAspectRatio: 0.56,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                    (_, i) => FavoriteCard(
-                      item: items[i],
-                      onTap: () => _openDetail(items[i]),
-                    ),
+                    (_, i) {
+                      final item = items[i];
+                      return FavoriteCard(
+                        item: item,
+                        synced: item is FavoriteModel && item.synced,
+                        onTap: () => _openDetail(item),
+                      );
+                    },
                     childCount: items.length,
                   ),
                 ),

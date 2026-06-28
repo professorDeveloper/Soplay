@@ -12,8 +12,13 @@ import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
+import 'package:soplay/core/manga/manga_channel.dart';
+import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
+import 'package:soplay/features/manga/presentation/pages/manga_sources_page.dart';
 import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_sources_page.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:soplay/features/private_list/presentation/private_unlock.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
@@ -187,6 +192,43 @@ class _ProfileViewState extends State<_ProfileView> {
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const AniyomiSourcesPage(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                ],
+                if (MangaChannel.isSupported) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Material(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        child: ListTile(
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.network(
+                              'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s',
+                              width: 28,
+                              height: 28,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => const Icon(
+                                  Icons.menu_book_outlined,
+                                  color: AppColors.textHint),
+                            ),
+                          ),
+                          title: Text('manga.sources_title'.tr(),
+                              style: const TextStyle(color: Colors.white)),
+                          trailing: const Icon(Icons.chevron_right,
+                              color: AppColors.textHint),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const MangaSourcesPage(),
                             ),
                           ),
                         ),
@@ -554,6 +596,7 @@ class _ProvidersSection extends StatelessWidget {
 String providerGroup(ProviderEntity p) {
   if (p.category == 'cloudstream') return 'cloudstream';
   if (p.category == 'aniyomi') return 'aniyomi';
+  if (p.category == 'manga') return 'manga';
   return switch (p.mode) {
     'hybrid' => 'hybrid',
     'client' => 'local',
@@ -564,6 +607,12 @@ String providerGroup(ProviderEntity p) {
 /// Remembers the last-picked provider filter for the session so reopening the
 /// sheet keeps the same view.
 String _providerSheetFilter = 'all';
+
+/// Public entry point so other features (e.g. the home top bar quick-switch)
+/// can open the otherwise-private full provider picker.
+void openProviderPicker(BuildContext context, ProviderBloc bloc) {
+  _ProvidersPage.open(context, bloc);
+}
 
 /// Full-screen provider picker (replaces the old bottom sheet) with a search box
 /// and the category filter. A page scrolls long lists (60+ CloudStream
@@ -587,17 +636,44 @@ class _ProvidersPage extends StatefulWidget {
 }
 
 class _ProvidersPageState extends State<_ProvidersPage> {
-  // Filter group: 'all' | 'cloud' | 'hybrid' | 'local' | 'cloudstream'.
-  String _selectedCategory = _providerSheetFilter;
+  // Filter group: 'favorites' | 'all' | 'cloud' | 'hybrid' | 'local' |
+  // 'cloudstream' | 'aniyomi' | 'manga'.
+  late String _selectedCategory;
   final _searchController = TextEditingController();
   String _query = '';
   Timer? _searchDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to the Favorites view when the user has any starred providers,
+    // otherwise fall back to the remembered (or 'all') filter.
+    final hasFavorites =
+        getIt<HiveService>().getFavoriteProviders().isNotEmpty;
+    var initial = _providerSheetFilter;
+    if (initial == 'favorites' && !hasFavorites) initial = 'all';
+    if (initial == 'all' && hasFavorites) initial = 'favorites';
+    _selectedCategory = initial;
+    _providerSheetFilter = initial;
+  }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleFavorite(String id) async {
+    await getIt<HiveService>().toggleFavoriteProvider(id);
+    if (!mounted) return;
+    // Leaving the Favorites view empty is confusing — drop back to All.
+    if (_selectedCategory == 'favorites' &&
+        getIt<HiveService>().getFavoriteProviders().isEmpty) {
+      _selectedCategory = 'all';
+      _providerSheetFilter = 'all';
+    }
+    setState(() {});
   }
 
   @override
@@ -638,6 +714,8 @@ class _ProvidersPageState extends State<_ProvidersPage> {
           final filtered = state is ProviderLoaded
               ? _filteredProviders(state.providers)
               : const <ProviderEntity>[];
+          final favorites =
+              getIt<HiveService>().getFavoriteProviders().toSet();
           return Column(
             children: [
               Padding(
@@ -702,6 +780,8 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                           providers: filtered,
                           currentProviderId: state.currentProviderId,
                           bottomPad: bottomPad,
+                          favorites: favorites,
+                          onToggleFavorite: _toggleFavorite,
                         ),
                   ProviderError() => _ProvidersError(
                     onRetry: () =>
@@ -722,9 +802,15 @@ class _ProvidersPageState extends State<_ProvidersPage> {
     // CloudStream repo's providers (their `description` carries the repo name).
     // Otherwise match the delivery-mode group (cloud/hybrid/local) or cloudstream.
     Iterable<ProviderEntity> list;
-    if (_selectedCategory == 'all') {
+    if (_selectedCategory == 'favorites') {
+      // Favorites span every group (cloud/hybrid/local/cloudstream/aniyomi/manga).
+      final favs = getIt<HiveService>().getFavoriteProviders().toSet();
+      list = all.where((p) => favs.contains(p.id));
+    } else if (_selectedCategory == 'all') {
       list = all.where((p) =>
-          providerGroup(p) != 'cloudstream' && providerGroup(p) != 'aniyomi');
+          providerGroup(p) != 'cloudstream' &&
+          providerGroup(p) != 'aniyomi' &&
+          providerGroup(p) != 'manga');
     } else if (_selectedCategory.startsWith('repo:')) {
       final repo = _selectedCategory.substring(5);
       list = all.where(
@@ -755,23 +841,32 @@ class _CategoryFilterButton extends StatelessWidget {
   final String selected;
   final ValueChanged<String> onSelected;
 
-  // Filter groups by delivery type (mode) plus CloudStream, per request.
+  // Filter groups: Favorites first (only shown when the user has starred any),
+  // then by delivery type (mode) plus CloudStream, per request.
   static const _canonicalOrder = [
+    'favorites',
     'cloud',
     'hybrid',
     'local',
     'cloudstream',
-    'aniyomi'
+    'aniyomi',
+    'manga'
   ];
 
   static const _meta = <String, (String, IconData)>{
     'all':        ('All',         Icons.apps_rounded),
+    'favorites':  ('Favorites',   Icons.star),
     'cloud':      ('Cloud',       Icons.cloud_outlined),
     'hybrid':     ('Hybrid',      Icons.sync_rounded),
     'local':      ('Local',       Icons.smartphone_outlined),
     'cloudstream':('CloudStream', Icons.extension_outlined),
     'aniyomi':    ('Aniyomi',     Icons.play_circle_outline),
+    'manga':      ('Manga',       Icons.menu_book_outlined),
   };
+
+  /// Display label for a group — localised for 'favorites', static otherwise.
+  String _label(String key) =>
+      key == 'favorites' ? 'profile.favorites'.tr() : (_meta[key]?.$1 ?? key);
 
   /// Short, chip-friendly form of a repo name (drops the GitHub owner, trims).
   String _repoShort(String repo) {
@@ -786,6 +881,11 @@ class _CategoryFilterButton extends StatelessWidget {
       final g = providerGroup(p);
       counts[g] = (counts[g] ?? 0) + 1;
     }
+    // Favorites is a virtual group spanning every category; surface it only
+    // when the user has starred at least one provider that's still available.
+    final favIds = getIt<HiveService>().getFavoriteProviders().toSet();
+    final favoriteCount = providers.where((p) => favIds.contains(p.id)).length;
+    if (favoriteCount > 0) counts['favorites'] = favoriteCount;
     // Per-repo counts for CloudStream providers (their `description` = repo name).
     final repoCounts = <String, int>{};
     for (final p in providers) {
@@ -801,7 +901,7 @@ class _CategoryFilterButton extends StatelessWidget {
 
     final (String, IconData) selectedMeta = selected.startsWith('repo:')
         ? (_repoShort(selected.substring(5)), Icons.folder_outlined)
-        : (_meta[selected] ?? _meta['all']!);
+        : (_label(selected), (_meta[selected] ?? _meta['all']!).$2);
     final selectedCount = selected == 'all'
         ? providers.length
         : selected.startsWith('repo:')
@@ -812,7 +912,7 @@ class _CategoryFilterButton extends StatelessWidget {
       ('all', _meta['all']!.$1, _meta['all']!.$2, providers.length),
       ...available.map((cat) {
         final meta = _meta[cat] ?? (cat, Icons.label_outline);
-        return (cat, meta.$1, meta.$2, counts[cat] ?? 0);
+        return (cat, _label(cat), meta.$2, counts[cat] ?? 0);
       }),
       // One entry per CloudStream repo (e.g. "cs-kraptor", "…-phisher").
       ...repos.map((r) =>
@@ -920,11 +1020,15 @@ class _ProvidersList extends StatefulWidget {
     required this.providers,
     required this.currentProviderId,
     required this.bottomPad,
+    required this.favorites,
+    required this.onToggleFavorite,
   });
 
   final List<ProviderEntity> providers;
   final String currentProviderId;
   final double bottomPad;
+  final Set<String> favorites;
+  final ValueChanged<String> onToggleFavorite;
 
   @override
   State<_ProvidersList> createState() => _ProvidersListState();
@@ -973,6 +1077,8 @@ class _ProvidersListState extends State<_ProvidersList> {
           child: _ProviderListTile(
             provider: provider,
             selected: selected,
+            isFavorite: widget.favorites.contains(provider.id),
+            onToggleFavorite: () => widget.onToggleFavorite(provider.id),
             onTap: () {
               context.read<ProviderBloc>().add(ProviderSelect(provider.id));
               Navigator.of(context).pop();
@@ -1029,12 +1135,36 @@ class _ProviderListTile extends StatelessWidget {
   const _ProviderListTile({
     required this.provider,
     required this.selected,
+    required this.isFavorite,
+    required this.onToggleFavorite,
     required this.onTap,
   });
 
   final ProviderEntity provider;
   final bool selected;
+  final bool isFavorite;
+  final VoidCallback onToggleFavorite;
   final VoidCallback onTap;
+
+  // Only on-device extension providers (an:/mn:/cs:) sit behind a per-source
+  // Cloudflare challenge the interactive solver can pre-clear.
+  bool get _canSolveCloudflare =>
+      provider.id.startsWith('an:') ||
+      provider.id.startsWith('mn:') ||
+      provider.id.startsWith('cs:');
+
+  Future<void> _solveCloudflare(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await requestCloudflareSolve(context, provider.id);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(ok ? '${'general.done'.tr()} ✓' : 'general.cancel'.tr()),
+        backgroundColor: AppColors.surface,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1053,6 +1183,8 @@ class _ProviderListTile extends StatelessWidget {
         ),
         child: InkWell(
           onTap: onTap,
+          onLongPress:
+              _canSolveCloudflare ? () => _solveCloudflare(context) : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
@@ -1089,6 +1221,10 @@ class _ProviderListTile extends StatelessWidget {
                             const SizedBox(width: 4),
                             const _CfBypassBadge(),
                           ],
+                          if (provider.nsfw) ...[
+                            const SizedBox(width: 4),
+                            const _NsfwBadge(),
+                          ],
                         ],
                       ),
                       if (provider.description.isNotEmpty) ...[
@@ -1107,7 +1243,23 @@ class _ProviderListTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
+                IconButton(
+                  onPressed: onToggleFavorite,
+                  icon: Icon(
+                    isFavorite ? Icons.star : Icons.star_border,
+                    color: isFavorite ? Colors.amber : AppColors.textHint,
+                    size: 20,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 34,
+                    minHeight: 34,
+                  ),
+                  tooltip: 'profile.add_favorite'.tr(),
+                ),
+                const SizedBox(width: 2),
                 if (selected)
                   Container(
                     width: 20,
@@ -1201,6 +1353,33 @@ class _CfBypassBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Small "18+" pill shown for providers flagged adult/NSFW by their repo.
+class _NsfwBadge extends StatelessWidget {
+  const _NsfwBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFFE53935); // red
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 0.8),
+      ),
+      child: const Text(
+        '18+',
+        style: TextStyle(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
       ),
     );
   }
@@ -1403,6 +1582,22 @@ class _SecuritySectionState extends State<_SecuritySection> {
                 onTap: () async {
                   await context.push('/app-lock-settings');
                   if (mounted) setState(() {});
+                },
+              ),
+              const Divider(color: AppColors.divider, height: 1),
+              _Tile(
+                icon: Icons.folder_special_rounded,
+                title: 'app_lock.private_list'.tr(),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textHint,
+                  size: 20,
+                ),
+                onTap: () async {
+                  final unlocked = await requestPrivateUnlock(context);
+                  if (unlocked && context.mounted) {
+                    context.push('/private-list');
+                  }
                 },
               ),
             ],

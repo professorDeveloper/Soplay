@@ -90,12 +90,21 @@ class AniyomiChannel {
       _obj(await _call<String>(
           'getSection', {'provider': provider, 'data': data, 'page': page}));
 
-  static Future<Map<String, dynamic>> search(String provider, String query) async =>
-      _obj(await _call<String>('search', {'provider': provider, 'query': query}));
+  static Future<Map<String, dynamic>> search(String provider, String query,
+          {int page = 1}) async =>
+      _obj(await _call<String>(
+          'search', {'provider': provider, 'query': query, 'page': page}));
 
   static Future<Map<String, dynamic>> load(String provider, String url) async =>
       _obj(await _call<String>('load', {'provider': provider, 'url': url}));
 
   static Future<Map<String, dynamic>> loadLinks(String provider, String data) async =>
       _obj(await _call<String>('loadLinks', {'provider': provider, 'data': data}));
+
+  /// Base url + UA for the interactive Cloudflare solver: `{baseUrl, userAgent}`
+  /// (or `{}` if the source can't be resolved). [id] is the raw source id (no
+  /// `an:` prefix). The userAgent matches what native OkHttp sends so the
+  /// harvested `cf_clearance` cookie is accepted.
+  static Future<Map<String, dynamic>> cloudflareInfo(String id) async =>
+      _obj(await _call<String>('cloudflareInfo', {'id': id}));
 }

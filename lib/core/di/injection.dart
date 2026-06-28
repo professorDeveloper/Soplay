@@ -55,6 +55,7 @@ import 'package:soplay/features/detail/data/repositories/detail_repository_impl.
 import 'package:soplay/features/detail/domain/repositories/detail_repository.dart';
 import 'package:soplay/features/detail/domain/usecases/get_detail_usecase.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
+import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/detail/presentation/blocs/detail_bloc/detail_bloc.dart';
 import 'package:soplay/features/detail/presentation/blocs/episodes_bloc/episodes_bloc.dart';
@@ -83,12 +84,15 @@ import 'package:soplay/features/shorts/domain/usecases/increase_short_view_useca
 import 'package:soplay/features/shorts/domain/usecases/toggle_short_like_usecase.dart';
 import 'package:soplay/features/shorts/presentation/bloc/shorts_bloc.dart';
 import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite_bloc.dart';
+import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_remote_data_source.dart';
+import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/data/repositories/my_list_repository_impl.dart';
 import 'package:soplay/features/my_list/domain/repositories/my_list_repository.dart';
 import 'package:soplay/features/my_list/domain/usecases/add_favorite_usecase.dart';
 import 'package:soplay/features/my_list/domain/usecases/get_favorites_usecase.dart';
 import 'package:soplay/features/my_list/domain/usecases/remove_favorite_usecase.dart';
+import 'package:soplay/features/my_list/domain/usecases/sync_favorites_usecase.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
 
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
@@ -262,8 +266,16 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<MyListRemoteDataSource>(
     MyListRemoteDataSource(dio: getIt<Dio>()),
   );
+  getIt.registerSingleton<MyListLocalDataSource>(
+    MyListLocalDataSource(),
+  );
+  getIt.registerSingleton<PrivateListService>(PrivateListService());
   getIt.registerSingleton<MyListRepository>(
-    MyListRepositoryImpl(getIt<MyListRemoteDataSource>()),
+    MyListRepositoryImpl(
+      getIt<MyListRemoteDataSource>(),
+      getIt<MyListLocalDataSource>(),
+      getIt<HiveService>(),
+    ),
   );
   getIt.registerSingleton<GetFavoritesUseCase>(
     GetFavoritesUseCase(getIt<MyListRepository>()),
@@ -273,6 +285,9 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<RemoveFavoriteUseCase>(
     RemoveFavoriteUseCase(getIt<MyListRepository>()),
+  );
+  getIt.registerSingleton<SyncFavoritesUseCase>(
+    SyncFavoritesUseCase(getIt<MyListRepository>()),
   );
   getIt.registerSingleton<GetShortsUseCase>(
     GetShortsUseCase(getIt<ShortsRepository>()),
@@ -295,6 +310,9 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<ResolveMediaUseCase>(
     ResolveMediaUseCase(getIt<DetailRepository>()),
+  );
+  getIt.registerSingleton<GetPagesUseCase>(
+    GetPagesUseCase(getIt<DetailRepository>()),
   );
   getIt.registerSingleton<ViewAllUseCase>(
     ViewAllUseCase(getIt<HomeRepository>()),
@@ -329,6 +347,7 @@ Future<void> configureDependencies() async {
       authRepository: getIt<AuthRepository>(),
       hiveService: getIt<HiveService>(),
       notificationService: getIt<NotificationService>(),
+      syncFavorites: getIt<SyncFavoritesUseCase>(),
     ),
   );
   getIt.registerFactory(
@@ -342,7 +361,7 @@ Future<void> configureDependencies() async {
     () => FavoriteBloc(
       addFavorite: getIt<AddFavoriteUseCase>(),
       removeFavorite: getIt<RemoveFavoriteUseCase>(),
-      hiveService: getIt<HiveService>(),
+      local: getIt<MyListLocalDataSource>(),
     ),
   );
   getIt.registerFactory(

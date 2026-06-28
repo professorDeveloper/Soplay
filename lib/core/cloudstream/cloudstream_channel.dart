@@ -118,8 +118,9 @@ class CloudStreamChannel {
       _obj(await _call('getSection', {'provider': provider, 'data': data, 'page': page}));
 
   /// Search: `{provider, items:[card], query, page, totalPages}`.
-  static Future<Map<String, dynamic>> search(String provider, String query) async =>
-      _obj(await _call('search', {'provider': provider, 'query': query}));
+  static Future<Map<String, dynamic>> search(String provider, String query,
+          {int page = 1}) async =>
+      _obj(await _call('search', {'provider': provider, 'query': query, 'page': page}));
 
   /// Detail + episodes: `{provider, contentUrl, title, ..., isSerial, episodes:[{episode,label,mediaRef}]}`.
   static Future<Map<String, dynamic>> load(String provider, String url) async =>
@@ -128,4 +129,10 @@ class CloudStreamChannel {
   /// Resolve playable links: `{sources:[{quality,videoUrl,type,host,headers}], subtitles:[{label,file}]}`.
   static Future<Map<String, dynamic>> loadLinks(String provider, String data) async =>
       _obj(await _call('loadLinks', {'provider': provider, 'data': data}));
+
+  /// Base url + UA for the interactive Cloudflare solver: `{baseUrl, userAgent}`
+  /// (or `{}` if the provider can't be resolved). [id] is the raw provider name
+  /// (no `cs:` prefix).
+  static Future<Map<String, dynamic>> cloudflareInfo(String id) async =>
+      _obj(await _call('cloudflareInfo', {'id': id}));
 }

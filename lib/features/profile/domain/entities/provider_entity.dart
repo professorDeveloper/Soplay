@@ -22,6 +22,9 @@ class ProviderEntity {
   final String mode;
   final String category;
   final bool requiresCfBypass;
+
+  /// Whether the source is flagged 18+ / adult by its repo metadata.
+  final bool nsfw;
   final ExtractorRef? extractor;
 
   const ProviderEntity({
@@ -34,6 +37,7 @@ class ProviderEntity {
     this.mode = 'server',
     this.category = 'other',
     this.requiresCfBypass = false,
+    this.nsfw = false,
     this.extractor,
   });
 

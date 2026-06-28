@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,7 +8,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
@@ -20,6 +23,10 @@ import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite
 import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite_event.dart';
 import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite_state.dart';
 import 'package:soplay/features/history/data/history_service.dart';
+import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
+import 'package:soplay/features/my_list/data/private_list_service.dart';
+import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
+import 'package:soplay/features/private_list/presentation/private_unlock.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_cast_tab.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_comments_tab.dart';
@@ -28,6 +35,7 @@ import 'package:soplay/features/detail/presentation/widgets/detail_info.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_related.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_screenshots.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_skeleton.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 class DetailPage extends StatelessWidget {
   const DetailPage({super.key, required this.args});
@@ -83,6 +91,7 @@ class _DetailScaffold extends StatelessWidget {
               context.read<FavoriteBloc>().add(
                 FavoriteLoad(
                   contentUrl: state.detail.contentUrl,
+                  provider: state.detail.provider,
                   isFavorited: state.detail.isFavorited,
                 ),
               );
@@ -120,6 +129,18 @@ class _DetailScaffold extends StatelessWidget {
                   message: message,
                   onRetry: () =>
                       context.read<DetailBloc>().add(DetailLoad(contentUrl, provider: provider)),
+                  onSolveCloudflare: isCloudflareError(message)
+                      ? () async {
+                          final bloc = context.read<DetailBloc>();
+                          final prov = provider ??
+                              getIt<HiveService>().getCurrentProvider();
+                          final ok =
+                              await requestCloudflareSolve(context, prov);
+                          if (ok) {
+                            bloc.add(DetailLoad(contentUrl, provider: provider));
+                          }
+                        }
+                      : null,
                   onBack: () => _goBack(context),
                 ),
                 _ => const SizedBox.shrink(),
@@ -162,6 +183,14 @@ class _DetailViewState extends State<_DetailView>
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _bodyPlayKey = GlobalKey();
 
+  // One-time coachmark teaching the long-press "move to private" gesture on the
+  // add button. Scoped per-instance so stacked detail pages never collide with
+  // each other (or with the global showcase used on the main page).
+  final GlobalKey _listActionShowcaseKey = GlobalKey();
+  late final String _showcaseScope = 'detail-private-${identityHashCode(this)}';
+  ShowcaseView? _showcaseView;
+  bool _privateShowcaseStarted = false;
+
   final ValueNotifier<double> _collapse = ValueNotifier<double>(0);
   final ValueNotifier<bool> _showPill = ValueNotifier<bool>(false);
 
@@ -187,12 +216,48 @@ class _DetailViewState extends State<_DetailView>
     _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(_onTabChanged);
     _scrollController.addListener(_onScroll);
+    _showcaseView = ShowcaseView.register(
+      scope: _showcaseScope,
+      blurValue: 1.5,
+      overlayColor: Colors.black,
+      overlayOpacity: 0.76,
+      skipIfTargetNotPresent: true,
+      onFinish: _markPrivateShowcaseSeen,
+      onDismiss: (_) => _markPrivateShowcaseSeen(),
+    );
     if (widget.autoPlay && !_autoPlayTriggered) {
       _autoPlayTriggered = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _onPrimaryAction();
       });
     }
+    _maybeShowPrivateShowcase();
+  }
+
+  /// Shows the long-press coachmark exactly once, after the detail content (and
+  /// therefore the add button) has been laid out. No-op once dismissed/seen, or
+  /// when the detail never loads (this state only exists for [DetailLoaded]).
+  void _maybeShowPrivateShowcase() {
+    if (_privateShowcaseStarted ||
+        getIt<HiveService>().hasSeenPrivateShowcase) {
+      return;
+    }
+    _privateShowcaseStarted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Future<void>.delayed(const Duration(milliseconds: 600), () {
+        if (!mounted) return;
+        _showcaseView?.startShowCase([_listActionShowcaseKey]);
+        // One-time: mark seen the moment it appears so it never shows again,
+        // even if the user navigates away without tapping it.
+        _markPrivateShowcaseSeen();
+      });
+    });
+  }
+
+  void _markPrivateShowcaseSeen() {
+    if (getIt<HiveService>().hasSeenPrivateShowcase) return;
+    unawaited(getIt<HiveService>().markPrivateShowcaseSeen());
   }
 
   void _onTabChanged() {
@@ -246,6 +311,7 @@ class _DetailViewState extends State<_DetailView>
 
   @override
   void dispose() {
+    _showcaseView?.unregister();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _tabController.removeListener(_onTabChanged);
@@ -311,6 +377,131 @@ class _DetailViewState extends State<_DetailView>
         thumbnail: widget.detail.thumbnail ?? '',
       ),
     );
+  }
+
+  Future<void> _onMoveToPrivate() async {
+    if (!await requestPrivateUnlock(context)) return;
+    if (!mounted) return;
+
+    final detail = widget.detail;
+    await getIt<PrivateListService>().add(
+      FavoriteEntity(
+        provider: detail.provider,
+        contentUrl: detail.contentUrl,
+        title: detail.title,
+        thumbnail: detail.thumbnail ?? '',
+      ),
+    );
+    // Pull it out of the normal list so private items never surface there, then
+    // reset the heart/add button to reflect that it's no longer in My List.
+    await getIt<MyListLocalDataSource>().removeByUrl(detail.contentUrl);
+    // A private item must leave no history trail — drop any existing entries.
+    await getIt<HistoryService>().removeByContentUrl(detail.contentUrl);
+    if (!mounted) return;
+    context.read<FavoriteBloc>().add(
+      FavoriteLoad(
+        contentUrl: detail.contentUrl,
+        provider: detail.provider,
+        isFavorited: false,
+      ),
+    );
+    _showSnack('app_lock.moved_to_private'.tr());
+  }
+
+  /// Actions for an item that already lives in the private list (the add button
+  /// is showing the lock affordance). Mirrors the private-list page sheet.
+  void _showPrivateActions() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.textHint,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(
+                  Icons.playlist_add_rounded,
+                  color: AppColors.textSecondary,
+                ),
+                title: Text(
+                  'app_lock.move_to_my_list'.tr(),
+                  style: const TextStyle(color: AppColors.textPrimary),
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _moveFromPrivateToMyList();
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppColors.error,
+                ),
+                title: Text(
+                  'app_lock.removed_from_private'.tr(),
+                  style: const TextStyle(color: AppColors.error),
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _removeFromPrivate();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _moveFromPrivateToMyList() async {
+    final detail = widget.detail;
+    await getIt<PrivateListService>().remove(detail.contentUrl);
+    await getIt<MyListLocalDataSource>().add(
+      FavoriteEntity(
+        provider: detail.provider,
+        contentUrl: detail.contentUrl,
+        title: detail.title,
+        thumbnail: detail.thumbnail ?? '',
+      ),
+    );
+    if (!mounted) return;
+    context.read<FavoriteBloc>().add(
+      FavoriteLoad(
+        contentUrl: detail.contentUrl,
+        provider: detail.provider,
+        isFavorited: true,
+      ),
+    );
+    _showSnack('app_lock.move_to_my_list'.tr());
+  }
+
+  Future<void> _removeFromPrivate() async {
+    final detail = widget.detail;
+    await getIt<PrivateListService>().remove(detail.contentUrl);
+    if (!mounted) return;
+    context.read<FavoriteBloc>().add(
+      FavoriteLoad(
+        contentUrl: detail.contentUrl,
+        provider: detail.provider,
+        isFavorited: false,
+      ),
+    );
+    _showSnack('app_lock.removed_from_private'.tr());
   }
 
   void _onShare() {
@@ -611,12 +802,16 @@ class _DetailViewState extends State<_DetailView>
             child: BlocBuilder<FavoriteBloc, FavoriteState>(
               buildWhen: (a, b) {
                 if (a is FavoriteReady && b is FavoriteReady) {
-                  return a.isInList != b.isInList || a.isLoading != b.isLoading;
+                  return a.isInList != b.isInList ||
+                      a.isLoading != b.isLoading ||
+                      a.inPrivate != b.inPrivate;
                 }
                 return a.runtimeType != b.runtimeType;
               },
               builder: (context, favState) {
                 final isInList = favState is FavoriteReady && favState.isInList;
+                final inPrivate =
+                    favState is FavoriteReady && favState.inPrivate;
                 final showListAction = favState is FavoriteReady;
                 final listActionLoading =
                     favState is FavoriteReady && favState.isLoading;
@@ -633,12 +828,17 @@ class _DetailViewState extends State<_DetailView>
                             showPill: showPill,
                             title: detail.title,
                             isInList: isInList,
+                            inPrivate: inPrivate,
                             isLoading: state is EpisodesLoading,
                             showListAction: showListAction,
                             isListActionLoading: listActionLoading,
+                            listActionShowcaseKey: _listActionShowcaseKey,
+                            showcaseScope: _showcaseScope,
                             onBack: _goBack,
                             onPrimaryAction: _onPrimaryAction,
                             onAddToList: _toggleMyList,
+                            onMoveToPrivate: _onMoveToPrivate,
+                            onPrivateActions: _showPrivateActions,
                             onShare: _onShare,
                           ),
                         ),
@@ -690,12 +890,17 @@ class _AnimatedTopBar extends StatelessWidget {
     required this.showPill,
     required this.title,
     required this.isInList,
+    required this.inPrivate,
     required this.isLoading,
     required this.showListAction,
     required this.isListActionLoading,
+    required this.listActionShowcaseKey,
+    required this.showcaseScope,
     required this.onBack,
     required this.onPrimaryAction,
     required this.onAddToList,
+    required this.onMoveToPrivate,
+    required this.onPrivateActions,
     required this.onShare,
   });
 
@@ -703,12 +908,17 @@ class _AnimatedTopBar extends StatelessWidget {
   final bool showPill;
   final String title;
   final bool isInList;
+  final bool inPrivate;
   final bool isLoading;
   final bool showListAction;
   final bool isListActionLoading;
+  final GlobalKey listActionShowcaseKey;
+  final String showcaseScope;
   final VoidCallback onBack;
   final VoidCallback onPrimaryAction;
   final VoidCallback onAddToList;
+  final VoidCallback onMoveToPrivate;
+  final VoidCallback onPrivateActions;
   final VoidCallback onShare;
 
   @override
@@ -787,13 +997,30 @@ class _AnimatedTopBar extends StatelessWidget {
                       : const SizedBox(key: ValueKey('no-pill'), width: 0),
                 ),
                 if (showListAction) ...[
-                  _CircleIconButton(
-                    icon: isListActionLoading
-                        ? Icons.more_horiz_rounded
-                        : isInList
-                        ? Icons.check_rounded
-                        : Icons.add_rounded,
-                    onTap: isListActionLoading ? null : onAddToList,
+                  Showcase(
+                    key: listActionShowcaseKey,
+                    scope: showcaseScope,
+                    description: 'app_lock.private_long_press_hint'.tr(),
+                    targetBorderRadius: BorderRadius.circular(18),
+                    targetPadding: const EdgeInsets.all(4),
+                    child: _CircleIconButton(
+                      icon: isListActionLoading
+                          ? Icons.more_horiz_rounded
+                          : inPrivate
+                          ? Icons.lock_rounded
+                          : isInList
+                          ? Icons.check_rounded
+                          : Icons.add_rounded,
+                      iconColor: inPrivate ? AppColors.rating : Colors.white,
+                      onTap: isListActionLoading
+                          ? null
+                          : inPrivate
+                          ? onPrivateActions
+                          : onAddToList,
+                      onLongPress: isListActionLoading || inPrivate
+                          ? null
+                          : onMoveToPrivate,
+                    ),
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -811,14 +1038,22 @@ class _AnimatedTopBar extends StatelessWidget {
 }
 
 class _CircleIconButton extends StatelessWidget {
-  const _CircleIconButton({required this.icon, required this.onTap});
+  const _CircleIconButton({
+    required this.icon,
+    required this.onTap,
+    this.onLongPress,
+    this.iconColor = Colors.white,
+  });
   final IconData icon;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: ClipOval(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
@@ -826,7 +1061,7 @@ class _CircleIconButton extends StatelessWidget {
             width: 36,
             height: 36,
             color: Colors.black.withValues(alpha: 0.42),
-            child: Icon(icon, color: Colors.white, size: 18),
+            child: Icon(icon, color: iconColor, size: 18),
           ),
         ),
       ),
@@ -956,11 +1191,13 @@ class _ErrorView extends StatelessWidget {
     required this.message,
     required this.onRetry,
     required this.onBack,
+    this.onSolveCloudflare,
   });
 
   final String message;
   final VoidCallback onRetry;
   final VoidCallback onBack;
+  final Future<void> Function()? onSolveCloudflare;
 
   @override
   Widget build(BuildContext context) {
@@ -1011,6 +1248,18 @@ class _ErrorView extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+          if (onSolveCloudflare != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onSolveCloudflare,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textPrimary,
+                side: const BorderSide(color: AppColors.border),
+              ),
+              icon: const Icon(Icons.shield_outlined, size: 18),
+              label: Text('cloudflare.solve'.tr()),
+            ),
+          ],
           const Spacer(),
         ],
       ),

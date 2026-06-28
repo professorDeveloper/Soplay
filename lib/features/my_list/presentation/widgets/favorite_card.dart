@@ -1,13 +1,22 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 
 class FavoriteCard extends StatelessWidget {
-  const FavoriteCard({super.key, required this.item, required this.onTap});
+  const FavoriteCard({
+    super.key,
+    required this.item,
+    required this.onTap,
+    this.synced = false,
+  });
 
   final FavoriteEntity item;
   final VoidCallback onTap;
+
+  /// Whether this favorite is saved to the user's account (vs local-only).
+  final bool synced;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +72,33 @@ class FavoriteCard extends StatelessWidget {
                         Icons.bookmark_rounded,
                         color: Colors.white,
                         size: 16,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Tooltip(
+                      message: (synced
+                              ? 'my_list.saved_account'
+                              : 'my_list.saved_local')
+                          .tr(),
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.52),
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Icon(
+                          synced
+                              ? Icons.cloud_done_rounded
+                              : Icons.cloud_off_rounded,
+                          color: synced
+                              ? AppColors.primary
+                              : Colors.white.withValues(alpha: 0.8),
+                          size: 13,
+                        ),
                       ),
                     ),
                   ),

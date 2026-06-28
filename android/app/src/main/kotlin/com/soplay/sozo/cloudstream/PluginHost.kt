@@ -40,7 +40,15 @@ import java.io.File
  */
 class PluginHost(private val appContext: Context) {
 
-    companion object { private const val TAG = "CloudStreamHost" }
+    companion object {
+        private const val TAG = "CloudStreamHost"
+        // Chrome-mobile UA used by the interactive Cloudflare solver for cs: sources
+        // (best-effort — cs plugins drive their own HTTP client). Mirrors the
+        // Tachiyomi default so a single solved cookie tends to satisfy both.
+        private const val CS_UA =
+            "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+    }
 
     private val loaded = HashMap<String, BasePlugin>()
     // internalName -> the MainAPI provider names it registered (for unload + dedup).
@@ -154,6 +162,22 @@ class PluginHost(private val appContext: Context) {
 
     private fun slugify(s: String): String =
         s.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
+
+    /**
+     * Returns `{"baseUrl","userAgent"}` for the interactive Cloudflare solver.
+     * baseUrl is the provider's [MainAPI.mainUrl]; the UA is a Chrome-mobile
+     * string (cs is best-effort — plugins use their own HTTP client). Returns
+     * `{}` when the provider isn't found or exposes no main url.
+     */
+    fun cloudflareInfo(providerName: String): String {
+        val api = apiByName(providerName) ?: return "{}"
+        val baseUrl = api.mainUrl
+        if (baseUrl.isEmpty()) return "{}"
+        return JSONObject().apply {
+            put("baseUrl", baseUrl)
+            put("userAgent", CS_UA)
+        }.toString()
+    }
 
     /** Provider list for Flutter — from lazy metadata (no plugins loaded yet). */
     fun providersJson(): String {
@@ -274,10 +298,12 @@ class PluginHost(private val appContext: Context) {
         }.toString()
     }
 
-    suspend fun searchJson(providerName: String, query: String): String {
+    suspend fun searchJson(providerName: String, query: String, page: Int = 1): String {
         val api = apiByName(providerName)
         val items = JSONArray()
-        if (api != null) {
+        // CloudStream's MainAPI.search(query) has no paging — return the full
+        // result set on page 1 only; never advertise further pages.
+        if (api != null && page == 1) {
             val results = try { api.search(query) } catch (t: Throwable) {
                 Log.e(TAG, "search ${api.name}: ${t.javaClass.simpleName}: ${t.message}"); null
             } ?: emptyList()
@@ -285,7 +311,7 @@ class PluginHost(private val appContext: Context) {
         }
         return JSONObject().apply {
             put("provider", providerName); put("items", items)
-            put("query", query); put("page", 1); put("totalPages", 1)
+            put("query", query); put("page", page); put("totalPages", page)
         }.toString()
     }
 

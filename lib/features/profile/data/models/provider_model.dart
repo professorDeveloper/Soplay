@@ -11,6 +11,7 @@ class ProviderModel extends ProviderEntity {
     super.mode,
     super.category,
     super.requiresCfBypass,
+    super.nsfw,
     super.extractor,
   });
 
@@ -36,6 +37,7 @@ class ProviderModel extends ProviderEntity {
           ? json['category'] as String
           : 'other',
       requiresCfBypass: json['requiresCfBypass'] == true,
+      nsfw: json['nsfw'] == true,
       extractor: _parseExtractor(json['extractor']),
     );
   }

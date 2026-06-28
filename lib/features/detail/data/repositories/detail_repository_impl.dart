@@ -2,8 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
+import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
+import 'package:soplay/features/manga/data/models/manga_pages_model.dart';
+import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
 import 'package:soplay/core/player/webview_stream_extractor.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/detail/data/datasources/detail_data_source.dart';
@@ -57,6 +60,15 @@ class DetailRepositoryImpl implements DetailRepository {
         return Failure(Exception(_normalizeJsError(e)));
       }
     }
+    if (effective != null && effective.startsWith('mn:')) {
+      try {
+        final map = await MangaChannel.load(effective.substring(3), contentUrl);
+        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
+        return Failure(Exception('Manga: details not found'));
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
     if (js != null && effective != null) {
       try {
         final map = await js.tryGetDetail(effective, contentUrl);
@@ -87,7 +99,9 @@ class DetailRepositoryImpl implements DetailRepository {
     if (effective != null && effective.startsWith('cs:')) {
       try {
         final map = await CloudStreamChannel.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) return Success(PlaybackModel.fromJson(map));
+        if (map.isNotEmpty) {
+          return Success(_applySort(PlaybackModel.fromJson(map), sort));
+        }
         return Failure(Exception('CloudStream: episodes not found'));
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
@@ -96,8 +110,21 @@ class DetailRepositoryImpl implements DetailRepository {
     if (effective != null && effective.startsWith('an:')) {
       try {
         final map = await AniyomiChannel.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) return Success(PlaybackModel.fromJson(map));
+        if (map.isNotEmpty) {
+          return Success(_applySort(PlaybackModel.fromJson(map), sort));
+        }
         return Failure(Exception('Aniyomi: episodes not found'));
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
+    if (effective != null && effective.startsWith('mn:')) {
+      try {
+        final map = await MangaChannel.load(effective.substring(3), contentUrl);
+        if (map.isNotEmpty) {
+          return Success(_applySort(PlaybackModel.fromJson(map), sort));
+        }
+        return Failure(Exception('Manga: chapters not found'));
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -105,7 +132,9 @@ class DetailRepositoryImpl implements DetailRepository {
     if (js != null && effective != null) {
       try {
         final map = await js.tryGetEpisodes(effective, contentUrl);
-        if (map != null) return Success(PlaybackModel.fromJson(map));
+        if (map != null) {
+          return Success(_applySort(PlaybackModel.fromJson(map), sort));
+        }
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -205,6 +234,26 @@ class DetailRepositoryImpl implements DetailRepository {
     }
   }
 
+  @override
+  Future<Result<MangaPagesEntity>> getPages({
+    required String ref,
+    required String provider,
+  }) async {
+    if (provider.startsWith('mn:')) {
+      try {
+        final map = await MangaChannel.pageList(provider.substring(3), ref);
+        final pages = map['pages'];
+        if (map.isNotEmpty && pages is List && pages.isNotEmpty) {
+          return Success(MangaPagesModel.fromJson(map));
+        }
+        return Failure(Exception('Manga: sahifalar topilmadi'));
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
+    return Failure(Exception('Sahifalar faqat manga manbalari uchun'));
+  }
+
   Future<Result<MediaResolveEntity>> _postProcess(
     MediaResolveEntity media,
   ) async {
@@ -212,6 +261,37 @@ class DetailRepositoryImpl implements DetailRepository {
     // uzmovi which has been removed — kept here as a no-op pass-through so
     // future webview-extract providers (if any) don't break the flow.
     return Success(media);
+  }
+
+  /// Applies the requested Oldest/Newest [sort] to a freshly-built [model].
+  ///
+  /// The CloudStream / Aniyomi / Manga / JS source paths return the full
+  /// episode list in a single page and ignore server-side sorting, so the
+  /// in-app Oldest/Newest toggle has no effect unless we reorder here.
+  ///
+  /// Ascending = oldest first (by episode number, with the source's original
+  /// order as a stable tiebreaker); descending is the exact reverse, so the
+  /// toggle always visibly flips the list even when episode numbers are
+  /// missing or unreliable.
+  PlaybackModel _applySort(PlaybackModel model, String sort) {
+    final eps = model.episodes;
+    if (eps.length < 2) return model;
+    final desc = sort.toLowerCase() == 'desc';
+    // Capture the source's original order for a stable tiebreaker.
+    final orig = Map<Object?, int>.identity();
+    for (var i = 0; i < eps.length; i++) {
+      orig[eps[i]] = i;
+    }
+    // Sort IN PLACE. Rebuilding via clear()+addAll() reifies a
+    // List<EpisodeEntity> literal and then fails the runtime cast back into
+    // the concrete List<EpisodeModel> ("'List<EpisodeEntity>' is not a subtype
+    // of 'Iterable<EpisodeModel>'"), which broke every channel detail page.
+    eps.sort((a, b) {
+      var c = a.episode.compareTo(b.episode);
+      if (c == 0) c = (orig[a] ?? 0).compareTo(orig[b] ?? 0);
+      return desc ? -c : c;
+    });
+    return model;
   }
 
   String _normalizeJsError(Object error) {

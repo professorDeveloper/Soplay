@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 
@@ -14,6 +15,7 @@ class AppLockSettingsPage extends StatefulWidget {
 
 class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
   late final AppLockRepository _repo = getIt<AppLockRepository>();
+  late final HiveService _hive = getIt<HiveService>();
   bool _biometricAvailable = false;
   bool _busy = false;
 
@@ -95,6 +97,11 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _toggleAlwaysAsk(bool value) async {
+    await _hive.setPrivateAlwaysAsk(value);
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final enabled = _repo.isEnabled;
@@ -148,6 +155,20 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
                     ),
                   ],
                 ],
+                const Divider(color: AppColors.divider, height: 1),
+                Opacity(
+                  opacity: enabled ? 1.0 : 0.5,
+                  child: _Row(
+                    icon: Icons.lock_person_rounded,
+                    title: 'app_lock.private_always_ask'.tr(),
+                    subtitle: 'app_lock.private_always_ask_hint'.tr(),
+                    trailing: Switch.adaptive(
+                      value: _hive.isPrivateAlwaysAsk,
+                      activeThumbColor: AppColors.primary,
+                      onChanged: enabled ? _toggleAlwaysAsk : null,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

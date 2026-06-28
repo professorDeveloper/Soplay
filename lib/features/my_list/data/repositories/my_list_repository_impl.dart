@@ -1,67 +1,92 @@
-import 'package:dio/dio.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_remote_data_source.dart';
+import 'package:soplay/features/my_list/data/models/favorite_model.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
-import 'package:soplay/features/my_list/domain/entities/my_list_failure.dart';
 import 'package:soplay/features/my_list/domain/repositories/my_list_repository.dart';
 
 class MyListRepositoryImpl implements MyListRepository {
-  const MyListRepositoryImpl(this.dataSource);
+  const MyListRepositoryImpl(this.remote, this.local, this.hive);
 
-  final MyListRemoteDataSource dataSource;
+  final MyListRemoteDataSource remote;
+  final MyListLocalDataSource local;
+  final HiveService hive;
 
   @override
   Future<Result<List<FavoriteEntity>>> getFavorites() async {
+    if (!hive.isLoggedIn) {
+      return Success(local.getAll());
+    }
     try {
-      return Success(await dataSource.getFavorites());
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        return const Failure(MyListUnauthorizedException());
-      }
-      return Failure(Exception(_messageFrom(e)));
-    } catch (e) {
-      return Failure(Exception(e.toString()));
+      final server = await remote.getFavorites();
+      await local.upsertAll(server);
+      return Success(local.getAll());
+    } catch (_) {
+      // Graceful: any error (incl. 401 / DioException) falls back to local.
+      return Success(local.getAll());
     }
   }
 
   @override
   Future<Result<void>> addFavorite(FavoriteEntity entity) async {
-    try {
-      await dataSource.addFavorite(
-        provider: entity.provider,
-        contentUrl: entity.contentUrl,
-        title: entity.title,
-        thumbnail: entity.thumbnail,
-      );
-      return Success<void>(null);
-    } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
-    } catch (e) {
-      return Failure(Exception(e.toString()));
+    await local.add(entity, synced: false);
+    if (hive.isLoggedIn) {
+      try {
+        await remote.addFavorite(
+          provider: entity.provider,
+          contentUrl: entity.contentUrl,
+          title: entity.title,
+          thumbnail: entity.thumbnail,
+        );
+        await local.markSynced(entity.contentUrl);
+      } catch (_) {}
     }
+    return Success<void>(null);
   }
 
   @override
   Future<Result<void>> removeFavorite(String contentUrl) async {
-    try {
-      await dataSource.removeFavorite(contentUrl);
-      return Success<void>(null);
-    } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
-    } catch (e) {
-      return Failure(Exception(e.toString()));
+    await local.removeByUrl(contentUrl);
+    if (hive.isLoggedIn) {
+      try {
+        await remote.removeFavorite(contentUrl);
+      } catch (_) {}
     }
+    return Success<void>(null);
   }
 
-  String _messageFrom(DioException e) {
-    final data = e.response?.data;
-    if (data is Map) {
-      final message = data['message'];
-      if (message is String && message.trim().isNotEmpty) return message;
-      if (message is List && message.isNotEmpty) {
-        return message.first.toString();
+  @override
+  Future<void> syncAfterLogin() async {
+    if (!hive.isLoggedIn) return;
+    try {
+      final server = await remote.getFavorites();
+      bool existsOnServer(FavoriteModel candidate) {
+        for (final s in server) {
+          if (s.provider == candidate.provider &&
+              s.contentUrl == candidate.contentUrl) {
+            return true;
+          }
+        }
+        for (final s in server) {
+          if (s.contentUrl == candidate.contentUrl) return true;
+        }
+        return false;
       }
-    }
-    return e.message ?? 'Request failed';
+
+      for (final item in local.getAll()) {
+        if (existsOnServer(item)) continue;
+        try {
+          await remote.addFavorite(
+            provider: item.provider,
+            contentUrl: item.contentUrl,
+            title: item.title,
+            thumbnail: item.thumbnail,
+          );
+          await local.markSynced(item.contentUrl);
+        } catch (_) {}
+      }
+      await local.upsertAll(server);
+    } catch (_) {}
   }
 }

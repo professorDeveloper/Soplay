@@ -9,7 +9,12 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
+import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
+import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
+import 'package:soplay/features/download/data/download_service.dart';
+import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 
@@ -25,7 +30,10 @@ class _EpisodesPageState extends State<EpisodesPage> {
   final ScrollController _scroll = ScrollController();
   final ValueNotifier<double> _blurProgress = ValueNotifier<double>(0);
   final HistoryService _historyService = getIt<HistoryService>();
+  final DownloadService _downloads = getIt<DownloadService>();
   late final GetEpisodesUseCase _getEpisodes;
+
+  bool get _isManga => widget.args.provider.startsWith('mn:');
 
   late List<EpisodeEntity> _episodes;
   late int _page;
@@ -52,7 +60,12 @@ class _EpisodesPageState extends State<EpisodesPage> {
     _showImages = _hasAnyImage(_episodes);
     _scroll.addListener(_onScroll);
     _historyService.revision.addListener(_refreshHistory);
+    _downloads.revision.addListener(_onDownloadsChanged);
     _refreshHistory();
+  }
+
+  void _onDownloadsChanged() {
+    if (mounted) setState(() {});
   }
 
   void _refreshHistory() {
@@ -72,6 +85,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
   @override
   void dispose() {
     _historyService.revision.removeListener(_refreshHistory);
+    _downloads.revision.removeListener(_onDownloadsChanged);
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     _blurProgress.dispose();
@@ -178,12 +192,30 @@ class _EpisodesPageState extends State<EpisodesPage> {
   }
 
   void _playFrom(int index) {
-    // Resume from saved position if this is the history episode
-    final resumeMs = (_historyItem != null &&
-            _historyItem!.episodeIndex == index &&
-            _historyItem!.positionMs > 0)
-        ? _historyItem!.positionMs
-        : 0;
+    // Resume from saved position if this is the history episode/chapter.
+    final isHistoryEntry = _historyItem != null &&
+        _historyItem!.episodeIndex == index &&
+        _historyItem!.positionMs > 0;
+
+    // Manga sources open the page reader instead of the video player. The saved
+    // `positionMs` for manga is the page index (see ReaderPage).
+    if (widget.args.provider.startsWith('mn:')) {
+      context.push(
+        '/reader',
+        extra: ReaderArgs(
+          title: widget.args.title,
+          provider: widget.args.provider,
+          contentUrl: widget.args.contentUrl,
+          thumbnail: widget.args.thumbnail,
+          chapters: _episodes,
+          initialChapterIndex: index,
+          resumePage: isHistoryEntry ? _historyItem!.positionMs : 0,
+        ),
+      );
+      return;
+    }
+
+    final resumeMs = isHistoryEntry ? _historyItem!.positionMs : 0;
     context.push(
       '/player',
       extra: PlayerArgs(
@@ -197,6 +229,55 @@ class _EpisodesPageState extends State<EpisodesPage> {
         resumePosition: Duration(milliseconds: resumeMs),
       ),
     );
+  }
+
+  /// Resolves the chapter's pages and starts an offline manga download.
+  Future<void> _downloadChapter(int index) async {
+    final ch = _episodes[index];
+    final id = DownloadService.mangaChapterId(
+      contentUrl: widget.args.contentUrl,
+      provider: widget.args.provider,
+      chapterRef: ch.mediaRef,
+    );
+    final existing = _downloads.get(id);
+    if (existing != null &&
+        (existing.status == DownloadStatus.downloading ||
+            existing.status == DownloadStatus.completed)) {
+      return;
+    }
+
+    final result = await getIt<GetPagesUseCase>()(
+      ref: ch.mediaRef,
+      provider: widget.args.provider,
+    );
+    if (!mounted) return;
+    if (result is! Success<MangaPagesEntity>) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to resolve pages')),
+      );
+      return;
+    }
+
+    final pages = result.value;
+    final item = DownloadItem(
+      id: id,
+      kind: 'manga',
+      contentUrl: widget.args.contentUrl,
+      provider: widget.args.provider,
+      title: widget.args.title,
+      thumbnail: widget.args.thumbnail,
+      videoUrl: '',
+      localPath: '',
+      headers: pages.headers,
+      pageUrls: pages.pages.map((p) => p.imageUrl).toList(),
+      chapterRef: ch.mediaRef,
+      chapterIndex: index,
+      isSerial: true,
+      episodeNumber: ch.episode,
+      episodeLabel: ch.label,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    await _downloads.startDownload(item);
   }
 
   @override
@@ -246,11 +327,23 @@ class _EpisodesPageState extends State<EpisodesPage> {
                         itemBuilder: (_, i) {
                           final isCurrent = _historyItem != null &&
                               _historyItem!.episodeIndex == i;
+                          DownloadItem? download;
+                          if (_isManga) {
+                            final id = DownloadService.mangaChapterId(
+                              contentUrl: widget.args.contentUrl,
+                              provider: widget.args.provider,
+                              chapterRef: _episodes[i].mediaRef,
+                            );
+                            download = _downloads.get(id);
+                          }
                           return _EpisodeRow(
                             episode: _episodes[i],
                             showImage: _showImages,
                             progress: isCurrent ? _historyItem!.progress : null,
                             onTap: () => _playFrom(i),
+                            onDownload:
+                                _isManga ? () => _downloadChapter(i) : null,
+                            download: download,
                           );
                         },
                       ),
@@ -496,12 +589,16 @@ class _EpisodeRow extends StatelessWidget {
     required this.showImage,
     required this.onTap,
     this.progress,
+    this.onDownload,
+    this.download,
   });
 
   final EpisodeEntity episode;
   final bool showImage;
   final VoidCallback onTap;
   final double? progress;
+  final VoidCallback? onDownload;
+  final DownloadItem? download;
 
   @override
   Widget build(BuildContext context) {
@@ -578,6 +675,13 @@ class _EpisodeRow extends StatelessWidget {
                 if (hasSub && hasDub) const SizedBox(width: 4),
                 if (hasDub) const _LangChip(label: 'DUB', primary: false),
                 if (hasSub || hasDub) const SizedBox(width: 10),
+                if (onDownload != null) ...[
+                  _DownloadControl(
+                    download: download,
+                    onDownload: onDownload!,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Container(
                   width: 34,
                   height: 34,
@@ -588,7 +692,9 @@ class _EpisodeRow extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.play_arrow_rounded,
+                    onDownload != null
+                        ? Icons.menu_book_outlined
+                        : Icons.play_arrow_rounded,
                     color: progress != null
                         ? AppColors.primary
                         : AppColors.textPrimary,
@@ -628,6 +734,74 @@ class _EpisodeRow extends StatelessWidget {
     if (air != null && air.isNotEmpty) parts.add(air);
     if (run != null && run.isNotEmpty) parts.add(run);
     return parts.join(' · ');
+  }
+}
+
+class _DownloadControl extends StatelessWidget {
+  const _DownloadControl({required this.download, required this.onDownload});
+
+  final DownloadItem? download;
+  final VoidCallback onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = download?.status;
+
+    if (status == DownloadStatus.downloading || status == DownloadStatus.pending) {
+      final d = download!;
+      return SizedBox(
+        width: 34,
+        height: 34,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              value: status == DownloadStatus.downloading && d.totalBytes > 0
+                  ? d.progress
+                  : null,
+              strokeWidth: 2,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (status == DownloadStatus.completed) {
+      return Container(
+        width: 34,
+        height: 34,
+        decoration: const BoxDecoration(
+          color: AppColors.surfaceVariant,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.download_done_rounded,
+          color: AppColors.success,
+          size: 18,
+        ),
+      );
+    }
+
+    // Not downloaded yet (or previously failed) — tappable to (re)start.
+    final failed = status == DownloadStatus.failed;
+    return GestureDetector(
+      onTap: onDownload,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: const BoxDecoration(
+          color: AppColors.surfaceVariant,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          failed ? Icons.refresh_rounded : Icons.download_outlined,
+          color: failed ? AppColors.primary : AppColors.textSecondary,
+          size: 18,
+        ),
+      ),
+    );
   }
 }
 

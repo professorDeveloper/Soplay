@@ -120,7 +120,10 @@
     "providers_error": "Providerlarni yuklab bo'lmadi.",
     "logout_confirm": "Akkauntingizdan chiqmoqchimisiz?",
     "connections": "Connections",
-    "coming_soon": "Tez kunda"
+    "coming_soon": "Tez kunda",
+    "favorites": "Sevimlilar",
+    "all_providers": "Barcha providerlar",
+    "add_favorite": "Sevimlilarga qo'shish"
   },
   "search": {
     "title": "Qidirish",
@@ -140,7 +143,15 @@
     "sort_rating": "Reyting",
     "type": "Tur",
     "apply": "Qo'llash",
-    "clear_filter": "Tozalash"
+    "clear_filter": "Tozalash",
+    "sources": "Manbalar",
+    "sources_n": "{} ta manba",
+    "all_sources": "Hammasini tanlash",
+    "this_server": "Bu server",
+    "local_group": "Lokal",
+    "search_in": "Qidirish manbalari",
+    "sources_hint": "Bir vaqtning o'zida bir nechta manbada qidiring. Joriy provayderdan foydalanish uchun bo'sh qoldiring.",
+    "searching": "Qidirilmoqda…"
   },
   "movie": {
     "rating": "Reyting",
@@ -204,7 +215,21 @@
     "disable_title": "Qulfni o'chirishni xohlaysizmi?",
     "disable_subtitle": "PIN-kod va biometrik sozlamalari o'chiriladi.",
     "enabled_hint": "Ilova ishga tushganda PIN-kod so'raladi.",
-    "disabled_hint": "Ilova qulfi o'chirilgan. Yoqib qo'ying — kontentingiz boshqalardan himoyalanadi."
+    "disabled_hint": "Ilova qulfi o'chirilgan. Yoqib qo'ying — kontentingiz boshqalardan himoyalanadi.",
+    "private_list": "Maxfiy ro'yxat",
+    "move_to_private": "Maxfiyga ko'chirish",
+    "moved_to_private": "Maxfiy ro'yxatga ko'chirildi",
+    "removed_from_private": "Maxfiydan olib tashlandi",
+    "move_to_my_list": "Ro'yxatimga qaytarish",
+    "private_empty": "Hozircha maxfiy narsa yo'q",
+    "private_setup_required": "Maxfiy ro'yxatdan foydalanish uchun avval PIN-kod o'rnating",
+    "private_long_press_hint": "Maxfiy ro'yxatga ko'chirish uchun uzun bosing — PIN ortida yashirin va ko'rish tarixi saqlanmaydi.",
+    "private_always_ask": "Maxfiy ro'yxatga har kirganda PIN so'rash",
+    "private_always_ask_hint": "Sessiya boshida bir marta emas, har safar PIN so'raladi"
+  },
+  "my_list": {
+    "saved_account": "Akkauntga saqlangan",
+    "saved_local": "Faqat shu qurilmada"
   },
   "deeplink": {
     "opt_in_title": "Sozo havolalarini ushbu ilovada ochasizmi?",
@@ -245,5 +270,54 @@
     "time_minutes": "{} daq",
     "time_hours": "{} soat",
     "time_days": "{} kun"
+  },
+  "manga": {
+    "sources_title": "Manga manbalari",
+    "sources_desc": "Qo'shimcha manga, manhwa va webtoon provayderlarini o'rnatish uchun manga extension repozitoriylarini qo'shing. Ular qurilmangizda ishlaydi (faqat Android).",
+    "repo_url": "Repo URL",
+    "add_source": "Manba qo'shish",
+    "installing": "O'rnatilmoqda…",
+    "installing_long": "Extension'lar o'rnatilmoqda… katta repolar uchun biroz vaqt olishi mumkin.",
+    "installing_progress": "O'rnatilmoqda {} / {} extension…",
+    "no_extensions": "Bu URL'da extension topilmadi.",
+    "added_sources": "{} ta manba · {} ta provayder qo'shildi.",
+    "source_removed": "Manba o'chirildi.",
+    "recommended": "TAVSIYA ETILGAN",
+    "installed_sources": "O'RNATILGAN MANBALAR",
+    "source_settings": "MANBA SOZLAMALARI",
+    "no_sources": "Hozircha manba yo'q",
+    "show": "Ko'rsatish",
+    "hide": "Yashirish",
+    "installed": "O'rnatilgan",
+    "android_only": "Bu funksiya faqat Android'da mavjud",
+    "error_prefix": "Xato: {}",
+    "no_preferences": "Bu manbada sozlanadigan parametrlar yo'q",
+    "not_selected": "Tanlanmagan",
+    "n_selected": "{} ta tanlandi",
+    "reading_mode": "O'qish rejimi",
+    "mode_continuous": "Uzluksiz",
+    "mode_paged": "Sahifa",
+    "direction": "Yo'nalish",
+    "dir_ltr": "Chapdan (LTR)",
+    "dir_rtl": "O'ngdan (RTL)",
+    "background": "Fon",
+    "bg_black": "Qora",
+    "bg_gray": "Kulrang",
+    "bg_white": "Oq",
+    "chapters": "Boblar",
+    "chapter_ended": "Bob tugadi",
+    "next_chapter": "Keyingi bob",
+    "first_chapter": "Birinchi bob",
+    "last_chapter": "Oxirgi bob",
+    "no_pages": "Sahifa topilmadi",
+    "tap_to_reload": "Bosing — qayta yuklash",
+    "download_started": "Yuklab olish boshlandi",
+    "downloaded_pages": "{} / {} sahifa"
+  },
+  "cloudflare": {
+    "title": "Siz odam ekanligingizni tasdiqlang",
+    "hint": "Quyidagi tekshiruvni bajaring — tugagach, oyna avtomatik yopiladi.",
+    "solve": "Cloudflare'ni yechish",
+    "done": "Tayyor"
   }
 }

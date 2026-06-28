@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
+import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 import 'package:soplay/features/my_list/domain/usecases/add_favorite_usecase.dart';
 import 'package:soplay/features/my_list/domain/usecases/remove_favorite_usecase.dart';
@@ -12,10 +14,10 @@ class FavoriteBloc extends Bloc<FavoriteEvent, FavoriteState> {
   FavoriteBloc({
     required AddFavoriteUseCase addFavorite,
     required RemoveFavoriteUseCase removeFavorite,
-    required HiveService hiveService,
+    required MyListLocalDataSource local,
   }) : _addFavorite = addFavorite,
        _removeFavorite = removeFavorite,
-       _hiveService = hiveService,
+       _local = local,
        super(const FavoriteInitial()) {
     on<FavoriteLoad>(_onLoad);
     on<FavoriteToggle>(_onToggle);
@@ -23,15 +25,13 @@ class FavoriteBloc extends Bloc<FavoriteEvent, FavoriteState> {
 
   final AddFavoriteUseCase _addFavorite;
   final RemoveFavoriteUseCase _removeFavorite;
-  final HiveService _hiveService;
+  final MyListLocalDataSource _local;
 
   Future<void> _onLoad(FavoriteLoad event, Emitter<FavoriteState> emit) async {
-    if (!_hiveService.isLoggedIn) {
-      emit(const FavoriteGuest());
-      return;
-    }
-
-    emit(FavoriteReady(isInList: event.isFavorited ?? false));
+    final inPrivate = getIt<PrivateListService>().contains(event.contentUrl);
+    final isIn = _local.isFavorite(event.provider, event.contentUrl) ||
+        (event.isFavorited ?? false);
+    emit(FavoriteReady(isInList: isIn || inPrivate, inPrivate: inPrivate));
   }
 
   Future<void> _onToggle(
@@ -39,10 +39,6 @@ class FavoriteBloc extends Bloc<FavoriteEvent, FavoriteState> {
     Emitter<FavoriteState> emit,
   ) async {
     final current = state;
-    if (!_hiveService.isLoggedIn) {
-      emit(const FavoriteGuest());
-      return;
-    }
     if (current is! FavoriteReady || current.isLoading) return;
 
     final nextIsInList = !current.isInList;

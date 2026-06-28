@@ -7,6 +7,8 @@ import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SAnimeImpl
 import eu.kanade.tachiyomi.animesource.model.SEpisodeImpl
+import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
+import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
@@ -190,20 +192,43 @@ class AniyomiHost(private val context: Context) {
         }.toString()
     }
 
-    fun searchJson(id: String, query: String): String {
+    fun searchJson(id: String, query: String, page: Int = 1): String {
         val src = sourceFor(id)
         val items = JSONArray()
+        var hasNext = false
         if (src != null) try {
-            val pg = runBlocking { src.getSearchAnime(1, query, AnimeFilterList()) }
+            val pg = runBlocking { src.getSearchAnime(page, query, AnimeFilterList()) }
             for (a in pg.animes) items.put(cardJson(a, id))
+            hasNext = pg.hasNextPage
         } catch (t: Throwable) { Log.e(TAG, "search $id: ${t.message}") }
         return JSONObject().apply {
             put("provider", "an:$id"); put("items", items)
-            put("query", query); put("page", 1); put("totalPages", 1)
+            put("query", query); put("page", page)
+            put("totalPages", if (hasNext) page + 1 else page)
         }.toString()
     }
 
     fun getGenresJson(id: String): String = "[]"
+
+    /**
+     * Returns `{"baseUrl","userAgent"}` for the interactive Cloudflare solver.
+     * The userAgent is the EXACT one the native OkHttp client sends for this
+     * source (the source's own header, falling back to [NetworkHelper]'s default)
+     * so the harvested `cf_clearance` cookie — which is UA-bound — is accepted.
+     * Returns `{}` when the source can't be resolved or has no base url.
+     */
+    fun cloudflareInfo(id: String): String {
+        val meta = sources[id]
+        val src = sourceFor(id) as? AnimeHttpSource
+        val baseUrl = (src?.baseUrl ?: meta?.baseUrl).orEmpty()
+        if (baseUrl.isEmpty()) return "{}"
+        val ua = src?.headers?.get("User-Agent")
+            ?: NetworkHelper.defaultUserAgentProvider()
+        return JSONObject().apply {
+            put("baseUrl", baseUrl)
+            put("userAgent", ua)
+        }.toString()
+    }
 
     private fun statusLabel(status: Int): String? = when (status) {
         1 -> "Ongoing"

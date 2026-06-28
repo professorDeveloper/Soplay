@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
+import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/extractor/provider_manager.dart';
 import 'package:soplay/core/js/provider_registry.dart';
@@ -17,6 +18,10 @@ const String _kCloudStreamIcon =
 
 /// Shared icon shown for every Aniyomi (`an:`) provider in the list.
 const String _kAniyomiIcon =
+    'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s';
+
+/// Shared icon shown for every manga (`mn:`) provider in the list.
+const String _kMangaIcon =
     'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s';
 
 class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
@@ -58,6 +63,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         // repositories; the rest of the app treats them like any provider.
         await _appendCloudStreamProviders(providers);
         await _appendAniyomiProviders(providers);
+        await _appendMangaProviders(providers);
 
         if (providers.isEmpty) {
           if (previous is! ProviderLoaded) {
@@ -128,6 +134,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
           domains: const [],
           mode: 'client',
           category: 'cloudstream',
+          nsfw: m['nsfw'] == true,
         ));
       }
     } catch (_) {
@@ -157,6 +164,35 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
           domains: const [],
           mode: 'client',
           category: 'aniyomi',
+          nsfw: m['nsfw'] == true,
+        ));
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _appendMangaProviders(List<ProviderEntity> into) async {
+    if (!MangaChannel.isSupported) return;
+    try {
+      final list = await MangaChannel.ensureLoaded();
+      for (final e in list) {
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+        final id = (m['id'] as String?)?.trim() ?? '';
+        if (id.isEmpty) continue;
+        into.add(ProviderModel(
+          id: id,
+          name: (m['name'] as String?) ?? id,
+          image: (m['icon'] as String?)?.isNotEmpty == true
+              ? m['icon'] as String
+              : _kMangaIcon,
+          url: (m['baseUrl'] as String?) ?? '',
+          description: (m['repo'] as String?)?.isNotEmpty == true
+              ? m['repo'] as String
+              : 'Manga',
+          domains: const [],
+          mode: 'client',
+          category: 'manga',
+          nsfw: m['nsfw'] == true,
         ));
       }
     } catch (_) {}

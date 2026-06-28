@@ -112,13 +112,19 @@
 -dontwarn kotlinx.coroutines.**
 
 # ---------------------------------------------------------------------------
-# Aniyomi extension runtime. Extension .apk's are DexClassLoad'ed with the app
-# as parent classloader (see AniyomiRuntime.loadApk) and resolve the host's
-# vendored Aniyomi API + its transitive libs BY ORIGINAL NAME. R8 can't see
-# those reflective uses, so without these keeps it shrinks/obfuscates the
-# classes and every extension fails to load in release (works in debug where R8
-# is off) — no Aniyomi providers ever appear. Same failure mode as CloudStream
-# above; keep the whole surface extensions touch.
+# Aniyomi (anime) + Manga extension runtime. Extension .apk's are DexClassLoad'ed
+# with the app as parent classloader (see AniyomiRuntime.loadApk /
+# MangaRuntime.loadApk) and resolve the host's vendored APIs + transitive libs BY
+# ORIGINAL NAME. R8 can't see those reflective uses, so without these keeps it
+# shrinks/obfuscates the classes and every extension fails to load in release
+# (works in debug where R8 is off) — no Aniyomi/Manga providers ever appear.
+# Same failure mode as CloudStream above; keep the whole surface extensions touch.
+#
+# This one wildcard covers BOTH the anime API (eu.kanade.tachiyomi.animesource.**)
+# and the manga API (eu.kanade.tachiyomi.source.**); their hosts/runtimes are kept
+# by the `com.soplay.sozo.**` rule above (covers com.soplay.sozo.aniyomi.** and
+# com.soplay.sozo.manga.**). Do NOT narrow this to `.animesource` — that would
+# strip the manga source-api and break manga extension loading in release.
 -keep class eu.kanade.tachiyomi.** { *; }
 -keep interface eu.kanade.tachiyomi.** { *; }
 -dontwarn eu.kanade.tachiyomi.**

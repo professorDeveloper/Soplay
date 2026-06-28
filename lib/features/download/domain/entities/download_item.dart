@@ -18,6 +18,19 @@ class DownloadItem {
   final int? episodeNumber;
   final String? episodeLabel;
 
+  /// 'video' (default) or 'manga'. Manga downloads are a list of page images
+  /// rather than a single video file.
+  final String kind;
+
+  /// Resolved page image URLs for a manga chapter download.
+  final List<String> pageUrls;
+
+  /// The chapter media reference (used to re-resolve pages if needed).
+  final String? chapterRef;
+
+  /// Index of the chapter within its series (for grouping/ordering).
+  final int? chapterIndex;
+
   const DownloadItem({
     required this.id,
     required this.contentUrl,
@@ -35,7 +48,13 @@ class DownloadItem {
     this.isSerial = false,
     this.episodeNumber,
     this.episodeLabel,
+    this.kind = 'video',
+    this.pageUrls = const [],
+    this.chapterRef,
+    this.chapterIndex,
   });
+
+  bool get isManga => kind == 'manga';
 
   double get progress =>
       totalBytes > 0 ? (downloadedBytes / totalBytes).clamp(0.0, 1.0) : 0.0;
@@ -52,6 +71,8 @@ class DownloadItem {
     DownloadStatus? status,
     String? localPath,
     String? localThumbnailPath,
+    Map<String, String>? headers,
+    List<String>? pageUrls,
   }) => DownloadItem(
     id: id,
     contentUrl: contentUrl,
@@ -61,7 +82,7 @@ class DownloadItem {
     localThumbnailPath: localThumbnailPath ?? this.localThumbnailPath,
     videoUrl: videoUrl,
     localPath: localPath ?? this.localPath,
-    headers: headers,
+    headers: headers ?? this.headers,
     totalBytes: totalBytes ?? this.totalBytes,
     downloadedBytes: downloadedBytes ?? this.downloadedBytes,
     status: status ?? this.status,
@@ -69,6 +90,10 @@ class DownloadItem {
     isSerial: isSerial,
     episodeNumber: episodeNumber,
     episodeLabel: episodeLabel,
+    kind: kind,
+    pageUrls: pageUrls ?? this.pageUrls,
+    chapterRef: chapterRef,
+    chapterIndex: chapterIndex,
   );
 
   Map<String, dynamic> toJson() => {
@@ -88,6 +113,10 @@ class DownloadItem {
     'isSerial': isSerial,
     'episodeNumber': episodeNumber,
     'episodeLabel': episodeLabel,
+    'kind': kind,
+    'pageUrls': pageUrls,
+    'chapterRef': chapterRef,
+    'chapterIndex': chapterIndex,
   };
 
   factory DownloadItem.fromJson(Map<String, dynamic> json) => DownloadItem(
@@ -111,5 +140,11 @@ class DownloadItem {
     isSerial: json['isSerial'] as bool? ?? false,
     episodeNumber: json['episodeNumber'] as int?,
     episodeLabel: json['episodeLabel'] as String?,
+    kind: json['kind'] as String? ?? 'video',
+    pageUrls:
+        (json['pageUrls'] as List?)?.map((e) => e.toString()).toList() ??
+        const [],
+    chapterRef: json['chapterRef'] as String?,
+    chapterIndex: json['chapterIndex'] as int?,
   );
 }

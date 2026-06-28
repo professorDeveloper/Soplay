@@ -120,7 +120,10 @@
     "providers_error": "Could not load providers.",
     "logout_confirm": "Do you want to sign out of your account?",
     "connections": "Connections",
-    "coming_soon": "Coming soon"
+    "coming_soon": "Coming soon",
+    "favorites": "Favorites",
+    "all_providers": "All providers",
+    "add_favorite": "Add to favorites"
   },
   "search": {
     "title": "Search",
@@ -140,7 +143,15 @@
     "sort_rating": "Rating",
     "type": "Type",
     "apply": "Apply",
-    "clear_filter": "Clear"
+    "clear_filter": "Clear",
+    "sources": "Sources",
+    "sources_n": "{} sources",
+    "all_sources": "Select all",
+    "this_server": "This server",
+    "local_group": "Local",
+    "search_in": "Search in",
+    "sources_hint": "Search several sources at once. Leave empty to use your current provider.",
+    "searching": "Searching…"
   },
   "movie": {
     "rating": "Rating",
@@ -204,7 +215,21 @@
     "disable_title": "Turn off app lock?",
     "disable_subtitle": "Your PIN and biometric preference will be removed.",
     "enabled_hint": "You'll be asked for your PIN when the app starts.",
-    "disabled_hint": "App lock is off. Turn it on to protect what you watch."
+    "disabled_hint": "App lock is off. Turn it on to protect what you watch.",
+    "private_list": "Private list",
+    "move_to_private": "Move to private",
+    "moved_to_private": "Moved to private list",
+    "removed_from_private": "Removed from private",
+    "move_to_my_list": "Move back to My List",
+    "private_empty": "Nothing private yet",
+    "private_setup_required": "Set up a PIN first to use the private list",
+    "private_long_press_hint": "Long-press to move to your Private list — hidden behind your PIN, and its watch history isn't saved.",
+    "private_always_ask": "Always ask PIN for private list",
+    "private_always_ask_hint": "Re-enter your PIN every time, not just once per session"
+  },
+  "my_list": {
+    "saved_account": "Saved to account",
+    "saved_local": "On this device"
   },
   "deeplink": {
     "opt_in_title": "Open Sozo links in this app?",
@@ -245,5 +270,54 @@
     "time_minutes": "{} min",
     "time_hours": "{} h",
     "time_days": "{} d"
+  },
+  "manga": {
+    "sources_title": "Manga Sources",
+    "sources_desc": "Add manga extension repositories to install extra manga, manhwa and webtoon providers. They run on your device (Android only).",
+    "repo_url": "Repo URL",
+    "add_source": "Add source",
+    "installing": "Installing…",
+    "installing_long": "Installing extensions… this can take a moment for large repos.",
+    "installing_progress": "Installing {} / {} extensions…",
+    "no_extensions": "No extensions found at that URL.",
+    "added_sources": "Added {} source(s) · {} provider(s).",
+    "source_removed": "Source removed.",
+    "recommended": "RECOMMENDED",
+    "installed_sources": "INSTALLED SOURCES",
+    "source_settings": "SOURCE SETTINGS",
+    "no_sources": "No sources yet",
+    "show": "Show",
+    "hide": "Hide",
+    "installed": "Installed",
+    "android_only": "This feature is only available on Android",
+    "error_prefix": "Error: {}",
+    "no_preferences": "This source has no configurable settings",
+    "not_selected": "Not selected",
+    "n_selected": "{} selected",
+    "reading_mode": "Reading mode",
+    "mode_continuous": "Continuous",
+    "mode_paged": "Paged",
+    "direction": "Direction",
+    "dir_ltr": "Left-to-right (LTR)",
+    "dir_rtl": "Right-to-left (RTL)",
+    "background": "Background",
+    "bg_black": "Black",
+    "bg_gray": "Gray",
+    "bg_white": "White",
+    "chapters": "Chapters",
+    "chapter_ended": "Chapter ended",
+    "next_chapter": "Next chapter",
+    "first_chapter": "First chapter",
+    "last_chapter": "Last chapter",
+    "no_pages": "No pages found",
+    "tap_to_reload": "Tap to reload",
+    "download_started": "Download started",
+    "downloaded_pages": "{} / {} pages"
+  },
+  "cloudflare": {
+    "title": "Verify you're human",
+    "hint": "Complete the check below — this closes automatically when done.",
+    "solve": "Solve Cloudflare",
+    "done": "Done"
   }
 }

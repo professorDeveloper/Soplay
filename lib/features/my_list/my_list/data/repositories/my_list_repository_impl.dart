@@ -53,6 +53,9 @@ class MyListRepositoryImpl implements MyListRepository {
     }
   }
 
+  @override
+  Future<void> syncAfterLogin() async {}
+
   String _messageFrom(DioException e) {
     final data = e.response?.data;
     if (data is Map) {

@@ -10,6 +10,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -47,7 +48,16 @@ class DownloadForegroundService : Service() {
         val id = intent.getStringExtra(EXTRA_ID).orEmpty()
         val url = intent.getStringExtra(EXTRA_URL).orEmpty()
         val localPath = intent.getStringExtra(EXTRA_LOCAL_PATH).orEmpty()
-        if (id.isEmpty() || url.isEmpty() || localPath.isEmpty()) return
+        val kind = intent.getStringExtra(EXTRA_KIND).takeUnless { it.isNullOrBlank() } ?: "video"
+        val isManga = kind == "manga"
+        val pageUrls = parseStringArray(intent.getStringExtra(EXTRA_PAGE_URLS_JSON).orEmpty())
+        // Manga has no single url; the destination folder + page urls are required instead.
+        if (id.isEmpty() || localPath.isEmpty()) return
+        if (isManga) {
+            if (pageUrls.isEmpty()) return
+        } else if (url.isEmpty()) {
+            return
+        }
         if (activeTasks.containsKey(id)) return
 
         val title = intent.getStringExtra(EXTRA_TITLE).takeUnless { it.isNullOrBlank() } ?: "Downloading"
@@ -64,7 +74,9 @@ class DownloadForegroundService : Service() {
 
         executor.execute {
             try {
-                if (isHls(url)) {
+                if (isManga) {
+                    downloadManga(id, title, localPath, pageUrls, headers, token)
+                } else if (isHls(url)) {
                     downloadHls(id, title, url, localPath, headers, token)
                 } else {
                     downloadDirect(id, title, url, localPath, headers, token)
@@ -198,6 +210,42 @@ class DownloadForegroundService : Service() {
         updateState(id, title, url, localPath, "completed", totalBytes, totalBytes, null)
     }
 
+    private fun downloadManga(
+        id: String,
+        title: String,
+        folderPath: String,
+        pageUrls: List<String>,
+        headers: Map<String, String>,
+        token: AtomicBoolean
+    ) {
+        val folder = File(folderPath)
+        folder.mkdirs()
+
+        val total = pageUrls.size.toLong()
+        if (total == 0L) throw IllegalStateException("No pages to download")
+
+        var done = 0L
+        updateState(id, title, "", folderPath, "downloading", done, total, null)
+        updateProgressNotification(title, done, total)
+
+        for (i in pageUrls.indices) {
+            if (token.get()) return
+            val pageFile = File(
+                folder,
+                "p_${i.toString().padStart(3, '0')}${imageExtensionFrom(pageUrls[i])}"
+            )
+            // Resume-safe: skip pages already fully written.
+            if (!pageFile.exists() || pageFile.length() == 0L) {
+                downloadDirectFile(pageUrls[i], pageFile, headers, token)
+            }
+            done = i + 1L
+            updateState(id, title, "", folderPath, "downloading", done, total, null)
+            updateProgressNotification(title, done, total)
+        }
+
+        updateState(id, title, "", folderPath, "completed", done, total, null)
+    }
+
     private fun downloadDirectFile(
         url: String,
         file: File,
@@ -254,6 +302,32 @@ class DownloadForegroundService : Service() {
         val json = JSONObject(raw)
         return json.keys().asSequence().associateWith { key ->
             json.optString(key)
+        }
+    }
+
+    private fun parseStringArray(raw: String): List<String> {
+        if (raw.isBlank()) return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            (0 until arr.length())
+                .map { arr.optString(it) }
+                .filter { it.isNotBlank() }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun imageExtensionFrom(url: String): String {
+        val path = try {
+            URI(url).path?.lowercase() ?: ""
+        } catch (e: Exception) {
+            url.lowercase()
+        }
+        return when {
+            path.endsWith(".png") -> ".png"
+            path.endsWith(".webp") -> ".webp"
+            path.endsWith(".gif") -> ".gif"
+            else -> ".jpg"
         }
     }
 
@@ -417,6 +491,8 @@ class DownloadForegroundService : Service() {
         const val EXTRA_URL = "url"
         const val EXTRA_LOCAL_PATH = "local_path"
         const val EXTRA_HEADERS_JSON = "headers_json"
+        const val EXTRA_KIND = "kind"
+        const val EXTRA_PAGE_URLS_JSON = "page_urls_json"
 
         private const val CHANNEL_ID = "soplay_downloads"
         private const val SUMMARY_NOTIFICATION_ID = 2100

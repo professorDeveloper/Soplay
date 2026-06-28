@@ -17,6 +17,11 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
 
   Timer? _debounce;
 
+  /// Monotonic token bumped on every execute. Async results compare against it
+  /// and bail when a newer query has started, so stale (debounced or
+  /// out-of-order) results can never clobber the current search.
+  int _execToken = 0;
+
   SearchBloc({
     required SearchUseCase searchUseCase,
     required GenreUseCase genreUseCase,
@@ -53,8 +58,10 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
   }
 
   Future<void> _onExecute(_SearchExecute event, Emitter<SearchState> emit) async {
+    final token = ++_execToken;
     emit(const SearchLoading());
     final result = await _searchUseCase(event.query);
+    if (token != _execToken) return; // a newer query superseded this one.
     if (result.isSuccess) {
       final data = result.getOrNull()!;
       emit(SearchLoaded(
@@ -81,8 +88,18 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
 
     if (result.isSuccess) {
       final data = result.getOrNull()!;
+      // De-dupe against what's already shown. A single-page source (e.g. a
+      // `cs:` provider) re-queried for the next page can echo its first page,
+      // which would otherwise append duplicate cards.
+      final seen = {
+        for (final m in current.items) '${m.provider}::${m.url}',
+      };
+      final fresh = <MovieEntity>[];
+      for (final m in data.items) {
+        if (seen.add('${m.provider}::${m.url}')) fresh.add(m);
+      }
       emit(current.copyWith(
-        items: [...current.items, ...data.items],
+        items: [...current.items, ...fresh],
         page: data.page,
         totalPages: data.totalPages,
         isLoadingMore: false,

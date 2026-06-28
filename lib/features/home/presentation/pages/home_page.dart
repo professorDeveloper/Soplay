@@ -28,7 +28,7 @@ class _HomePageState extends State<HomePage> {
         if (state is HomeLoading || state is HomeInitial) {
           return const HomeSkeleton();
         }
-        if (state is HomeError) return const HomeErrorView();
+        if (state is HomeError) return HomeErrorView(message: state.message);
         if (state is HomeLoaded) return HomeContent(state: state);
         return const SizedBox.shrink();
       },

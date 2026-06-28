@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
+import 'package:soplay/features/my_list/data/private_list_service.dart';
 
 class HistoryService {
   static const int _maxItems = 50;
@@ -66,6 +68,11 @@ class HistoryService {
   }
 
   Future<void> save(HistoryItem item) async {
+    // Items the user moved to their Private list must leave no history trail.
+    if (getIt.isRegistered<PrivateListService>() &&
+        getIt<PrivateListService>().contains(item.contentUrl)) {
+      return;
+    }
     await _box.put(item.storageKey, jsonEncode(item.toJson()));
     await _trimIfNeeded();
     revision.value++;
@@ -74,6 +81,20 @@ class HistoryService {
   Future<void> remove(String key) async {
     await _box.delete(key);
     revision.value++;
+  }
+
+  /// Removes every history entry for a content url (the base key plus any
+  /// `::episode::N` keys). Used when an item is moved to the Private list so no
+  /// trace of it remains in the history.
+  Future<void> removeByContentUrl(String contentUrl) async {
+    final keys = _box.keys
+        .whereType<String>()
+        .where((k) => k == contentUrl || k.startsWith('$contentUrl::'))
+        .toList();
+    for (final k in keys) {
+      await _box.delete(k);
+    }
+    if (keys.isNotEmpty) revision.value++;
   }
 
   Future<void> clearAll() async {

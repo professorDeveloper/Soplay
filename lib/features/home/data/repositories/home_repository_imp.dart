@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
+import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -44,6 +45,21 @@ class HomeRepositoryImp implements HomeRepository {
         final map = await AniyomiChannel.getMainPage(provider.substring(3));
         if (map.isNotEmpty) return Success(HomeDataModel.fromJson(map));
         return Failure(Exception('Aniyomi: home not found'));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
+    if (provider != null && provider.startsWith('mn:')) {
+      try {
+        final map = await MangaChannel.getMainPage(provider.substring(3));
+        // Native surfaces the real extension-load failure here so it's visible
+        // in the home error state instead of a silent empty screen.
+        final err = map['error'];
+        if (err is String && err.isNotEmpty) {
+          return Failure(Exception('Manga: $err'));
+        }
+        if (map.isNotEmpty) return Success(HomeDataModel.fromJson(map));
+        return Failure(Exception('Manga: home not found'));
       } catch (e) {
         return Failure(Exception(e.toString()));
       }
@@ -105,6 +121,18 @@ class HomeRepositoryImp implements HomeRepository {
         return Failure(Exception(e.toString()));
       }
     }
+    if (provider != null && provider.startsWith('mn:')) {
+      try {
+        final map = await MangaChannel.getSection(
+          provider.substring(3),
+          slug,
+          page: page,
+        );
+        return Success(ViewAllPagingModel.fromJson(map));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (js != null && provider != null && key == 'category') {
       try {
         final map = await js.tryGetCategory(provider, slug, page);
@@ -152,6 +180,18 @@ class HomeRepositoryImp implements HomeRepository {
     if (provider != null && provider.startsWith('an:')) {
       try {
         final list = await AniyomiChannel.getGenres(provider.substring(3));
+        final genres = list
+            .whereType<Map>()
+            .map((e) => GenreModel.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        return Success(genres);
+      } catch (_) {
+        return const Success(<GenreEntity>[]);
+      }
+    }
+    if (provider != null && provider.startsWith('mn:')) {
+      try {
+        final list = await MangaChannel.getGenres(provider.substring(3));
         final genres = list
             .whereType<Map>()
             .map((e) => GenreModel.fromJson(Map<String, dynamic>.from(e)))

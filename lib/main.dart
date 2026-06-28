@@ -82,6 +82,8 @@ Future<void> _initHive() async {
     Hive.openBox(AppConstants.downloadBox),
     Hive.openBox(AppConstants.extractorsBox),
     Hive.openBox(AppConstants.streakBox),
+    Hive.openBox(AppConstants.favoritesBox),
+    Hive.openBox(AppConstants.privateFavoritesBox),
   ]);
 }
 

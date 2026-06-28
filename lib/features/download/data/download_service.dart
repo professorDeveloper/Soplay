@@ -8,7 +8,12 @@ import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/error/result.dart';
+import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
+import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
+import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 class DownloadService {
@@ -33,6 +38,22 @@ class DownloadService {
 
   bool get _useNativeDownloader =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  static String _fnv(String value) {
+    var hash = 0x811c9dc5;
+    for (final u in value.codeUnits) {
+      hash ^= u;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return hash.toRadixString(36);
+  }
+
+  /// Stable id for a downloaded manga chapter.
+  static String mangaChapterId({
+    required String contentUrl,
+    required String provider,
+    required String chapterRef,
+  }) => _fnv('manga|$contentUrl|$provider|$chapterRef');
 
   void dispose() {
     _nativePoller?.cancel();
@@ -122,7 +143,9 @@ class DownloadService {
     await _acquireWakelock();
 
     try {
-      if (_isHls(item.videoUrl)) {
+      if (item.kind == 'manga') {
+        dl = await _downloadMangaChapter(dl, cancel);
+      } else if (_isHls(item.videoUrl)) {
         dl = await _downloadHls(dl, cancel);
       } else {
         dl = await _downloadDirect(dl, cancel);
@@ -148,10 +171,34 @@ class DownloadService {
 
   Future<bool> _startNativeDownload(DownloadItem item) async {
     final dir = await _itemDir(item.id);
-    final localPath = _isHls(item.videoUrl)
-        ? '$dir/index.m3u8'
-        : '$dir/video${_extensionFrom(item.videoUrl)}';
-    var dl = item.copyWith(
+    var dl = item;
+
+    final String localPath;
+    if (item.kind == 'manga') {
+      // For manga, localPath is the destination FOLDER (the native service
+      // writes p_NNN.<ext> page files into it), never a single media file.
+      localPath = dir;
+      // Pages are normally captured at enqueue time and persisted; re-resolve
+      // as a safety net if they're missing so the native task has work to do.
+      if (dl.pageUrls.isEmpty && dl.chapterRef != null) {
+        final res = await getIt<GetPagesUseCase>()(
+          ref: dl.chapterRef!,
+          provider: dl.provider,
+        );
+        if (res is Success<MangaPagesEntity>) {
+          dl = dl.copyWith(
+            pageUrls: res.value.pages.map((p) => p.imageUrl).toList(),
+            headers: res.value.headers,
+          );
+        }
+      }
+    } else if (_isHls(item.videoUrl)) {
+      localPath = '$dir/index.m3u8';
+    } else {
+      localPath = '$dir/video${_extensionFrom(item.videoUrl)}';
+    }
+
+    dl = dl.copyWith(
       localPath: localPath,
       status: DownloadStatus.downloading,
     );
@@ -339,6 +386,88 @@ class DownloadService {
     return current.copyWith(totalBytes: totalBytes);
   }
 
+  Future<DownloadItem> _downloadMangaChapter(
+    DownloadItem dl,
+    CancelToken cancel,
+  ) async {
+    final dir = await _itemDir(dl.id);
+
+    var urls = dl.pageUrls;
+    var headers = dl.headers;
+
+    // Re-resolve pages on demand if we weren't given any up front.
+    if (urls.isEmpty && dl.chapterRef != null) {
+      final res = await getIt<GetPagesUseCase>()(
+        ref: dl.chapterRef!,
+        provider: dl.provider,
+      );
+      if (res is Success<MangaPagesEntity>) {
+        urls = res.value.pages.map((p) => p.imageUrl).toList();
+        headers = res.value.headers;
+      }
+    }
+
+    if (urls.isEmpty) throw Exception('No pages to download');
+
+    final total = urls.length;
+    var downloaded = 0;
+
+    var current = dl.copyWith(
+      localPath: dir,
+      totalBytes: total,
+      downloadedBytes: 0,
+    );
+    await _save(current, force: true);
+
+    for (var i = 0; i < urls.length; i++) {
+      if (cancel.isCancelled) return current;
+      final path =
+          '$dir/p_${i.toString().padLeft(3, '0')}${_imageExtensionFrom(urls[i])}';
+      final file = File(path);
+      if (await file.exists() && await file.length() > 0) {
+        downloaded++;
+        continue;
+      }
+      await _dio.download(
+        urls[i],
+        path,
+        cancelToken: cancel,
+        options: Options(headers: headers),
+      );
+      downloaded++;
+      current = current.copyWith(
+        downloadedBytes: downloaded,
+        totalBytes: total,
+      );
+      _save(current);
+    }
+
+    return current;
+  }
+
+  /// Local page images for a completed manga chapter download, in order.
+  Future<List<MangaPageEntity>> localMangaPages(String id) async {
+    final item = get(id);
+    if (item == null ||
+        !item.isManga ||
+        item.status != DownloadStatus.completed) {
+      return const [];
+    }
+    final dir = Directory(await _itemDir(id));
+    if (!await dir.exists()) return const [];
+    final files =
+        dir
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.uri.pathSegments.last.startsWith('p_'))
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
+    return [
+      for (var i = 0; i < files.length; i++)
+        MangaPageEntity(index: i, imageUrl: files[i].path),
+    ];
+  }
+
   bool _isMasterPlaylist(String m3u8) {
     return m3u8.contains('#EXT-X-STREAM-INF');
   }
@@ -464,6 +593,8 @@ class _NativeDownloadBridge {
           'url': item.videoUrl,
           'localPath': item.localPath,
           'headers': item.headers,
+          'kind': item.kind,
+          'pageUrls': item.pageUrls,
         }) ??
         false;
   }

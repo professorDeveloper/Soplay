@@ -16,16 +16,26 @@ class FavoriteGuest extends FavoriteState {
 }
 
 class FavoriteReady extends FavoriteState {
-  const FavoriteReady({required this.isInList, this.isLoading = false});
+  const FavoriteReady({
+    required this.isInList,
+    this.isLoading = false,
+    this.inPrivate = false,
+  });
 
   final bool isInList;
   final bool isLoading;
 
-  FavoriteReady copyWith({bool? isInList, bool? isLoading}) => FavoriteReady(
-    isInList: isInList ?? this.isInList,
-    isLoading: isLoading ?? this.isLoading,
-  );
+  /// Whether this item currently lives in the LOCKED PRIVATE LIST. When true the
+  /// add button should surface a lock affordance instead of the "+"/check.
+  final bool inPrivate;
+
+  FavoriteReady copyWith({bool? isInList, bool? isLoading, bool? inPrivate}) =>
+      FavoriteReady(
+        isInList: isInList ?? this.isInList,
+        isLoading: isLoading ?? this.isLoading,
+        inPrivate: inPrivate ?? this.inPrivate,
+      );
 
   @override
-  List<Object?> get props => [isInList, isLoading];
+  List<Object?> get props => [isInList, isLoading, inPrivate];
 }

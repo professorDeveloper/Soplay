@@ -57,9 +57,16 @@ android {
             // 3. Debug imzosini "release" imzosiga almashtirish
             signingConfig = signingConfigs.getByName("release")
 
-            // Ilovani optimizatsiya qilish (R8 + resurs siqish)
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8 (minify) DexClassLoader bilan yuklanadigan manga/aniyomi extension
+            // .apk'larini buzadi — ular host simvollariga runtime'da bog'lanadi va
+            // R8 ularni o'zgartirib qo'yadi (debugda R8 o'chiq → ishlaydi, releaseда
+            // home bo'sh). Keep'lar to'liq bo'lsa-da, full-mode/optimizatsiya buni
+            // hal qilmadi. Ishonchli ishlashi uchun release'da minify o'chirildi:
+            // APK kattaroq, lekin AOT (tez) va barcha extension'lar yuklanadi.
+            // Eslatma: aniq kerakli -keep topilgach, qayta yoqib hajmni kichraytirsa
+            // bo'ladi (xato endi home'da ko'rsatiladi — MangaHost/MangaRuntime).
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
