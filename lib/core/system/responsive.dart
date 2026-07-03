@@ -51,3 +51,107 @@ class MaxWidthBox extends StatelessWidget {
     );
   }
 }
+
+/// Drop-in replacement for a tappable `GestureDetector` (same `onTap` / `child`
+/// shape). On **desktop** it adds a pointer (hand) cursor and a subtle hover
+/// scale; on **mobile** it behaves exactly like a plain `GestureDetector`.
+class HoverTap extends StatefulWidget {
+  const HoverTap({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.onLongPress,
+    this.behavior = HitTestBehavior.opaque,
+    this.scale = 1.04,
+    this.cursor = SystemMouseCursors.click,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final HitTestBehavior behavior;
+  final double scale;
+  final MouseCursor cursor;
+
+  @override
+  State<HoverTap> createState() => _HoverTapState();
+}
+
+class _HoverTapState extends State<HoverTap> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final gesture = GestureDetector(
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      behavior: widget.behavior,
+      child: widget.child,
+    );
+    if (!isDesktopPlatform) return gesture;
+    return MouseRegion(
+      cursor: widget.cursor,
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: AnimatedScale(
+        scale: _hovering ? widget.scale : 1.0,
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOut,
+        child: gesture,
+      ),
+    );
+  }
+}
+
+/// Shows a pointer (hand) cursor over [child] on **desktop**; pass-through on
+/// mobile. Use for tappables where a hover *scale* isn't wanted (buttons, rows).
+class PointerRegion extends StatelessWidget {
+  const PointerRegion({
+    super.key,
+    required this.child,
+    this.cursor = SystemMouseCursors.click,
+  });
+
+  final Widget child;
+  final MouseCursor cursor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isDesktopPlatform) return child;
+    return MouseRegion(cursor: cursor, child: child);
+  }
+}
+
+/// On **desktop** shows a centred [Dialog]; on **mobile** a modal bottom sheet.
+/// The [builder]'s content should be a self-sizing column (works in both).
+Future<T?> showAdaptiveModal<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  Color? backgroundColor,
+  bool isScrollControlled = false,
+  ShapeBorder? shape,
+  double desktopMaxWidth = 460,
+}) {
+  if (isDesktopPlatform) {
+    return showDialog<T>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: backgroundColor,
+        clipBehavior: Clip.antiAlias,
+        insetPadding: const EdgeInsets.all(24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: desktopMaxWidth),
+          child: SingleChildScrollView(child: builder(ctx)),
+        ),
+      ),
+    );
+  }
+  return showModalBottomSheet<T>(
+    context: context,
+    backgroundColor: backgroundColor,
+    isScrollControlled: isScrollControlled,
+    shape: shape,
+    builder: builder,
+  );
+}

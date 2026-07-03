@@ -316,9 +316,10 @@ class _SoplaySideRail extends StatelessWidget {
       onDestinationSelected: onTap,
       labelType: NavigationRailLabelType.all,
       groupAlignment: -0.85,
-      // No coloured selection pill — mirror the mobile bottom bar (selected =
-      // white icon/label, unselected = grey), which reads cleaner on desktop.
-      useIndicator: false,
+      // Subtle neutral selection pill (not the red primary) that also doubles
+      // as a hover cue — NavigationRail destinations show a pointer cursor and
+      // hover highlight on desktop by default.
+      indicatorColor: Colors.white.withValues(alpha: 0.10),
       selectedIconTheme: const IconThemeData(color: Colors.white, size: 26),
       unselectedIconTheme:
           const IconThemeData(color: Color(0xFF7A7A7A), size: 24),

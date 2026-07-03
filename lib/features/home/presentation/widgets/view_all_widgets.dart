@@ -145,7 +145,7 @@ class ViewAllMovieCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final quality = primaryQuality(movie);
 
-    return GestureDetector(
+    return HoverTap(
       onTap: () {
         if (movie.url.isNotEmpty) {
           context.push('/detail', extra: DetailArgs(contentUrl: movie.url, preview: movie));

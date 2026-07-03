@@ -188,7 +188,7 @@ class _SearchMovieCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return HoverTap(
       behavior: HitTestBehavior.opaque,
       onTap: () {
         if (movie.url.isEmpty) return;

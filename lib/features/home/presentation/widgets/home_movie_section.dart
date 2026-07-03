@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
@@ -111,7 +112,7 @@ class _MovieCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final quality = primaryQuality(movie);
-    return GestureDetector(
+    return HoverTap(
       onTap: () {
         if (movie.url.isNotEmpty) {
           context.push('/detail', extra: DetailArgs(contentUrl: movie.url, preview: movie));

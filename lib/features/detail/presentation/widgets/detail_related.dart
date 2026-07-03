@@ -60,7 +60,7 @@ class _RelatedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return HoverTap(
       onTap: () {
         if (item.contentUrl.isNotEmpty) {
           context.push(

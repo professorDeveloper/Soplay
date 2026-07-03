@@ -65,10 +65,9 @@ class _HomeContentState extends State<HomeContent> {
     if (hive.hasTelegramPromoSeen) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      showModalBottomSheet<void>(
+      showAdaptiveModal<void>(
         context: context,
         backgroundColor: AppColors.surface,
-        isScrollControlled: false,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -187,32 +186,23 @@ class _HomeContentBody extends StatelessWidget {
                 slivers: [
                   if (showHero)
                     SliverToBoxAdapter(
-                      child: MaxWidthBox(
-                        maxWidth: 1400,
-                        child: HomeBanner(
-                          slides: slides,
-                          topPadding: topPad,
-                          showSkeleton: state.homeData.banner.isEmpty &&
-                              bannersState.loading,
-                        ),
+                      child: HomeBanner(
+                        slides: slides,
+                        topPadding: topPad,
+                        showSkeleton: state.homeData.banner.isEmpty &&
+                            bannersState.loading,
                       ),
                     ),
                   if (historyItems.isNotEmpty)
                     SliverToBoxAdapter(
-                      child: MaxWidthBox(
-                        maxWidth: 1400,
-                        child: RepaintBoundary(
-                          child: HistorySection(items: historyItems),
-                        ),
+                      child: RepaintBoundary(
+                        child: HistorySection(items: historyItems),
                       ),
                     ),
                   if (state.genres.isNotEmpty)
                     SliverToBoxAdapter(
-                      child: MaxWidthBox(
-                        maxWidth: 1400,
-                        child: RepaintBoundary(
-                          child: _GenreSection(genres: state.genres),
-                        ),
+                      child: RepaintBoundary(
+                        child: _GenreSection(genres: state.genres),
                       ),
                     ),
                   if (state.collectionLoading)
@@ -220,18 +210,15 @@ class _HomeContentBody extends StatelessWidget {
                   for (final section in state.homeData.sections)
                     if (section.items.isNotEmpty)
                       SliverToBoxAdapter(
-                        child: MaxWidthBox(
-                          maxWidth: 1400,
-                          child: RepaintBoundary(
-                            child: MovieSection(
-                              title: section.label,
-                              movies: section.items,
-                              type: section.viewAll.type,
-                              slug: section.viewAll.slug,
-                              onSeeAll: _isMyListSection(section)
-                                  ? () => getIt<NavController>().goTo(3)
-                                  : null,
-                            ),
+                        child: RepaintBoundary(
+                          child: MovieSection(
+                            title: section.label,
+                            movies: section.items,
+                            type: section.viewAll.type,
+                            slug: section.viewAll.slug,
+                            onSeeAll: _isMyListSection(section)
+                                ? () => getIt<NavController>().goTo(3)
+                                : null,
                           ),
                         ),
                       ),

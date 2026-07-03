@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/system/responsive.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../search/domain/entities/genre_entity.dart';
 import '../../domain/entities/view_all.dart';
@@ -25,7 +26,7 @@ class GenreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return HoverTap(
       onTap: () => context.push(
         '/view-all',
         extra: ViewAllEntity(type: 'genre', slug: genre.slug, name: _label),
