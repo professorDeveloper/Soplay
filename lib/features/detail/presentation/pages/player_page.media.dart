@@ -255,10 +255,10 @@ extension _PlayerMedia on _PlayerPageState {
     _plog('loading url: $effectiveUrl');
     _plog('type: $fmt (raw=${type ?? 'unknown'}) local: $isLocal');
 
-    VideoPlayerController controller;
+    PlayerController controller;
     if (isLocal && isHls) {
       final fileUri = isFileUri ? Uri.parse(effectiveUrl) : Uri.file(effectiveUrl);
-      controller = VideoPlayerController.networkUrl(
+      controller = PlayerController.networkUrl(
         fileUri,
         formatHint: VideoFormat.hls,
         videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
@@ -268,7 +268,7 @@ extension _PlayerMedia on _PlayerPageState {
       final file = isFileUri
           ? File(Uri.parse(effectiveUrl).toFilePath())
           : File(effectiveUrl);
-      controller = VideoPlayerController.file(
+      controller = PlayerController.file(
         file,
         videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
       );
@@ -295,7 +295,7 @@ extension _PlayerMedia on _PlayerPageState {
         _plog('  $k: $v');
       });
 
-      controller = VideoPlayerController.networkUrl(
+      controller = PlayerController.networkUrl(
         uri,
         httpHeaders: mergedHeaders,
         formatHint: isHls

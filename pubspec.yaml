@@ -82,6 +82,12 @@ dependencies:
   scrollable_positioned_list: ^0.3.8
   palette_generator: ^0.3.3+5
   video_player: ^2.9.5
+  # Desktop (Windows/Linux/macOS) video playback via libmpv. Mobile keeps the
+  # native video_player backend untouched — see core/player/media_controller.dart.
+  # Windows-only libs package so Android/iOS builds don't pull in libmpv.
+  media_kit: ^1.1.11
+  media_kit_video: ^1.2.5
+  media_kit_libs_windows_video: ^1.0.11
   flutter_inappwebview: ^6.1.5
   wakelock_plus: ^1.2.10
   floating: ^6.0.0

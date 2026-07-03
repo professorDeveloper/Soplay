@@ -1,7 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_bloc.dart';
@@ -15,6 +17,21 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/home/presentation/bloc/home/home_bloc.dart';
+
+/// Desktop scroll behaviour: adds mouse + trackpad + stylus as drag devices so
+/// touch-oriented scrollables (PageView, horizontal ListViews) can be dragged
+/// with a pointer, and keeps a visible scrollbar.
+class _DesktopScrollBehavior extends MaterialScrollBehavior {
+  const _DesktopScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => <PointerDeviceKind>{
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
+}
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -85,6 +102,9 @@ class _MyAppState extends State<MyApp> {
         theme: AppTheme.dark,
         darkTheme: AppTheme.dark,
         themeMode: ThemeMode.dark,
+        // Desktop: let horizontal rows / carousels / the Shorts feed be dragged
+        // with a mouse & trackpad. Mobile keeps Flutter's default behaviour.
+        scrollBehavior: isDesktopPlatform ? const _DesktopScrollBehavior() : null,
         routerConfig: AppRouter.router,
         localizationsDelegates: context.localizationDelegates,
         supportedLocales: context.supportedLocales,

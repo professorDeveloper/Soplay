@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:soplay/features/reports/domain/entities/report_payload.dart';
 import 'package:soplay/features/reports/presentation/widgets/report_sheet.dart';
-import 'package:video_player/video_player.dart';
+import 'package:soplay/core/player/media_controller.dart';
 
 import '../../domain/entities/short_entity.dart';
 
@@ -30,7 +30,7 @@ class ShortReelItem extends StatefulWidget {
 
 class _ShortReelItemState extends State<ShortReelItem>
     with TickerProviderStateMixin {
-  VideoPlayerController? _vpc;
+  PlayerController? _vpc;
   int _playerToken = 0;
   bool _hasError = false;
   bool _showPlayPause = false;
@@ -138,7 +138,7 @@ class _ShortReelItemState extends State<ShortReelItem>
     }
 
     try {
-      final c = VideoPlayerController.networkUrl(Uri.parse(url));
+      final c = PlayerController.networkUrl(Uri.parse(url));
       await c.initialize();
       if (!mounted || token != _playerToken) {
         await c.dispose();
@@ -354,7 +354,7 @@ class _ShortReelItemState extends State<ShortReelItem>
           child: Center(
             child: AspectRatio(
               aspectRatio: _vpc!.value.aspectRatio,
-              child: VideoPlayer(_vpc!),
+              child: _vpc!.buildView(),
             ),
           ),
         ),

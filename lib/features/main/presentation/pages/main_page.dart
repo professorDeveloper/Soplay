@@ -9,6 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/deeplink/deeplink_opt_in.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_updater/presentation/services/update_checker.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
@@ -60,15 +61,19 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      getIt<UpdateChecker>().run(context);
-      DeeplinkOptIn.maybePrompt(context);
+      // Android-only distribution concerns: app-links opt-in and the
+      // (platform=android) version check don't apply on desktop.
+      if (!isDesktopPlatform) {
+        getIt<UpdateChecker>().run(context);
+        DeeplinkOptIn.maybePrompt(context);
+      }
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed && mounted) {
+    if (state == AppLifecycleState.resumed && mounted && !isDesktopPlatform) {
       getIt<UpdateChecker>().run(context);
     }
   }
@@ -168,17 +173,36 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             setState(() => _index = 0);
             _navController.goTo(0);
           },
-          child: Scaffold(
-            backgroundColor: AppColors.background,
-            extendBody: true,
-            body: IndexedStack(index: _index, children: tabs),
-            bottomNavigationBar: _SoplayBottomNav(
-              index: _index,
-              shortsShowcaseKey: _shortsRefreshShowcaseKey,
-              onTap: _onTabTap,
-              onShortsDoubleTap: _refreshShorts,
-            ),
-          ),
+          // Desktop (Windows/Linux/macOS): a side NavigationRail instead of a
+          // mobile bottom bar. Mobile keeps the original bottom navigation.
+          child: isDesktopPlatform
+              ? Scaffold(
+                  backgroundColor: AppColors.background,
+                  body: Row(
+                    children: [
+                      _SoplaySideRail(index: _index, onTap: _onTabTap),
+                      const VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: Color(0x14FFFFFF),
+                      ),
+                      Expanded(
+                        child: IndexedStack(index: _index, children: tabs),
+                      ),
+                    ],
+                  ),
+                )
+              : Scaffold(
+                  backgroundColor: AppColors.background,
+                  extendBody: true,
+                  body: IndexedStack(index: _index, children: tabs),
+                  bottomNavigationBar: _SoplayBottomNav(
+                    index: _index,
+                    shortsShowcaseKey: _shortsRefreshShowcaseKey,
+                    onTap: _onTabTap,
+                    onShortsDoubleTap: _refreshShorts,
+                  ),
+                ),
         ),
       ),
     );
@@ -272,6 +296,48 @@ class _SoplayBottomNav extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Desktop side navigation — a [NavigationRail] mirroring the mobile bottom
+/// bar's destinations. Shown only on desktop platforms.
+class _SoplaySideRail extends StatelessWidget {
+  const _SoplaySideRail({required this.index, required this.onTap});
+
+  final int index;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return NavigationRail(
+      backgroundColor: const Color(0xFF0E0E0E),
+      selectedIndex: index,
+      onDestinationSelected: onTap,
+      labelType: NavigationRailLabelType.all,
+      groupAlignment: -0.85,
+      indicatorColor: AppColors.primary.withValues(alpha: 0.18),
+      selectedIconTheme: const IconThemeData(color: Colors.white, size: 26),
+      unselectedIconTheme:
+          const IconThemeData(color: Color(0xFF7A7A7A), size: 24),
+      selectedLabelTextStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+      ),
+      unselectedLabelTextStyle: const TextStyle(
+        color: Color(0xFF7A7A7A),
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+      ),
+      destinations: [
+        for (final item in _SoplayBottomNav._items)
+          NavigationRailDestination(
+            icon: Icon(item.icon),
+            selectedIcon: Icon(item.activeIcon),
+            label: Text(item.labelKey.tr()),
+          ),
+      ],
     );
   }
 }

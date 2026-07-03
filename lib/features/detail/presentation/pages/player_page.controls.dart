@@ -686,7 +686,7 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
-  Widget _buildCenterPlayCluster(VideoPlayerController c) {
+  Widget _buildCenterPlayCluster(PlayerController c) {
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -723,7 +723,7 @@ extension _PlayerControls on _PlayerPageState {
   }
 
   Widget _buildBottomBar(
-    VideoPlayerController c,
+    PlayerController c,
     bool hasEpisodes,
     bool hasQualities,
   ) {

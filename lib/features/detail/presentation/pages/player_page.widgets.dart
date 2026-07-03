@@ -39,11 +39,23 @@ class _LiveDotState extends State<_LiveDot>
 
 class _FittedVideo extends StatelessWidget {
   const _FittedVideo({required this.controller, required this.fit});
-  final VideoPlayerController controller;
+  final PlayerController controller;
   final _PlayerFit fit;
 
   @override
   Widget build(BuildContext context) {
+    // Desktop (media_kit): let the backend fill the area and letterbox itself
+    // via BoxFit — its texture handles aspect correctly. Mobile keeps the
+    // manual sizing below around the raw video_player surface.
+    if (controller.letterboxesInternally) {
+      final boxFit = switch (fit) {
+        _PlayerFit.contain => BoxFit.contain,
+        _PlayerFit.cover => BoxFit.cover,
+        _PlayerFit.fill => BoxFit.fill,
+      };
+      return controller.buildView(fit: boxFit);
+    }
+
     final size = controller.value.size;
     final hasSize = size.width > 0 && size.height > 0;
     final natW = hasSize ? size.width : 1920.0;
@@ -92,7 +104,7 @@ class _FittedVideo extends StatelessWidget {
               child: SizedBox(
                 width: targetW,
                 height: targetH,
-                child: VideoPlayer(controller),
+                child: controller.buildView(),
               ),
             ),
           ),

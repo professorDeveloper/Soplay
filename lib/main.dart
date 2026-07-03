@@ -10,7 +10,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
@@ -24,6 +26,11 @@ import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Desktop video playback (media_kit / libmpv). No-op / not called on mobile,
+  // which keeps using the native video_player backend.
+  if (isDesktopPlatform) {
+    MediaKit.ensureInitialized();
+  }
   try {
     await dotenv.load(fileName: '.env');
   } catch (_) {}

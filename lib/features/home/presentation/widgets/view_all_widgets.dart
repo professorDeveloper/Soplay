@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
@@ -104,8 +105,8 @@ class ViewAllGrid extends StatelessWidget {
               (_, index) => ViewAllMovieCard(movie: state.items[index]),
               childCount: state.items.length,
             ),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+            gridDelegate: responsiveGridDelegate(
+              mobileCrossAxisCount: 3,
               mainAxisSpacing: 14,
               crossAxisSpacing: 8,
               childAspectRatio: 0.52,
@@ -255,8 +256,8 @@ class ViewAllSkeleton extends StatelessWidget {
                 (_, _) => const _SkeletonGridCard(),
                 childCount: 15,
               ),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
+              gridDelegate: responsiveGridDelegate(
+                mobileCrossAxisCount: 3,
                 mainAxisSpacing: 14,
                 crossAxisSpacing: 8,
                 childAspectRatio: 0.52,
