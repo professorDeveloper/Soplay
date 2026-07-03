@@ -64,6 +64,19 @@ class _SearchViewState extends State<_SearchView> {
     }
   }
 
+  /// Desktop: a responsive results grid can fit the whole first page on screen,
+  /// so the scroll-based load-more never fires. Auto-load until it fills.
+  void _maybeAutoFill(SearchState state) {
+    if (!isDesktopPlatform) return;
+    if (state is! SearchLoaded || !state.hasMore || state.isLoadingMore) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      if (_scrollController.position.maxScrollExtent <= 0) {
+        context.read<SearchBloc>().add(const SearchLoadMore());
+      }
+    });
+  }
+
   void _clearSearch() {
     _controller.clear();
     context.read<SearchBloc>().add(const SearchQueryChanged(''));
@@ -108,6 +121,7 @@ class _SearchViewState extends State<_SearchView> {
               if (state is SearchGenresLoaded) {
                 _cachedGenres = state.genres;
               }
+              _maybeAutoFill(state);
             },
             builder: (context, state) => SearchContentView(
               state: state,

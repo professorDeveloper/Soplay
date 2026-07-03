@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_bloc.dart';
@@ -98,6 +99,19 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
     }
   }
 
+  /// Desktop: the filmography grid can fit on screen, so scroll-based load-more
+  /// never fires. Auto-load until the viewport fills.
+  void _maybeAutoFill(ViewAllState state) {
+    if (!isDesktopPlatform) return;
+    if (state is! ViewAllLoaded || !state.hasMore || state.isLoadingMore) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      if (_scroll.position.maxScrollExtent <= 0) {
+        context.read<ViewAllBloc>().add(ViewAllLoadMore());
+      }
+    });
+  }
+
   @override
   void dispose() {
     _scroll
@@ -124,7 +138,8 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
         backgroundColor: AppColors.background,
         body: Stack(
           children: [
-            BlocBuilder<ViewAllBloc, ViewAllState>(
+            BlocConsumer<ViewAllBloc, ViewAllState>(
+              listener: (context, state) => _maybeAutoFill(state),
               builder: (context, state) {
                 return CustomScrollView(
                   controller: _scroll,

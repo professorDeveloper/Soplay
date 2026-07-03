@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
 class ShimmerWrapper extends StatelessWidget {
@@ -89,7 +90,9 @@ class HomeNetworkImage extends StatelessWidget {
           // decoded-bitmap memory that was OOM-killing the app on heavy home
           // pages — with no visible quality change.
           final dpr = MediaQuery.devicePixelRatioOf(context);
-          final w = constraints.maxWidth.isFinite
+          // The cacheWidth cap is a mobile OOM guard. Desktop has ample RAM, so
+          // decode at full source resolution there for crisp posters.
+          final w = (!isDesktopPlatform && constraints.maxWidth.isFinite)
               ? (constraints.maxWidth * dpr).round()
               : null;
           return Image.network(
@@ -99,6 +102,8 @@ class HomeNetworkImage extends StatelessWidget {
             width: double.infinity,
             height: double.infinity,
             cacheWidth: (w != null && w > 0) ? w : null,
+            filterQuality:
+                isDesktopPlatform ? FilterQuality.medium : FilterQuality.low,
             errorBuilder: (_, _, _) =>
                 HomeImagePlaceholder(icon: placeholderIcon),
             loadingBuilder: (_, child, chunk) => chunk == null
