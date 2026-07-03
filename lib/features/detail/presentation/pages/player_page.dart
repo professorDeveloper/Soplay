@@ -13,6 +13,7 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/app_orientation.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';

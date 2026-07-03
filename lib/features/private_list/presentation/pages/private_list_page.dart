@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
@@ -78,7 +79,7 @@ class PrivateListPage extends StatelessWidget {
                     childAspectRatio: 0.56,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                    (_, i) => GestureDetector(
+                    (_, i) => HoverTap(
                       onLongPress: () => _showActions(context, items[i]),
                       child: FavoriteCard(
                         item: items[i],
@@ -105,7 +106,7 @@ class PrivateListPage extends StatelessWidget {
 
   void _showActions(BuildContext context, FavoriteEntity item) {
     final messenger = ScaffoldMessenger.of(context);
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(

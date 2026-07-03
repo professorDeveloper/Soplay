@@ -14,6 +14,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_sources_page.dart';
 import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_sources_page.dart';
@@ -1620,7 +1621,7 @@ class _AboutSection extends StatelessWidget {
   }
 
   void _showDeveloper(BuildContext context) {
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
@@ -1820,7 +1821,7 @@ class _SocialIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return HoverTap(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2107,7 +2108,7 @@ class _ServerCountdownTileState extends State<_ServerCountdownTile> {
   }
 
   void _showSupportSheet(BuildContext context) {
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(

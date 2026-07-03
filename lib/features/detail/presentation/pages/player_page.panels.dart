@@ -17,7 +17,7 @@ extension _PlayerPanels on _PlayerPageState {
   void _openLangSheet() {
     final langs = _availableLangsForCurrentEpisode();
     if (langs.isEmpty) return;
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),
       isScrollControlled: true,
@@ -72,7 +72,7 @@ extension _PlayerPanels on _PlayerPageState {
     final hasQualities = _videoSources.length > 1;
     final langs = _availableLangsForCurrentEpisode();
     final hasLangs = langs.length > 1;
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),
       isScrollControlled: true,
@@ -205,7 +205,7 @@ extension _PlayerPanels on _PlayerPageState {
 
   void _openSpeedSheet() {
     const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),
       isScrollControlled: true,
@@ -254,7 +254,7 @@ extension _PlayerPanels on _PlayerPageState {
   }
 
   void _openFitSheet() {
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),
       isScrollControlled: true,

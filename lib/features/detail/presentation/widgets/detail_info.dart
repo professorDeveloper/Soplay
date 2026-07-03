@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/history/data/history_service.dart';
@@ -61,7 +62,13 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
           ],
           if (widget.detail.description.trim().isNotEmpty) ...[
             const SizedBox(height: 14),
-            _ExpandableDescription(text: widget.detail.description.trim()),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isDesktopPlatform ? 900 : double.infinity,
+              ),
+              child:
+                  _ExpandableDescription(text: widget.detail.description.trim()),
+            ),
           ],
           const SizedBox(height: 18),
           if (item != null && (item.positionMs > 0 || item.episodeNumber != null))
@@ -82,7 +89,7 @@ class _ContinueWatchingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: double.infinity,
+      width: isDesktopPlatform ? 360 : double.infinity,
       height: 46,
       child: ElevatedButton.icon(
         onPressed: onTap,
@@ -264,7 +271,7 @@ class _PlayButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: double.infinity,
+      width: isDesktopPlatform ? 360 : double.infinity,
       height: 46,
       child: ElevatedButton.icon(
         onPressed: onTap,

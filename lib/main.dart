@@ -11,6 +11,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
@@ -81,7 +82,15 @@ void main() async {
 }
 
 Future<void> _initHive() async {
-  await Hive.initFlutter();
+  if (isDesktopPlatform) {
+    // On Windows, getApplicationDocumentsDirectory() can resolve to a
+    // OneDrive-synced folder, which locks Hive's files mid-write (rename →
+    // "access denied"). Store boxes in the (non-synced) app support dir.
+    final dir = await getApplicationSupportDirectory();
+    Hive.init(dir.path);
+  } else {
+    await Hive.initFlutter();
+  }
   await Future.wait([
     Hive.openBox(AppConstants.authBox),
     Hive.openBox(AppConstants.settingsBox),

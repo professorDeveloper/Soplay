@@ -45,7 +45,7 @@ extension _PlayerSubtitles on _PlayerPageState {
   }
 
   void _openSubtitleSheet() {
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),
       isScrollControlled: true,
@@ -246,7 +246,7 @@ extension _PlayerSubtitles on _PlayerPageState {
   }
 
   void _pickOnlineSubtitle(List<OnlineSubtitle> results) {
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),
       isScrollControlled: true,
@@ -302,13 +302,14 @@ extension _PlayerSubtitles on _PlayerPageState {
   }
 
   void _openSubtitleAppearanceSheet() {
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      desktopMaxWidth: 520,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (ctx, setSheet) {

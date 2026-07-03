@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:soplay/core/system/responsive.dart';
 
 import 'player_log.dart';
 
@@ -11,7 +12,7 @@ class LogViewerSheet extends StatefulWidget {
   const LogViewerSheet({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showModalBottomSheet<void>(
+    return showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF0E0E0E),
       isScrollControlled: true,

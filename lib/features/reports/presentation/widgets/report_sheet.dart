@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/reports/domain/entities/report_payload.dart';
 import 'package:soplay/features/reports/domain/repositories/reports_repository.dart';
@@ -12,7 +13,7 @@ Future<bool> showReportSheet(
   String? provider,
   String? contentUrl,
 }) async {
-  final result = await showModalBottomSheet<bool>(
+  final result = await showAdaptiveModal<bool>(
     context: context,
     backgroundColor: AppColors.surface,
     isScrollControlled: true,

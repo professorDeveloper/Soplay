@@ -11,6 +11,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/system/system_controls.dart';
 import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
 import 'package:soplay/core/error/result.dart';
@@ -651,10 +652,9 @@ class _ReaderPageState extends State<ReaderPage> {
   // ---- sheets ----
 
   void _openChapterList() {
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF161616),
-      showDragHandle: true,
       isScrollControlled: true,
       builder: (_) => DraggableScrollableSheet(
         expand: false,
@@ -707,10 +707,9 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _openSettingsSheet() {
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF161616),
-      showDragHandle: true,
       builder: (_) => StatefulBuilder(
         builder: (context, setSheet) => Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
@@ -810,7 +809,7 @@ class _ReaderPageState extends State<ReaderPage> {
         children: options.entries.map((e) {
           final selected = e.key == value;
           return Expanded(
-            child: GestureDetector(
+            child: HoverTap(
               onTap: () => onChanged(e.key),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 9),
@@ -994,7 +993,7 @@ class _PageImageState extends State<_PageImage> {
     );
   }
 
-  Widget _errorTile(double width) => GestureDetector(
+  Widget _errorTile(double width) => HoverTap(
         onTap: () async {
           await CachedNetworkImage.evictFromCache(widget.page.imageUrl);
           if (mounted) setState(() => _retry++);

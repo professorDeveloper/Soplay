@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
@@ -70,7 +71,7 @@ class _SearchViewState extends State<_SearchView> {
 
   void _openFilter() {
     final bloc = context.read<SearchBloc>();
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,

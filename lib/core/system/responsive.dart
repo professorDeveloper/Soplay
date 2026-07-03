@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'platform_utils.dart';
 
+// Re-export so importing this file also brings `isDesktopPlatform` in scope.
+export 'platform_utils.dart';
+
 /// A grid delegate that keeps the existing fixed column count on **mobile**, but
 /// on **desktop** scales the number of columns to the window width (so posters
 /// don't become giant on a wide window). Mobile layout is unchanged.

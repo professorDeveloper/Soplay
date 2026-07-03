@@ -731,12 +731,10 @@ class _DetailViewState extends State<_DetailView>
                 ),
               ),
               SliverToBoxAdapter(
-                child: MaxWidthBox(
-                  child: DetailContentHeader(
-                    detail: detail,
-                    onPrimaryAction: _onPrimaryAction,
-                    playButtonKey: _bodyPlayKey,
-                  ),
+                child: DetailContentHeader(
+                  detail: detail,
+                  onPrimaryAction: _onPrimaryAction,
+                  playButtonKey: _bodyPlayKey,
                 ),
               ),
               SliverPersistentHeader(
@@ -791,7 +789,7 @@ class _DetailViewState extends State<_DetailView>
                                     36)
                                 .clamp(0.0, double.infinity),
                       ),
-                      child: MaxWidthBox(child: _buildTabContent(detail)),
+                      child: _buildTabContent(detail),
                     ),
                   ),
                 ),
@@ -1138,14 +1136,9 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
         children: [
           SizedBox(
             height: tabBar.preferredSize.height,
-            child: MaxWidthBox(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: tabBar,
-                ),
-              ),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: tabBar,
             ),
           ),
           Container(height: 0.5, color: AppColors.divider),
