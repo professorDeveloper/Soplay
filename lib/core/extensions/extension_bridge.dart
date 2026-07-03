@@ -19,7 +19,19 @@ class ExtensionBridge {
   ExtensionBridge._();
   static final ExtensionBridge instance = ExtensionBridge._();
 
+  /// Runtime-set bridge URL (pasted by the user on the desktop app and stored in
+  /// Hive). Takes precedence over the `.env` value. Set via [setUrl].
+  static String? _override;
+
+  /// Set the desktop bridge URL at runtime (from the "Desktop sources" screen).
+  static void setUrl(String? url) {
+    final v = (url ?? '').trim();
+    _override = v.isEmpty ? null : v;
+  }
+
   static String get baseUrl {
+    final o = _override;
+    if (o != null && o.isNotEmpty) return o;
     if (!dotenv.isInitialized) return '';
     return (dotenv.maybeGet('EXTENSION_BRIDGE_URL') ?? '').trim();
   }

@@ -13,6 +13,8 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:soplay/core/constants/app_constants.dart';
+import 'package:soplay/core/extensions/extension_bridge.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -43,6 +45,11 @@ void main() async {
   PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   await _initFirebaseSafely();
   await configureDependencies();
+  // Desktop / iOS: route extension calls to the phone's shared bridge, using the
+  // link the user saved (phone + this device on the same Wi-Fi).
+  if (!Platform.isAndroid) {
+    ExtensionBridge.setUrl(getIt<HiveService>().getBridgeUrl());
+  }
   _fireAndForget(getIt<DownloadService>().resumeIncomplete(), 'download');
   _fireAndForget(getIt<ProviderRegistry>().preload(), 'providers');
   _fireAndForget(getIt<JsRuntimeService>().ensureReady(), 'js');

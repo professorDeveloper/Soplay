@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/features/app_lock/presentation/pages/app_lock_settings_page.dart';
 import 'package:soplay/features/app_lock/presentation/pages/pin_setup_page.dart';
 import 'package:soplay/features/app_lock/presentation/pages/pin_verify_page.dart';
+import 'package:soplay/features/desktop_share/presentation/pages/desktop_share_page.dart';
 import 'package:soplay/features/auth/presentation/pages/login_page.dart';
 import 'package:soplay/features/auth/presentation/pages/otp_verify_page.dart';
 import 'package:soplay/features/auth/presentation/pages/register_page.dart';
@@ -109,6 +110,10 @@ class AppRouter {
       GoRoute(
         path: '/downloads',
         builder: (context, state) => const DownloadsPage(),
+      ),
+      GoRoute(
+        path: '/desktop-share',
+        builder: (context, state) => const DesktopSharePage(),
       ),
       GoRoute(
         path: '/no-internet',

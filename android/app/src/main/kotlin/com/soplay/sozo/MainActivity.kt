@@ -70,8 +70,11 @@ class MainActivity : FlutterFragmentActivity() {
     private val mangaHost by lazy { MangaHost(applicationContext) }
     private val mangaRepoManager by lazy { MangaRepoManager(applicationContext, mangaHost) }
 
-    // Local HTTP bridge (debug builds only) so a desktop client can reach the
-    // extension hosts while this app runs on an emulator/device. See BridgeServer.
+    // Local HTTP bridge so a desktop soplay client on the same Wi-Fi can reach
+    // the extension hosts. Opt-in via the soplay/bridge channel. See BridgeServer.
+    private val bridgeChannelName = "soplay/bridge"
+    private var bridgeChannel: MethodChannel? = null
+    private val bridgePort = 8765
     private var bridgeServer: BridgeServer? = null
 
     companion object {
@@ -477,18 +480,50 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
-        val debuggable = (applicationInfo.flags and
-            android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
-        if (debuggable) startBridgeServer()
+        setupBridgeChannel(flutterEngine)
+        // Restart the bridge if the user had "share sources to desktop" on.
+        if (bridgePrefs().getBoolean("enabled", false)) startBridgeServer()
     }
 
-    /** Start the local HTTP bridge so a desktop soplay client can reach the
-     *  extension hosts while this app runs on an emulator/device. Debug only. */
+    private fun bridgePrefs() = getSharedPreferences("sozo_bridge", Context.MODE_PRIVATE)
+
+    /** Control channel for the desktop-sharing bridge: enable/disable + status
+     *  (the shareable `http://<lan-ip>:8765` link). */
+    private fun setupBridgeChannel(flutterEngine: FlutterEngine) {
+        bridgeChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger, bridgeChannelName)
+        bridgeChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getStatus" -> result.success(bridgeStatus())
+                "setEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    bridgePrefs().edit().putBoolean("enabled", enabled).apply()
+                    if (enabled) startBridgeServer() else stopBridgeServer()
+                    result.success(bridgeStatus())
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun bridgeStatus(): Map<String, Any?> {
+        val running = bridgeServer != null
+        val ip = localIpAddress()
+        return mapOf(
+            "enabled" to running,
+            "port" to bridgePort,
+            "ip" to ip,
+            "link" to if (running && ip != null) "http://$ip:$bridgePort" else null,
+        )
+    }
+
+    /** Start the local HTTP bridge so a same-Wi-Fi desktop client can reach the
+     *  extension hosts on `http://<lan-ip>:8765`. */
     private fun startBridgeServer() {
         if (bridgeServer != null) return
         try {
             val server = BridgeServer(
-                8765,
+                bridgePort,
                 { pluginHost }, { repoManager },
                 { aniyomiHost }, { aniyomiRepoManager },
                 { mangaHost }, { mangaRepoManager },
@@ -497,6 +532,29 @@ class MainActivity : FlutterFragmentActivity() {
             bridgeServer = server
         } catch (_: Throwable) {
         }
+    }
+
+    private fun stopBridgeServer() {
+        try { bridgeServer?.stop() } catch (_: Throwable) {}
+        bridgeServer = null
+    }
+
+    /** First site-local IPv4 (the Wi-Fi LAN address) for the shareable link. */
+    private fun localIpAddress(): String? {
+        try {
+            val ifaces = java.net.NetworkInterface.getNetworkInterfaces()
+            for (iface in ifaces) {
+                if (!iface.isUp || iface.isLoopback) continue
+                for (addr in iface.inetAddresses) {
+                    if (addr.isLoopbackAddress) continue
+                    if (addr is java.net.Inet4Address && addr.isSiteLocalAddress) {
+                        return addr.hostAddress
+                    }
+                }
+            }
+        } catch (_: Throwable) {
+        }
+        return null
     }
 
     /** Run a suspend CloudStream call off the main thread, return JSON to Flutter. */

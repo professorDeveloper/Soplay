@@ -133,6 +133,7 @@ Future<T?> showAdaptiveModal<T>({
   Color? backgroundColor,
   bool isScrollControlled = false,
   ShapeBorder? shape,
+  bool showDragHandle = false,
   double desktopMaxWidth = 460,
 }) {
   if (isDesktopPlatform) {
@@ -155,6 +156,7 @@ Future<T?> showAdaptiveModal<T>({
     backgroundColor: backgroundColor,
     isScrollControlled: isScrollControlled,
     shape: shape,
+    showDragHandle: showDragHandle,
     builder: builder,
   );
 }

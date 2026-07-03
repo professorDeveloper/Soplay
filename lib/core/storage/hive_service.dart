@@ -48,6 +48,13 @@ class HiveService {
 
   bool get isLoggedIn => getToken()?.isNotEmpty == true;
 
+  /// Desktop bridge URL — the link shown on the phone's "Share sources to
+  /// desktop" screen, pasted by the user on the desktop app. Empty = not set.
+  String getBridgeUrl() =>
+      _settingsBox.get('desktop_bridge_url', defaultValue: '') as String;
+  Future<void> setBridgeUrl(String url) =>
+      _settingsBox.put('desktop_bridge_url', url.trim());
+
   String? getAniListToken() => _authBox.get(AppConstants.aniListTokenKey);
   bool get isAniListConnected => getAniListToken() != null;
 

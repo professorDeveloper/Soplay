@@ -10,6 +10,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
+import 'package:soplay/core/bridge/bridge_control.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
@@ -1523,6 +1524,19 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
                   ],
                 ),
                 onTap: () => context.push('/downloads'),
+              ),
+              const Divider(color: AppColors.divider, height: 1),
+              _Tile(
+                icon: Icons.devices_rounded,
+                title: BridgeControl.canHost
+                    ? 'Share sources to desktop'
+                    : 'Desktop sources',
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textHint,
+                  size: 20,
+                ),
+                onTap: () => context.push('/desktop-share'),
               ),
             ],
           ),

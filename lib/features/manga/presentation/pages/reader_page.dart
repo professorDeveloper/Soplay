@@ -656,6 +656,7 @@ class _ReaderPageState extends State<ReaderPage> {
       context: context,
       backgroundColor: const Color(0xFF161616),
       isScrollControlled: true,
+      showDragHandle: true,
       builder: (_) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.7,
@@ -710,6 +711,7 @@ class _ReaderPageState extends State<ReaderPage> {
     showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF161616),
+      showDragHandle: true,
       builder: (_) => StatefulBuilder(
         builder: (context, setSheet) => Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
