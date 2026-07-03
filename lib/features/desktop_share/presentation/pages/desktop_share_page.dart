@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/bridge/bridge_control.dart';
+import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/extensions/extension_bridge.dart';
+import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 
 /// Share the phone's CloudStream / Aniyomi / Manga sources with the Sozo desktop
 /// app over the same Wi‑Fi. On **Android** this is the host (a toggle + a link);
@@ -59,13 +65,41 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
     await getIt<HiveService>().setBridgeUrl(url);
     ExtensionBridge.setUrl(url);
     if (!mounted) return;
+    if (url.isNotEmpty) context.read<ProviderBloc>().add(const ProviderLoad());
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           url.isEmpty
               ? 'Desktop sources turned off.'
-              : 'Saved. Reopen Home / Search to load the sources.',
+              : 'Saved — loading sources from your phone…',
         ),
+      ),
+    );
+  }
+
+  /// Desktop: re-pull the provider list from the phone over the bridge (picks up
+  /// sources the phone added since this app started).
+  void _refreshDesktopSources() {
+    context.read<ProviderBloc>().add(const ProviderLoad());
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Refreshing sources from your phone…')),
+    );
+  }
+
+  /// Android (host): re-read the phone's saved repos so the bridge serves the
+  /// latest set, then prompt the user to refresh on the PC.
+  Future<void> _reloadPhoneSources() async {
+    setState(() => _busy = true);
+    await Future.wait([
+      CloudStreamChannel.ensureLoaded(),
+      AniyomiChannel.ensureLoaded(),
+      MangaChannel.ensureLoaded(),
+    ]);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sources reloaded — tap "Refresh sources" on the PC.'),
       ),
     );
   }
@@ -167,6 +201,17 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
         ),
+      if (_status.enabled) ...[
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _busy ? null : _reloadPhoneSources,
+            icon: const Icon(Icons.sync_rounded, size: 18),
+            label: const Text('Reload & send to desktop'),
+          ),
+        ),
+      ],
       const SizedBox(height: 16),
       _instructions(const [
         'Keep this phone and your PC on the same Wi‑Fi network.',
@@ -211,12 +256,22 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
                 child: const Text('Save'),
               ),
             ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _refreshDesktopSources,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Refresh sources'),
+              ),
+            ),
           ],
         ),
       ),
       const SizedBox(height: 16),
       _instructions(const [
         'Keep this PC and your phone on the same Wi‑Fi network.',
+        'Added sources on the phone later? Tap "Refresh sources" to load them.',
         'On the phone, open Sozo → Profile → Share sources to desktop and turn it on.',
         'Copy the link shown there, paste it above, then tap Save.',
         'Keep Sozo open on the phone while you browse here.',
