@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/screenshot_entity.dart';
 
@@ -40,11 +41,12 @@ class DetailScreenshotsSection extends StatelessWidget {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
+        gridDelegate: responsiveGridDelegate(
+          mobileCrossAxisCount: 2,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
           childAspectRatio: 16 / 9,
+          desktopMaxCrossAxisExtent: 320,
         ),
         itemCount: valid.length,
         itemBuilder: (context, i) => _ScreenshotCard(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/cast_entity.dart';
 import 'package:soplay/features/detail/presentation/pages/actor_page.dart';
@@ -53,8 +54,8 @@ class DetailCastTab extends StatelessWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: cast.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
+              gridDelegate: responsiveGridDelegate(
+                mobileCrossAxisCount: 3,
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 14,
                 childAspectRatio: 0.78,
