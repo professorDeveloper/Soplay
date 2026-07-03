@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
+import 'package:soplay/core/extensions/extension_bridge.dart';
 
 /// Dart bridge to the native CloudStream plugin host (`soplay/cloudstream`).
 ///
@@ -19,8 +20,9 @@ class CloudStreamChannel {
 
   static const MethodChannel _ch = MethodChannel('soplay/cloudstream');
 
-  /// CloudStream plugins are Android DEX — unsupported on iOS.
-  static bool get isSupported => Platform.isAndroid;
+  /// Android runs `.cs3` on-device; desktop reaches the same plugins through the
+  /// local bridge (an emulator/device running the debug app). iOS: no-op.
+  static bool get isSupported => Platform.isAndroid || ExtensionBridge.isEnabled;
 
   // Live install progress (current/total plugins) streamed from native during
   // [addRepo], so the install UI can show "Installing 12 / 65…" instead of an
@@ -53,14 +55,19 @@ class CloudStreamChannel {
   }
 
   static Future<String?> _call(String method, [Map<String, dynamic>? args]) async {
-    if (!isSupported) return null;
-    try {
-      return await _ch.invokeMethod<String>(method, args);
-    } on PlatformException {
-      return null;
-    } on MissingPluginException {
-      return null;
+    if (Platform.isAndroid) {
+      try {
+        return await _ch.invokeMethod<String>(method, args);
+      } on PlatformException {
+        return null;
+      } on MissingPluginException {
+        return null;
+      }
     }
+    if (ExtensionBridge.isEnabled) {
+      return ExtensionBridge.instance.call('cloudstream', method, args);
+    }
+    return null;
   }
 
   static Map<String, dynamic> _obj(String? s) {

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
+import 'package:soplay/core/extensions/extension_bridge.dart';
 
 /// Dart bridge to the native MANGA extension host (`MangaHost`). Mirror of
 /// [AniyomiChannel] but for manga: `load` returns chapters (as the `episodes`
@@ -12,7 +13,7 @@ class MangaChannel {
 
   static const MethodChannel _ch = MethodChannel('soplay/manga');
 
-  static bool get isSupported => Platform.isAndroid;
+  static bool get isSupported => Platform.isAndroid || ExtensionBridge.isEnabled;
 
   static final StreamController<({int current, int total})> _progressCtrl =
       StreamController<({int current, int total})>.broadcast();
@@ -41,14 +42,19 @@ class MangaChannel {
   }
 
   static Future<T?> _call<T>(String method, [Map<String, dynamic>? args]) async {
-    if (!isSupported) return null;
-    try {
-      return await _ch.invokeMethod<T>(method, args);
-    } on PlatformException {
-      return null;
-    } on MissingPluginException {
-      return null;
+    if (Platform.isAndroid) {
+      try {
+        return await _ch.invokeMethod<T>(method, args);
+      } on PlatformException {
+        return null;
+      } on MissingPluginException {
+        return null;
+      }
     }
+    if (ExtensionBridge.isEnabled) {
+      return await ExtensionBridge.instance.call('manga', method, args) as T?;
+    }
+    return null;
   }
 
   static Map<String, dynamic> _obj(String? s) {

@@ -125,4 +125,10 @@ dependencies {
     implementation("androidx.preference:preference-ktx:1.2.1")
     // JS engine for Aniyomi extractors that deobfuscate links (QuickJS).
     implementation("app.cash.quickjs:quickjs-android:0.9.2")
+
+    // Local HTTP bridge: lets a desktop soplay client reach the on-device
+    // extension hosts when this app runs on a local emulator/device. The server
+    // is started only in debug builds (BuildConfig.DEBUG gate in MainActivity).
+    // See BridgeServer.kt + docs/DESKTOP_EXTENSIONS_PLAN.md.
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
 }

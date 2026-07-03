@@ -70,6 +70,10 @@ class MainActivity : FlutterFragmentActivity() {
     private val mangaHost by lazy { MangaHost(applicationContext) }
     private val mangaRepoManager by lazy { MangaRepoManager(applicationContext, mangaHost) }
 
+    // Local HTTP bridge (debug builds only) so a desktop client can reach the
+    // extension hosts while this app runs on an emulator/device. See BridgeServer.
+    private var bridgeServer: BridgeServer? = null
+
     companion object {
         const val ACTION_PLAY_PAUSE = "play_pause"
         const val ACTION_REWIND = "rewind"
@@ -472,6 +476,27 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        val debuggable = (applicationInfo.flags and
+            android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (debuggable) startBridgeServer()
+    }
+
+    /** Start the local HTTP bridge so a desktop soplay client can reach the
+     *  extension hosts while this app runs on an emulator/device. Debug only. */
+    private fun startBridgeServer() {
+        if (bridgeServer != null) return
+        try {
+            val server = BridgeServer(
+                8765,
+                { pluginHost }, { repoManager },
+                { aniyomiHost }, { aniyomiRepoManager },
+                { mangaHost }, { mangaRepoManager },
+            )
+            server.start()
+            bridgeServer = server
+        } catch (_: Throwable) {
+        }
     }
 
     /** Run a suspend CloudStream call off the main thread, return JSON to Flutter. */
@@ -706,6 +731,8 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try { bridgeServer?.stop() } catch (_: Throwable) {}
+        bridgeServer = null
         pipReceiver?.let {
             try {
                 unregisterReceiver(it)

@@ -3,13 +3,14 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
+import 'package:soplay/core/extensions/extension_bridge.dart';
 
 class AniyomiChannel {
   AniyomiChannel._();
 
   static const MethodChannel _ch = MethodChannel('soplay/aniyomi');
 
-  static bool get isSupported => Platform.isAndroid;
+  static bool get isSupported => Platform.isAndroid || ExtensionBridge.isEnabled;
 
   static final StreamController<({int current, int total})> _progressCtrl =
       StreamController<({int current, int total})>.broadcast();
@@ -38,14 +39,19 @@ class AniyomiChannel {
   }
 
   static Future<T?> _call<T>(String method, [Map<String, dynamic>? args]) async {
-    if (!isSupported) return null;
-    try {
-      return await _ch.invokeMethod<T>(method, args);
-    } on PlatformException {
-      return null;
-    } on MissingPluginException {
-      return null;
+    if (Platform.isAndroid) {
+      try {
+        return await _ch.invokeMethod<T>(method, args);
+      } on PlatformException {
+        return null;
+      } on MissingPluginException {
+        return null;
+      }
     }
+    if (ExtensionBridge.isEnabled) {
+      return await ExtensionBridge.instance.call('aniyomi', method, args) as T?;
+    }
+    return null;
   }
 
   static Map<String, dynamic> _obj(String? s) {
