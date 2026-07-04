@@ -35,6 +35,7 @@ import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:window_manager/window_manager.dart';
 
 part 'player_page.models.dart';
 part 'player_page.widgets.dart';
@@ -96,6 +97,9 @@ class _PlayerPageState extends State<PlayerPage>
   List<SubtitleEntity> _subtitles = const [];
   int _activeSubtitleIndex = -1;
   ClosedCaptionFile? _captionFile;
+  // Subtitle sync offset (ms). Positive = subtitles appear later, negative =
+  // earlier, relative to the audio/video.
+  int _subtitleOffsetMs = 0;
   SubtitleStyle _subtitleStyle = SubtitleStyle.defaults();
 
   String? _thumbnailsKey;
@@ -106,6 +110,10 @@ class _PlayerPageState extends State<PlayerPage>
   double _playbackSpeed = 1.0;
   _PlayerFit _fit = _PlayerFit.contain;
   bool _isPortrait = false;
+  // Desktop only: OS-window fullscreen state (window_manager) and the volume to
+  // restore when unmuting.
+  bool _isFullscreen = false;
+  double _volumeBeforeMute = 1.0;
 
   double _brightness = 0.5;
   double _volume = 1.0;
@@ -181,7 +189,12 @@ class _PlayerPageState extends State<PlayerPage>
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
-        if (c.value.isInitialized && c.value.isPlaying && !_isPip) {
+        // Desktop keeps playing when the window loses focus / is minimised
+        // (background & PiP-style playback). Only mobile auto-pauses.
+        if (!isDesktopPlatform &&
+            c.value.isInitialized &&
+            c.value.isPlaying &&
+            !_isPip) {
           _resumeAfterPause = true;
           c.pause();
         }
@@ -240,10 +253,11 @@ class _PlayerPageState extends State<PlayerPage>
       onPopInvokedWithResult: (_, _) => _restoreSystemUi(),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.light,
-        child: Scaffold(
+        child: _wrapDesktopShortcuts(
+          Scaffold(
           backgroundColor: Colors.black,
           body: LayoutBuilder(
-            builder: (context, constraints) => GestureDetector(
+            builder: (context, constraints) => _wrapHover(GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _locked ? null : _toggleControls,
               onDoubleTapDown: _locked
@@ -269,10 +283,82 @@ class _PlayerPageState extends State<PlayerPage>
                   if (!_locked && _panel != _SidePanel.none) _buildSidePanel(),
                 ],
               ),
-            ),
+            )),
           ),
-        ),
+        )),
       ),
     );
+  }
+
+  /// Desktop: give the player keyboard focus + shortcuts (Space, arrows, F, M,
+  /// Esc). Mobile returns the child untouched.
+  Widget _wrapDesktopShortcuts(Widget child) {
+    if (!isDesktopPlatform) return child;
+    return Focus(autofocus: true, onKeyEvent: _onPlayerKey, child: child);
+  }
+
+  /// Desktop: reveal controls when the mouse moves and hide the cursor with them
+  /// (standard desktop-player behaviour). Mobile returns the child as-is.
+  Widget _wrapHover(Widget child) {
+    if (!isDesktopPlatform) return child;
+    return MouseRegion(
+      onHover: (_) => _revealControlsForHover(),
+      cursor: _controlsVisible ? MouseCursor.defer : SystemMouseCursors.none,
+      child: child,
+    );
+  }
+
+  void _revealControlsForHover() {
+    if (_locked || _isPip) return;
+    if (!_controlsVisible) {
+      setState(() => _controlsVisible = true);
+      _controlsAnimation.forward();
+    }
+    _scheduleHide();
+  }
+
+  KeyEventResult _onPlayerKey(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final k = event.logicalKey;
+    if (k == LogicalKeyboardKey.space ||
+        k == LogicalKeyboardKey.mediaPlayPause) {
+      _togglePlay();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowLeft) {
+      _seekRelative(const Duration(seconds: -10));
+      _showSeekRipple(-1);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowRight) {
+      _seekRelative(const Duration(seconds: 10));
+      _showSeekRipple(1);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowUp) {
+      _setPlayerVolume(_volume + 0.1);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowDown) {
+      _setPlayerVolume(_volume - 0.1);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.keyM) {
+      _toggleMute();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.keyF) {
+      _toggleFullscreen();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.escape) {
+      if (_isFullscreen) {
+        _toggleFullscreen();
+      } else {
+        _exit();
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 }

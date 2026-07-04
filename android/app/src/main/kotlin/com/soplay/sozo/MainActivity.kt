@@ -501,9 +501,36 @@ class MainActivity : FlutterFragmentActivity() {
                     if (enabled) startBridgeServer() else stopBridgeServer()
                     result.success(bridgeStatus())
                 }
+                "getSharedProviders" -> result.success(sharedProvidersConfig())
+                "setSharedProviders" -> {
+                    val shareAll = call.argument<Boolean>("shareAll") ?: true
+                    val ids = call.argument<List<String>>("ids") ?: emptyList()
+                    bridgePrefs().edit()
+                        .putBoolean("share_all", shareAll)
+                        .putStringSet("shared_ids", ids.toSet())
+                        .apply()
+                    result.success(sharedProvidersConfig())
+                }
                 else -> result.notImplemented()
             }
         }
+    }
+
+    /** Current share selection: `{shareAll, ids}`. `shareAll` (default true) means
+     *  every provider is exposed; otherwise only the ids in the set are served. */
+    private fun sharedProvidersConfig(): Map<String, Any?> {
+        val prefs = bridgePrefs()
+        return mapOf(
+            "shareAll" to prefs.getBoolean("share_all", true),
+            "ids" to (prefs.getStringSet("shared_ids", emptySet()) ?: emptySet()).toList(),
+        )
+    }
+
+    /** The allow-list the [BridgeServer] filters by, or null when sharing all. */
+    private fun sharedIdsOrNull(): Set<String>? {
+        val prefs = bridgePrefs()
+        if (prefs.getBoolean("share_all", true)) return null
+        return (prefs.getStringSet("shared_ids", emptySet()) ?: emptySet()).toSet()
     }
 
     private fun bridgeStatus(): Map<String, Any?> {
@@ -527,6 +554,7 @@ class MainActivity : FlutterFragmentActivity() {
                 { pluginHost }, { repoManager },
                 { aniyomiHost }, { aniyomiRepoManager },
                 { mangaHost }, { mangaRepoManager },
+                { sharedIdsOrNull() },
             )
             server.start()
             bridgeServer = server

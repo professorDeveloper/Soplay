@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/system/platform_utils.dart';
@@ -106,6 +107,22 @@ class _MyAppState extends State<MyApp> {
         // with a mouse & trackpad. Mobile keeps Flutter's default behaviour.
         scrollBehavior: isDesktopPlatform ? const _DesktopScrollBehavior() : null,
         routerConfig: AppRouter.router,
+        // Desktop: Escape pops the current pushed route (detail, player,
+        // episodes, reader, lists, …) — the keyboard equivalent of the mobile
+        // system-back button. Mobile returns the child unchanged.
+        builder: (context, child) {
+          final app = child ?? const SizedBox.shrink();
+          if (!isDesktopPlatform) return app;
+          return CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.escape): () {
+                final r = AppRouter.router;
+                if (r.canPop()) r.pop();
+              },
+            },
+            child: Focus(autofocus: true, child: app),
+          );
+        },
         localizationsDelegates: context.localizationDelegates,
         supportedLocales: context.supportedLocales,
         locale: context.locale,

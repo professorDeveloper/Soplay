@@ -91,6 +91,9 @@ dependencies:
   flutter_inappwebview: ^6.1.5
   wakelock_plus: ^1.2.10
   floating: ^6.0.0
+  # Desktop window control (true fullscreen that hides the taskbar) for the
+  # player. Desktop-only plugin; unused on Android/iOS.
+  window_manager: ^0.4.3
   showcaseview: ^5.0.2
   share_plus: ^10.1.4
   app_links: ^6.3.2

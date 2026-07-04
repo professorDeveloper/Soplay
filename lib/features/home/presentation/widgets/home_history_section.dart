@@ -207,6 +207,9 @@ class _HistoryCard extends StatelessWidget {
     return HoverTap(
       onTap: () => _openDetail(context),
       onLongPress: () => _showActions(context),
+      // Desktop: right-click opens the same actions (long-press is undiscoverable
+      // with a mouse). No-op on touch.
+      onSecondaryTap: () => _showActions(context),
       child: SizedBox(
         width: 150,
         child: Padding(

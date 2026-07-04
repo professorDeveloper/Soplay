@@ -88,7 +88,10 @@ class _ReaderPageState extends State<ReaderPage> {
     _rtl = _hive.getReaderRtl(widget.args.contentUrl);
     _bgPref = _hive.getReaderBackground();
     _itemPositionsListener.itemPositions.addListener(_onItemPositions);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    // Immersive/edge-to-edge is an Android system-UI concern.
+    if (!isDesktopPlatform) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
     _setWakelock(true);
     SystemControls.getBrightness().then((v) {
       if (mounted) setState(() => _brightness = v);
@@ -327,14 +330,96 @@ class _ReaderPageState extends State<ReaderPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: _backgroundColor,
       body: Stack(
         children: [
           Positioned.fill(child: _content()),
+          // Desktop: visible page chevrons — the side tap-zones are invisible to
+          // a mouse. Arrow keys work too (see _onKey).
+          if (isDesktopPlatform &&
+              _showOverlay &&
+              !_loading &&
+              _error == null) ...[
+            _pageArrow(left: true),
+            _pageArrow(left: false),
+          ],
           if (_showOverlay) _topBar(),
+          // Desktop: a persistent close so exit is never hidden with the overlay.
+          if (isDesktopPlatform && !_showOverlay) _persistentClose(),
           if (_showOverlay && !_loading && _error == null) _bottomBar(),
         ],
+      ),
+    );
+    if (!isDesktopPlatform) return scaffold;
+    // Desktop keyboard navigation: arrows/space/page-keys turn pages, Home/End
+    // jump, Esc closes the reader.
+    return Focus(autofocus: true, onKeyEvent: _onKey, child: scaffold);
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final k = event.logicalKey;
+    if (k == LogicalKeyboardKey.escape) {
+      if (context.canPop()) context.pop();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowRight ||
+        k == LogicalKeyboardKey.arrowDown ||
+        k == LogicalKeyboardKey.pageDown ||
+        k == LogicalKeyboardKey.space) {
+      _goNextPage();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowLeft ||
+        k == LogicalKeyboardKey.arrowUp ||
+        k == LogicalKeyboardKey.pageUp) {
+      _goPrevPage();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.home) {
+      _goToPage(0);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.end) {
+      _goToPage(_pageCount - 1);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  Widget _pageArrow({required bool left}) {
+    return Align(
+      alignment: left ? Alignment.centerLeft : Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.35),
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: IconButton(
+            icon: Icon(left ? Icons.chevron_left : Icons.chevron_right,
+                color: Colors.white),
+            onPressed: left ? _goPrevPage : _goNextPage,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _persistentClose() {
+    return Positioned(
+      top: MediaQuery.paddingOf(context).top + 4,
+      left: 4,
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.35),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: IconButton(
+          tooltip: 'Close',
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => context.pop(),
+        ),
       ),
     );
   }
@@ -652,58 +737,88 @@ class _ReaderPageState extends State<ReaderPage> {
   // ---- sheets ----
 
   void _openChapterList() {
+    Widget tile(int i) {
+      final ch = widget.args.chapters[i];
+      final selected = i == _chapterIndex;
+      return ListTile(
+        dense: true,
+        selected: selected,
+        selectedTileColor: _accent.withValues(alpha: 0.12),
+        leading: Icon(
+          selected ? Icons.play_arrow_rounded : Icons.menu_book_outlined,
+          color: selected ? _accent : Colors.white38,
+          size: 20,
+        ),
+        title: Text(ch.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                color: selected ? _accent : Colors.white, fontSize: 13.5)),
+        onTap: () {
+          Navigator.of(context).pop();
+          if (i != _chapterIndex) _loadChapter(i);
+        },
+      );
+    }
+
     showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF161616),
       isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.7,
-        maxChildSize: 0.92,
-        builder: (context, scroll) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text('manga.chapters'.tr(),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600)),
+      showDragHandle: !isDesktopPlatform,
+      builder: (_) {
+        // Desktop: showAdaptiveModal renders inside a Dialog -> unbounded-height
+        // scroll view, where a DraggableScrollableSheet collapses to nothing.
+        // Use a fixed-size list instead.
+        if (isDesktopPlatform) {
+          return SizedBox(
+            width: 360,
+            height: 480,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Text('manga.chapters'.tr(),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600)),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _chapters.length,
+                    itemBuilder: (context, i) => tile(i),
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              child: ListView.builder(
-                controller: scroll,
-                itemCount: _chapters.length,
-                itemBuilder: (context, i) {
-                  final ch = widget.args.chapters[i];
-                  final selected = i == _chapterIndex;
-                  return ListTile(
-                    dense: true,
-                    selected: selected,
-                    selectedTileColor: _accent.withValues(alpha: 0.12),
-                    leading: Icon(
-                      selected ? Icons.play_arrow_rounded : Icons.menu_book_outlined,
-                      color: selected ? _accent : Colors.white38,
-                      size: 20,
-                    ),
-                    title: Text(ch.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            color: selected ? _accent : Colors.white,
-                            fontSize: 13.5)),
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      if (i != _chapterIndex) _loadChapter(i);
-                    },
-                  );
-                },
+          );
+        }
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.7,
+          maxChildSize: 0.92,
+          builder: (context, scroll) => Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text('manga.chapters'.tr(),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600)),
               ),
-            ),
-          ],
-        ),
-      ),
+              Expanded(
+                child: ListView.builder(
+                  controller: scroll,
+                  itemCount: _chapters.length,
+                  itemBuilder: (context, i) => tile(i),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -768,27 +883,30 @@ class _ReaderPageState extends State<ReaderPage> {
                   setSheet(() {});
                 },
               ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  const Icon(Icons.brightness_6_outlined,
-                      color: Colors.white54, size: 18),
-                  Expanded(
-                    child: Slider(
-                      activeColor: _accent,
-                      inactiveColor: Colors.white24,
-                      min: 0.05,
-                      max: 1.0,
-                      value: _brightness.clamp(0.05, 1.0),
-                      onChanged: (v) {
-                        setSheet(() => _brightness = v);
-                        setState(() => _brightness = v);
-                        SystemControls.setBrightness(v);
-                      },
+              // Screen brightness is an Android-only control (no-op on desktop).
+              if (!isDesktopPlatform) ...[
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    const Icon(Icons.brightness_6_outlined,
+                        color: Colors.white54, size: 18),
+                    Expanded(
+                      child: Slider(
+                        activeColor: _accent,
+                        inactiveColor: Colors.white24,
+                        min: 0.05,
+                        max: 1.0,
+                        value: _brightness.clamp(0.05, 1.0),
+                        onChanged: (v) {
+                          setSheet(() => _brightness = v);
+                          setState(() => _brightness = v);
+                          SystemControls.setBrightness(v);
+                        },
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

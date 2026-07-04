@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/app_lock/presentation/bloc/app_lock_bloc.dart';
@@ -38,6 +39,54 @@ class _PinVerifyView extends StatefulWidget {
 
 class _PinVerifyViewState extends State<_PinVerifyView> {
   bool _biometricTried = false;
+
+  /// Desktop escape hatch for a forgotten PIN: clears the saved PIN (and
+  /// biometric flag) and drops the user into the app. Keeps their library and
+  /// history — only the lock is removed.
+  Future<void> _resetLock() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Reset app lock?',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: const Text(
+          'This removes the PIN and unlocks Sozo on this computer. Your library '
+          'and history stay. You can set a new PIN later in Profile → App Lock.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dctx).pop(false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dctx).pop(true),
+            child: const Text(
+              'Reset',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await getIt<AppLockRepository>().disable();
+    if (!mounted) return;
+    context.go(widget.redirectTo);
+  }
 
   void _maybeAutoBiometric(AppLockState state) {
     if (_biometricTried) return;
@@ -137,6 +186,18 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
                                   ))
                               : null,
                     ),
+                    // Desktop has no biometrics and no OS-level recovery, so a
+                    // forgotten PIN would lock the user out for good. Offer a
+                    // reset escape hatch here (desktop only — mobile keeps the
+                    // strict lock with no bypass).
+                    if (isDesktopPlatform)
+                      TextButton(
+                        onPressed: _resetLock,
+                        child: const Text(
+                          'Forgot PIN?',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ),
                     const SizedBox(height: 16),
                   ],
                 ),

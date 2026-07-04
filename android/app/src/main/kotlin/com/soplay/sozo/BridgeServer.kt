@@ -12,6 +12,7 @@ import fi.iki.elonen.NanoHTTPD.Response
 import fi.iki.elonen.NanoHTTPD.newFixedLengthResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
 
 /**
  * Local HTTP bridge that exposes the on-device CloudStream / Aniyomi / Manga
@@ -36,7 +37,29 @@ class BridgeServer(
     private val aniRepo: () -> AniyomiRepoManager,
     private val mn: () -> MangaHost,
     private val mnRepo: () -> MangaRepoManager,
+    // Allow-list of provider ids the user chose to share, or null to share every
+    // provider. Read fresh per request so toggling a source on the phone takes
+    // effect on the desktop's next "Refresh" without restarting the bridge.
+    private val sharedIds: () -> Set<String>? = { null },
 ) : NanoHTTPD("0.0.0.0", port) {
+
+    /** Keep only the providers the user opted to share (by `id`). A null
+     *  allow-list (share-all) or a parse failure passes the JSON through. */
+    private fun filterProviders(json: String?): String? {
+        val allow = sharedIds() ?: return json
+        if (json == null) return null
+        return try {
+            val arr = JSONArray(json)
+            val out = JSONArray()
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                if (allow.contains(o.optString("id"))) out.put(o)
+            }
+            out.toString()
+        } catch (_: Throwable) {
+            json
+        }
+    }
 
     override fun serve(session: IHTTPSession): Response {
         return try {
@@ -64,8 +87,8 @@ class BridgeServer(
 
         val out: String? = when (sys) {
             "cloudstream" -> when (m) {
-                "listProviders" -> cs().providersJson()
-                "ensureLoaded" -> { csRepo().ensureLoaded(); cs().providersJson() }
+                "listProviders" -> filterProviders(cs().providersJson())
+                "ensureLoaded" -> { csRepo().ensureLoaded(); filterProviders(cs().providersJson()) }
                 "listRepos" -> csRepo().listReposJson()
                 "addRepo" -> csRepo().addRepo(p("url")) { _, _ -> }.toString()
                 "removeRepo" -> csRepo().removeRepo(p("url"))
@@ -79,8 +102,8 @@ class BridgeServer(
                 else -> null
             }
             "aniyomi" -> when (m) {
-                "listProviders" -> ani().providersJson()
-                "ensureLoaded" -> { aniRepo().ensureLoaded(); ani().providersJson() }
+                "listProviders" -> filterProviders(ani().providersJson())
+                "ensureLoaded" -> { aniRepo().ensureLoaded(); filterProviders(ani().providersJson()) }
                 "listRepos" -> aniRepo().listReposJson()
                 "addRepo" -> aniRepo().addRepo(p("url")) { _, _ -> }.toString()
                 "removeRepo" -> aniRepo().removeRepo(p("url"))
@@ -94,8 +117,8 @@ class BridgeServer(
                 else -> null
             }
             "manga" -> when (m) {
-                "listProviders" -> mn().providersJson()
-                "ensureLoaded" -> { mnRepo().ensureLoaded(); mn().providersJson() }
+                "listProviders" -> filterProviders(mn().providersJson())
+                "ensureLoaded" -> { mnRepo().ensureLoaded(); filterProviders(mn().providersJson()) }
                 "listRepos" -> mnRepo().listReposJson()
                 "addRepo" -> mnRepo().addRepo(p("url")) { _, _ -> }.toString()
                 "removeRepo" -> mnRepo().removeRepo(p("url"))

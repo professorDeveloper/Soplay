@@ -13,6 +13,8 @@ import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
+import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
+import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
@@ -56,6 +58,14 @@ class HomeTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           const StreakBadge(),
+          // Desktop can't pull-to-refresh with a mouse — give the home feed a
+          // visible refresh button (same silent reload the pull triggers).
+          if (isDesktopPlatform)
+            _TopBarIcon(
+              icon: Icons.refresh_rounded,
+              onTap: () =>
+                  context.read<HomeBloc>().add(HomeLoad(silent: true)),
+            ),
           _TopBarIcon(
             icon: Icons.search_rounded,
             onTap: () => getIt<NavController>().goTo(1),

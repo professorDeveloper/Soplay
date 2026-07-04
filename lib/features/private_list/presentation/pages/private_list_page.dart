@@ -81,6 +81,8 @@ class PrivateListPage extends StatelessWidget {
                   delegate: SliverChildBuilderDelegate(
                     (_, i) => HoverTap(
                       onLongPress: () => _showActions(context, items[i]),
+                      // Desktop: right-click opens the same actions menu.
+                      onSecondaryTap: () => _showActions(context, items[i]),
                       child: FavoriteCard(
                         item: items[i],
                         onTap: () => _openDetail(context, items[i]),

@@ -36,6 +36,28 @@ extension _PlayerControls on _PlayerPageState {
     }
   }
 
+  /// Desktop volume: drive the media_kit backend directly (the Android
+  /// system-volume channel is a no-op on Windows).
+  void _setPlayerVolume(double v) {
+    final clamped = v.clamp(0.0, 1.0);
+    setState(() => _volume = clamped);
+    if (isDesktopPlatform) {
+      _controller?.setVolume(clamped);
+    } else {
+      unawaited(_setSystemVolume(clamped));
+    }
+    _scheduleHide();
+  }
+
+  void _toggleMute() {
+    if (_volume > 0.001) {
+      _volumeBeforeMute = _volume;
+      _setPlayerVolume(0);
+    } else {
+      _setPlayerVolume(_volumeBeforeMute <= 0.001 ? 1.0 : _volumeBeforeMute);
+    }
+  }
+
   void _seekRelative(Duration delta) {
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
@@ -625,28 +647,70 @@ extension _PlayerControls on _PlayerPageState {
                         ),
                         const SizedBox(width: 8),
                       ],
-                      _IconButton(
-                        icon: _isPortrait
-                            ? Icons.screen_lock_landscape_rounded
-                            : Icons.screen_lock_portrait_rounded,
-                        onTap: _toggleOrientation,
-                      ),
-                      const SizedBox(width: 8),
-                      _IconButton(
-                        icon: Icons.lock_outline_rounded,
-                        onTap: () => setState(() {
-                          _locked = true;
-                          _controlsVisible = false;
-                          _controlsAnimation.reverse();
-                          _hideTimer?.cancel();
-                        }),
-                      ),
-                      const SizedBox(width: 8),
-                      _IconButton(
-                        icon: Icons.picture_in_picture_alt_rounded,
-                        onTap: _enterPip,
-                      ),
-                      const SizedBox(width: 8),
+                      // Mobile-only: orientation lock, screen lock and PiP are
+                      // meaningless or dead controls on desktop.
+                      if (!isDesktopPlatform) ...[
+                        _IconButton(
+                          icon: _isPortrait
+                              ? Icons.screen_lock_landscape_rounded
+                              : Icons.screen_lock_portrait_rounded,
+                          onTap: _toggleOrientation,
+                        ),
+                        const SizedBox(width: 8),
+                        _IconButton(
+                          icon: Icons.lock_outline_rounded,
+                          onTap: () => setState(() {
+                            _locked = true;
+                            _controlsVisible = false;
+                            _controlsAnimation.reverse();
+                            _hideTimer?.cancel();
+                          }),
+                        ),
+                        const SizedBox(width: 8),
+                        _IconButton(
+                          icon: Icons.picture_in_picture_alt_rounded,
+                          onTap: _enterPip,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      // Desktop: volume slider + true fullscreen, like a standard
+                      // PC video player.
+                      if (isDesktopPlatform) ...[
+                        _IconButton(
+                          icon: _volume <= 0.001
+                              ? Icons.volume_off_rounded
+                              : _volume < 0.5
+                                  ? Icons.volume_down_rounded
+                                  : Icons.volume_up_rounded,
+                          onTap: _toggleMute,
+                        ),
+                        SizedBox(
+                          width: 96,
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 3,
+                              thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 6),
+                              overlayShape: const RoundSliderOverlayShape(
+                                  overlayRadius: 12),
+                            ),
+                            child: Slider(
+                              value: _volume.clamp(0.0, 1.0),
+                              onChanged: _setPlayerVolume,
+                              activeColor: Colors.white,
+                              inactiveColor: Colors.white24,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        _IconButton(
+                          icon: _isFullscreen
+                              ? Icons.fullscreen_exit_rounded
+                              : Icons.fullscreen_rounded,
+                          onTap: _toggleFullscreen,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       _IconButton(
                         icon: Icons.settings_outlined,
                         onTap: _openSettingsSheet,

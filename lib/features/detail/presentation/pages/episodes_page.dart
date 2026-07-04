@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
@@ -62,6 +63,22 @@ class _EpisodesPageState extends State<EpisodesPage> {
     _historyService.revision.addListener(_refreshHistory);
     _downloads.revision.addListener(_onDownloadsChanged);
     _refreshHistory();
+    _maybeAutoFill();
+  }
+
+  /// Desktop: a tall window can show the whole first page without any scroll
+  /// overflow, so the scroll-based load-more never fires and later
+  /// episodes/chapters stay unreachable. Auto-load until the viewport fills.
+  void _maybeAutoFill() {
+    if (!isDesktopPlatform) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      if (!_loadingMore &&
+          _page < _totalPages &&
+          _scroll.position.maxScrollExtent <= 0) {
+        _loadMore();
+      }
+    });
   }
 
   void _onDownloadsChanged() {
@@ -133,6 +150,8 @@ class _EpisodesPageState extends State<EpisodesPage> {
           _showImages = _showImages || _hasAnyImage(value.episodes);
           _loadingMore = false;
         });
+        // Keep filling until the desktop viewport actually overflows.
+        _maybeAutoFill();
       case Failure(:final error):
         setState(() {
           _loadingMore = false;

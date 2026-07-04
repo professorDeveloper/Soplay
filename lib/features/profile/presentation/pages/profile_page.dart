@@ -128,7 +128,10 @@ class _ProfileViewState extends State<_ProfileView> {
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(child: _ProvidersSection()),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                if (CloudStreamChannel.isSupported) ...[
+                // Repo management runs the native DEX plugins, so it only makes
+                // sense on the phone (host). On desktop the sources arrive over
+                // the bridge and are managed on the phone — hide these there.
+                if (BridgeControl.canHost && CloudStreamChannel.isSupported) ...[
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -165,7 +168,7 @@ class _ProfileViewState extends State<_ProfileView> {
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 ],
-                if (AniyomiChannel.isSupported) ...[
+                if (BridgeControl.canHost && AniyomiChannel.isSupported) ...[
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -202,7 +205,7 @@ class _ProfileViewState extends State<_ProfileView> {
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 ],
-                if (MangaChannel.isSupported) ...[
+                if (BridgeControl.canHost && MangaChannel.isSupported) ...[
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1186,6 +1189,9 @@ class _ProviderListTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           onLongPress:
+              _canSolveCloudflare ? () => _solveCloudflare(context) : null,
+          // Desktop: right-click also triggers the Cloudflare solver.
+          onSecondaryTap:
               _canSolveCloudflare ? () => _solveCloudflare(context) : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

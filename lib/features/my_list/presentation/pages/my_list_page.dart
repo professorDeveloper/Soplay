@@ -160,8 +160,11 @@ class _MyListViewState extends State<_MyListView>
             right: 0,
             child: ValueListenableBuilder<double>(
               valueListenable: _headerBlur,
-              builder: (_, blur, _) =>
-                  MyListHeader(topPad: topPad, blurProgress: blur),
+              builder: (_, blur, _) => MyListHeader(
+                topPad: topPad,
+                blurProgress: blur,
+                onRefresh: _refresh,
+              ),
             ),
           ),
         ],

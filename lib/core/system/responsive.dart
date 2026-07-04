@@ -64,6 +64,7 @@ class HoverTap extends StatefulWidget {
     required this.child,
     this.onTap,
     this.onLongPress,
+    this.onSecondaryTap,
     this.behavior = HitTestBehavior.opaque,
     this.scale = 1.04,
     this.cursor = SystemMouseCursors.click,
@@ -72,6 +73,9 @@ class HoverTap extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+
+  /// Right-click (desktop). Handy for exposing a long-press action to a mouse.
+  final VoidCallback? onSecondaryTap;
   final HitTestBehavior behavior;
   final double scale;
   final MouseCursor cursor;
@@ -88,6 +92,7 @@ class _HoverTapState extends State<HoverTap> {
     final gesture = GestureDetector(
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
+      onSecondaryTap: widget.onSecondaryTap,
       behavior: widget.behavior,
       child: widget.child,
     );

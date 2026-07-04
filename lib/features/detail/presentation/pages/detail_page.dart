@@ -1055,6 +1055,8 @@ class _CircleIconButton extends StatelessWidget {
     return HoverTap(
       onTap: onTap,
       onLongPress: onLongPress,
+      // Desktop: right-click mirrors the long-press action (e.g. move-to-private).
+      onSecondaryTap: onLongPress,
       child: ClipOval(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),

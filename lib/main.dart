@@ -12,6 +12,7 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/extensions/extension_bridge.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -33,6 +34,8 @@ void main() async {
   // which keeps using the native video_player backend.
   if (isDesktopPlatform) {
     MediaKit.ensureInitialized();
+    // Window control for the player's true-fullscreen toggle.
+    await windowManager.ensureInitialized();
   }
   try {
     await dotenv.load(fileName: '.env');

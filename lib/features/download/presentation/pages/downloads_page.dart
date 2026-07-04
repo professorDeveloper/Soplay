@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -259,21 +260,7 @@ class _DownloadRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dismissible(
-      key: ValueKey(item.id),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onRemove(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: AppColors.primary.withValues(alpha: 0.15),
-        child: const Icon(
-          Icons.delete_outline_rounded,
-          color: AppColors.primary,
-          size: 22,
-        ),
-      ),
-      child: InkWell(
+    final row = InkWell(
         onTap: item.status == DownloadStatus.completed ? onTap : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -435,7 +422,40 @@ class _DownloadRow extends StatelessWidget {
             ],
           ),
         ),
+      );
+
+    // Desktop: a mouse can't swipe — add an explicit remove button beside the
+    // row (retry/status glyph stays inside the row).
+    if (isDesktopPlatform) {
+      return Row(
+        children: [
+          Expanded(child: row),
+          IconButton(
+            tooltip: 'Remove',
+            icon: const Icon(Icons.delete_outline_rounded,
+                color: AppColors.textHint),
+            onPressed: onRemove,
+          ),
+          const SizedBox(width: 8),
+        ],
+      );
+    }
+
+    return Dismissible(
+      key: ValueKey(item.id),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onRemove(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        color: AppColors.primary.withValues(alpha: 0.15),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: AppColors.primary,
+          size: 22,
+        ),
       ),
+      child: row,
     );
   }
 

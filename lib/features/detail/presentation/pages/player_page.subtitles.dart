@@ -107,6 +107,23 @@ extension _PlayerSubtitles on _PlayerPageState {
                   _searchOnlineSubtitles();
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.av_timer_rounded,
+                    color: Colors.white70, size: 20),
+                title: const Text('Subtitle sync',
+                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                subtitle: const Text('Shift timing to match the audio',
+                    style: TextStyle(color: Colors.white38, fontSize: 11)),
+                trailing: _subtitleOffsetMs == 0
+                    ? null
+                    : Text(_fmtSubtitleOffset(_subtitleOffsetMs),
+                        style: const TextStyle(
+                            color: Colors.white54, fontSize: 12)),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _openSubtitleSyncSheet();
+                },
+              ),
               const SizedBox(height: 8),
             ],
           ),
@@ -269,12 +286,26 @@ extension _PlayerSubtitles on _PlayerPageState {
             for (final r in results.take(60))
               ListTile(
                 dense: true,
+                // Show the exact release / file name when the provider gives it,
+                // so the user can match the subtitle to their video.
                 title: Text(
-                    '${r.display}${r.hearingImpaired ? ' [CC]' : ''}',
-                    maxLines: 1,
+                    r.fileName.isNotEmpty ? r.fileName : r.display,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white, fontSize: 13)),
-                subtitle: Text('${r.language} · ${r.downloadCount} downloads',
+                subtitle: Text(
+                    [
+                      r.language,
+                      if (r.fileName.isNotEmpty &&
+                          r.display.isNotEmpty &&
+                          r.display.toUpperCase() != r.language)
+                        r.display,
+                      if (r.format.isNotEmpty) r.format,
+                      if (r.hearingImpaired) 'CC',
+                      '${r.downloadCount} ↓',
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style:
                         const TextStyle(color: Colors.white54, fontSize: 11)),
                 onTap: () {
@@ -292,13 +323,151 @@ extension _PlayerSubtitles on _PlayerPageState {
   Future<void> _applyOnlineSubtitle(OnlineSubtitle sub) async {
     if (sub.url.isEmpty) return;
     _toast('Loading subtitle…');
+    // Prefer the exact release name so the loaded-subtitles list shows it.
+    final name = sub.fileName.isNotEmpty ? sub.fileName : sub.display;
     final entity = SubtitleEntity(
-      label: '${sub.display} (online)',
+      label: name,
       file: sub.url,
     );
     setState(() => _subtitles = [..._subtitles, entity]);
     await _loadSubtitle(_subtitles.length - 1);
     if (mounted) _toast('Subtitle loaded');
+  }
+
+  String _fmtSubtitleOffset(int ms) {
+    final s = (ms / 1000.0).abs().toStringAsFixed(2);
+    final sign = ms > 0 ? '+' : (ms < 0 ? '−' : '');
+    return '$sign$s s';
+  }
+
+  /// Subtitle sync: shift subtitle timing earlier (−) or later (+) so it lines
+  /// up with the audio. Adjustable via fine buttons and a slider (thumb). Works
+  /// on mobile and desktop.
+  void _openSubtitleSyncSheet() {
+    showAdaptiveModal<void>(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      desktopMaxWidth: 460,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            void setOffset(int ms) {
+              final clamped = ms.clamp(-20000, 20000);
+              setSheet(() {});
+              setState(() => _subtitleOffsetMs = clamped);
+            }
+
+            Widget btn(String label, int delta) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white24),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                    ),
+                    onPressed: () => setOffset(_subtitleOffsetMs + delta),
+                    child: Text(label),
+                  ),
+                );
+
+            return SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.av_timer_rounded,
+                              color: Colors.white, size: 18),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text('Subtitle sync',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800)),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => setOffset(0),
+                            icon: const Icon(Icons.restart_alt_rounded,
+                                size: 16, color: Colors.white70),
+                            label: const Text('Reset',
+                                style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(color: Colors.white12, height: 1),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 10, 16, 0),
+                      child: Text(
+                          'Subtitles too early? Increase (+). Too late? Decrease (−).',
+                          style:
+                              TextStyle(color: Colors.white54, fontSize: 12)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Center(
+                        child: Text(
+                          _fmtSubtitleOffset(_subtitleOffsetMs),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        btn('−0.5', -500),
+                        btn('−0.1', -100),
+                        btn('+0.1', 100),
+                        btn('+0.5', 500),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: SliderTheme(
+                        data: SliderTheme.of(ctx).copyWith(
+                          activeTrackColor: AppColors.primary,
+                          inactiveTrackColor: Colors.white12,
+                          thumbColor: AppColors.primary,
+                          overlayColor:
+                              AppColors.primary.withValues(alpha: 0.15),
+                          trackHeight: 3,
+                        ),
+                        child: Slider(
+                          min: -10000,
+                          max: 10000,
+                          divisions: 400,
+                          value:
+                              _subtitleOffsetMs.toDouble().clamp(-10000, 10000),
+                          label: _fmtSubtitleOffset(_subtitleOffsetMs),
+                          onChanged: (v) => setOffset(v.round()),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _openSubtitleAppearanceSheet() {
@@ -584,7 +753,9 @@ extension _PlayerSubtitles on _PlayerPageState {
         child: ValueListenableBuilder<VideoPlayerValue>(
           valueListenable: c,
           builder: (_, value, _) {
-            final position = value.position;
+            // Apply the user's sync offset: positive shifts subtitles later.
+            final position =
+                value.position - Duration(milliseconds: _subtitleOffsetMs);
             Caption? active;
             for (final caption in captions.captions) {
               if (position >= caption.start && position <= caption.end) {

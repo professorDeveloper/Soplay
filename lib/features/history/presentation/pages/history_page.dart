@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/history/data/history_service.dart';
@@ -212,21 +213,7 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dismissible(
-      key: ValueKey(item.storageKey),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDismissed(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: AppColors.primary.withValues(alpha: 0.15),
-        child: const Icon(
-          Icons.delete_outline_rounded,
-          color: AppColors.primary,
-          size: 22,
-        ),
-      ),
-      child: InkWell(
+    final row = InkWell(
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -344,7 +331,39 @@ class _HistoryRow extends StatelessWidget {
             ],
           ),
         ),
+      );
+
+    // Desktop: no swipe — add an explicit remove button beside the row.
+    if (isDesktopPlatform) {
+      return Row(
+        children: [
+          Expanded(child: row),
+          IconButton(
+            tooltip: 'Remove',
+            icon: const Icon(Icons.delete_outline_rounded,
+                color: AppColors.textHint),
+            onPressed: onDismissed,
+          ),
+          const SizedBox(width: 8),
+        ],
+      );
+    }
+
+    return Dismissible(
+      key: ValueKey(item.storageKey),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDismissed(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        color: AppColors.primary.withValues(alpha: 0.15),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: AppColors.primary,
+          size: 22,
+        ),
       ),
+      child: row,
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/view_all.dart';
@@ -70,6 +71,9 @@ class _ShortsViewState extends State<_ShortsView>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Desktop keeps the reel playing when the window loses focus / is minimised
+    // (background playback). Only mobile pauses on backgrounding.
+    if (isDesktopPlatform) return;
     final next = state == AppLifecycleState.resumed;
     if (_appActive == next) return;
     setState(() => _appActive = next);
@@ -282,6 +286,29 @@ class _ShortsViewState extends State<_ShortsView>
                                   minHeight: 2,
                                   color: AppColors.primary,
                                   backgroundColor: Colors.transparent,
+                                ),
+                              ),
+                            // Desktop: the reel refresh is wired to a
+                            // double-tap on the mobile bottom-nav item, which the
+                            // NavigationRail has no equivalent for — give mouse
+                            // users a visible refresh button.
+                            if (isDesktopPlatform)
+                              Positioned(
+                                top: topPad + 8,
+                                right: 8,
+                                child: IconButton(
+                                  tooltip: 'Refresh',
+                                  icon: const Icon(
+                                    Icons.refresh_rounded,
+                                    color: Colors.white,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black87,
+                                        blurRadius: 8,
+                                      ),
+                                    ],
+                                  ),
+                                  onPressed: _refresh,
                                 ),
                               ),
                           ],

@@ -108,6 +108,12 @@ extension _PlayerPip on _PlayerPageState {
   }
 
   Future<void> _enterFullscreen() async {
+    // Desktop doesn't auto-enter OS fullscreen (that's jarring on a windowed
+    // desktop); the user toggles it with the button / F key.
+    if (isDesktopPlatform) {
+      await WakelockPlus.enable();
+      return;
+    }
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     try {
       await AppOrientation.set([
@@ -116,6 +122,17 @@ extension _PlayerPip on _PlayerPageState {
       ]);
     } catch (_) {}
     await WakelockPlus.enable();
+  }
+
+  /// Desktop: true OS-window fullscreen (hides the taskbar), toggled by the
+  /// fullscreen button or the F key. No-op on mobile (uses immersive mode).
+  Future<void> _toggleFullscreen() async {
+    if (!isDesktopPlatform) return;
+    final next = !_isFullscreen;
+    try {
+      await windowManager.setFullScreen(next);
+    } catch (_) {}
+    if (mounted) setState(() => _isFullscreen = next);
   }
 
   Future<void> _toggleOrientation() async {
@@ -137,6 +154,19 @@ extension _PlayerPip on _PlayerPageState {
 
   Future<void> _restoreSystemUi() async {
     _isPortrait = false;
+    if (isDesktopPlatform) {
+      // Leave OS fullscreen so the app isn't stuck fullscreen after the player.
+      try {
+        if (_isFullscreen) {
+          await windowManager.setFullScreen(false);
+          _isFullscreen = false;
+        }
+      } catch (_) {}
+      try {
+        await WakelockPlus.disable();
+      } catch (_) {}
+      return;
+    }
     try {
       await SystemChrome.setEnabledSystemUIMode(
         SystemUiMode.manual,

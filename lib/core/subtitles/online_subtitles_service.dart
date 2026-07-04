@@ -7,6 +7,8 @@ class OnlineSubtitle {
     required this.display,
     required this.downloadCount,
     required this.hearingImpaired,
+    this.fileName = '',
+    this.format = '',
   });
 
   final String url;
@@ -14,6 +16,14 @@ class OnlineSubtitle {
   final String display;
   final int downloadCount;
   final bool hearingImpaired;
+
+  /// The provider's exact release / file name for this subtitle when present
+  /// (e.g. "Movie.2010.1080p.BluRay.x264-GROUP"), so the user can match it to
+  /// their video. Empty when the provider only exposes a language label.
+  final String fileName;
+
+  /// Subtitle format (SRT / VTT / ASS …) when reported.
+  final String format;
 }
 
 /// Online subtitle search. Resolves the title to an IMDB id via Cinemeta
@@ -88,12 +98,19 @@ class OnlineSubtitlesService {
       if (m is! Map) continue;
       final url = '${m['url'] ?? ''}';
       if (url.isEmpty) continue;
+      // Providers name the exact release differently; take the most specific
+      // field available so the user sees the real subtitle name when it exists.
+      final fileName =
+          '${m['media'] ?? m['fileName'] ?? m['release'] ?? m['source'] ?? m['title'] ?? ''}'
+              .trim();
       out.add(OnlineSubtitle(
         url: url,
         language: '${m['language'] ?? ''}'.toUpperCase(),
         display: '${m['display'] ?? m['language'] ?? 'Subtitle'}',
         downloadCount: (m['downloadCount'] as num?)?.toInt() ?? 0,
         hearingImpaired: m['isHearingImpaired'] == true,
+        fileName: fileName,
+        format: '${m['format'] ?? ''}'.toUpperCase(),
       ));
     }
     out.sort((a, b) => b.downloadCount.compareTo(a.downloadCount));
