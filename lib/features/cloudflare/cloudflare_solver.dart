@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
@@ -17,6 +19,9 @@ Future<bool> requestCloudflareSolve(
   BuildContext context,
   String provider,
 ) async {
+  // flutter_inappwebview has no Linux implementation, so the interactive solver
+  // can't run there — bail out instead of crashing. (Windows/macOS/mobile OK.)
+  if (Platform.isLinux) return false;
   if (provider.length < 4) return false;
   final id = provider.substring(3);
 
