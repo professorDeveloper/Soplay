@@ -27,6 +27,11 @@ jobs:
   # ---------------------------------------------------------------- Windows ----
   windows:
     runs-on: windows-latest
+    env:
+      # The runner's very new MSVC turns flutter_inappwebview_windows's use of the
+      # deprecated <experimental/coroutine> header into a hard error (STL1011).
+      # The CL var feeds this define to every cl.exe invocation, suppressing it.
+      CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
