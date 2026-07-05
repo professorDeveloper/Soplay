@@ -16,6 +16,13 @@ concurrency:
   group: desktop-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # CI runners ship CMake 4.x, which hard-errors on dependencies that still
+  # declare `cmake_minimum_required(VERSION < 3.5)` (e.g. firebase_cpp_sdk).
+  # CMake 3.31+ honours this env var to keep those configuring. (Was only a
+  # warning locally on CMake 3.x.)
+  CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+
 jobs:
   # ---------------------------------------------------------------- Windows ----
   windows:
@@ -28,6 +35,9 @@ jobs:
           cache: true
       - name: Ensure NuGet (flutter_inappwebview_windows fetches WebView2 with it)
         uses: NuGet/setup-nuget@v2
+      - name: Create .env (from secret, or empty placeholder)
+        shell: bash
+        run: printf '%s' "${{ secrets.DOTENV }}" > .env
       - run: flutter --version
       - run: flutter pub get
       - run: flutter build windows --release
@@ -59,13 +69,16 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Install Linux desktop + media_kit system deps
+      - name: Install Linux desktop + plugin system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev \
-            libmpv-dev mpv
+            libmpv-dev mpv \
+            libsecret-1-dev libjsoncpp-dev libsecret-1-0
+      - name: Create .env (from secret, or empty placeholder)
+        run: printf '%s' "${{ secrets.DOTENV }}" > .env
       - run: flutter --version
       - run: flutter pub get
       - run: flutter build linux --release
@@ -89,6 +102,8 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Create .env (from secret, or empty placeholder)
+        run: printf '%s' "${{ secrets.DOTENV }}" > .env
       - run: flutter --version
       - run: flutter pub get
       - run: flutter build macos --release
