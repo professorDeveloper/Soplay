@@ -315,17 +315,42 @@ class _SoplaySideRail extends StatelessWidget {
       selectedIndex: index,
       onDestinationSelected: onTap,
       labelType: NavigationRailLabelType.all,
-      groupAlignment: -0.85,
-      // Subtle neutral selection pill (not the red primary) that also doubles
-      // as a hover cue — NavigationRail destinations show a pointer cursor and
-      // hover highlight on desktop by default.
-      indicatorColor: Colors.white.withValues(alpha: 0.10),
+      groupAlignment: -0.9,
+      minWidth: 78,
+      useIndicator: true,
+      // Subtle neutral, rounded selection pill (also the hover cue) — desktop
+      // rail destinations show a pointer cursor + hover highlight by default.
+      indicatorColor: Colors.white.withValues(alpha: 0.12),
+      indicatorShape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(14)),
+      ),
+      // Brand mark up top so the rail reads as a proper app sidebar.
+      leading: const Padding(
+        padding: EdgeInsets.only(top: 8, bottom: 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.play_circle_fill_rounded,
+                color: AppColors.primary, size: 28),
+            SizedBox(height: 5),
+            Text(
+              'SOZO',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.8,
+              ),
+            ),
+          ],
+        ),
+      ),
       selectedIconTheme: const IconThemeData(color: Colors.white, size: 26),
       unselectedIconTheme:
           const IconThemeData(color: Color(0xFF7A7A7A), size: 24),
       selectedLabelTextStyle: const TextStyle(
         color: Colors.white,
-        fontSize: 11,
+        fontSize: 11.5,
         fontWeight: FontWeight.w700,
       ),
       unselectedLabelTextStyle: const TextStyle(
@@ -333,12 +358,24 @@ class _SoplaySideRail extends StatelessWidget {
         fontSize: 11,
         fontWeight: FontWeight.w500,
       ),
+      // Desktop: force a pointer (hand) cursor over each destination — the rail's
+      // default doesn't always show it. Wrapping the icon + label covers the
+      // visible tap target of every tab.
       destinations: [
         for (final item in _SoplayBottomNav._items)
           NavigationRailDestination(
-            icon: Icon(item.icon),
-            selectedIcon: Icon(item.activeIcon),
-            label: Text(item.labelKey.tr()),
+            icon: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Icon(item.icon),
+            ),
+            selectedIcon: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Icon(item.activeIcon),
+            ),
+            label: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Text(item.labelKey.tr()),
+            ),
           ),
       ],
     );
@@ -533,10 +570,10 @@ class _ShortsRefreshShowcaseCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Shorts refresh',
-                  style: TextStyle(
+                  'main.shorts_refresh_title'.tr(),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -547,9 +584,9 @@ class _ShortsRefreshShowcaseCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          const Text(
-            "Double-click on the Shorts tab. The feed is refreshed and new videos are uploaded.",
-            style: TextStyle(
+          Text(
+            'main.shorts_refresh_body'.tr(),
+            style: const TextStyle(
               color: Colors.white70,
               fontSize: 13,
               fontWeight: FontWeight.w500,
@@ -565,9 +602,9 @@ class _ShortsRefreshShowcaseCard extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.09),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: const Text(
-                  'Double tap',
-                  style: TextStyle(
+                child: Text(
+                  'main.double_tap'.tr(),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w800,
@@ -586,9 +623,9 @@ class _ShortsRefreshShowcaseCard extends StatelessWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Text(
-                    'Okay',
-                    style: TextStyle(
+                  child: Text(
+                    'general.ok'.tr(),
+                    style: const TextStyle(
                       color: Colors.black,
                       fontSize: 12,
                       fontWeight: FontWeight.w800,

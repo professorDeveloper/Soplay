@@ -59,13 +59,12 @@ class HomeTopBar extends StatelessWidget {
           const SizedBox(width: 8),
           const StreakBadge(),
           // Desktop can't pull-to-refresh with a mouse — give the home feed a
-          // visible refresh button (same silent reload the pull triggers).
-          if (isDesktopPlatform)
-            _TopBarIcon(
-              icon: Icons.refresh_rounded,
-              onTap: () =>
-                  context.read<HomeBloc>().add(HomeLoad(silent: true)),
-            ),
+          // visible refresh button that spins for feedback (silent reload).
+          DesktopRefreshButton(
+            color: AppColors.textPrimary,
+            onRefresh: () =>
+                context.read<HomeBloc>().add(HomeLoad(silent: true)),
+          ),
           _TopBarIcon(
             icon: Icons.search_rounded,
             onTap: () => getIt<NavController>().goTo(1),
@@ -264,37 +263,30 @@ class _ProviderQuickSwitchSheet extends StatelessWidget {
               ],
             ),
           ),
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              itemCount: favorites.length,
-              itemBuilder: (context, i) {
-                final p = favorites[i];
-                final selected = p.id == currentProviderId;
-                return ListTile(
-                  leading: _ProviderLogo(image: p.image, size: 36),
-                  title: Text(
-                    p.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: selected
-                          ? AppColors.textPrimary
-                          : AppColors.textSecondary,
-                      fontSize: 14,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                  trailing: selected
-                      ? const Icon(Icons.check_rounded,
-                          color: AppColors.primary, size: 20)
-                      : null,
-                  onTap: () => Navigator.of(context).pop(p.id),
-                );
-              },
+          // Desktop: this lives inside showAdaptiveModal's unbounded-height
+          // dialog scroll view, where a Flexible child asserts. Give the list a
+          // bounded height there; keep Flexible on the (bounded) mobile sheet.
+          if (isDesktopPlatform)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 360),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: favorites.length,
+                itemBuilder: (context, i) =>
+                    _favoriteProviderTile(context, favorites[i], currentProviderId),
+              ),
+            )
+          else
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: favorites.length,
+                itemBuilder: (context, i) =>
+                    _favoriteProviderTile(context, favorites[i], currentProviderId),
+              ),
             ),
-          ),
           const Divider(color: AppColors.divider, height: 1),
           ListTile(
             leading: Container(
@@ -324,6 +316,30 @@ class _ProviderQuickSwitchSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+/// One favorite-provider row in the quick-switch sheet (shared by the desktop
+/// bounded-list and mobile Flexible-list branches).
+Widget _favoriteProviderTile(
+    BuildContext context, ProviderEntity p, String currentProviderId) {
+  final selected = p.id == currentProviderId;
+  return ListTile(
+    leading: _ProviderLogo(image: p.image, size: 36),
+    title: Text(
+      p.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+        fontSize: 14,
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+      ),
+    ),
+    trailing: selected
+        ? const Icon(Icons.check_rounded, color: AppColors.primary, size: 20)
+        : null,
+    onTap: () => Navigator.of(context).pop(p.id),
+  );
 }
 
 /// Small rounded provider logo with a graceful fallback when the image is

@@ -221,6 +221,15 @@ class HiveService {
     await _settingsBox.put(AppConstants.appLockBiometricKey, enabled);
   }
 
+  // --- Desktop appearance ---
+
+  /// Desktop: use the native Windows title bar instead of Sozo's custom one.
+  bool get useNativeTitleBar =>
+      _settingsBox.get('use_native_title_bar', defaultValue: false) == true;
+
+  Future<void> setUseNativeTitleBar(bool value) =>
+      _settingsBox.put('use_native_title_bar', value);
+
   // --- Private list ---
 
   /// Whether the one-time "long-press to add to private list" coachmark on the

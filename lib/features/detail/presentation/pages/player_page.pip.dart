@@ -124,15 +124,15 @@ extension _PlayerPip on _PlayerPageState {
     await WakelockPlus.enable();
   }
 
-  /// Desktop: true OS-window fullscreen (hides the taskbar), toggled by the
-  /// fullscreen button or the F key. No-op on mobile (uses immersive mode).
+  /// Desktop: true OS-window fullscreen (hides the taskbar + our title bar),
+  /// toggled by the fullscreen button or the F key. No-op on mobile.
   Future<void> _toggleFullscreen() async {
     if (!isDesktopPlatform) return;
     final next = !_isFullscreen;
-    try {
-      await windowManager.setFullScreen(next);
-    } catch (_) {}
+    // Update local state first so the button/controls repaint immediately, then
+    // drive the (slower) native window resize — keeps the toggle feeling snappy.
     if (mounted) setState(() => _isFullscreen = next);
+    await DesktopWindow.setFullscreen(next);
   }
 
   Future<void> _toggleOrientation() async {
@@ -156,12 +156,10 @@ extension _PlayerPip on _PlayerPageState {
     _isPortrait = false;
     if (isDesktopPlatform) {
       // Leave OS fullscreen so the app isn't stuck fullscreen after the player.
-      try {
-        if (_isFullscreen) {
-          await windowManager.setFullScreen(false);
-          _isFullscreen = false;
-        }
-      } catch (_) {}
+      if (_isFullscreen) {
+        _isFullscreen = false;
+        await DesktopWindow.setFullscreen(false);
+      }
       try {
         await WakelockPlus.disable();
       } catch (_) {}

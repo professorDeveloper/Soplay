@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -133,7 +134,7 @@ class ShortsBloc extends Bloc<ShortsEvent, ShortsState> {
     if (!_hiveService.isLoggedIn) {
       if (!_signInNoticeShown) {
         _signInNoticeShown = true;
-        emit(_notice(current, 'Please sign in to like'));
+        emit(_notice(current, 'shorts.sign_in_to_like'.tr()));
       }
       return;
     }

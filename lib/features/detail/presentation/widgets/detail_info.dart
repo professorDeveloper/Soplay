@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -104,8 +105,8 @@ class _ContinueWatchingCard extends StatelessWidget {
         icon: const Icon(Icons.play_arrow_rounded, size: 26),
         label: Text(
           item.isSerial && item.episodeNumber != null
-              ? 'Continue · EP ${item.episodeNumber}'
-              : 'Continue',
+              ? 'detail.continue_ep'.tr(args: ['${item.episodeNumber}'])
+              : 'detail.continue_watching'.tr(),
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w800,
@@ -282,9 +283,9 @@ class _PlayButton extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         ),
         icon: const Icon(Icons.play_arrow_rounded, size: 26),
-        label: const Text(
-          'Play',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+        label: Text(
+          'detail.play'.tr(),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
         ),
       ),
     );

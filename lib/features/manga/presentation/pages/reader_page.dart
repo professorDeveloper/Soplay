@@ -11,6 +11,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/system/system_controls.dart';
 import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
@@ -88,7 +89,8 @@ class _ReaderPageState extends State<ReaderPage> {
     _rtl = _hive.getReaderRtl(widget.args.contentUrl);
     _bgPref = _hive.getReaderBackground();
     _itemPositionsListener.itemPositions.addListener(_onItemPositions);
-    // Immersive/edge-to-edge is an Android system-UI concern.
+    // Immersive/edge-to-edge is an Android system-UI concern. On desktop the
+    // custom title bar is hidden for /reader by the router (see app.dart).
     if (!isDesktopPlatform) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
@@ -656,6 +658,18 @@ class _ReaderPageState extends State<ReaderPage> {
               icon: const Icon(Icons.tune, color: Colors.white),
               onPressed: _openSettingsSheet,
             ),
+            // Desktop: window controls, but only while the title bar is hidden
+            // (immersive) — the two can never both show.
+            if (isDesktopPlatform)
+              ValueListenableBuilder<bool>(
+                valueListenable: DesktopWindow.immersive,
+                builder: (_, imm, _) => imm
+                    ? const Padding(
+                        padding: EdgeInsets.only(left: 4),
+                        child: WindowButtons(),
+                      )
+                    : const SizedBox.shrink(),
+              ),
           ],
         ),
       ),

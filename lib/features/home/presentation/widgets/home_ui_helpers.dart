@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 
 String movieTitle(MovieEntity movie) {
@@ -8,7 +9,7 @@ String movieTitle(MovieEntity movie) {
   final externalTitle = cleanLabel(movie.externalId);
   if (externalTitle.isNotEmpty) return externalTitle;
   final provider = movie.provider.trim();
-  return provider.isNotEmpty ? provider : 'Untitled';
+  return provider.isNotEmpty ? provider : 'home.untitled'.tr();
 }
 
 String movieDescription(MovieEntity movie) {

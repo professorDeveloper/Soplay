@@ -1,10 +1,11 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_bloc.dart';
@@ -229,22 +230,22 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
   List<Widget> _buildLoadedSlivers(ViewAllLoaded state) {
     if (state.items.isEmpty) {
       return [
-        const SliverToBoxAdapter(
+        SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 56),
+            padding: const EdgeInsets.symmetric(vertical: 56),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.movie_outlined,
                     color: AppColors.textHint,
                     size: 48,
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Text(
-                    'No films found',
-                    style: TextStyle(
+                    'detail.no_films'.tr(),
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 14,
                     ),
@@ -263,9 +264,9 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
           child: Row(
             children: [
-              const Text(
-                'Filmography',
-                style: TextStyle(
+              Text(
+                'detail.filmography'.tr(),
+                style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -291,8 +292,10 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
             (_, i) => _ActorMovieCard(movie: state.items[i]),
             childCount: state.items.length,
           ),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
+          // Desktop: scale poster columns to the window width (fixed 3 made them
+          // giant on a wide window); mobile keeps the original 3-up layout.
+          gridDelegate: responsiveGridDelegate(
+            mobileCrossAxisCount: 3,
             mainAxisSpacing: 14,
             crossAxisSpacing: 8,
             childAspectRatio: 0.52,
@@ -424,9 +427,9 @@ class _ActorHero extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Actor',
-                  style: TextStyle(
+                Text(
+                  'detail.actor'.tr(),
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -609,7 +612,7 @@ class _ActorMovieCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final quality = primaryQuality(movie);
-    return GestureDetector(
+    return HoverTap(
       onTap: () {
         if (movie.url.isNotEmpty) {
           context.push(

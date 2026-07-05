@@ -135,11 +135,11 @@ extension _PlayerControls on _PlayerPageState {
   String _fitLabel(_PlayerFit fit) {
     switch (fit) {
       case _PlayerFit.contain:
-        return 'Original';
+        return 'player.fit_original'.tr();
       case _PlayerFit.cover:
-        return 'Fill';
+        return 'player.fit_fill'.tr();
       case _PlayerFit.fill:
-        return 'Stretch';
+        return 'player.fit_stretch'.tr();
     }
   }
 
@@ -188,7 +188,7 @@ extension _PlayerControls on _PlayerPageState {
                     foregroundColor: Colors.black,
                   ),
                   icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('Try again'),
+                  label: Text('general.try_again'.tr()),
                 ),
                 if (_isCodecError && _videoUrl != null) ...[
                   const SizedBox(height: 10),
@@ -204,7 +204,7 @@ extension _PlayerControls on _PlayerPageState {
                       side: const BorderSide(color: Colors.white24),
                     ),
                     icon: const Icon(Icons.open_in_browser_rounded, size: 18),
-                    label: const Text('Play in Browser'),
+                    label: Text('player.play_in_browser'.tr()),
                   ),
                 ],
                 if (isCloudflareError(_errorMessage)) ...[
@@ -222,7 +222,7 @@ extension _PlayerControls on _PlayerPageState {
                       side: const BorderSide(color: Colors.white24),
                     ),
                     icon: const Icon(Icons.shield_outlined, size: 18),
-                    label: const Text('Solve Cloudflare'),
+                    label: Text('cloudflare.solve'.tr()),
                   ),
                 ],
                 const SizedBox(height: 10),
@@ -232,7 +232,7 @@ extension _PlayerControls on _PlayerPageState {
                     foregroundColor: Colors.white60,
                   ),
                   icon: const Icon(Icons.bug_report_outlined, size: 18),
-                  label: const Text('View logs'),
+                  label: Text('player.view_logs'.tr()),
                 ),
               ],
             ),
@@ -276,18 +276,18 @@ extension _PlayerControls on _PlayerPageState {
                     color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.fast_forward_rounded,
                         color: Colors.white,
                         size: 16,
                       ),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       Text(
-                        '2x speed',
-                        style: TextStyle(
+                        'player.speed_2x'.tr(),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
@@ -572,14 +572,15 @@ extension _PlayerControls on _PlayerPageState {
                     color: Colors.white.withValues(alpha: 0.15),
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.lock_rounded, color: Colors.white, size: 16),
-                    SizedBox(width: 8),
+                    const Icon(Icons.lock_rounded,
+                        color: Colors.white, size: 16),
+                    const SizedBox(width: 8),
                     Text(
-                      'Tap to unlock',
-                      style: TextStyle(
+                      'player.tap_to_unlock'.tr(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -647,8 +648,9 @@ extension _PlayerControls on _PlayerPageState {
                         ),
                         const SizedBox(width: 8),
                       ],
-                      // Mobile-only: orientation lock, screen lock and PiP are
-                      // meaningless or dead controls on desktop.
+                      // Mobile keeps every control in the top bar. Desktop moves
+                      // playback to a Movies&TV-style bottom bar and leaves only
+                      // the window controls up here.
                       if (!isDesktopPlatform) ...[
                         _IconButton(
                           icon: _isPortrait
@@ -672,66 +674,41 @@ extension _PlayerControls on _PlayerPageState {
                           onTap: _enterPip,
                         ),
                         const SizedBox(width: 8),
-                      ],
-                      // Desktop: volume slider + true fullscreen, like a standard
-                      // PC video player.
-                      if (isDesktopPlatform) ...[
                         _IconButton(
-                          icon: _volume <= 0.001
-                              ? Icons.volume_off_rounded
-                              : _volume < 0.5
-                                  ? Icons.volume_down_rounded
-                                  : Icons.volume_up_rounded,
-                          onTap: _toggleMute,
-                        ),
-                        SizedBox(
-                          width: 96,
-                          child: SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              trackHeight: 3,
-                              thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 6),
-                              overlayShape: const RoundSliderOverlayShape(
-                                  overlayRadius: 12),
-                            ),
-                            child: Slider(
-                              value: _volume.clamp(0.0, 1.0),
-                              onChanged: _setPlayerVolume,
-                              activeColor: Colors.white,
-                              inactiveColor: Colors.white24,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        _IconButton(
-                          icon: _isFullscreen
-                              ? Icons.fullscreen_exit_rounded
-                              : Icons.fullscreen_rounded,
-                          onTap: _toggleFullscreen,
+                          icon: Icons.settings_outlined,
+                          onTap: _openSettingsSheet,
                         ),
                         const SizedBox(width: 8),
+                        _IconButton(
+                          icon: hasEpisodes
+                              ? Icons.video_library_rounded
+                              : Icons.high_quality_rounded,
+                          onTap: hasEpisodes
+                              ? () => _openPanel(_SidePanel.episodes)
+                              : hasQualities
+                                  ? () => _openPanel(_SidePanel.quality)
+                                  : _openSettingsSheet,
+                        ),
                       ],
-                      _IconButton(
-                        icon: Icons.settings_outlined,
-                        onTap: _openSettingsSheet,
-                      ),
-                      const SizedBox(width: 8),
-                      _IconButton(
-                        icon: hasEpisodes
-                            ? Icons.video_library_rounded
-                            : Icons.high_quality_rounded,
-                        onTap: hasEpisodes
-                            ? () => _openPanel(_SidePanel.episodes)
-                            : hasQualities
-                            ? () => _openPanel(_SidePanel.quality)
-                            : _openSettingsSheet,
-                      ),
+                      // Window controls, but ONLY while the title bar is hidden
+                      // (immersive). Both are driven by the same flag, so they
+                      // can never appear at once — no double bar, ever.
+                      if (isDesktopPlatform)
+                        ValueListenableBuilder<bool>(
+                          valueListenable: DesktopWindow.immersive,
+                          builder: (_, imm, _) => imm
+                              ? const WindowButtons()
+                              : const SizedBox.shrink(),
+                        ),
                     ],
                   ),
                 ),
               ),
             ),
-            if (initialized && !isBuffering) _buildCenterPlayCluster(c),
+            // Desktop puts transport controls in the bottom bar, so the big
+            // centre cluster is mobile-only.
+            if (initialized && !isBuffering && !isDesktopPlatform)
+              _buildCenterPlayCluster(c),
             if (isBuffering)
               const Center(
                 child: SizedBox(
@@ -780,6 +757,140 @@ extension _PlayerControls on _PlayerPageState {
               _seekRelative(const Duration(seconds: 10));
               _showSeekRipple(1);
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Desktop only: the Movies&TV / WMP-style control row that sits under the
+  /// seekbar — volume on the left, transport centred, options on the right.
+  Widget _buildDesktopControlRow(
+    PlayerController c,
+    bool hasEpisodes,
+    bool hasQualities,
+    bool hasPrev,
+    bool hasNext,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, bottom: 2),
+      child: Row(
+        children: [
+          // Left — volume.
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _DesktopVolumeControl(
+                volume: _volume,
+                onChanged: _setPlayerVolume,
+                onToggleMute: _toggleMute,
+              ),
+            ),
+          ),
+          // Centre — transport.
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (hasEpisodes) ...[
+                _IconButton(
+                  icon: Icons.skip_previous_rounded,
+                  onTap: () {
+                    if (_episodeIndex - 1 >= 0) _loadEpisode(_episodeIndex - 1);
+                  },
+                ),
+                const SizedBox(width: 4),
+              ],
+              _IconButton(
+                icon: Icons.replay_10_rounded,
+                onTap: () {
+                  _seekRelative(const Duration(seconds: -10));
+                  _showSeekRipple(-1);
+                },
+              ),
+              const SizedBox(width: 6),
+              ValueListenableBuilder<VideoPlayerValue>(
+                valueListenable: c,
+                builder: (_, value, _) => _IconButton(
+                  icon: value.isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  onTap: _togglePlay,
+                ),
+              ),
+              const SizedBox(width: 6),
+              _IconButton(
+                icon: Icons.forward_10_rounded,
+                onTap: () {
+                  _seekRelative(const Duration(seconds: 10));
+                  _showSeekRipple(1);
+                },
+              ),
+              if (hasEpisodes) ...[
+                const SizedBox(width: 4),
+                _IconButton(
+                  icon: Icons.skip_next_rounded,
+                  onTap: () {
+                    if (_episodeIndex + 1 < widget.args.episodes.length) {
+                      _loadEpisode(_episodeIndex + 1);
+                    }
+                  },
+                ),
+              ],
+            ],
+          ),
+          // Right — speed, subtitles, settings, quality/episodes, fullscreen.
+          // FittedBox shrinks the cluster on a narrow window instead of
+          // overflowing.
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _BottomTextButton(
+                      icon: Icons.speed_rounded,
+                      label:
+                          '${_playbackSpeed.toStringAsFixed(_playbackSpeed == _playbackSpeed.roundToDouble() ? 0 : 2)}x',
+                      enabled: true,
+                      onTap: _openSpeedSheet,
+                    ),
+                    _IconButton(
+                      icon: Icons.subtitles_outlined,
+                      onTap: _openSubtitleSheet,
+                    ),
+                    const SizedBox(width: 4),
+                    _IconButton(
+                      icon: Icons.settings_outlined,
+                      onTap: _openSettingsSheet,
+                    ),
+                    if (hasQualities) ...[
+                      const SizedBox(width: 4),
+                      _IconButton(
+                        icon: Icons.high_quality_rounded,
+                        onTap: () => _openPanel(_SidePanel.quality),
+                      ),
+                    ],
+                    if (hasEpisodes) ...[
+                      const SizedBox(width: 4),
+                      _IconButton(
+                        icon: Icons.video_library_rounded,
+                        onTap: () => _openPanel(_SidePanel.episodes),
+                      ),
+                    ],
+                    const SizedBox(width: 4),
+                    _IconButton(
+                      icon: _isFullscreen
+                          ? Icons.fullscreen_exit_rounded
+                          : Icons.fullscreen_rounded,
+                      onTap: _toggleFullscreen,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -958,6 +1069,12 @@ extension _PlayerControls on _PlayerPageState {
                 },
               ),
               const SizedBox(height: 4),
+              // Desktop: a Movies&TV-style control row (volume · transport ·
+              // options) under the seekbar. Mobile keeps its scrollable buttons.
+              if (isDesktopPlatform)
+                _buildDesktopControlRow(
+                    c, hasEpisodes, hasQualities, hasPrev, hasNext)
+              else
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -965,14 +1082,14 @@ extension _PlayerControls on _PlayerPageState {
                     if (hasEpisodes)
                       _BottomTextButton(
                         icon: Icons.skip_previous_rounded,
-                        label: 'Previous',
+                        label: 'player.previous'.tr(),
                         enabled: hasPrev,
                         onTap: () => _loadEpisode(_episodeIndex - 1),
                       ),
                     if (hasEpisodes)
                       _BottomTextButton(
                         icon: Icons.skip_next_rounded,
-                        label: 'Next',
+                        label: 'general.next'.tr(),
                         enabled: hasNext,
                         onTap: () => _loadEpisode(_episodeIndex + 1),
                       ),
@@ -986,14 +1103,14 @@ extension _PlayerControls on _PlayerPageState {
                     if (hasQualities)
                       _BottomTextButton(
                         icon: Icons.high_quality_rounded,
-                        label: _currentQuality ?? 'Quality',
+                        label: _currentQuality ?? 'player.quality'.tr(),
                         enabled: true,
                         onTap: () => _openPanel(_SidePanel.quality),
                       ),
                     if (hasEpisodes)
                       _BottomTextButton(
                         icon: Icons.list_rounded,
-                        label: 'Episodes',
+                        label: 'player.episodes'.tr(),
                         enabled: true,
                         onTap: () => _openPanel(_SidePanel.episodes),
                       ),
@@ -1015,9 +1132,9 @@ extension _PlayerControls on _PlayerPageState {
         children: [
           const _LiveDot(),
           const SizedBox(width: 7),
-          const Text(
-            'LIVE',
-            style: TextStyle(
+          Text(
+            'player.live'.tr(),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 12,
               fontWeight: FontWeight.w800,
@@ -1028,7 +1145,7 @@ extension _PlayerControls on _PlayerPageState {
           // Jump back to the live edge after a pause / DVR rewind.
           _BottomTextButton(
             icon: Icons.fiber_manual_record_rounded,
-            label: 'Go live',
+            label: 'player.go_live'.tr(),
             enabled: true,
             onTap: () {
               final c = _controller;

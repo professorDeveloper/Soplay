@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -94,28 +95,28 @@ class _CommentsViewState extends State<_CommentsView> {
       );
     }
     if (state.items.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.chat_bubble_outline_rounded,
               color: AppColors.textHint,
               size: 48,
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text(
-              'No comments yet',
-              style: TextStyle(
+              'comments.empty_title'.tr(),
+              style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
-              'Be the first to share your thoughts',
-              style: TextStyle(
+              'comments.empty_subtitle'.tr(),
+              style: const TextStyle(
                 color: AppColors.textHint,
                 fontSize: 12,
               ),
@@ -132,7 +133,9 @@ class _CommentsViewState extends State<_CommentsView> {
           child: Row(
             children: [
               Text(
-                state.total == 1 ? '1 comment' : '${state.total} comments',
+                state.total == 1
+                    ? 'comments.count_one'.tr()
+                    : 'comments.count_other'.tr(args: ['${state.total}']),
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 13,
@@ -166,7 +169,9 @@ class _CommentsViewState extends State<_CommentsView> {
               onPressed: state.loadingMore
                   ? null
                   : () => bloc.add(const CommentsLoadMore()),
-              child: Text(state.loadingMore ? 'Loading...' : 'Show more'),
+              child: Text(state.loadingMore
+                  ? 'general.loading'.tr()
+                  : 'comments.show_more'.tr()),
             ),
           ),
       ],
@@ -178,24 +183,24 @@ class _CommentsViewState extends State<_CommentsView> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text(
-          'Delete this comment?',
-          style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
+        title: Text(
+          'comments.delete_confirm_title'.tr(),
+          style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
         ),
-        content: const Text(
-          'This action cannot be undone.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+        content: Text(
+          'comments.delete_confirm_body'.tr(),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text('general.cancel'.tr()),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.redAccent),
+            child: Text(
+              'general.delete'.tr(),
+              style: const TextStyle(color: Colors.redAccent),
             ),
           ),
         ],
@@ -265,10 +270,10 @@ class _SignInPrompt extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'Sign in to leave a comment',
+          Text(
+            'comments.sign_in_prompt'.tr(),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
             ),
@@ -288,9 +293,9 @@ class _SignInPrompt extends StatelessWidget {
                 ),
               ),
               icon: const Icon(Icons.login_rounded, size: 18),
-              label: const Text(
-                'Sign in',
-                style: TextStyle(
+              label: Text(
+                'auth.sign_in'.tr(),
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                 ),

@@ -6,18 +6,18 @@ class StreakRemoteDataSource {
   final Dio dio;
   const StreakRemoteDataSource({required this.dio});
 
-  Future<StreakState> getMe(String timezone) async {
+  Future<StreakState> getMe(String timezone, int tzOffsetMinutes) async {
     final res = await dio.get(
       '/streak/me',
-      queryParameters: {'timezone': timezone},
+      queryParameters: {'timezone': timezone, 'tzOffset': tzOffsetMinutes},
     );
     return StreakState.fromJson(res.data as Map<String, dynamic>);
   }
 
-  Future<StreakPingResult> ping(String timezone) async {
+  Future<StreakPingResult> ping(String timezone, int tzOffsetMinutes) async {
     final res = await dio.post(
       '/streak/ping',
-      data: {'timezone': timezone},
+      data: {'timezone': timezone, 'tzOffset': tzOffsetMinutes},
     );
     return StreakPingResult.fromJson(res.data as Map<String, dynamic>);
   }

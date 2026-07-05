@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
@@ -109,9 +110,9 @@ class _ReportSheetState extends State<_ReportSheet> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Report',
-                style: TextStyle(
+              Text(
+                'reports.title'.tr(),
+                style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -151,7 +152,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                 maxLength: 500,
                 style: const TextStyle(color: AppColors.textPrimary),
                 decoration: InputDecoration(
-                  hintText: 'Additional note (optional)',
+                  hintText: 'reports.note_hint'.tr(),
                   hintStyle: const TextStyle(color: AppColors.textHint),
                   filled: true,
                   fillColor: AppColors.surfaceVariant,
@@ -190,9 +191,9 @@ class _ReportSheetState extends State<_ReportSheet> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text(
-                          'Submit',
-                          style: TextStyle(
+                      : Text(
+                          'reports.submit'.tr(),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
                           ),

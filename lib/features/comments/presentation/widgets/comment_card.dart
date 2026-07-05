@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/comments/domain/entities/comment_entity.dart';
@@ -39,7 +40,7 @@ class CommentCard extends StatelessWidget {
     );
     if (ok && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Report submitted, thank you')),
+        SnackBar(content: Text('comments.report_submitted'.tr())),
       );
     }
   }
@@ -83,9 +84,9 @@ class CommentCard extends StatelessWidget {
                     ),
                     if (comment.edited) ...[
                       const SizedBox(width: 6),
-                      const Text(
-                        '· edited',
-                        style: TextStyle(
+                      Text(
+                        'comments.edited'.tr(),
+                        style: const TextStyle(
                           color: AppColors.textHint,
                           fontSize: 11,
                           fontStyle: FontStyle.italic,
@@ -120,14 +121,14 @@ class CommentCard extends StatelessWidget {
                           : Icons.favorite_border_rounded,
                       label: comment.likeCount > 0
                           ? comment.likeCount.toString()
-                          : 'Like',
+                          : 'comments.like'.tr(),
                       active: comment.likedByMe,
                       onTap: canInteract ? onLike : null,
                     ),
                     if (comment.isTopLevel)
                       _ActionButton(
                         icon: Icons.reply_rounded,
-                        label: 'Reply',
+                        label: 'comments.reply'.tr(),
                         active: false,
                         onTap: canInteract ? onReply : null,
                       ),
@@ -137,10 +138,11 @@ class CommentCard extends StatelessWidget {
                             ? Icons.expand_less_rounded
                             : Icons.expand_more_rounded,
                         label: repliesExpanded
-                            ? 'Hide'
+                            ? 'comments.hide'.tr()
                             : comment.replyCount == 1
-                                ? '1 reply'
-                                : '${comment.replyCount} replies',
+                                ? 'comments.replies_one'.tr()
+                                : 'comments.replies_other'
+                                    .tr(args: ['${comment.replyCount}']),
                         active: repliesExpanded,
                         onTap: onToggleReplies,
                       ),
@@ -239,36 +241,40 @@ class _MoreButton extends StatelessWidget {
       },
       itemBuilder: (_) => [
         if (isOwner)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'edit',
             child: Row(
               children: [
-                Icon(Icons.edit_rounded, size: 16, color: Colors.white70),
-                SizedBox(width: 8),
-                Text('Edit', style: TextStyle(color: Colors.white)),
+                const Icon(Icons.edit_rounded, size: 16, color: Colors.white70),
+                const SizedBox(width: 8),
+                Text('general.edit'.tr(),
+                    style: const TextStyle(color: Colors.white)),
               ],
             ),
           ),
         if (isOwner)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'delete',
             child: Row(
               children: [
-                Icon(Icons.delete_rounded, size: 16, color: Colors.redAccent),
-                SizedBox(width: 8),
-                Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                const Icon(Icons.delete_rounded,
+                    size: 16, color: Colors.redAccent),
+                const SizedBox(width: 8),
+                Text('general.delete'.tr(),
+                    style: const TextStyle(color: Colors.redAccent)),
               ],
             ),
           ),
         if (canReport)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'report',
             child: Row(
               children: [
-                Icon(Icons.flag_rounded, size: 16, color: Colors.orangeAccent),
-                SizedBox(width: 8),
-                Text('Report',
-                    style: TextStyle(color: Colors.orangeAccent)),
+                const Icon(Icons.flag_rounded,
+                    size: 16, color: Colors.orangeAccent),
+                const SizedBox(width: 8),
+                Text('comments.report'.tr(),
+                    style: const TextStyle(color: Colors.orangeAccent)),
               ],
             ),
           ),

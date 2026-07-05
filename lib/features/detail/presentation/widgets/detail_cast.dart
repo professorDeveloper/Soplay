@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -31,7 +32,7 @@ class DetailCastSection extends StatelessWidget {
                     fontSize: 13,
                   ),
                   children: [
-                    const TextSpan(text: 'Director: '),
+                    TextSpan(text: '${'movie.director'.tr()}: '),
                     TextSpan(
                       text: director!.trim(),
                       style: const TextStyle(
@@ -44,11 +45,11 @@ class DetailCastSection extends StatelessWidget {
               ),
             ),
           if (hasCast) ...[
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 10),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
               child: Text(
-                'Cast',
-                style: TextStyle(
+                'movie.cast'.tr(),
+                style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w800,

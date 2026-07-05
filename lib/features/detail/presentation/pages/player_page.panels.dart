@@ -4,11 +4,11 @@ extension _PlayerPanels on _PlayerPageState {
   String _langLabel(String lang) {
     switch (lang.toLowerCase()) {
       case _kSubLang:
-        return 'Subtitled (SUB)';
+        return 'player.lang_sub'.tr();
       case _kDubLang:
-        return 'Dubbed (DUB)';
+        return 'player.lang_dub'.tr();
       case 'softsub':
-        return 'Soft subtitles';
+        return 'player.lang_softsub'.tr();
       default:
         return lang.toUpperCase();
     }
@@ -29,19 +29,19 @@ extension _PlayerPanels on _PlayerPageState {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.translate_rounded,
                       color: Colors.white,
                       size: 18,
                     ),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Text(
-                      'Audio language',
-                      style: TextStyle(
+                      'player.audio_language'.tr(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -84,19 +84,19 @@ extension _PlayerPanels on _PlayerPageState {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.settings_outlined,
                       color: Colors.white,
                       size: 18,
                     ),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Text(
-                      'Settings',
-                      style: TextStyle(
+                      'general.settings'.tr(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -108,7 +108,7 @@ extension _PlayerPanels on _PlayerPageState {
               const Divider(color: Colors.white12, height: 1),
               _SettingsTile(
                 icon: Icons.speed_rounded,
-                label: 'Speed',
+                label: 'player.speed_short'.tr(),
                 value:
                     '${_playbackSpeed.toStringAsFixed(_playbackSpeed == _playbackSpeed.roundToDouble() ? 0 : 2)}x',
                 onTap: () {
@@ -118,7 +118,7 @@ extension _PlayerPanels on _PlayerPageState {
               ),
               _SettingsTile(
                 icon: Icons.aspect_ratio_rounded,
-                label: 'Aspect',
+                label: 'player.aspect'.tr(),
                 value: _fitLabel(_fit),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -128,7 +128,7 @@ extension _PlayerPanels on _PlayerPageState {
               if (hasQualities)
                 _SettingsTile(
                   icon: Icons.high_quality_rounded,
-                  label: 'Quality',
+                  label: 'player.quality'.tr(),
                   value: _currentQuality ?? '—',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
@@ -138,7 +138,7 @@ extension _PlayerPanels on _PlayerPageState {
               if (hasLangs)
                 _SettingsTile(
                   icon: Icons.translate_rounded,
-                  label: 'Audio language',
+                  label: 'player.audio_language'.tr(),
                   value: _currentLang == null ? '—' : _langLabel(_currentLang!),
                   onTap: () {
                     Navigator.of(sheetContext).pop();
@@ -147,12 +147,12 @@ extension _PlayerPanels on _PlayerPageState {
                 ),
               _SettingsTile(
                 icon: Icons.subtitles_outlined,
-                label: 'Subtitles',
+                label: 'player.subtitles'.tr(),
                 value: _subtitles.isEmpty
-                    ? 'Search'
+                    ? 'general.search'.tr()
                     : _activeSubtitleIndex >= 0
                     ? _subtitles[_activeSubtitleIndex].label
-                    : 'Off',
+                    : 'player.off'.tr(),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   _openSubtitleSheet();
@@ -161,7 +161,7 @@ extension _PlayerPanels on _PlayerPageState {
               if (_subtitles.isNotEmpty)
                 _SettingsTile(
                   icon: Icons.text_fields_rounded,
-                  label: 'Subtitle style',
+                  label: 'player.subtitle_style'.tr(),
                   value: '${_subtitleStyle.fontSize.round()}px',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
@@ -169,17 +169,17 @@ extension _PlayerPanels on _PlayerPageState {
                   },
                 ),
               if (!hasLangs)
-                const _SettingsTile(
+                _SettingsTile(
                   icon: Icons.audiotrack_outlined,
-                  label: 'Audio track',
-                  value: 'Coming soon',
+                  label: 'player.audio_track'.tr(),
+                  value: 'profile.coming_soon'.tr(),
                   onTap: null,
                 ),
               if (widget.args.showDownloadAction &&
                   widget.args.provider != 'uzmovi')
                 _SettingsTile(
                   icon: Icons.download_rounded,
-                  label: 'Download',
+                  label: 'movie.download'.tr(),
                   value: '',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
@@ -188,7 +188,7 @@ extension _PlayerPanels on _PlayerPageState {
                 ),
               _SettingsTile(
                 icon: Icons.bug_report_outlined,
-                label: 'Diagnostics / Logs',
+                label: 'player.diagnostics_logs'.tr(),
                 value: _isLive ? 'live' : '',
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -217,15 +217,16 @@ extension _PlayerPanels on _PlayerPageState {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Row(
                   children: [
-                    Icon(Icons.speed_rounded, color: Colors.white, size: 18),
-                    SizedBox(width: 10),
+                    const Icon(Icons.speed_rounded,
+                        color: Colors.white, size: 18),
+                    const SizedBox(width: 10),
                     Text(
-                      'Playback speed',
-                      style: TextStyle(
+                      'player.speed'.tr(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -266,19 +267,19 @@ extension _PlayerPanels on _PlayerPageState {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.aspect_ratio_rounded,
                       color: Colors.white,
                       size: 18,
                     ),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Text(
-                      'Aspect ratio',
-                      style: TextStyle(
+                      'player.aspect_ratio'.tr(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -322,7 +323,7 @@ extension _PlayerPanels on _PlayerPageState {
                 child: Row(
                   children: [
                     Text(
-                      isQuality ? 'Quality' : 'Episodes',
+                      isQuality ? 'player.quality'.tr() : 'player.episodes'.tr(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,

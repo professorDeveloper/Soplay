@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:floating/floating.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +15,7 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/app_orientation.dart';
+import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
@@ -35,7 +38,6 @@ import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:window_manager/window_manager.dart';
 
 part 'player_page.models.dart';
 part 'player_page.widgets.dart';
@@ -98,8 +100,10 @@ class _PlayerPageState extends State<PlayerPage>
   int _activeSubtitleIndex = -1;
   ClosedCaptionFile? _captionFile;
   // Subtitle sync offset (ms). Positive = subtitles appear later, negative =
-  // earlier, relative to the audio/video.
-  int _subtitleOffsetMs = 0;
+  // earlier, relative to the audio/video. A ValueNotifier so dragging the sync
+  // slider only rebuilds the subtitle overlay — NOT the whole player (rebuilding
+  // the media_kit video layer per tick froze the UI).
+  final ValueNotifier<int> _subtitleOffsetMs = ValueNotifier<int>(0);
   SubtitleStyle _subtitleStyle = SubtitleStyle.defaults();
 
   String? _thumbnailsKey;
@@ -232,6 +236,7 @@ class _PlayerPageState extends State<PlayerPage>
     _speedBoost.dispose();
     _swipeIndicator.dispose();
     _sliderDragValue.dispose();
+    _subtitleOffsetMs.dispose();
     final c = _controller;
     if (c != null) {
       c.removeListener(_onMajorChange);
@@ -260,10 +265,16 @@ class _PlayerPageState extends State<PlayerPage>
             builder: (context, constraints) => _wrapHover(GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _locked ? null : _toggleControls,
-              onDoubleTapDown: _locked
+              // Desktop: double-click toggles fullscreen (standard). Mobile keeps
+              // double-tap-to-seek.
+              onDoubleTapDown: _locked || isDesktopPlatform
                   ? null
                   : (d) => _onDoubleTapDown(d, constraints),
-              onDoubleTap: _locked ? null : () {},
+              onDoubleTap: _locked
+                  ? null
+                  : isDesktopPlatform
+                      ? _toggleFullscreen
+                      : () {},
               onPanStart: _locked ? null : (d) => _onPanStart(d, constraints),
               onPanUpdate: _locked ? null : (d) => _onPanUpdate(d, constraints),
               onPanEnd: _locked ? null : _onPanEnd,
@@ -301,6 +312,9 @@ class _PlayerPageState extends State<PlayerPage>
   /// (standard desktop-player behaviour). Mobile returns the child as-is.
   Widget _wrapHover(Widget child) {
     if (!isDesktopPlatform) return child;
+    // NOTE: the mouse wheel adjusts volume only when the pointer is over the
+    // volume control (see _DesktopVolumeControl) — NOT anywhere over the video,
+    // which was accidentally muting playback.
     return MouseRegion(
       onHover: (_) => _revealControlsForHover(),
       cursor: _controlsVisible ? MouseCursor.defer : SystemMouseCursors.none,
@@ -352,7 +366,11 @@ class _PlayerPageState extends State<PlayerPage>
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.escape) {
-      if (_isFullscreen) {
+      // Cancel the most local thing first: an open side-panel, then fullscreen,
+      // then leave the player.
+      if (_panel != _SidePanel.none) {
+        _closePanel();
+      } else if (_isFullscreen) {
         _toggleFullscreen();
       } else {
         _exit();

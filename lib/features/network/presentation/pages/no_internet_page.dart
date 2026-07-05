@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/constants/app_constants.dart';
@@ -31,8 +32,8 @@ class _NoInternetPageState extends State<NoInternetPage> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Internet is still unavailable'),
+        SnackBar(
+          content: Text('desktop.internet_still_unavailable'.tr()),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -71,9 +72,9 @@ class _NoInternetPageState extends State<NoInternetPage> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  const Text(
-                    'No internet connection',
-                    style: TextStyle(
+                  Text(
+                    'general.no_internet'.tr(),
+                    style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
@@ -81,9 +82,9 @@ class _NoInternetPageState extends State<NoInternetPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'You can keep watching downloaded videos while the connection is offline.',
-                    style: TextStyle(
+                  Text(
+                    'desktop.offline_watch_downloads'.tr(),
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 14,
                       height: 1.35,
@@ -105,7 +106,7 @@ class _NoInternetPageState extends State<NoInternetPage> {
                                   ),
                                 )
                               : const Icon(Icons.refresh_rounded),
-                          label: const Text('Retry'),
+                          label: Text('general.retry'.tr()),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -113,7 +114,7 @@ class _NoInternetPageState extends State<NoInternetPage> {
                         child: OutlinedButton.icon(
                           onPressed: () => context.go('/downloads'),
                           icon: const Icon(Icons.download_done_rounded),
-                          label: const Text('Downloads'),
+                          label: Text('navigation.downloads'.tr()),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.textPrimary,
                             side: const BorderSide(color: AppColors.divider),

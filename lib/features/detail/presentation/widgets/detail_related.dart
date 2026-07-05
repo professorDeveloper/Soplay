@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
@@ -12,21 +13,24 @@ class DetailRelatedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (related.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 56),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 56),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.movie_filter_outlined,
                 color: AppColors.textHint,
                 size: 48,
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text(
-                'No recommendations available',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                'detail.no_recommendations'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                ),
               ),
             ],
           ),
@@ -80,7 +84,7 @@ class _RelatedCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            item.title.trim().isNotEmpty ? item.title : 'Untitled',
+            item.title.trim().isNotEmpty ? item.title : 'detail.untitled'.tr(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(

@@ -147,18 +147,18 @@ class _LoadingOverlay extends StatelessWidget {
   String get _label {
     switch (stage) {
       case _LoadingStage.resolving:
-        return 'Extracting media…';
+        return 'player.extracting_media'.tr();
       case _LoadingStage.loading:
-        return 'Loading video…';
+        return 'player.loading_video'.tr();
     }
   }
 
   String get _hint {
     switch (stage) {
       case _LoadingStage.resolving:
-        return 'Fetching playback link from provider';
+        return 'player.fetching_link'.tr();
       case _LoadingStage.loading:
-        return 'Preparing video stream';
+        return 'player.preparing_stream'.tr();
     }
   }
 
@@ -259,6 +259,62 @@ class _IconButton extends StatelessWidget {
           height: 38,
           child: Icon(icon, color: Colors.white, size: 18),
         ),
+      ),
+    );
+  }
+}
+
+/// Desktop volume: a speaker button (click = mute) plus a horizontal slider.
+/// The mouse wheel changes the level ONLY while the pointer is over this control
+/// (icon or slider) — never over the video, which was muting playback.
+class _DesktopVolumeControl extends StatelessWidget {
+  const _DesktopVolumeControl({
+    required this.volume,
+    required this.onChanged,
+    required this.onToggleMute,
+  });
+
+  final double volume; // 0..1
+  final ValueChanged<double> onChanged;
+  final VoidCallback onToggleMute;
+
+  IconData get _icon => volume <= 0.001
+      ? Icons.volume_off_rounded
+      : volume < 0.5
+          ? Icons.volume_down_rounded
+          : Icons.volume_up_rounded;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerSignal: (e) {
+        if (e is PointerScrollEvent) {
+          final step = e.scrollDelta.dy < 0 ? 0.05 : -0.05;
+          onChanged((volume + step).clamp(0.0, 1.0));
+        }
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _IconButton(icon: _icon, onTap: onToggleMute),
+          SizedBox(
+            width: 104,
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 3,
+                activeTrackColor: Colors.white,
+                inactiveTrackColor: Colors.white24,
+                thumbColor: Colors.white,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              ),
+              child: Slider(
+                value: volume.clamp(0.0, 1.0),
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -392,7 +448,7 @@ class _EpisodeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = episode.label.trim().isEmpty
-        ? 'Episode ${episode.episode}'
+        ? 'player.episode_n'.tr(args: ['${episode.episode}'])
         : episode.label;
     return InkWell(
       onTap: onTap,

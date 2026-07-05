@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -15,6 +16,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_sources_page.dart';
@@ -151,8 +153,8 @@ class _ProfileViewState extends State<_ProfileView> {
                                   color: AppColors.primary),
                             ),
                           ),
-                          title: const Text('CloudStream Sources',
-                              style: TextStyle(color: Colors.white)),
+                          title: Text('profile.cloudstream_sources'.tr(),
+                              style: const TextStyle(color: Colors.white)),
                           trailing: const Icon(Icons.chevron_right,
                               color: AppColors.textHint),
                           shape: RoundedRectangleBorder(
@@ -188,8 +190,8 @@ class _ProfileViewState extends State<_ProfileView> {
                                   color: AppColors.textHint),
                             ),
                           ),
-                          title: const Text('Aniyomi Sources',
-                              style: TextStyle(color: Colors.white)),
+                          title: Text('profile.aniyomi_sources'.tr(),
+                              style: const TextStyle(color: Colors.white)),
                           trailing: const Icon(Icons.chevron_right,
                               color: AppColors.textHint),
                           shape: RoundedRectangleBorder(
@@ -246,6 +248,10 @@ class _ProfileViewState extends State<_ProfileView> {
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(child: _SecuritySection()),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                if (isDesktopPlatform) ...[
+                  const SliverToBoxAdapter(child: _AppearanceSection()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                ],
                 const SliverToBoxAdapter(child: _AboutSection()),
                 SliverToBoxAdapter(child: SizedBox(height: bottomPad + 96)),
               ],
@@ -275,9 +281,9 @@ class _ProfileViewState extends State<_ProfileView> {
                           )
                         : null,
                   ),
-                  child: const Text(
-                    'Profile',
-                    style: TextStyle(
+                  child: Text(
+                    'profile.title'.tr(),
+                    style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 28,
                       fontWeight: FontWeight.w900,
@@ -367,22 +373,22 @@ class _GuestContent extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Sign in to your account',
-                      style: TextStyle(
+                      'profile.signin_account_title'.tr(),
+                      style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Sign in to save your favorites and watch history.',
-                      style: TextStyle(
+                      'profile.signin_account_subtitle'.tr(),
+                      style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                         height: 1.4,
@@ -400,7 +406,7 @@ class _GuestContent extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onLogin,
               icon: const Icon(Icons.login_rounded, size: 18),
-              label: const Text('Sign In'),
+              label: Text('profile.sign_in'.tr()),
               style: ElevatedButton.styleFrom(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -485,23 +491,23 @@ class _LogoutButton extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Sign Out',
-          style: TextStyle(
+        title: Text(
+          'profile.sign_out'.tr(),
+          style: const TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
-        content: const Text(
-          'Are you sure you want to sign out?',
-          style: TextStyle(color: AppColors.textSecondary),
+        content: Text(
+          'profile.sign_out_confirm'.tr(),
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary),
+            child: Text(
+              'general.cancel'.tr(),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
           ),
           TextButton(
@@ -509,9 +515,9 @@ class _LogoutButton extends StatelessWidget {
               Navigator.of(ctx).pop();
               context.read<AuthBloc>().add(const AuthLogoutRequested());
             },
-            child: const Text(
-              'Sign Out',
-              style: TextStyle(
+            child: Text(
+              'profile.sign_out'.tr(),
+              style: const TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.w700,
               ),
@@ -533,7 +539,7 @@ class _ProvidersSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionLabel('PROVIDERS'),
+          _SectionLabel('profile.section_providers'.tr()),
           const SizedBox(height: 8),
           BlocBuilder<ProviderBloc, ProviderState>(
             builder: (context, state) {
@@ -548,7 +554,7 @@ class _ProvidersSection extends StatelessWidget {
                 children: [
                   _Tile(
                     icon: Icons.movie_filter_outlined,
-                    title: 'Provider',
+                    title: 'profile.provider'.tr(),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -693,7 +699,7 @@ class _ProvidersPageState extends State<_ProvidersPage> {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
-        title: const Text('Choose Provider'),
+        title: Text('profile.choose_provider'.tr()),
         actions: [
           BlocBuilder<ProviderBloc, ProviderState>(
             builder: (context, state) => state is ProviderLoaded
@@ -742,7 +748,7 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Search providers…',
+                    hintText: 'profile.search_providers_hint'.tr(),
                     hintStyle: const TextStyle(color: AppColors.textHint),
                     prefixIcon: const Icon(Icons.search,
                         color: AppColors.textHint, size: 20),
@@ -771,7 +777,10 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
                     child: Text(
-                      '${filtered.length} of ${state.providers.length} shown',
+                      'profile.count_of_total_shown'.tr(args: [
+                        '${filtered.length}',
+                        '${state.providers.length}'
+                      ]),
                       style: const TextStyle(
                           color: AppColors.textHint, fontSize: 12),
                     ),
@@ -925,7 +934,7 @@ class _CategoryFilterButton extends StatelessWidget {
     ];
 
     return PopupMenuButton<String>(
-      tooltip: 'Filter',
+      tooltip: 'search.filter'.tr(),
       offset: const Offset(0, 44),
       color: AppColors.surfaceVariant,
       elevation: 8,
@@ -1112,9 +1121,9 @@ class _ProvidersEmpty extends StatelessWidget {
               color: AppColors.textHint.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'No providers in this category',
-              style: TextStyle(
+            Text(
+              'profile.no_providers_in_category'.tr(),
+              style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -1122,7 +1131,7 @@ class _ProvidersEmpty extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Try selecting "All" to see every provider',
+              'profile.try_select_all'.tr(),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.textHint.withValues(alpha: 0.85),
@@ -1423,12 +1432,13 @@ class _ProvidersError extends StatelessWidget {
             size: 36,
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Failed to load providers.',
-            style: TextStyle(color: AppColors.textSecondary),
+          Text(
+            'profile.providers_error'.tr(),
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 14),
-          OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
+          OutlinedButton(
+              onPressed: onRetry, child: Text('general.retry'.tr())),
         ],
       ),
     );
@@ -1478,13 +1488,13 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionLabel('ACTIVITY'),
+          _SectionLabel('profile.section_activity'.tr()),
           const SizedBox(height: 8),
           _SectionCard(
             children: [
               _Tile(
                 icon: Icons.history_rounded,
-                title: 'Watch History',
+                title: 'profile.watch_history'.tr(),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1509,7 +1519,7 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
               const Divider(color: AppColors.divider, height: 1),
               _Tile(
                 icon: Icons.download_rounded,
-                title: 'Downloads',
+                title: 'profile.downloads'.tr(),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1535,8 +1545,10 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
               _Tile(
                 icon: Icons.devices_rounded,
                 title: BridgeControl.canHost
-                    ? 'Share sources to desktop'
-                    : 'Desktop sources',
+                    ? 'profile.share_sources_desktop'.tr()
+                    : Platform.isIOS
+                        ? 'ios.sources_title'.tr()
+                        : 'profile.desktop_sources'.tr(),
                 trailing: const Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.textHint,
@@ -1629,6 +1641,56 @@ class _SecuritySectionState extends State<_SecuritySection> {
   }
 }
 
+/// Desktop-only: appearance settings (currently the native-vs-custom title bar).
+class _AppearanceSection extends StatefulWidget {
+  const _AppearanceSection();
+
+  @override
+  State<_AppearanceSection> createState() => _AppearanceSectionState();
+}
+
+class _AppearanceSectionState extends State<_AppearanceSection> {
+  late bool _native = getIt<HiveService>().useNativeTitleBar;
+
+  Future<void> _toggle(bool value) async {
+    setState(() => _native = value);
+    await getIt<HiveService>().setUseNativeTitleBar(value);
+    await DesktopWindow.setNativeTitleBar(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionLabel('profile.section_appearance'.tr()),
+          const SizedBox(height: 8),
+          _SectionCard(
+            children: [
+              SwitchListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                value: _native,
+                activeThumbColor: AppColors.primary,
+                secondary: const Icon(Icons.web_asset_rounded,
+                    color: AppColors.textSecondary),
+                title: Text('profile.native_window_bar'.tr(),
+                    style: const TextStyle(
+                        color: AppColors.textPrimary, fontSize: 15)),
+                subtitle: Text('profile.native_window_bar_subtitle'.tr(),
+                    style: const TextStyle(
+                        color: AppColors.textHint, fontSize: 12)),
+                onChanged: _toggle,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AboutSection extends StatelessWidget {
   const _AboutSection();
 
@@ -1698,9 +1760,9 @@ class _AboutSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 3),
-              const Text(
-                'Mobile Developer',
-                style: TextStyle(
+              Text(
+                'profile.developer_role'.tr(),
+                style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                 ),
@@ -1761,7 +1823,7 @@ class _AboutSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionLabel('ABOUT'),
+          _SectionLabel('profile.section_about'.tr()),
           const SizedBox(height: 8),
           _SectionCard(
             children: [
@@ -1777,7 +1839,7 @@ class _AboutSection extends StatelessWidget {
               Divider(color: AppColors.divider, height: 1),
               _Tile(
                 icon: Icons.person_outline_rounded,
-                title: 'Developer',
+                title: 'profile.developer'.tr(),
                 trailing: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1812,7 +1874,7 @@ class _AboutSection extends StatelessWidget {
               const SizedBox(width: 16),
               _SocialIcon(
                 icon: Icons.language_rounded,
-                label: 'Website',
+                label: 'profile.website'.tr(),
                 onTap: () => _open('https://sozo.azamov.me'),
               ),
               const SizedBox(width: 16),
@@ -2171,10 +2233,10 @@ class _ServerCountdownTileState extends State<_ServerCountdownTile> {
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Server',
-                  style: TextStyle(
+                  'profile.server'.tr(),
+                  style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
@@ -2185,7 +2247,7 @@ class _ServerCountdownTileState extends State<_ServerCountdownTile> {
                 valueListenable: _remaining,
                 builder: (_, rem, _) {
                   return Text(
-                    rem == Duration.zero ? 'Expired' : _fmt(rem),
+                    rem == Duration.zero ? 'profile.expired'.tr() : _fmt(rem),
                     style: TextStyle(
                       color: rem == Duration.zero
                           ? AppColors.primary
@@ -2245,9 +2307,9 @@ class _ServerSupportSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          const Text(
-            'Keep Sozo Running',
-            style: TextStyle(
+          Text(
+            'profile.support_title'.tr(),
+            style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w800,
@@ -2267,10 +2329,10 @@ class _ServerSupportSheet extends StatelessWidget {
                     color: AppColors.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
-                    'Server Expired',
+                  child: Text(
+                    'profile.server_expired'.tr(),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppColors.primary,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -2284,13 +2346,13 @@ class _ServerSupportSheet extends StatelessWidget {
               final s = rem.inSeconds.remainder(60);
               return Row(
                 children: [
-                  _SheetCountdownCell(value: d, label: 'Days'),
+                  _SheetCountdownCell(value: d, label: 'profile.days'.tr()),
                   const SizedBox(width: 8),
-                  _SheetCountdownCell(value: h, label: 'Hours'),
+                  _SheetCountdownCell(value: h, label: 'profile.hours'.tr()),
                   const SizedBox(width: 8),
-                  _SheetCountdownCell(value: m, label: 'Min'),
+                  _SheetCountdownCell(value: m, label: 'profile.min'.tr()),
                   const SizedBox(width: 8),
-                  _SheetCountdownCell(value: s, label: 'Sec'),
+                  _SheetCountdownCell(value: s, label: 'profile.sec'.tr()),
                 ],
               );
             },
@@ -2302,8 +2364,8 @@ class _ServerSupportSheet extends StatelessWidget {
               final expired = rem == Duration.zero;
               return Text(
                 expired
-                    ? 'The server has expired and content can no longer be loaded. Your support can help bring it back online.'
-                    : 'Sozo relies on a server that needs periodic renewal. If you enjoy using the app, your support helps keep everything running smoothly.',
+                    ? 'profile.support_body_expired'.tr()
+                    : 'profile.support_body'.tr(),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.textSecondary,
@@ -2326,7 +2388,7 @@ class _ServerSupportSheet extends StatelessWidget {
                 );
               },
               icon: const Icon(Icons.favorite_rounded, size: 18),
-              label: const Text('Support the Developer'),
+              label: Text('profile.support_developer'.tr()),
             ),
           ),
         ],

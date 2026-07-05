@@ -1,6 +1,8 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -56,18 +58,18 @@ class _DownloadsSectionState extends State<DownloadsSection> {
             child: InkWell(
               onTap: () => context.push('/downloads'),
               borderRadius: BorderRadius.circular(8),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.download_done_rounded,
                     color: AppColors.textSecondary,
                     size: 18,
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Downloaded',
-                      style: TextStyle(
+                      'home.downloaded'.tr(),
+                      style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
@@ -75,7 +77,7 @@ class _DownloadsSectionState extends State<DownloadsSection> {
                       ),
                     ),
                   ),
-                  Icon(
+                  const Icon(
                     Icons.chevron_right_rounded,
                     color: AppColors.textHint,
                     size: 22,
@@ -142,7 +144,7 @@ class _DownloadCard extends StatelessWidget {
       '/player',
       extra: PlayerArgs(
         title: item.isSerial && item.episodeNumber != null
-            ? '${item.title} · EP ${item.episodeNumber}'
+            ? '${item.title} · ${'home.ep_number'.tr(args: ['${item.episodeNumber}'])}'
             : item.title,
         provider: item.provider,
         headers: const {},
@@ -159,7 +161,7 @@ class _DownloadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return HoverTap(
       onTap: () => _open(context),
       child: SizedBox(
         width: 150,
@@ -213,7 +215,9 @@ class _DownloadCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
-                              'EP ${item.episodeNumber}',
+                              'home.ep_number'.tr(
+                                args: ['${item.episodeNumber}'],
+                              ),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 9,

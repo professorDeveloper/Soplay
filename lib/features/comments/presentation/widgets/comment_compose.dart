@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
@@ -71,10 +72,10 @@ class _CommentComposeState extends State<CommentCompose> {
   @override
   Widget build(BuildContext context) {
     final hint = widget.editTarget != null
-        ? 'Edit your comment...'
+        ? 'comments.edit_hint'.tr()
         : widget.replyTarget != null
-            ? 'Write a reply...'
-            : 'Write a comment...';
+            ? 'comments.reply_hint'.tr()
+            : 'comments.comment_hint'.tr();
 
     return Material(
       color: AppColors.background,
@@ -105,8 +106,9 @@ class _CommentComposeState extends State<CommentCompose> {
                     Expanded(
                       child: Text(
                         widget.editTarget != null
-                            ? 'Editing'
-                            : 'Replying to ${widget.replyTarget}',
+                            ? 'comments.editing'.tr()
+                            : 'comments.replying_to'
+                                .tr(args: ['${widget.replyTarget}']),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -151,7 +153,7 @@ class _CommentComposeState extends State<CommentCompose> {
                       decoration: InputDecoration(
                         hintText: widget.enabled
                             ? hint
-                            : 'Sign in to comment',
+                            : 'comments.sign_in_to_comment'.tr(),
                         hintStyle: const TextStyle(
                           color: AppColors.textHint,
                           fontSize: 13,

@@ -32,7 +32,10 @@ class StreakService {
       ValueNotifier<StreakState>(StreakState.empty);
   final StreamController<int> milestones = StreamController<int>.broadcast();
 
-  bool _pingedThisSession = false;
+  // The local calendar day (yyyy-mm-dd) of the last *successful* ping. Debounces
+  // to one ping per day rather than one per app process, so a long-lived app that
+  // crosses midnight still records the new day. Null = not pinged yet this run.
+  String? _lastPingDay;
   bool _refreshInFlight = false;
 
   Box get _box => Hive.box(AppConstants.streakBox);
@@ -53,7 +56,19 @@ class StreakService {
     } catch (_) {}
   }
 
+  // A best-effort zone name (for storage/debug) plus the reliable part: the UTC
+  // offset in minutes (e.g. +300 for UTC+5). The backend does its day/hour math
+  // from the offset because `timeZoneName` is a non-IANA OS string on every
+  // platform (Windows "West Asia Standard Time", Android "GMT+05:00", …).
   String _timezone() => DateTime.now().timeZoneName;
+  int _tzOffset() => DateTime.now().timeZoneOffset.inMinutes;
+
+  String _todayLocal() {
+    final n = DateTime.now();
+    final m = n.month.toString().padLeft(2, '0');
+    final d = n.day.toString().padLeft(2, '0');
+    return '${n.year}-$m-$d';
+  }
 
   /// Fetch the latest state from the backend. Safe to call eagerly; if not
   /// logged in or the call fails the cached state is kept.
@@ -61,7 +76,7 @@ class StreakService {
     if (!_hive.isLoggedIn || _refreshInFlight) return;
     _refreshInFlight = true;
     try {
-      final fresh = await _remote.getMe(_timezone());
+      final fresh = await _remote.getMe(_timezone(), _tzOffset());
       state.value = fresh;
       await _writeCache(fresh);
     } catch (_) {
@@ -71,13 +86,16 @@ class StreakService {
     }
   }
 
-  /// Mark "watched today". Idempotent within a single app session.
+  /// Mark "watched today". Debounced to once per local calendar day (not once
+  /// per process), so a session that spans midnight records the next day too.
   /// Returns the new milestone (e.g. 7) when the user just crossed one.
   Future<int?> ping() async {
-    if (!_hive.isLoggedIn || _pingedThisSession) return null;
-    _pingedThisSession = true;
+    if (!_hive.isLoggedIn) return null;
+    final today = _todayLocal();
+    if (_lastPingDay == today) return null;
     try {
-      final result = await _remote.ping(_timezone());
+      final result = await _remote.ping(_timezone(), _tzOffset());
+      _lastPingDay = today;
       state.value = result.state;
       await _writeCache(result.state);
       if (result.newMilestone != null && !milestones.isClosed) {
@@ -85,14 +103,13 @@ class StreakService {
       }
       return result.newMilestone;
     } catch (_) {
-      // Allow another attempt later in the session.
-      _pingedThisSession = false;
+      // Leave _lastPingDay unset so a later watch this day can retry.
       return null;
     }
   }
 
   void reset() {
-    _pingedThisSession = false;
+    _lastPingDay = null;
     state.value = StreakState.empty;
     _box.delete(AppConstants.streakStateKey).catchError((_) {});
   }

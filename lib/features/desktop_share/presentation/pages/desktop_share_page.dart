@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -36,6 +39,10 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
   bool _loadingProviders = false;
 
   bool get _isHost => BridgeControl.canHost;
+
+  // A client that is an iPhone/iPad (not a desktop). Both are Dalvik-less and use
+  // the phone as the extension host, but the wording must say "iOS", not "desktop".
+  bool get _isIosClient => !_isHost && Platform.isIOS;
 
   @override
   void initState() {
@@ -134,8 +141,8 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
     if (!mounted) return;
     setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Saved — tap "Refresh sources" on the PC to update it.'),
+      SnackBar(
+        content: Text('desktop.saved_refresh_on_pc'.tr()),
       ),
     );
   }
@@ -150,8 +157,8 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
       SnackBar(
         content: Text(
           url.isEmpty
-              ? 'Desktop sources turned off.'
-              : 'Saved — loading sources from your phone…',
+              ? 'desktop.sources_turned_off'.tr()
+              : 'desktop.saved_loading_sources'.tr(),
         ),
       ),
     );
@@ -162,7 +169,7 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
   void _refreshDesktopSources() {
     context.read<ProviderBloc>().add(const ProviderLoad());
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Refreshing sources from your phone…')),
+      SnackBar(content: Text('desktop.refreshing_sources'.tr())),
     );
   }
 
@@ -182,7 +189,11 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
         scrolledUnderElevation: 0,
         elevation: 0,
         centerTitle: isDesktopPlatform,
-        title: Text(_isHost ? 'Share sources to desktop' : 'Desktop sources'),
+        title: Text(_isHost
+            ? 'desktop.share_title'.tr()
+            : _isIosClient
+                ? 'ios.sources_title'.tr()
+                : 'desktop.sources_title'.tr()),
       ),
       // Desktop: keep the column centred and readable instead of edge-to-edge.
       body: isDesktopPlatform
@@ -199,22 +210,23 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
       _card(
         child: Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Share sources with desktop',
-                    style: TextStyle(
+                    'desktop.share_with_desktop'.tr(),
+                    style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
-                    'Let the Sozo PC app use this phone’s sources.',
-                    style: TextStyle(color: AppColors.textHint, fontSize: 12),
+                    'desktop.let_pc_use_sources'.tr(),
+                    style: const TextStyle(
+                        color: AppColors.textHint, fontSize: 12),
                   ),
                 ],
               ),
@@ -240,9 +252,9 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Your link',
-                style: TextStyle(color: AppColors.textHint, fontSize: 12),
+              Text(
+                'desktop.your_link'.tr(),
+                style: const TextStyle(color: AppColors.textHint, fontSize: 12),
               ),
               const SizedBox(height: 6),
               Row(
@@ -263,7 +275,7 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: link));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Link copied')),
+                        SnackBar(content: Text('desktop.link_copied'.tr())),
                       );
                     },
                   ),
@@ -274,10 +286,9 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
         )
       else if (_status.enabled)
         _card(
-          child: const Text(
-            "Turned on, but no Wi‑Fi address was found. Connect this phone to "
-            "Wi‑Fi (not mobile data), then reopen this screen.",
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          child: Text(
+            'desktop.no_wifi_address'.tr(),
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
         ),
       if (_status.enabled) ...[
@@ -285,12 +296,12 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
         _sourcePickerCard(),
       ],
       const SizedBox(height: 16),
-      _instructions(const [
-        'Keep this phone and your PC on the same Wi‑Fi network.',
-        'Turn on the switch above.',
-        'Pick which sources to share (or leave “Share all” on).',
-        'On the PC, open Sozo → Profile → Desktop sources and paste the link.',
-        'Keep Sozo open on this phone while you browse on the PC.',
+      _instructions([
+        'desktop.step_host_same_wifi'.tr(),
+        'desktop.step_host_turn_on'.tr(),
+        'desktop.step_host_pick_sources'.tr(),
+        'desktop.step_host_paste_on_pc'.tr(),
+        'desktop.step_host_keep_open'.tr(),
       ]),
     ];
   }
@@ -305,10 +316,10 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Sources to share',
-                  style: TextStyle(
+                  'desktop.sources_to_share'.tr(),
+                  style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -316,7 +327,7 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
                 ),
               ),
               IconButton(
-                tooltip: 'Reload from phone',
+                tooltip: 'desktop.reload_from_phone'.tr(),
                 icon: const Icon(Icons.refresh_rounded,
                     size: 20, color: AppColors.textSecondary),
                 onPressed: _loadingProviders ? null : _loadProviders,
@@ -328,14 +339,15 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
             dense: true,
             value: _shareAll,
             activeThumbColor: AppColors.primary,
-            title: const Text(
-              'Share all sources',
-              style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
+            title: Text(
+              'desktop.share_all_sources'.tr(),
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
             ),
             subtitle: Text(
               _shareAll
-                  ? 'Every source on this phone is shared'
-                  : 'Sharing $sharedCount of $total',
+                  ? 'desktop.every_source_shared'.tr()
+                  : 'desktop.sharing_count'
+                      .tr(args: ['$sharedCount', '$total']),
               style: const TextStyle(color: AppColors.textHint, fontSize: 12),
             ),
             onChanged: (v) => setState(() {
@@ -363,7 +375,7 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
               ),
               onPressed: _busy ? null : _saveSelection,
               icon: const Icon(Icons.check_rounded, size: 18),
-              label: const Text('Save & send to desktop'),
+              label: Text('desktop.save_send_to_desktop'.tr()),
             ),
           ),
         ],
@@ -375,7 +387,7 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
     return Row(
       children: [
         Text(
-          '${_picked.length} selected',
+          'desktop.n_selected'.tr(args: ['${_picked.length}']),
           style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
         const Spacer(),
@@ -384,11 +396,11 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
               ? null
               : () => setState(
                   () => _picked.addAll(_providers.map((p) => p.id))),
-          child: const Text('Select all'),
+          child: Text('desktop.select_all'.tr()),
         ),
         TextButton(
           onPressed: _picked.isEmpty ? null : () => setState(_picked.clear),
-          child: const Text('Clear'),
+          child: Text('desktop.clear'.tr()),
         ),
       ],
     );
@@ -408,12 +420,11 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
       );
     }
     if (_providers.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Text(
-          'No sources on this phone yet. Add some in Profile → CloudStream / '
-          'Aniyomi / Manga Sources, then reload here.',
-          style: TextStyle(color: AppColors.textHint, fontSize: 13),
+          'desktop.no_sources_yet'.tr(),
+          style: const TextStyle(color: AppColors.textHint, fontSize: 13),
         ),
       );
     }
@@ -509,9 +520,9 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Phone link',
-              style: TextStyle(color: AppColors.textHint, fontSize: 12),
+            Text(
+              'desktop.phone_link'.tr(),
+              style: const TextStyle(color: AppColors.textHint, fontSize: 12),
             ),
             const SizedBox(height: 6),
             TextField(
@@ -532,7 +543,7 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
                   foregroundColor: Colors.white,
                 ),
                 onPressed: _saveUrl,
-                child: const Text('Save'),
+                child: Text('general.save'.tr()),
               ),
             ),
             const SizedBox(height: 8),
@@ -541,21 +552,30 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
               child: OutlinedButton.icon(
                 onPressed: _refreshDesktopSources,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Refresh sources'),
+                label: Text('desktop.refresh_sources'.tr()),
               ),
             ),
           ],
         ),
       ),
       const SizedBox(height: 16),
-      _instructions(const [
-        'Keep this PC and your phone on the same Wi‑Fi network.',
-        'On the phone, open Sozo → Profile → Share sources to desktop and turn it on.',
-        'On the phone, choose which sources to share (or leave “Share all” on).',
-        'Copy the link shown there, paste it above, then tap Save.',
-        'Changed the shared sources on the phone? Tap "Refresh sources" here.',
-        'Keep Sozo open on the phone while you browse here.',
-      ]),
+      _instructions(
+        [
+          (_isIosClient
+                  ? 'ios.step_client_same_wifi'
+                  : 'desktop.step_client_same_wifi')
+              .tr(),
+          'desktop.step_client_open_on_phone'.tr(),
+          'desktop.step_client_choose_sources'.tr(),
+          'desktop.step_client_copy_link'.tr(),
+          'desktop.step_client_refresh'.tr(),
+          'desktop.step_client_keep_open'.tr(),
+          // The emulator hint is about an Android emulator + adb on a PC — it
+          // doesn't apply to a real iPhone/iPad, so hide it there.
+          if (!_isIosClient) 'desktop.step_client_emulator'.tr(),
+        ],
+        descKey: _isIosClient ? 'ios.how_it_works_desc' : null,
+      ),
     ];
   }
 
@@ -574,23 +594,22 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
         child: child,
       );
 
-  Widget _instructions(List<String> steps) => _card(
+  Widget _instructions(List<String> steps, {String? descKey}) => _card(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'How it works',
-              style: TextStyle(
+            Text(
+              'desktop.how_it_works'.tr(),
+              style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Use your CloudStream, Aniyomi & manga sources on the Sozo desktop '
-              'app. The phone runs the sources; the PC just views them.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            Text(
+              (descKey ?? 'desktop.how_it_works_desc').tr(),
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 12),
             for (var i = 0; i < steps.length; i++)

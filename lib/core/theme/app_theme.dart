@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../system/platform_utils.dart';
 import 'app_colors.dart';
 
 class AppTheme {
@@ -237,8 +238,13 @@ class AppTheme {
         snackBarTheme: SnackBarThemeData(
           backgroundColor: AppColors.surfaceVariant,
           contentTextStyle: const TextStyle(color: AppColors.textPrimary),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(isDesktopPlatform ? 10 : 4),
+          ),
           behavior: SnackBarBehavior.floating,
+          elevation: isDesktopPlatform ? 6 : null,
+          // Desktop: a compact, centred toast instead of an edge-to-edge bar.
+          width: isDesktopPlatform ? 420 : null,
         ),
         dialogTheme: DialogThemeData(
           backgroundColor: AppColors.surface,

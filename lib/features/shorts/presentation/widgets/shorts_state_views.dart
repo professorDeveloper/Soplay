@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
@@ -28,9 +29,9 @@ class ShortsLoadingView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Loading shorts...',
-              style: TextStyle(
+            Text(
+              'shorts.loading'.tr(),
+              style: const TextStyle(
                 color: Colors.white54,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -48,10 +49,10 @@ class ShortsEmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _ShortsMessage(
+    return _ShortsMessage(
       icon: Icons.movie_filter_outlined,
-      title: 'No shorts yet',
-      message: 'Short clips will appear here once they are available.',
+      title: 'shorts.empty_title'.tr(),
+      message: 'shorts.empty_subtitle'.tr(),
     );
   }
 }
@@ -70,9 +71,9 @@ class ShortsErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ShortsMessage(
       icon: Icons.wifi_off_rounded,
-      title: 'Could not load shorts',
+      title: 'shorts.error_title'.tr(),
       message: message,
-      actionLabel: 'Try Again',
+      actionLabel: 'general.try_again'.tr(),
       onAction: onRetry,
     );
   }

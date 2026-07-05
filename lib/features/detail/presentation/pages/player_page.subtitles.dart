@@ -57,19 +57,19 @@ extension _PlayerSubtitles on _PlayerPageState {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.subtitles_rounded,
                       color: Colors.white,
                       size: 18,
                     ),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Text(
-                      'Subtitles',
-                      style: TextStyle(
+                      'player.subtitles'.tr(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -80,7 +80,7 @@ extension _PlayerSubtitles on _PlayerPageState {
               ),
               const Divider(color: Colors.white12, height: 1),
               _OptionTile(
-                label: 'Off',
+                label: 'player.off'.tr(),
                 selected: _activeSubtitleIndex == -1,
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -100,23 +100,25 @@ extension _PlayerSubtitles on _PlayerPageState {
               ListTile(
                 leading: const Icon(Icons.travel_explore_rounded,
                     color: Colors.white70, size: 20),
-                title: const Text('Search online',
-                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                title: Text('player.search_online'.tr(),
+                    style: const TextStyle(color: Colors.white, fontSize: 14)),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   _searchOnlineSubtitles();
                 },
               ),
+              // Subtitle sync only has a visible effect when a subtitle is on.
+              if (_activeSubtitleIndex != -1)
               ListTile(
                 leading: const Icon(Icons.av_timer_rounded,
                     color: Colors.white70, size: 20),
-                title: const Text('Subtitle sync',
-                    style: TextStyle(color: Colors.white, fontSize: 14)),
-                subtitle: const Text('Shift timing to match the audio',
-                    style: TextStyle(color: Colors.white38, fontSize: 11)),
-                trailing: _subtitleOffsetMs == 0
+                title: Text('player.subtitle_sync'.tr(),
+                    style: const TextStyle(color: Colors.white, fontSize: 14)),
+                subtitle: Text('player.subtitle_sync_desc'.tr(),
+                    style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                trailing: _subtitleOffsetMs.value == 0
                     ? null
-                    : Text(_fmtSubtitleOffset(_subtitleOffsetMs),
+                    : Text(_fmtSubtitleOffset(_subtitleOffsetMs.value),
                         style: const TextStyle(
                             color: Colors.white54, fontSize: 12)),
                 onTap: () {
@@ -149,24 +151,24 @@ extension _PlayerSubtitles on _PlayerPageState {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Subtitle API key',
-            style: TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text('player.subtitle_api_key'.tr(),
+            style: const TextStyle(color: Colors.white, fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Claim a free Wyzie key at store.wyzie.io/redeem, then paste it here.',
-              style: TextStyle(color: Colors.white60, fontSize: 12.5),
+            Text(
+              'player.wyzie_key_hint'.tr(),
+              style: const TextStyle(color: Colors.white60, fontSize: 12.5),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
               autofocus: true,
               style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                hintText: 'API key',
-                hintStyle: TextStyle(color: Colors.white38),
+              decoration: InputDecoration(
+                hintText: 'player.api_key'.tr(),
+                hintStyle: const TextStyle(color: Colors.white38),
               ),
             ),
           ],
@@ -174,11 +176,11 @@ extension _PlayerSubtitles on _PlayerPageState {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
+            child: Text('general.cancel'.tr()),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('Save'),
+            child: Text('general.save'.tr()),
           ),
         ],
       ),
@@ -202,127 +204,224 @@ extension _PlayerSubtitles on _PlayerPageState {
     return _hive.getOpenSubtitlesKey();
   }
 
-  Future<String?> _promptSearchQuery(String initial) {
-    final controller = TextEditingController(text: initial);
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Search subtitles',
-            style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Title / movie name',
-            hintStyle: TextStyle(color: Colors.white38),
-          ),
-          onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('Search'),
-          ),
-        ],
-      ),
-    );
-  }
-
+  /// One combined sheet: a query field plus inline results, so searching a
+  /// subtitle is a single screen (the old flow chained a query dialog → a
+  /// separate results sheet, which felt clunky — especially on mobile). It
+  /// auto-runs once with the title prefilled. Works on mobile and desktop.
   Future<void> _searchOnlineSubtitles() async {
     var key = _wyzieKey();
     if (key.isEmpty) {
       key = await _promptWyzieKey() ?? '';
       if (key.isEmpty || !mounted) return;
     }
-    final initial = widget.args.title.replaceAll(RegExp(r'\(.*?\)'), '').trim();
-    final query = await _promptSearchQuery(initial);
-    if (query == null || query.trim().isEmpty || !mounted) return;
-    _toast('Searching subtitles…');
-    try {
-      final results = await OnlineSubtitlesService.search(
-        wyzieKey: key,
-        title: query.trim(),
-        isSerial: widget.args.isSerial,
-        episode: _currentEpisodeNumber(),
-      );
-      if (!mounted) return;
-      if (results.isEmpty) {
-        _toast('No subtitles found');
-        return;
-      }
-      _pickOnlineSubtitle(results);
-    } catch (e) {
-      if (mounted) _toast('Search failed: $e');
-    }
-  }
+    final wyzieKey = key;
+    final queryCtrl = TextEditingController(
+      text: widget.args.title.replaceAll(RegExp(r'\(.*?\)'), '').trim(),
+    );
 
-  void _pickOnlineSubtitle(List<OnlineSubtitle> results) {
-    showAdaptiveModal<void>(
+    await showAdaptiveModal<void>(
       context: context,
       backgroundColor: const Color(0xFF111111),
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-              child: Text('Online subtitles · ${results.length}',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800)),
-            ),
-            const Divider(color: Colors.white12, height: 1),
-            for (final r in results.take(60))
-              ListTile(
-                dense: true,
-                // Show the exact release / file name when the provider gives it,
-                // so the user can match the subtitle to their video.
-                title: Text(
-                    r.fileName.isNotEmpty ? r.fileName : r.display,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 13)),
-                subtitle: Text(
-                    [
-                      r.language,
-                      if (r.fileName.isNotEmpty &&
-                          r.display.isNotEmpty &&
-                          r.display.toUpperCase() != r.language)
-                        r.display,
-                      if (r.format.isNotEmpty) r.format,
-                      if (r.hearingImpaired) 'CC',
-                      '${r.downloadCount} ↓',
-                    ].join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(color: Colors.white54, fontSize: 11)),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _applyOnlineSubtitle(r);
-                },
+      desktopMaxWidth: 520,
+      builder: (sheetCtx) {
+        var started = false;
+        var loading = false;
+        var searched = false;
+        String? error;
+        List<OnlineSubtitle> results = const [];
+
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            Future<void> runSearch() async {
+              final q = queryCtrl.text.trim();
+              if (q.isEmpty || loading) return;
+              FocusScope.of(ctx).unfocus();
+              setSheet(() {
+                loading = true;
+                searched = true;
+                error = null;
+              });
+              try {
+                final r = await OnlineSubtitlesService.search(
+                  wyzieKey: wyzieKey,
+                  title: q,
+                  isSerial: widget.args.isSerial,
+                  episode: _currentEpisodeNumber(),
+                );
+                if (!ctx.mounted) return;
+                setSheet(() {
+                  results = r;
+                  loading = false;
+                });
+              } catch (e) {
+                if (!ctx.mounted) return;
+                setSheet(() {
+                  error = '$e';
+                  results = const [];
+                  loading = false;
+                });
+              }
+            }
+
+            // Auto-run the first search with the prefilled title.
+            if (!started) {
+              started = true;
+              WidgetsBinding.instance
+                  .addPostFrameCallback((_) => runSearch());
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding:
+                    EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.travel_explore_rounded,
+                              color: Colors.white, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text('player.search_subtitles'.tr(),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextField(
+                        controller: queryCtrl,
+                        style: const TextStyle(color: Colors.white),
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (_) => runSearch(),
+                        decoration: InputDecoration(
+                          hintText: 'player.subtitle_search_hint'.tr(),
+                          hintStyle: const TextStyle(color: Colors.white38),
+                          filled: true,
+                          fillColor: Colors.white10,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          suffixIcon: IconButton(
+                            tooltip: 'general.search'.tr(),
+                            icon: loading
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white70))
+                                : const Icon(Icons.search_rounded,
+                                    color: Colors.white70),
+                            onPressed: loading ? null : runSearch,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 360),
+                      child: _subtitleResults(
+                          sheetCtx, loading, searched, error, results),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
               ),
-            const SizedBox(height: 8),
-          ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _subtitleResults(
+    BuildContext sheetCtx,
+    bool loading,
+    bool searched,
+    String? error,
+    List<OnlineSubtitle> results,
+  ) {
+    if (loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(child: CircularProgressIndicator(color: Colors.white54)),
+      );
+    }
+    if (error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Text('player.search_failed'.tr(args: [error]),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white54, fontSize: 13)),
         ),
-      ),
+      );
+    }
+    if (searched && results.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Text('player.no_subtitles_found'.tr(),
+              style: const TextStyle(color: Colors.white54, fontSize: 13)),
+        ),
+      );
+    }
+    return ListView(
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      children: [
+        for (final r in results.take(60))
+          ListTile(
+            dense: true,
+            // Show the exact release / file name so the user can match the
+            // subtitle to their video.
+            title: Text(r.fileName.isNotEmpty ? r.fileName : r.display,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 13)),
+            subtitle: Text(
+                [
+                  r.language,
+                  if (r.fileName.isNotEmpty &&
+                      r.display.isNotEmpty &&
+                      r.display.toUpperCase() != r.language)
+                    r.display,
+                  if (r.format.isNotEmpty) r.format,
+                  if (r.hearingImpaired) 'CC',
+                  '${r.downloadCount} ↓',
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            onTap: () {
+              Navigator.of(sheetCtx).pop();
+              _applyOnlineSubtitle(r);
+            },
+          ),
+      ],
     );
   }
 
   Future<void> _applyOnlineSubtitle(OnlineSubtitle sub) async {
     if (sub.url.isEmpty) return;
-    _toast('Loading subtitle…');
+    _toast('player.loading_subtitle'.tr());
     // Prefer the exact release name so the loaded-subtitles list shows it.
     final name = sub.fileName.isNotEmpty ? sub.fileName : sub.display;
     final entity = SubtitleEntity(
@@ -331,7 +430,7 @@ extension _PlayerSubtitles on _PlayerPageState {
     );
     setState(() => _subtitles = [..._subtitles, entity]);
     await _loadSubtitle(_subtitles.length - 1);
-    if (mounted) _toast('Subtitle loaded');
+    if (mounted) _toast('player.subtitle_loaded'.tr());
   }
 
   String _fmtSubtitleOffset(int ms) {
@@ -357,8 +456,11 @@ extension _PlayerSubtitles on _PlayerPageState {
           builder: (ctx, setSheet) {
             void setOffset(int ms) {
               final clamped = ms.clamp(-20000, 20000);
+              // Only the overlay listens to this notifier, so a drag no longer
+              // rebuilds the whole player. setSheet refreshes this sheet's own
+              // number/slider.
+              _subtitleOffsetMs.value = clamped;
               setSheet(() {});
-              setState(() => _subtitleOffsetMs = clamped);
             }
 
             Widget btn(String label, int delta) => Padding(
@@ -370,7 +472,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                     ),
-                    onPressed: () => setOffset(_subtitleOffsetMs + delta),
+                    onPressed: () => setOffset(_subtitleOffsetMs.value + delta),
                     child: Text(label),
                   ),
                 );
@@ -389,9 +491,9 @@ extension _PlayerSubtitles on _PlayerPageState {
                           const Icon(Icons.av_timer_rounded,
                               color: Colors.white, size: 18),
                           const SizedBox(width: 10),
-                          const Expanded(
-                            child: Text('Subtitle sync',
-                                style: TextStyle(
+                          Expanded(
+                            child: Text('player.subtitle_sync'.tr(),
+                                style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w800)),
@@ -400,8 +502,8 @@ extension _PlayerSubtitles on _PlayerPageState {
                             onPressed: () => setOffset(0),
                             icon: const Icon(Icons.restart_alt_rounded,
                                 size: 16, color: Colors.white70),
-                            label: const Text('Reset',
-                                style: TextStyle(
+                            label: Text('player.reset'.tr(),
+                                style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600)),
@@ -410,18 +512,18 @@ extension _PlayerSubtitles on _PlayerPageState {
                       ),
                     ),
                     const Divider(color: Colors.white12, height: 1),
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                       child: Text(
-                          'Subtitles too early? Increase (+). Too late? Decrease (−).',
-                          style:
-                              TextStyle(color: Colors.white54, fontSize: 12)),
+                          'player.subtitle_sync_help'.tr(),
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 12)),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Center(
                         child: Text(
-                          _fmtSubtitleOffset(_subtitleOffsetMs),
+                          _fmtSubtitleOffset(_subtitleOffsetMs.value),
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 26,
@@ -453,9 +555,10 @@ extension _PlayerSubtitles on _PlayerPageState {
                           min: -10000,
                           max: 10000,
                           divisions: 400,
-                          value:
-                              _subtitleOffsetMs.toDouble().clamp(-10000, 10000),
-                          label: _fmtSubtitleOffset(_subtitleOffsetMs),
+                          value: _subtitleOffsetMs.value
+                              .toDouble()
+                              .clamp(-10000, 10000),
+                          label: _fmtSubtitleOffset(_subtitleOffsetMs.value),
                           onChanged: (v) => setOffset(v.round()),
                         ),
                       ),
@@ -504,10 +607,10 @@ extension _PlayerSubtitles on _PlayerPageState {
                             size: 18,
                           ),
                           const SizedBox(width: 10),
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Subtitle style',
-                              style: TextStyle(
+                              'player.subtitle_style'.tr(),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -521,9 +624,9 @@ extension _PlayerSubtitles on _PlayerPageState {
                               size: 16,
                               color: Colors.white70,
                             ),
-                            label: const Text(
-                              'Reset',
-                              style: TextStyle(
+                            label: Text(
+                              'player.reset'.tr(),
+                              style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -536,7 +639,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                     const Divider(color: Colors.white12, height: 1),
                     _SubtitlePreview(style: _subtitleStyle),
                     const SizedBox(height: 4),
-                    _SheetSectionLabel('Font size'),
+                    _SheetSectionLabel('player.font_size'.tr()),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Row(
@@ -596,7 +699,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                         ],
                       ),
                     ),
-                    _SheetSectionLabel('Text color'),
+                    _SheetSectionLabel('player.text_color'.tr()),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                       child: Wrap(
@@ -614,7 +717,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                         ],
                       ),
                     ),
-                    _SheetSectionLabel('Background'),
+                    _SheetSectionLabel('player.background'.tr()),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SliderTheme(
@@ -643,17 +746,17 @@ extension _PlayerSubtitles on _PlayerPageState {
                       padding: const EdgeInsets.symmetric(horizontal: 22),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: const [
+                        children: [
                           Text(
-                            'None',
-                            style: TextStyle(
+                            'player.none'.tr(),
+                            style: const TextStyle(
                               color: Colors.white38,
                               fontSize: 11,
                             ),
                           ),
                           Text(
-                            'Solid',
-                            style: TextStyle(
+                            'player.solid'.tr(),
+                            style: const TextStyle(
                               color: Colors.white38,
                               fontSize: 11,
                             ),
@@ -661,29 +764,29 @@ extension _PlayerSubtitles on _PlayerPageState {
                         ],
                       ),
                     ),
-                    _SheetSectionLabel('Edge'),
+                    _SheetSectionLabel('player.edge'.tr()),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _ChipRow<SubtitleEdge>(
                         value: _subtitleStyle.edge,
-                        items: const [
-                          (SubtitleEdge.none, 'None'),
-                          (SubtitleEdge.shadow, 'Shadow'),
-                          (SubtitleEdge.outline, 'Outline'),
+                        items: [
+                          (SubtitleEdge.none, 'player.none'.tr()),
+                          (SubtitleEdge.shadow, 'player.shadow'.tr()),
+                          (SubtitleEdge.outline, 'player.outline'.tr()),
                         ],
                         onChanged: (v) =>
                             apply(_subtitleStyle.copyWith(edge: v)),
                       ),
                     ),
-                    _SheetSectionLabel('Position'),
+                    _SheetSectionLabel('player.position'.tr()),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _ChipRow<SubtitlePosition>(
                         value: _subtitleStyle.position,
-                        items: const [
-                          (SubtitlePosition.lower, 'Lower'),
-                          (SubtitlePosition.normal, 'Default'),
-                          (SubtitlePosition.higher, 'Higher'),
+                        items: [
+                          (SubtitlePosition.lower, 'player.lower'.tr()),
+                          (SubtitlePosition.normal, 'player.default'.tr()),
+                          (SubtitlePosition.higher, 'player.higher'.tr()),
                         ],
                         onChanged: (v) =>
                             apply(_subtitleStyle.copyWith(position: v)),
@@ -708,10 +811,10 @@ extension _PlayerSubtitles on _PlayerPageState {
                                 size: 22,
                               ),
                               const SizedBox(width: 12),
-                              const Expanded(
+                              Expanded(
                                 child: Text(
-                                  'Bold',
-                                  style: TextStyle(
+                                  'player.bold'.tr(),
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -750,27 +853,32 @@ extension _PlayerSubtitles on _PlayerPageState {
       right: 16,
       bottom: _subtitleBottomOffset,
       child: IgnorePointer(
-        child: ValueListenableBuilder<VideoPlayerValue>(
-          valueListenable: c,
-          builder: (_, value, _) {
-            // Apply the user's sync offset: positive shifts subtitles later.
-            final position =
-                value.position - Duration(milliseconds: _subtitleOffsetMs);
-            Caption? active;
-            for (final caption in captions.captions) {
-              if (position >= caption.start && position <= caption.end) {
-                active = caption;
-                break;
+        // Outer: rebuild when the user changes the sync offset (even while
+        // paused). Inner: rebuild as the video position advances.
+        child: ValueListenableBuilder<int>(
+          valueListenable: _subtitleOffsetMs,
+          builder: (_, offsetMs, _) => ValueListenableBuilder<VideoPlayerValue>(
+            valueListenable: c,
+            builder: (_, value, _) {
+              // Apply the user's sync offset: positive shifts subtitles later.
+              final position =
+                  value.position - Duration(milliseconds: offsetMs);
+              Caption? active;
+              for (final caption in captions.captions) {
+                if (position >= caption.start && position <= caption.end) {
+                  active = caption;
+                  break;
+                }
               }
-            }
-            if (active == null || active.text.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            return Align(
-              alignment: Alignment.bottomCenter,
-              child: _styledSubtitle(active.text),
-            );
-          },
+              if (active == null || active.text.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return Align(
+                alignment: Alignment.bottomCenter,
+                child: _styledSubtitle(active.text),
+              );
+            },
+          ),
         ),
       ),
     );

@@ -49,31 +49,30 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
       builder: (dctx) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Reset app lock?',
-          style: TextStyle(
+        title: Text(
+          'app_lock.reset_title'.tr(),
+          style: const TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
-        content: const Text(
-          'This removes the PIN and unlocks Sozo on this computer. Your library '
-          'and history stay. You can set a new PIN later in Profile → App Lock.',
-          style: TextStyle(color: AppColors.textSecondary),
+        content: Text(
+          'app_lock.reset_body'.tr(),
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dctx).pop(false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary),
+            child: Text(
+              'general.cancel'.tr(),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.of(dctx).pop(true),
-            child: const Text(
-              'Reset',
-              style: TextStyle(
+            child: Text(
+              'app_lock.reset'.tr(),
+              style: const TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.w700,
               ),
@@ -193,9 +192,9 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
                     if (isDesktopPlatform)
                       TextButton(
                         onPressed: _resetLock,
-                        child: const Text(
-                          'Forgot PIN?',
-                          style: TextStyle(color: AppColors.textSecondary),
+                        child: Text(
+                          'app_lock.forgot_pin'.tr(),
+                          style: const TextStyle(color: AppColors.textSecondary),
                         ),
                       ),
                     const SizedBox(height: 16),

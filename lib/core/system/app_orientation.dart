@@ -15,6 +15,9 @@ class AppOrientation {
   static const _channel = MethodChannel('app/orientation');
 
   static Future<void> set(List<DeviceOrientation> orientations) async {
+    // Orientation locking is a mobile-only concern — no-op on desktop/web so
+    // callers don't each have to guard it.
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     if (Platform.isIOS) {
       try {
         await _channel.invokeMethod<void>('set', {

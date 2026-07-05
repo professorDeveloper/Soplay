@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -49,10 +50,10 @@ class HistorySection extends StatelessWidget {
                   size: 18,
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Continue Watching',
-                    style: TextStyle(
+                    'home.continue_watching'.tr(),
+                    style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -72,17 +73,17 @@ class HistorySection extends StatelessWidget {
                       minimumSize: const Size(0, 0),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'View all',
-                          style: TextStyle(
+                          'home.view_all'.tr(),
+                          style: const TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        Icon(Icons.chevron_right_rounded, size: 18),
+                        const Icon(Icons.chevron_right_rounded, size: 18),
                       ],
                     ),
                   ),
@@ -163,9 +164,9 @@ class _HistoryCard extends StatelessWidget {
                 Icons.play_arrow_rounded,
                 color: AppColors.primary,
               ),
-              title: const Text(
-                'Resume',
-                style: TextStyle(
+              title: Text(
+                'player.resume'.tr(),
+                style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
@@ -177,9 +178,9 @@ class _HistoryCard extends StatelessWidget {
                 Icons.delete_outline_rounded,
                 color: AppColors.error,
               ),
-              title: const Text(
-                'Remove from continue watching',
-                style: TextStyle(
+              title: Text(
+                'home.remove_from_continue'.tr(),
+                style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
@@ -262,7 +263,9 @@ class _HistoryCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
-                              'EP ${item.episodeNumber}',
+                              'home.ep_number'.tr(
+                                args: ['${item.episodeNumber}'],
+                              ),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 9,

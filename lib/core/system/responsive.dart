@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'platform_utils.dart';
@@ -130,8 +131,83 @@ class PointerRegion extends StatelessWidget {
   }
 }
 
+/// Desktop refresh button that spins on tap so a manual reload gives visible
+/// feedback even when the underlying load is "silent". Renders nothing on
+/// mobile (which uses pull-to-refresh). Optionally reflects a live [spinning]
+/// flag; otherwise it spins once per tap.
+class DesktopRefreshButton extends StatefulWidget {
+  const DesktopRefreshButton({
+    super.key,
+    required this.onRefresh,
+    this.color,
+    this.tooltip,
+    this.spinning = false,
+  });
+
+  final VoidCallback onRefresh;
+  final Color? color;
+  final String? tooltip;
+  final bool spinning;
+
+  @override
+  State<DesktopRefreshButton> createState() => _DesktopRefreshButtonState();
+}
+
+class _DesktopRefreshButtonState extends State<DesktopRefreshButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+
+  @override
+  void didUpdateWidget(covariant DesktopRefreshButton old) {
+    super.didUpdateWidget(old);
+    if (widget.spinning && !_c.isAnimating) {
+      _c.repeat();
+    } else if (!widget.spinning && old.spinning) {
+      _c.animateTo(1, duration: const Duration(milliseconds: 300)).then((_) {
+        if (mounted) _c.reset();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _tap() {
+    if (!widget.spinning) {
+      _c.forward(from: 0);
+    }
+    widget.onRefresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isDesktopPlatform) return const SizedBox.shrink();
+    return IconButton(
+      tooltip: widget.tooltip ?? 'desktop.refresh'.tr(),
+      onPressed: _tap,
+      icon: RotationTransition(
+        turns: _c.drive(CurveTween(curve: Curves.easeInOut)),
+        child: Icon(Icons.refresh_rounded, color: widget.color),
+      ),
+    );
+  }
+}
+
 /// On **desktop** shows a centred [Dialog]; on **mobile** a modal bottom sheet.
-/// The [builder]'s content should be a self-sizing column (works in both).
+///
+/// Desktop contract: the dialog is capped in BOTH width and height and its
+/// content is placed in a vertical [SingleChildScrollView]. Therefore every
+/// [builder] passed here must be **self-sizing** — it must NOT rely on an
+/// external bounded height. Wrap any `Expanded`/`Flexible`/bare `ListView`/
+/// `DraggableScrollableSheet` in your own bounded box (e.g. `SizedBox(height:)`
+/// or `ConstrainedBox(maxHeight:)`), otherwise it asserts under the unbounded
+/// scroll view and leaves an empty dialog over a dark barrier.
 Future<T?> showAdaptiveModal<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -150,7 +226,10 @@ Future<T?> showAdaptiveModal<T>({
         insetPadding: const EdgeInsets.all(24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: desktopMaxWidth),
+          constraints: BoxConstraints(
+            maxWidth: desktopMaxWidth,
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.85,
+          ),
           child: SingleChildScrollView(child: builder(ctx)),
         ),
       ),

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
@@ -16,21 +17,24 @@ class DetailCastTab extends StatelessWidget {
     final hasDirector = director != null && director!.trim().isNotEmpty;
 
     if (cast.isEmpty && !hasDirector) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 56),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 56),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.people_outline_rounded,
                 color: AppColors.textHint,
                 size: 48,
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text(
-                'No cast available',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                'detail.no_cast'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                ),
               ),
             ],
           ),
@@ -89,9 +93,9 @@ class _DirectorTile extends StatelessWidget {
             size: 18,
           ),
           const SizedBox(width: 10),
-          const Text(
-            'Director',
-            style: TextStyle(
+          Text(
+            'movie.director'.tr(),
+            style: const TextStyle(
               color: AppColors.textHint,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -122,8 +126,7 @@ class _CastGridCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return HoverTap(
       onTap: () {
         if (cast.name.trim().isEmpty) return;
         context.push(
@@ -156,9 +159,9 @@ class _CastGridCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 2),
-            const Text(
-              'Actor',
-              style: TextStyle(
+            Text(
+              'detail.actor'.tr(),
+              style: const TextStyle(
                 color: AppColors.textHint,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,

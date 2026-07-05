@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/notifications/domain/entities/notification_item.dart';
 import 'package:soplay/features/notifications/presentation/bloc/notifications_bloc.dart';
@@ -69,16 +69,13 @@ class _NotificationsViewState extends State<_NotificationsView> {
           style: const TextStyle(color: AppColors.textPrimary),
         ),
         actions: [
-          // Desktop can't pull-to-refresh — expose a refresh button.
-          if (isDesktopPlatform)
-            IconButton(
-              tooltip: 'Refresh',
-              icon: const Icon(Icons.refresh_rounded,
-                  color: AppColors.textPrimary),
-              onPressed: () => context
-                  .read<NotificationsBloc>()
-                  .add(const NotificationsRefresh()),
-            ),
+          // Desktop can't pull-to-refresh — expose a spinning refresh button.
+          DesktopRefreshButton(
+            color: AppColors.textPrimary,
+            onRefresh: () => context
+                .read<NotificationsBloc>()
+                .add(const NotificationsRefresh()),
+          ),
           BlocBuilder<NotificationsBloc, NotificationsState>(
             buildWhen: (a, b) => a.unread != b.unread,
             builder: (context, state) {
@@ -120,7 +117,11 @@ class _NotificationsViewState extends State<_NotificationsView> {
             onRefresh: () async {
               context.read<NotificationsBloc>().add(const NotificationsRefresh());
             },
-            child: ListView.separated(
+            // Desktop: cap the width so an image notification's 16:9 poster
+            // doesn't blow up to full-window height. Pass-through on mobile.
+            child: MaxWidthBox(
+              maxWidth: 560,
+              child: ListView.separated(
               controller: _scroll,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               itemCount: state.items.length + (state.hasMore ? 1 : 0),
@@ -145,7 +146,7 @@ class _NotificationsViewState extends State<_NotificationsView> {
                       .add(NotificationsDelete(item.id)),
                 );
               },
-            ),
+            )),
           );
         },
       ),
@@ -191,7 +192,7 @@ class _NotificationTile extends StatelessWidget {
               shape: const CircleBorder(),
               clipBehavior: Clip.antiAlias,
               child: IconButton(
-                tooltip: 'Delete',
+                tooltip: 'general.delete'.tr(),
                 iconSize: 18,
                 visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.close_rounded, color: Colors.white),

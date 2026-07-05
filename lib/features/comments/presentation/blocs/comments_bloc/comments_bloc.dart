@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -155,7 +156,7 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
     Emitter<CommentsState> emit,
   ) async {
     if (!isLoggedIn) {
-      emit(state.copyWith(error: 'Please sign in first'));
+      emit(state.copyWith(error: 'comments.please_sign_in'.tr()));
       return;
     }
     emit(state.copyWith(submitting: true, error: null));
@@ -230,7 +231,7 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
     Emitter<CommentsState> emit,
   ) async {
     if (!isLoggedIn) {
-      emit(state.copyWith(error: 'Please sign in first'));
+      emit(state.copyWith(error: 'comments.please_sign_in'.tr()));
       return;
     }
     final optimistic = _optimisticLike(state, event.id);

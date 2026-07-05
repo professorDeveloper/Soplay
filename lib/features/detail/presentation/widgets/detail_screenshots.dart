@@ -84,7 +84,7 @@ class _ScreenshotCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = screenshot.thumb.isNotEmpty ? screenshot.thumb : screenshot.full;
-    return GestureDetector(
+    return HoverTap(
       onTap: onTap,
       child: Container(
         clipBehavior: Clip.antiAlias,

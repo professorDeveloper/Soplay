@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
@@ -20,12 +21,12 @@ class FavoriteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = item.title.trim().isEmpty ? 'Untitled' : item.title.trim();
+    final title =
+        item.title.trim().isEmpty ? 'my_list.untitled'.tr() : item.title.trim();
     final description = item.description.trim();
     final meta = description.isNotEmpty ? description : item.provider.trim();
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return HoverTap(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

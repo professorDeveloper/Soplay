@@ -33,6 +33,20 @@ import '../../features/home/presentation/pages/home_view_all_page.dart';
 class AppRouter {
   AppRouter._();
 
+  /// Pop the topmost route on the ROOT navigator — a dialog / bottom sheet if
+  /// one is open, otherwise the current page — respecting `PopScope`. Unlike
+  /// `GoRouter.pop()` (which only knows about GoRouter *pages* and would pop the
+  /// page *underneath* an open dialog), this also dismisses imperative overlays.
+  /// Returns true if something was popped. Used for the desktop Esc key.
+  static bool dismissTopmost() {
+    final nav = router.routerDelegate.navigatorKey.currentState;
+    if (nav != null && nav.canPop()) {
+      nav.maybePop();
+      return true;
+    }
+    return false;
+  }
+
   static final router = GoRouter(
     initialLocation: '/splash',
     observers: Platform.isAndroid

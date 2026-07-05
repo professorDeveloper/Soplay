@@ -1,10 +1,12 @@
 import 'dart:ui';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:soplay/features/reports/domain/entities/report_payload.dart';
 import 'package:soplay/features/reports/presentation/widgets/report_sheet.dart';
 import 'package:soplay/core/player/media_controller.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 
 import '../../domain/entities/short_entity.dart';
 
@@ -350,7 +352,10 @@ class _ShortReelItemState extends State<ShortReelItem>
     if (_initialized) {
       return SizedBox.expand(
         child: ColoredBox(
-          color: Colors.black,
+          // Desktop: transparent so the page's blurred backdrop fills the reel's
+          // letterbox (a landscape clip no longer sits on hard black). Mobile is
+          // full-bleed, so keep it black.
+          color: isDesktopPlatform ? Colors.transparent : Colors.black,
           child: Center(
             child: AspectRatio(
               aspectRatio: _vpc!.value.aspectRatio,
@@ -411,19 +416,19 @@ class _ShortReelItemState extends State<ShortReelItem>
     return SizedBox.expand(
       child: ColoredBox(
         color: Colors.black87,
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.broken_image_outlined,
                 color: Colors.white38,
                 size: 48,
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               Text(
-                'Video unavailable',
-                style: TextStyle(color: Colors.white54, fontSize: 13),
+                'shorts.video_unavailable'.tr(),
+                style: const TextStyle(color: Colors.white54, fontSize: 13),
               ),
             ],
           ),
@@ -492,18 +497,18 @@ class _ShortReelItemState extends State<ShortReelItem>
                 color: Colors.black.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.fast_forward_rounded,
                     color: Colors.white,
                     size: 16,
                   ),
-                  SizedBox(width: 6),
+                  const SizedBox(width: 6),
                   Text(
-                    '2x speed',
-                    style: TextStyle(
+                    'shorts.speed_2x'.tr(),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
@@ -526,7 +531,7 @@ class _ShortReelItemState extends State<ShortReelItem>
     );
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Report submitted, thank you')),
+        SnackBar(content: Text('shorts.report_submitted'.tr())),
       );
     }
   }
@@ -885,7 +890,7 @@ class _ShortReelItemState extends State<ShortReelItem>
                           : s.tags.isNotEmpty
                           ? s.tags.first[0].toUpperCase() +
                                 s.tags.first.substring(1)
-                          : 'Movies',
+                          : 'search.movies'.tr(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -897,8 +902,8 @@ class _ShortReelItemState extends State<ShortReelItem>
                     ),
                     Text(
                       s.contentUrl.trim().isNotEmpty
-                          ? 'Watch Full Movie'
-                          : 'Browse Movies',
+                          ? 'shorts.watch_full_movie'.tr()
+                          : 'shorts.browse_movies'.tr(),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 11,

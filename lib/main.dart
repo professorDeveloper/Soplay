@@ -17,6 +17,7 @@ import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/extensions/extension_bridge.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
@@ -34,7 +35,9 @@ void main() async {
   // which keeps using the native video_player backend.
   if (isDesktopPlatform) {
     MediaKit.ensureInitialized();
-    // Window control for the player's true-fullscreen toggle.
+    // Window control for the player's true-fullscreen toggle + our custom
+    // (frameless) title bar. The actual title-bar style is applied ONCE below,
+    // after Hive is ready (so we know the saved custom-vs-native preference).
     await windowManager.ensureInitialized();
   }
   try {
@@ -44,6 +47,25 @@ void main() async {
     EasyLocalization.ensureInitialized(),
     _initHive(),
   ]);
+  // Desktop: set the title-bar style EXACTLY ONCE, now that Hive can tell us the
+  // saved preference. Doing hidden→normal in two steps (create hidden, then flip
+  // to native later) left the whole client area WHITE on Windows — a single
+  // application, while the window is still hidden (the runner shows it on the
+  // first frame), renders correctly.
+  if (isDesktopPlatform) {
+    final native = Hive.box(AppConstants.settingsBox)
+        .get('use_native_title_bar', defaultValue: false) == true;
+    try {
+      await windowManager.setTitleBarStyle(
+        native ? TitleBarStyle.normal : TitleBarStyle.hidden,
+        windowButtonVisibility: native,
+      );
+      // Stop the window collapsing to a tiny size (which overflowed the custom
+      // title bar / pages). Enforce a sensible minimum.
+      await windowManager.setMinimumSize(const Size(800, 560));
+    } catch (_) {}
+    DesktopWindow.nativeTitleBar.value = native;
+  }
 
   PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   await _initFirebaseSafely();

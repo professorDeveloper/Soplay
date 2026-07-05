@@ -320,19 +320,19 @@ class _TelegramPromoSheetState extends State<_TelegramPromoSheet> {
             child: const Icon(Icons.telegram, color: Colors.white, size: 32),
           ),
           const SizedBox(height: 14),
-          const Text(
-            'Join Sozo on Telegram',
-            style: TextStyle(
+          Text(
+            'home.telegram_promo_title'.tr(),
+            style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Get updates, new features, and content notifications.',
+          Text(
+            'home.telegram_promo_subtitle'.tr(),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
               height: 1.4,
@@ -352,14 +352,17 @@ class _TelegramPromoSheetState extends State<_TelegramPromoSheet> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.telegram, size: 20),
-                  SizedBox(width: 8),
+                  const Icon(Icons.telegram, size: 20),
+                  const SizedBox(width: 8),
                   Text(
-                    'Join Channel',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    'home.telegram_join_channel'.tr(),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
@@ -398,9 +401,12 @@ class _TelegramPromoSheetState extends State<_TelegramPromoSheet> {
                       : null,
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  "Don't show again",
-                  style: TextStyle(color: AppColors.textHint, fontSize: 12),
+                Text(
+                  'home.dont_show_again'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textHint,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),

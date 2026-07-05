@@ -128,7 +128,11 @@ extension _PlayerGestures on _PlayerPageState {
 
     if (_dragIsHorizontal!) {
       _onHDragUpdate(d, constraints);
-    } else {
+    } else if (!isDesktopPlatform) {
+      // Vertical drag = brightness/volume via the Android system-controls
+      // channel. On desktop that channel is a no-op and volume is owned by the
+      // slider/wheel/keyboard, so a vertical mouse-drag is intentionally inert
+      // (it would otherwise desync the volume state from the actual output).
       final delta = -(d.delta.dy) / (constraints.maxHeight * 0.7);
       if (_dragSwipeType == _SwipeType.brightness) {
         _brightness = (_brightness + delta).clamp(0.0, 1.0).toDouble();

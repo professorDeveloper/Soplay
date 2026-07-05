@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -272,7 +273,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
     if (!mounted) return;
     if (result is! Success<MangaPagesEntity>) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to resolve pages')),
+        SnackBar(content: Text('detail.failed_resolve_pages'.tr())),
       );
       return;
     }
@@ -527,7 +528,7 @@ class _SortToggle extends StatelessWidget {
                 ),
               const SizedBox(width: 6),
               Text(
-                isDesc ? 'Newest' : 'Oldest',
+                isDesc ? 'search.sort_newest'.tr() : 'search.sort_oldest'.tr(),
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 12,
@@ -550,7 +551,9 @@ class _CountHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showOf = total > 0 && total > loaded;
-    final label = showOf ? '$loaded of $total episodes' : '$total episodes';
+    final label = showOf
+        ? 'detail.episodes_count_of'.tr(args: ['$loaded', '$total'])
+        : 'detail.episodes_count'.tr(args: ['$total']);
     return Text(
       label,
       style: const TextStyle(
@@ -595,7 +598,7 @@ class _LoadMoreError extends StatelessWidget {
               ),
             ),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
+          TextButton(onPressed: onRetry, child: Text('general.retry'.tr())),
         ],
       ),
     );
@@ -625,7 +628,7 @@ class _EpisodeRow extends StatelessWidget {
     final hasDub = episode.hasDub == true;
     final label = episode.label.isNotEmpty
         ? episode.label
-        : 'Episode ${episode.episode}';
+        : 'detail.episode_n'.tr(args: ['${episode.episode}']);
 
     return InkWell(
       onTap: onTap,
@@ -926,19 +929,22 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.video_library_outlined,
             color: AppColors.textHint,
             size: 48,
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text(
-            'No episodes available',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            'detail.no_episodes'.tr(),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+            ),
           ),
         ],
       ),

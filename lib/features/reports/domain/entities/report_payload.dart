@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+
 class ReportTargetType {
   ReportTargetType._();
   static const String comment = 'comment';
@@ -27,17 +29,17 @@ class ReportReason {
   static String label(String reason) {
     switch (reason) {
       case spam:
-        return 'Spam';
+        return 'reports.reason_spam'.tr();
       case abuse:
-        return 'Harassment';
+        return 'reports.reason_abuse'.tr();
       case sexual:
-        return 'Sexual content';
+        return 'reports.reason_sexual'.tr();
       case violence:
-        return 'Violence';
+        return 'reports.reason_violence'.tr();
       case copyright:
-        return 'Copyright';
+        return 'reports.reason_copyright'.tr();
       default:
-        return 'Other';
+        return 'reports.reason_other'.tr();
     }
   }
 }

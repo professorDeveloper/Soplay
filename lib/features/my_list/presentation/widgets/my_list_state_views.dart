@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
@@ -8,10 +9,10 @@ class MyListEmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MyListStateView(
+    return MyListStateView(
       icon: Icons.bookmark_border_rounded,
-      title: 'Your list is empty',
-      message: 'Tap the + button on any title to save it here.',
+      title: 'my_list.empty_title'.tr(),
+      message: 'my_list.empty_subtitle'.tr(),
     );
   }
 }
@@ -25,9 +26,9 @@ class MyListUnauthorizedView extends StatelessWidget {
   Widget build(BuildContext context) {
     return MyListStateView(
       icon: Icons.lock_outline_rounded,
-      title: 'Sign in to view your list',
-      message: 'Your saved titles will appear here once you sign in.',
-      actionLabel: 'Sign In',
+      title: 'my_list.unauth_title'.tr(),
+      message: 'my_list.unauth_subtitle'.tr(),
+      actionLabel: 'auth.sign_in'.tr(),
       onAction: onLogin,
     );
   }
@@ -47,9 +48,9 @@ class MyListErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return MyListStateView(
       icon: Icons.wifi_off_rounded,
-      title: 'Could not load list',
+      title: 'my_list.error_title'.tr(),
       message: message,
-      actionLabel: 'Try Again',
+      actionLabel: 'general.try_again'.tr(),
       onAction: onRetry,
     );
   }

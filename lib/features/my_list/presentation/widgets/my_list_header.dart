@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
 class MyListHeader extends StatelessWidget {
@@ -52,12 +52,10 @@ class MyListHeader extends StatelessWidget {
               ),
             ),
           ),
-          if (isDesktopPlatform && onRefresh != null)
-            IconButton(
-              tooltip: 'Refresh',
-              icon: const Icon(Icons.refresh_rounded,
-                  color: AppColors.textSecondary),
-              onPressed: onRefresh,
+          if (onRefresh != null)
+            DesktopRefreshButton(
+              color: AppColors.textSecondary,
+              onRefresh: onRefresh!,
             ),
         ],
       ),

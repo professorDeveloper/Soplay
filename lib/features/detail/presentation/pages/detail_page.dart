@@ -322,6 +322,17 @@ class _DetailViewState extends State<_DetailView>
     super.dispose();
   }
 
+  // Localized label for a tab. The tokens in [_tabs] stay in English because
+  // they double as switch keys in [_buildTabContent] and ValueKeys; only the
+  // visible label is translated.
+  String _tabLabel(String tab) => switch (tab) {
+    'Similar' => 'detail.similar'.tr(),
+    'Cast' => 'movie.cast'.tr(),
+    'Comments' => 'detail.comments'.tr(),
+    'Screenshots' => 'detail.screenshots'.tr(),
+    _ => tab,
+  };
+
   Widget _buildTabContent(DetailEntity detail) {
     final tab = _tabs[_tabController.index];
     return KeyedSubtree(
@@ -516,7 +527,7 @@ class _DetailViewState extends State<_DetailView>
   void _handlePlayback(PlaybackEntity playback) {
     if (playback.isSerial) {
       if (playback.episodes.isEmpty) {
-        _showSnack('No episodes available');
+        _showSnack('detail.no_episodes'.tr());
         return;
       }
       context.push(
@@ -584,7 +595,7 @@ class _DetailViewState extends State<_DetailView>
       movieUrl = pickedUrl;
     }
     if (movieUrl == null || movieUrl.isEmpty) {
-      _showSnack('No playable source');
+      _showSnack('detail.no_playable_source'.tr());
       return;
     }
     Duration resumePos = Duration.zero;
@@ -610,20 +621,40 @@ class _DetailViewState extends State<_DetailView>
   }
 
   Future<void> _resolveAndPlayMovie(PlaybackEntity playback, String ref) async {
+    // Cancellable while resolving: Esc (desktop), a barrier tap, or the Cancel
+    // button dismisses it and aborts the play attempt. `dialogOpen` tracks
+    // whether it's still up so a cancel doesn't pop the page underneath (the
+    // earlier orphan bug — now Esc pops the real Navigator, so this is safe).
+    var dialogOpen = true;
     showDialog<void>(
       context: context,
+      // Only the Cancel button (or Esc, via the Navigator) aborts it — a stray
+      // click on the dimmed background must NOT cancel the resolve.
       barrierDismissible: false,
       barrierColor: Colors.black54,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
+      builder: (dctx) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: AppColors.primary),
+            const SizedBox(height: 18),
+            TextButton(
+              onPressed: () => Navigator.of(dctx).pop(),
+              child: Text('general.cancel'.tr(),
+                  style: const TextStyle(color: Colors.white70)),
+            ),
+          ],
+        ),
       ),
-    );
+    ).whenComplete(() => dialogOpen = false);
 
     final result = await getIt<ResolveMediaUseCase>()(
       ref: ref,
       provider: playback.provider,
     );
     if (!mounted) return;
+    // Cancelled while resolving — don't play, and don't pop the page.
+    if (!dialogOpen) return;
     Navigator.of(context, rootNavigator: true).pop();
 
     switch (result) {
@@ -694,7 +725,9 @@ class _DetailViewState extends State<_DetailView>
           listener: (context, state) {
             if (state is FavoriteReady) {
               _showSnack(
-                state.isInList ? 'Added to My List' : 'Removed from My List',
+                state.isInList
+                    ? 'detail.added_to_my_list'.tr()
+                    : 'detail.removed_from_my_list'.tr(),
               );
             }
           },
@@ -763,7 +796,7 @@ class _DetailViewState extends State<_DetailView>
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.2,
                     ),
-                    tabs: _tabs.map((t) => Tab(text: t)).toList(),
+                    tabs: _tabs.map((t) => Tab(text: _tabLabel(t))).toList(),
                   ),
                 ),
               ),
@@ -1106,9 +1139,9 @@ class _ActionPill extends StatelessWidget {
                   color: Colors.black,
                 ),
               const SizedBox(width: 4),
-              const Text(
-                'Play',
-                style: TextStyle(
+              Text(
+                'detail.play'.tr(),
+                style: const TextStyle(
                   color: Colors.black,
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
@@ -1169,7 +1202,7 @@ class _BackOnlyBar extends StatelessWidget {
     return Positioned(
       top: topPad + 8,
       left: 8,
-      child: GestureDetector(
+      child: HoverTap(
         onTap: onBack,
         child: Container(
           width: 38,
@@ -1250,7 +1283,7 @@ class _ErrorView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+          ElevatedButton(onPressed: onRetry, child: Text('general.retry'.tr())),
           if (onSolveCloudflare != null) ...[
             const SizedBox(height: 12),
             OutlinedButton.icon(
