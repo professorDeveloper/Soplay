@@ -58,7 +58,11 @@ void main() async {
     try {
       await windowManager.setTitleBarStyle(
         native ? TitleBarStyle.normal : TitleBarStyle.hidden,
-        windowButtonVisibility: native,
+        // macOS: keep the native traffic-light buttons visible in BOTH modes —
+        // in custom (hidden) mode they're the only window controls (our strip
+        // draws no buttons on macOS). On Windows/Linux the custom strip draws
+        // its own buttons, so hide the native ones when custom.
+        windowButtonVisibility: Platform.isMacOS ? true : native,
       );
       // Stop the window collapsing to a tiny size (which overflowed the custom
       // title bar / pages). Enforce a sensible minimum.

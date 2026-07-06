@@ -25,6 +25,16 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
+  // The app is always dark (Flutter ThemeMode.dark, background 0xFF181818).
+  // Ask GTK for the dark variant of the active theme so the native title bar /
+  // header bar and window chrome render dark too, instead of following the
+  // system Light/Dark setting and leaving a light strip above the dark app.
+  GtkSettings* gtk_settings = gtk_settings_get_default();
+  if (gtk_settings != nullptr) {
+    g_object_set(gtk_settings, "gtk-application-prefer-dark-theme", TRUE,
+                 nullptr);
+  }
+
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
   // desktop).

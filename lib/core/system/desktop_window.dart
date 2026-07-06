@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -32,7 +34,10 @@ class DesktopWindow {
     try {
       await windowManager.setTitleBarStyle(
         value ? TitleBarStyle.normal : TitleBarStyle.hidden,
-        windowButtonVisibility: value,
+        // See main.dart: macOS keeps the native traffic lights visible in both
+        // modes; Windows/Linux hide native buttons when the custom strip draws
+        // its own.
+        windowButtonVisibility: Platform.isMacOS ? true : value,
       );
     } catch (_) {}
   }
@@ -81,32 +86,38 @@ class WindowTitleBar extends StatelessWidget {
             DesktopWindow.nativeTitleBar.value) {
           return const SizedBox.shrink();
         }
-        // Minimal, blended chrome: no logo/title (so it reads as "window
-        // buttons in the corner", not a second title bar). Just a draggable
-        // strip + the window controls, matching the app background.
+        // Minimal, blended chrome that always matches the app's dark background,
+        // so the top strip reads as dark on every desktop OS (not just Windows).
+        //
+        // macOS draws no window buttons here — the native traffic lights (kept
+        // visible via TitleBarStyle.hidden) are the controls; we only reserve a
+        // left inset so the draggable strip doesn't sit under them. Windows and
+        // Linux draw our own minimise / maximise / close cluster on the right.
+        final isMac = Platform.isMacOS;
+        final draggable = DragToMoveArea(
+          child: GestureDetector(
+            // Double-click to maximise / restore (standard).
+            behavior: HitTestBehavior.opaque,
+            onDoubleTap: () async {
+              if (await windowManager.isMaximized()) {
+                await windowManager.unmaximize();
+              } else {
+                await windowManager.maximize();
+              }
+            },
+            child: const SizedBox.expand(),
+          ),
+        );
         return Material(
           color: AppColors.background,
           child: SizedBox(
             height: height,
             child: Row(
               children: [
-                Expanded(
-                  child: DragToMoveArea(
-                    child: GestureDetector(
-                      // Double-click to maximise / restore (standard).
-                      behavior: HitTestBehavior.opaque,
-                      onDoubleTap: () async {
-                        if (await windowManager.isMaximized()) {
-                          await windowManager.unmaximize();
-                        } else {
-                          await windowManager.maximize();
-                        }
-                      },
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-                ),
-                const WindowButtons(),
+                // Reserve space for the macOS traffic lights (top-left).
+                if (isMac) const SizedBox(width: 72),
+                Expanded(child: draggable),
+                if (!isMac) const WindowButtons(),
               ],
             ),
           ),
@@ -123,6 +134,11 @@ class WindowButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // macOS never uses this Windows-style cluster — the native traffic lights
+    // are the window controls there (kept visible in every mode). Rendering
+    // nothing keeps callers (title bar + immersive player/reader overlays) from
+    // showing a redundant, out-of-place button group on macOS.
+    if (Platform.isMacOS) return const SizedBox.shrink();
     return Row(
       children: [
         _WinButton(
