@@ -42,20 +42,24 @@ android {
         versionName = flutter.versionName
     }
 
-    // 2. Raqamli imzo sozlamalarini yaratish
-    signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
+    // 2. Raqamli imzo sozlamalarini yaratish (faqat key.properties mavjud bo'lsa).
+    // Debug build'da bu fayl bo'lmaydi — shuning uchun release imzosi shartli.
+    if (keystorePropertiesFile.exists()) {
+        signingConfigs {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
         }
     }
 
     buildTypes {
         release {
-            // 3. Debug imzosini "release" imzosiga almashtirish
-            signingConfig = signingConfigs.getByName("release")
+            // 3. Debug imzosini "release" imzosiga almashtirish (imzo mavjud bo'lsa).
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
 
             // R8 (minify) DexClassLoader bilan yuklanadigan manga/aniyomi extension
             // .apk'larini buzadi — ular host simvollariga runtime'da bog'lanadi va
