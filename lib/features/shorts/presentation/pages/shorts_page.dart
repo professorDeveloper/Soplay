@@ -74,8 +74,6 @@ class _ShortsViewState extends State<_ShortsView>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Desktop keeps the reel playing when the window loses focus / is minimised
-    // (background playback). Only mobile pauses on backgrounding.
     if (isDesktopPlatform) return;
     final next = state == AppLifecycleState.resumed;
     if (_appActive == next) return;
@@ -160,31 +158,18 @@ class _ShortsViewState extends State<_ShortsView>
     _showNotice('shorts.content_unavailable'.tr());
   }
 
-  /// Desktop: a full-width portrait reel wastes most of a wide window and pushes
-  /// the like/info overlays to the screen edges. Frame it as a centred,
-  /// phone-shaped column (width derived from the height at 9:16) so the video and
-  /// its controls sit together like YouTube Shorts on the web. The reel's own
-  /// background is transparent on desktop (see ShortReelItem) so the blurred
-  /// backdrop shows through the letterbox. Mobile is unchanged.
   Widget _reelFrame(Widget reel) {
     if (!isDesktopPlatform) return reel;
     return Center(
       child: LayoutBuilder(
         builder: (context, c) {
           final width = (c.maxHeight * 9 / 16).clamp(340.0, 560.0);
-          // Force full height so the reel fills top-to-bottom (a portrait clip
-          // reaches the top; a landscape one letterboxes onto the blurred
-          // backdrop). Without an explicit height the column shrank to its
-          // content and floated in the middle.
           return SizedBox(width: width, height: c.maxHeight, child: reel);
         },
       ),
     );
   }
 
-  /// Desktop: a blurred, dimmed copy of the current short's poster fills the whole
-  /// window behind the centred reel — so the sides (and a landscape clip's
-  /// letterbox) are a soft glow of the video, not hard black. No-op on mobile.
   Widget _blurredBackdrop(String thumbnail) {
     if (!isDesktopPlatform || thumbnail.isEmpty) {
       return const SizedBox.shrink();
@@ -202,7 +187,6 @@ class _ShortsViewState extends State<_ShortsView>
                 errorBuilder: (_, _, _) => const ColoredBox(color: Colors.black),
               ),
             ),
-            // Dim it so text/overlays stay legible and it reads as a backdrop.
             ColoredBox(color: Colors.black.withValues(alpha: 0.55)),
           ],
         ),
@@ -345,10 +329,6 @@ class _ShortsViewState extends State<_ShortsView>
                                   backgroundColor: Colors.transparent,
                                 ),
                               ),
-                            // Desktop: the reel refresh is wired to a
-                            // double-tap on the mobile bottom-nav item, which the
-                            // NavigationRail has no equivalent for — give mouse
-                            // users a visible refresh button.
                             if (isDesktopPlatform)
                               Positioned(
                                 top: topPad + 8,

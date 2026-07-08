@@ -6,18 +6,6 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 
-/// In-process loopback HLS proxy.
-///
-/// Upstream HLS hosts that bind their signed manifest URLs to the client IP
-/// (e.g. Dailymotion's `cdndirector.dailymotion.com`) reject ExoPlayer
-/// requests when the manifest was solved by one socket and the player opens
-/// another. Routing the player through this loopback server forces every
-/// upstream socket — manifest, variant playlists, segments — through the
-/// same Dio instance that already holds the session cookies, so the IP and
-/// cookies match end-to-end.
-///
-/// Source-agnostic: it activates only when a [VideoSourceEntity] arrives
-/// with `useLocalProxy: true`. The mobile side never names a provider.
 class LocalHlsProxy {
   LocalHlsProxy(this._dio);
 

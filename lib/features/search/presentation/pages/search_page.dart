@@ -64,8 +64,6 @@ class _SearchViewState extends State<_SearchView> {
     }
   }
 
-  /// Desktop: a responsive results grid can fit the whole first page on screen,
-  /// so the scroll-based load-more never fires. Auto-load until it fills.
   void _maybeAutoFill(SearchState state) {
     if (!isDesktopPlatform) return;
     if (state is! SearchLoaded || !state.hasMore || state.isLoadingMore) return;

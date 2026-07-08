@@ -7,25 +7,13 @@ import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository
 import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/private_list/presentation/pages/private_unlock_page.dart';
 
-/// Gates access to the LOCKED PRIVATE LIST behind the app-lock credential.
-///
-/// Returns `true` when the caller may proceed to reveal private content:
-///  - already unlocked this session, or
-///  - the user just set up a PIN (no lock existed yet), or
-///  - the user passed the cancellable [PrivateUnlockPage] verify flow.
-///
-/// Returns `false` if the user cancels or declines to set up a PIN.
 Future<bool> requestPrivateUnlock(BuildContext context) async {
   final lock = getIt<AppLockRepository>();
   final pv = getIt<PrivateListService>();
   final alwaysAsk = getIt<HiveService>().isPrivateAlwaysAsk;
 
-  // When "always ask" is on, every open re-prompts (the per-session unlock is
-  // ignored, and we never persist the session flag on success).
   if (!alwaysAsk && pv.isUnlockedForSession) return true;
 
-  // No credential exists yet — the private list is meaningless without one,
-  // so prompt the user to create a PIN first.
   if (!lock.isEnabled) {
     final set = await context.push<bool>('/pin-setup');
     if (set != true) {
@@ -36,8 +24,6 @@ Future<bool> requestPrivateUnlock(BuildContext context) async {
       }
       return false;
     }
-    // Creating the PIN authenticates the user for this open. Only persist the
-    // session unlock when "always ask" is off.
     if (!alwaysAsk) pv.markUnlocked();
     return true;
   }

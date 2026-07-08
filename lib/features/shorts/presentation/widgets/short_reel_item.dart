@@ -352,9 +352,6 @@ class _ShortReelItemState extends State<ShortReelItem>
     if (_initialized) {
       return SizedBox.expand(
         child: ColoredBox(
-          // Desktop: transparent so the page's blurred backdrop fills the reel's
-          // letterbox (a landscape clip no longer sits on hard black). Mobile is
-          // full-bleed, so keep it black.
           color: isDesktopPlatform ? Colors.transparent : Colors.black,
           child: Center(
             child: AspectRatio(
@@ -541,7 +538,6 @@ class _ShortReelItemState extends State<ShortReelItem>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Like
         _RailButton(
           onTap: widget.onLike,
           child: Column(
@@ -592,7 +588,6 @@ class _ShortReelItemState extends State<ShortReelItem>
         ),
         const SizedBox(height: 18),
 
-        // Views
         if (s.viewCount > 0)
           Padding(
             padding: const EdgeInsets.only(bottom: 18),
@@ -618,7 +613,6 @@ class _ShortReelItemState extends State<ShortReelItem>
             ),
           ),
 
-        // Mute/unmute
         _RailButton(
           onTap: _toggleMute,
           child: Container(
@@ -648,7 +642,6 @@ class _ShortReelItemState extends State<ShortReelItem>
         ),
         const SizedBox(height: 18),
 
-        // Spinning disc (content thumbnail)
         if (s.contentThumbnail.isNotEmpty) _buildSpinningDisc(s),
       ],
     );

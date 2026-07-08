@@ -3,12 +3,8 @@ import 'package:flutter/material.dart';
 
 import 'platform_utils.dart';
 
-// Re-export so importing this file also brings `isDesktopPlatform` in scope.
 export 'platform_utils.dart';
 
-/// A grid delegate that keeps the existing fixed column count on **mobile**, but
-/// on **desktop** scales the number of columns to the window width (so posters
-/// don't become giant on a wide window). Mobile layout is unchanged.
 SliverGridDelegate responsiveGridDelegate({
   required int mobileCrossAxisCount,
   required double childAspectRatio,
@@ -32,9 +28,6 @@ SliverGridDelegate responsiveGridDelegate({
   );
 }
 
-/// On **desktop**, centres its child within [maxWidth] so full-width content
-/// (buttons, text, rows) doesn't stretch edge-to-edge on a wide window. On
-/// **mobile** it is a pass-through (no change).
 class MaxWidthBox extends StatelessWidget {
   const MaxWidthBox({super.key, required this.child, this.maxWidth = 1040});
 
@@ -44,8 +37,6 @@ class MaxWidthBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!isDesktopPlatform) return child;
-    // topCenter (not Center): centre horizontally but keep the child top-aligned
-    // so content in a min-height area isn't pushed to the vertical middle.
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
@@ -56,9 +47,6 @@ class MaxWidthBox extends StatelessWidget {
   }
 }
 
-/// Drop-in replacement for a tappable `GestureDetector` (same `onTap` / `child`
-/// shape). On **desktop** it adds a pointer (hand) cursor and a subtle hover
-/// scale; on **mobile** it behaves exactly like a plain `GestureDetector`.
 class HoverTap extends StatefulWidget {
   const HoverTap({
     super.key,
@@ -75,7 +63,6 @@ class HoverTap extends StatefulWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
-  /// Right-click (desktop). Handy for exposing a long-press action to a mouse.
   final VoidCallback? onSecondaryTap;
   final HitTestBehavior behavior;
   final double scale;
@@ -112,8 +99,6 @@ class _HoverTapState extends State<HoverTap> {
   }
 }
 
-/// Shows a pointer (hand) cursor over [child] on **desktop**; pass-through on
-/// mobile. Use for tappables where a hover *scale* isn't wanted (buttons, rows).
 class PointerRegion extends StatelessWidget {
   const PointerRegion({
     super.key,
@@ -131,10 +116,6 @@ class PointerRegion extends StatelessWidget {
   }
 }
 
-/// Desktop refresh button that spins on tap so a manual reload gives visible
-/// feedback even when the underlying load is "silent". Renders nothing on
-/// mobile (which uses pull-to-refresh). Optionally reflects a live [spinning]
-/// flag; otherwise it spins once per tap.
 class DesktopRefreshButton extends StatefulWidget {
   const DesktopRefreshButton({
     super.key,
@@ -199,15 +180,6 @@ class _DesktopRefreshButtonState extends State<DesktopRefreshButton>
   }
 }
 
-/// On **desktop** shows a centred [Dialog]; on **mobile** a modal bottom sheet.
-///
-/// Desktop contract: the dialog is capped in BOTH width and height and its
-/// content is placed in a vertical [SingleChildScrollView]. Therefore every
-/// [builder] passed here must be **self-sizing** — it must NOT rely on an
-/// external bounded height. Wrap any `Expanded`/`Flexible`/bare `ListView`/
-/// `DraggableScrollableSheet` in your own bounded box (e.g. `SizedBox(height:)`
-/// or `ConstrainedBox(maxHeight:)`), otherwise it asserts under the unbounded
-/// scroll view and leaves an empty dialog over a dark barrier.
 Future<T?> showAdaptiveModal<T>({
   required BuildContext context,
   required WidgetBuilder builder,

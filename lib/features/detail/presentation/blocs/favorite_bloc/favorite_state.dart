@@ -25,8 +25,6 @@ class FavoriteReady extends FavoriteState {
   final bool isInList;
   final bool isLoading;
 
-  /// Whether this item currently lives in the LOCKED PRIVATE LIST. When true the
-  /// add button should surface a lock affordance instead of the "+"/check.
   final bool inPrivate;
 
   FavoriteReady copyWith({bool? isInList, bool? isLoading, bool? inPrivate}) =>

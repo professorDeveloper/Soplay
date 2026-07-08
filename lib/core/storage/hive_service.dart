@@ -48,8 +48,6 @@ class HiveService {
 
   bool get isLoggedIn => getToken()?.isNotEmpty == true;
 
-  /// Desktop bridge URL — the link shown on the phone's "Share sources to
-  /// desktop" screen, pasted by the user on the desktop app. Empty = not set.
   String getBridgeUrl() =>
       _settingsBox.get('desktop_bridge_url', defaultValue: '') as String;
   Future<void> setBridgeUrl(String url) =>
@@ -81,7 +79,6 @@ class HiveService {
     await _settingsBox.put(AppConstants.currentProviderKey, providerId);
   }
 
-  /// Provider ids the user has starred/pinned for quick switching.
   List<String> getFavoriteProviders() {
     return (_settingsBox.get('favorite_providers') as List?)
             ?.map((e) => e.toString())
@@ -221,35 +218,26 @@ class HiveService {
     await _settingsBox.put(AppConstants.appLockBiometricKey, enabled);
   }
 
-  // --- Desktop appearance ---
 
-  /// Desktop: use the native Windows title bar instead of Sozo's custom one.
   bool get useNativeTitleBar =>
       _settingsBox.get('use_native_title_bar', defaultValue: false) == true;
 
   Future<void> setUseNativeTitleBar(bool value) =>
       _settingsBox.put('use_native_title_bar', value);
 
-  // --- Private list ---
 
-  /// Whether the one-time "long-press to add to private list" coachmark on the
-  /// detail add-button has been shown.
   bool get hasSeenPrivateShowcase =>
       _settingsBox.get('private_showcase_seen', defaultValue: false) == true;
 
   Future<void> markPrivateShowcaseSeen() async =>
       _settingsBox.put('private_showcase_seen', true);
 
-  /// When true, the private list re-prompts for PIN/biometrics on EVERY open
-  /// (ignores the per-session unlock). Default false (unlock once per session).
   bool get isPrivateAlwaysAsk =>
       _settingsBox.get('private_always_ask', defaultValue: false) == true;
 
   Future<void> setPrivateAlwaysAsk(bool value) async =>
       _settingsBox.put('private_always_ask', value);
 
-  /// Manga reader page-layout, remembered per manga (`contentUrl`).
-  /// Returns 'vertical' (continuous webtoon) or 'horizontal' (paged).
   String getReaderMode(String contentUrl) {
     return _settingsBox.get('reader_mode::$contentUrl', defaultValue: 'vertical');
   }
@@ -258,7 +246,6 @@ class HiveService {
     await _settingsBox.put('reader_mode::$contentUrl', mode);
   }
 
-  /// Whether the (horizontal) reader pages right-to-left, per manga.
   bool getReaderRtl(String contentUrl) {
     return _settingsBox.get('reader_rtl::$contentUrl', defaultValue: false) == true;
   }
@@ -267,7 +254,6 @@ class HiveService {
     await _settingsBox.put('reader_rtl::$contentUrl', rtl);
   }
 
-  /// Reader background: 'black' | 'gray' | 'white'. Global preference.
   String getReaderBackground() {
     return _settingsBox.get('reader_bg', defaultValue: 'black');
   }

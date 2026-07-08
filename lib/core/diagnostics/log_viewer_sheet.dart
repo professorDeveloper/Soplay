@@ -5,9 +5,6 @@ import 'package:soplay/core/system/responsive.dart';
 
 import 'player_log.dart';
 
-/// Pretty, color-coded, live-updating viewer for [PlayerLog] with
-/// copy / share / clear actions. Opened from the player settings sheet and from
-/// the error screen so a user can send us exactly why a stream failed.
 class LogViewerSheet extends StatefulWidget {
   const LogViewerSheet({super.key});
 

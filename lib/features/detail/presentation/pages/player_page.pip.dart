@@ -108,8 +108,6 @@ extension _PlayerPip on _PlayerPageState {
   }
 
   Future<void> _enterFullscreen() async {
-    // Desktop doesn't auto-enter OS fullscreen (that's jarring on a windowed
-    // desktop); the user toggles it with the button / F key.
     if (isDesktopPlatform) {
       await WakelockPlus.enable();
       return;
@@ -124,13 +122,9 @@ extension _PlayerPip on _PlayerPageState {
     await WakelockPlus.enable();
   }
 
-  /// Desktop: true OS-window fullscreen (hides the taskbar + our title bar),
-  /// toggled by the fullscreen button or the F key. No-op on mobile.
   Future<void> _toggleFullscreen() async {
     if (!isDesktopPlatform) return;
     final next = !_isFullscreen;
-    // Update local state first so the button/controls repaint immediately, then
-    // drive the (slower) native window resize — keeps the toggle feeling snappy.
     if (mounted) setState(() => _isFullscreen = next);
     await DesktopWindow.setFullscreen(next);
   }
@@ -155,7 +149,6 @@ extension _PlayerPip on _PlayerPageState {
   Future<void> _restoreSystemUi() async {
     _isPortrait = false;
     if (isDesktopPlatform) {
-      // Leave OS fullscreen so the app isn't stuck fullscreen after the player.
       if (_isFullscreen) {
         _isFullscreen = false;
         await DesktopWindow.setFullscreen(false);

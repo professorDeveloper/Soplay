@@ -10,8 +10,6 @@ import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 import 'package:soplay/features/my_list/presentation/widgets/favorite_card.dart';
 
-/// The unlocked grid of private favorites. Only reachable after
-/// [requestPrivateUnlock] succeeds.
 class PrivateListPage extends StatelessWidget {
   const PrivateListPage({super.key});
 
@@ -81,7 +79,6 @@ class PrivateListPage extends StatelessWidget {
                   delegate: SliverChildBuilderDelegate(
                     (_, i) => HoverTap(
                       onLongPress: () => _showActions(context, items[i]),
-                      // Desktop: right-click opens the same actions menu.
                       onSecondaryTap: () => _showActions(context, items[i]),
                       child: FavoriteCard(
                         item: items[i],

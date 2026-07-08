@@ -9,13 +9,6 @@ import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/streak/data/streak_remote_data_source.dart';
 import 'package:soplay/features/streak/domain/entities/streak_state.dart';
 
-/// Single source of truth for the user's daily watch streak.
-///
-/// - `state` is a ValueNotifier widgets can listen to without a Bloc.
-/// - The last known state is mirrored in Hive so the badge stays populated
-///   while the app is offline / before the first `/me` round-trip.
-/// - `ping()` is debounced to once per app session — calling it from the
-///   60-second watch hook is safe to repeat.
 class StreakService {
   StreakService({
     required StreakRemoteDataSource remote,
@@ -32,9 +25,6 @@ class StreakService {
       ValueNotifier<StreakState>(StreakState.empty);
   final StreamController<int> milestones = StreamController<int>.broadcast();
 
-  // The local calendar day (yyyy-mm-dd) of the last *successful* ping. Debounces
-  // to one ping per day rather than one per app process, so a long-lived app that
-  // crosses midnight still records the new day. Null = not pinged yet this run.
   String? _lastPingDay;
   bool _refreshInFlight = false;
 
@@ -56,10 +46,6 @@ class StreakService {
     } catch (_) {}
   }
 
-  // A best-effort zone name (for storage/debug) plus the reliable part: the UTC
-  // offset in minutes (e.g. +300 for UTC+5). The backend does its day/hour math
-  // from the offset because `timeZoneName` is a non-IANA OS string on every
-  // platform (Windows "West Asia Standard Time", Android "GMT+05:00", …).
   String _timezone() => DateTime.now().timeZoneName;
   int _tzOffset() => DateTime.now().timeZoneOffset.inMinutes;
 
@@ -70,8 +56,6 @@ class StreakService {
     return '${n.year}-$m-$d';
   }
 
-  /// Fetch the latest state from the backend. Safe to call eagerly; if not
-  /// logged in or the call fails the cached state is kept.
   Future<void> refresh() async {
     if (!_hive.isLoggedIn || _refreshInFlight) return;
     _refreshInFlight = true;
@@ -80,15 +64,11 @@ class StreakService {
       state.value = fresh;
       await _writeCache(fresh);
     } catch (_) {
-      // Network/auth issues are non-fatal — keep showing cached state.
     } finally {
       _refreshInFlight = false;
     }
   }
 
-  /// Mark "watched today". Debounced to once per local calendar day (not once
-  /// per process), so a session that spans midnight records the next day too.
-  /// Returns the new milestone (e.g. 7) when the user just crossed one.
   Future<int?> ping() async {
     if (!_hive.isLoggedIn) return null;
     final today = _todayLocal();
@@ -103,7 +83,6 @@ class StreakService {
       }
       return result.newMilestone;
     } catch (_) {
-      // Leave _lastPingDay unset so a later watch this day can retry.
       return null;
     }
   }

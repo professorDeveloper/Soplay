@@ -23,7 +23,6 @@ class ProviderEntity {
   final String category;
   final bool requiresCfBypass;
 
-  /// Whether the source is flagged 18+ / adult by its repo metadata.
   final bool nsfw;
   final ExtractorRef? extractor;
 

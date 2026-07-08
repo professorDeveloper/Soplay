@@ -45,8 +45,6 @@ class _HomeViewAllPageState extends State<HomeViewAllPage> {
     }
   }
 
-  /// Desktop: a responsive grid can fit the whole first page on screen, so the
-  /// scroll-based load-more never fires. Auto-load until the viewport fills.
   void _maybeAutoFill(ViewAllState state) {
     if (!isDesktopPlatform) return;
     if (state is! ViewAllLoaded || !state.hasMore || state.isLoadingMore) return;

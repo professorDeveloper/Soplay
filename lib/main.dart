@@ -31,13 +31,8 @@ import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Desktop video playback (media_kit / libmpv). No-op / not called on mobile,
-  // which keeps using the native video_player backend.
   if (isDesktopPlatform) {
     MediaKit.ensureInitialized();
-    // Window control for the player's true-fullscreen toggle + our custom
-    // (frameless) title bar. The actual title-bar style is applied ONCE below,
-    // after Hive is ready (so we know the saved custom-vs-native preference).
     await windowManager.ensureInitialized();
   }
   try {
@@ -47,11 +42,6 @@ void main() async {
     EasyLocalization.ensureInitialized(),
     _initHive(),
   ]);
-  // Desktop: set the title-bar style EXACTLY ONCE, now that Hive can tell us the
-  // saved preference. Doing hidden→normal in two steps (create hidden, then flip
-  // to native later) left the whole client area WHITE on Windows — a single
-  // application, while the window is still hidden (the runner shows it on the
-  // first frame), renders correctly.
   if (isDesktopPlatform) {
     final native = Hive.box(AppConstants.settingsBox)
         .get('use_native_title_bar', defaultValue: false) == true;
@@ -64,8 +54,6 @@ void main() async {
         // its own buttons, so hide the native ones when custom.
         windowButtonVisibility: Platform.isMacOS ? true : native,
       );
-      // Stop the window collapsing to a tiny size (which overflowed the custom
-      // title bar / pages). Enforce a sensible minimum.
       await windowManager.setMinimumSize(const Size(800, 560));
     } catch (_) {}
     DesktopWindow.nativeTitleBar.value = native;
@@ -74,8 +62,6 @@ void main() async {
   PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   await _initFirebaseSafely();
   await configureDependencies();
-  // Desktop / iOS: route extension calls to the phone's shared bridge, using the
-  // link the user saved (phone + this device on the same Wi-Fi).
   if (!Platform.isAndroid) {
     ExtensionBridge.setUrl(getIt<HiveService>().getBridgeUrl());
   }
@@ -93,9 +79,6 @@ void main() async {
       DeviceOrientation.portraitDown,
     ]).catchError((Object _) {}),
   );
-  // Baseline: system bars visible (non-fullscreen). The player enters immersive
-  // mode itself and restores to this on exit — so a missed restore (e.g. a crash
-  // in the player) can't leave the whole app stuck fullscreen.
   unawaited(
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
@@ -119,9 +102,6 @@ void main() async {
 
 Future<void> _initHive() async {
   if (isDesktopPlatform) {
-    // On Windows, getApplicationDocumentsDirectory() can resolve to a
-    // OneDrive-synced folder, which locks Hive's files mid-write (rename →
-    // "access denied"). Store boxes in the (non-synced) app support dir.
     final dir = await getApplicationSupportDirectory();
     Hive.init(dir.path);
   } else {

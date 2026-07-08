@@ -21,7 +21,6 @@ class WebViewStreamExtractor {
       'Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36';
 
-  // Anti-anti-debugger + tracker noise filter (injected at DOCUMENT_START).
   static const _antiDebuggerShim = r'''
 (function(){
   try {
@@ -64,11 +63,6 @@ class WebViewStreamExtractor {
 })();
 ''';
 
-  // XHR / fetch override — this is the ONLY reliable way to see custom auth
-  // headers (X-ATT-DeviceId etc.) the page's JS attaches per-request.
-  // shouldInterceptRequest on Android does NOT expose XHR's setRequestHeader
-  // values, so we hook XMLHttpRequest and fetch in JS-land and ship the URL
-  // + complete headers to Dart via a JavaScript handler.
   // ignore: unnecessary_string_escapes  // backslashes are JS-regex chars
   static String _xhrCaptureShim(List<String> hostFragments, List<String> urlPatterns) {
     final hosts = hostFragments.map((h) => "'$h'").join(',');
@@ -213,8 +207,6 @@ class WebViewStreamExtractor {
       final headers = <String, String>{};
       rawHeaders.forEach((k, v) {
         if (v == null || k.isEmpty) return;
-        // Capture configured headers + anything that looks like an auth
-        // header (X-*). Page-level fallback headers added below.
         final keep = config.captureHeaders.any((h) => h.toLowerCase() == k.toLowerCase()) ||
             k.toLowerCase().startsWith('x-');
         if (keep) headers[k] = v.toString();
@@ -224,7 +216,6 @@ class WebViewStreamExtractor {
           headers[k] = v;
         }
       });
-      // Always set Origin/Referer/User-Agent if not present.
       headers.putIfAbsent('User-Agent', () => userAgent);
       headers.putIfAbsent('Referer', () => 'https://${Uri.parse(pageUrl).host}/');
       headers.putIfAbsent('Origin', () => 'https://${Uri.parse(pageUrl).host}');
@@ -262,15 +253,12 @@ class WebViewStreamExtractor {
       ),
       onWebViewCreated: (controller) async {
         try {
-          // 1) Anti-debugger shim at DOCUMENT_START.
           await controller.addUserScript(
             userScript: UserScript(
               source: _antiDebuggerShim,
               injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
             ),
           );
-          // 2) XHR/fetch capture at DOCUMENT_START so it patches before any
-          //    other script can issue XHRs.
           await controller.addUserScript(
             userScript: UserScript(
               source: _xhrCaptureShim(
@@ -280,7 +268,6 @@ class WebViewStreamExtractor {
               injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
             ),
           );
-          // 3) JS → Dart bridge for stream-captured events.
           controller.addJavaScriptHandler(
             handlerName: 'streamCaptured',
             callback: (args) {
@@ -301,22 +288,13 @@ class WebViewStreamExtractor {
         final urlStr = uri.toString();
         final lowerUrl = urlStr.toLowerCase();
 
-        // Block ANY direct uzdown.space request — tokens are single-use,
-        // so we must not let the WebView consume them. The JS hook above
-        // already captured the URL + headers before send() was called.
-        // If JS missed (sync XHR / legacy script), the fallback also runs
-        // here BEFORE the request is allowed.
         if (_matchHost(uri.host, config.hostPattern) &&
             config.urlPatterns.any((p) => lowerUrl.contains(p.toLowerCase()))) {
           if (!captured) {
             final hdrs = <String, dynamic>{};
             (request.headers ?? const {}).forEach((k, v) => hdrs[k] = v);
-            // shouldInterceptRequest on Android lacks X-* — this is a
-            // fallback only. JS hook should have fired first.
             completeWith(urlStr, hdrs);
           }
-          // Always swallow the request — empty 200 keeps the WebView happy
-          // and preserves the stream token for ExoPlayer.
           return WebResourceResponse(
             contentType: 'text/plain',
             statusCode: 200,
@@ -326,7 +304,6 @@ class WebViewStreamExtractor {
           );
         }
 
-        // Drop noisy third-party requests.
         if (_blockHostFragments.any((frag) => lowerUrl.contains(frag))) {
           return WebResourceResponse(
             contentType: 'text/plain',

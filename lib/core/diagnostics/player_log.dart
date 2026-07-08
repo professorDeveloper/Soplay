@@ -13,16 +13,6 @@ class LogLine {
   const LogLine(this.time, this.level, this.message);
 }
 
-/// In-memory ring buffer of player/diagnostics logs.
-///
-/// `debugPrint` only reaches the IDE console and is stripped in release builds,
-/// so a user hitting a broken stream (IPTV/live especially) has nothing to send
-/// us. This captures the same lines into a bounded buffer that lives in every
-/// build flavour, so the in-app log viewer can show and share them.
-///
-/// It also keeps a small [context] map (provider/url/type/isLive/…) describing
-/// the current playback attempt, prepended to the shared report — exactly the
-/// info needed to debug why a link won't play.
 class PlayerLog {
   PlayerLog._();
   static final PlayerLog instance = PlayerLog._();
@@ -30,10 +20,8 @@ class PlayerLog {
   static const int _maxLines = 800;
   final Queue<LogLine> _lines = Queue<LogLine>();
 
-  /// Bumps on every change so the viewer rebuilds live.
   final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
-  /// Describes the current playback attempt (provider, url, headers, …).
   final Map<String, String> _context = <String, String>{};
 
   String _appVersion = '';
@@ -41,7 +29,6 @@ class PlayerLog {
 
   List<LogLine> get lines => List.unmodifiable(_lines);
 
-  /// Load app/device identifiers once so [formatForShare] is synchronous.
   Future<void> init() async {
     if (_appVersion.isNotEmpty) return;
     try {
@@ -74,7 +61,6 @@ class PlayerLog {
   }
 
   void add(String message, {LogLevel level = LogLevel.info}) {
-    // Mirror to the console in debug so the existing workflow is unchanged.
     if (kDebugMode) {
       final prefix = switch (level) {
         LogLevel.error => '[PLAYER] ✗',
@@ -107,7 +93,6 @@ class PlayerLog {
   String stamp(DateTime t) =>
       '${_two(t.hour)}:${_two(t.minute)}:${_two(t.second)}.${_three(t.millisecond)}';
 
-  /// Plain-text report (header + context + lines) for copy/share.
   String formatForShare() {
     final b = StringBuffer()
       ..writeln('Soplay player logs')

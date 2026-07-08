@@ -107,10 +107,6 @@ class AniyomiChannel {
   static Future<Map<String, dynamic>> loadLinks(String provider, String data) async =>
       _obj(await _call<String>('loadLinks', {'provider': provider, 'data': data}));
 
-  /// Base url + UA for the interactive Cloudflare solver: `{baseUrl, userAgent}`
-  /// (or `{}` if the source can't be resolved). [id] is the raw source id (no
-  /// `an:` prefix). The userAgent matches what native OkHttp sends so the
-  /// harvested `cf_clearance` cookie is accepted.
   static Future<Map<String, dynamic>> cloudflareInfo(String id) async =>
       _obj(await _call<String>('cloudflareInfo', {'id': id}));
 }

@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
-/// Per-source settings for a configurable manga source. [sourceId] is the bare
-/// source id (without the `mn:` prefix).
 class MangaSourceSettingsPage extends StatefulWidget {
   final String sourceId;
   final String name;
@@ -161,7 +159,7 @@ class _MangaSourceSettingsPageState extends State<MangaSourceSettingsPage> {
           onTap: () => _editText(p, key, title ?? key, current),
         );
 
-      default: // info
+      default:
         return ListTile(
           title: Text(title?.isNotEmpty == true ? title! : key,
               style: const TextStyle(color: Colors.white, fontSize: 14)),

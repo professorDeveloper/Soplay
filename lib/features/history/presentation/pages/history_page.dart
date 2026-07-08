@@ -334,7 +334,6 @@ class _HistoryRow extends StatelessWidget {
         ),
       );
 
-    // Desktop: no swipe — add an explicit remove button beside the row.
     if (isDesktopPlatform) {
       return Row(
         children: [

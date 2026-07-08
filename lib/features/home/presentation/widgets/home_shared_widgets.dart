@@ -35,14 +35,8 @@ class HomeNetworkImage extends StatelessWidget {
   final IconData placeholderIcon;
   final BoxFit fit;
 
-  /// Optional explicit image request headers (e.g. provider Referer/UA). When
-  /// null, a same-origin Referer + browser UA is derived from the image URL.
   final Map<String, String>? headers;
 
-  /// Many provider CDNs (CloudStream/aniyomi/manga sources) hotlink-protect
-  /// posters with a `Referer` check and/or reject non-browser User-Agents, so a
-  /// bare `Image.network` 403s and shows a broken placeholder. A same-origin
-  /// Referer + a browser UA satisfies the common cases.
   static Map<String, String>? _defaultHeaders(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
@@ -85,13 +79,7 @@ class HomeNetworkImage extends StatelessWidget {
       borderRadius: borderRadius,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // Decode at the on-screen width (× DPR) instead of the source's full
-          // resolution. Posters/banners are small on screen, so this slashes the
-          // decoded-bitmap memory that was OOM-killing the app on heavy home
-          // pages — with no visible quality change.
           final dpr = MediaQuery.devicePixelRatioOf(context);
-          // The cacheWidth cap is a mobile OOM guard. Desktop has ample RAM, so
-          // decode at full source resolution there for crisp posters.
           final w = (!isDesktopPlatform && constraints.maxWidth.isFinite)
               ? (constraints.maxWidth * dpr).round()
               : null;

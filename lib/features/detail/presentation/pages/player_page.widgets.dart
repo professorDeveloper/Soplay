@@ -1,6 +1,5 @@
 part of 'player_page.dart';
 
-/// Pulsing red dot used by the LIVE indicator.
 class _LiveDot extends StatefulWidget {
   const _LiveDot();
 
@@ -44,9 +43,6 @@ class _FittedVideo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Desktop (media_kit): let the backend fill the area and letterbox itself
-    // via BoxFit — its texture handles aspect correctly. Mobile keeps the
-    // manual sizing below around the raw video_player surface.
     if (controller.letterboxesInternally) {
       final boxFit = switch (fit) {
         _PlayerFit.contain => BoxFit.contain,
@@ -264,9 +260,6 @@ class _IconButton extends StatelessWidget {
   }
 }
 
-/// Desktop volume: a speaker button (click = mute) plus a horizontal slider.
-/// The mouse wheel changes the level ONLY while the pointer is over this control
-/// (icon or slider) — never over the video, which was muting playback.
 class _DesktopVolumeControl extends StatelessWidget {
   const _DesktopVolumeControl({
     required this.volume,
@@ -274,7 +267,7 @@ class _DesktopVolumeControl extends StatelessWidget {
     required this.onToggleMute,
   });
 
-  final double volume; // 0..1
+  final double volume;
   final ValueChanged<double> onChanged;
   final VoidCallback onToggleMute;
 
@@ -893,9 +886,6 @@ class _Chip extends StatelessWidget {
   }
 }
 
-/// Seek-preview image built from a natively-generated video frame (for providers
-/// without VTT/storyboard thumbnails). Frames are bucketed + cached by the
-/// service, so scrubbing only extracts a handful.
 class _GeneratedFramePreview extends StatefulWidget {
   const _GeneratedFramePreview({
     required this.url,
@@ -939,16 +929,11 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
         widget.url, widget.headers, widget.positionMs);
     if (!mounted) return;
     if (bytes != null) {
-      // Got a frame → show it and keep it. Once we have any frame we never go
-      // back to a spinner/blank, so the preview can't "disappear" mid-scrub.
       setState(() {
         _bytes = bytes;
         _failed = false;
       });
     } else if (_bytes == null && !_failed) {
-      // Very first attempt produced nothing (source still opening / unframeable)
-      // → collapse quietly once. Later buckets still retry (null isn't cached);
-      // if any yields a frame it shows and stays. No spinner⇄blank flicker.
       setState(() => _failed = true);
     }
   }
@@ -966,9 +951,6 @@ class _GeneratedFramePreviewState extends State<_GeneratedFramePreview> {
         filterQuality: FilterQuality.low,
       );
     }
-    // Couldn't extract a frame (e.g. headers/CDN) → show nothing rather than a
-    // broken-image placeholder; a later scrub bucket will retry (null isn't
-    // cached). While the first attempt is in flight, show a small spinner.
     if (_failed) return const SizedBox.shrink();
     return Container(
       width: _w,

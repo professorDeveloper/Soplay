@@ -14,8 +14,6 @@ class GenreCard extends StatelessWidget {
   final GenreEntity genre;
 
   String get _label {
-    // CloudStream categories provide a real name; backend genres derive it from
-    // the slug (kebab → Title Case).
     if (genre.name.isNotEmpty) return genre.name;
     return genre.slug
         .replaceAll('-', ' ')

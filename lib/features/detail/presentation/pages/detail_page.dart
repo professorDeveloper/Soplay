@@ -184,9 +184,6 @@ class _DetailViewState extends State<_DetailView>
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _bodyPlayKey = GlobalKey();
 
-  // One-time coachmark teaching the long-press "move to private" gesture on the
-  // add button. Scoped per-instance so stacked detail pages never collide with
-  // each other (or with the global showcase used on the main page).
   final GlobalKey _listActionShowcaseKey = GlobalKey();
   late final String _showcaseScope = 'detail-private-${identityHashCode(this)}';
   ShowcaseView? _showcaseView;
@@ -235,9 +232,6 @@ class _DetailViewState extends State<_DetailView>
     _maybeShowPrivateShowcase();
   }
 
-  /// Shows the long-press coachmark exactly once, after the detail content (and
-  /// therefore the add button) has been laid out. No-op once dismissed/seen, or
-  /// when the detail never loads (this state only exists for [DetailLoaded]).
   void _maybeShowPrivateShowcase() {
     if (_privateShowcaseStarted ||
         getIt<HiveService>().hasSeenPrivateShowcase) {
@@ -249,8 +243,6 @@ class _DetailViewState extends State<_DetailView>
       Future<void>.delayed(const Duration(milliseconds: 600), () {
         if (!mounted) return;
         _showcaseView?.startShowCase([_listActionShowcaseKey]);
-        // One-time: mark seen the moment it appears so it never shows again,
-        // even if the user navigates away without tapping it.
         _markPrivateShowcaseSeen();
       });
     });
@@ -322,9 +314,6 @@ class _DetailViewState extends State<_DetailView>
     super.dispose();
   }
 
-  // Localized label for a tab. The tokens in [_tabs] stay in English because
-  // they double as switch keys in [_buildTabContent] and ValueKeys; only the
-  // visible label is translated.
   String _tabLabel(String tab) => switch (tab) {
     'Similar' => 'detail.similar'.tr(),
     'Cast' => 'movie.cast'.tr(),
@@ -404,10 +393,7 @@ class _DetailViewState extends State<_DetailView>
         thumbnail: detail.thumbnail ?? '',
       ),
     );
-    // Pull it out of the normal list so private items never surface there, then
-    // reset the heart/add button to reflect that it's no longer in My List.
     await getIt<MyListLocalDataSource>().removeByUrl(detail.contentUrl);
-    // A private item must leave no history trail — drop any existing entries.
     await getIt<HistoryService>().removeByContentUrl(detail.contentUrl);
     if (!mounted) return;
     context.read<FavoriteBloc>().add(
@@ -420,8 +406,6 @@ class _DetailViewState extends State<_DetailView>
     _showSnack('app_lock.moved_to_private'.tr());
   }
 
-  /// Actions for an item that already lives in the private list (the add button
-  /// is showing the lock affordance). Mirrors the private-list page sheet.
   void _showPrivateActions() {
     showModalBottomSheet<void>(
       context: context,
@@ -621,15 +605,9 @@ class _DetailViewState extends State<_DetailView>
   }
 
   Future<void> _resolveAndPlayMovie(PlaybackEntity playback, String ref) async {
-    // Cancellable while resolving: Esc (desktop), a barrier tap, or the Cancel
-    // button dismisses it and aborts the play attempt. `dialogOpen` tracks
-    // whether it's still up so a cancel doesn't pop the page underneath (the
-    // earlier orphan bug — now Esc pops the real Navigator, so this is safe).
     var dialogOpen = true;
     showDialog<void>(
       context: context,
-      // Only the Cancel button (or Esc, via the Navigator) aborts it — a stray
-      // click on the dimmed background must NOT cancel the resolve.
       barrierDismissible: false,
       barrierColor: Colors.black54,
       builder: (dctx) => Center(
@@ -653,7 +631,6 @@ class _DetailViewState extends State<_DetailView>
       provider: playback.provider,
     );
     if (!mounted) return;
-    // Cancelled while resolving — don't play, and don't pop the page.
     if (!dialogOpen) return;
     Navigator.of(context, rootNavigator: true).pop();
 
@@ -1088,7 +1065,6 @@ class _CircleIconButton extends StatelessWidget {
     return HoverTap(
       onTap: onTap,
       onLongPress: onLongPress,
-      // Desktop: right-click mirrors the long-press action (e.g. move-to-private).
       onSecondaryTap: onLongPress,
       child: ClipOval(
         child: BackdropFilter(

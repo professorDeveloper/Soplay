@@ -94,7 +94,6 @@ class _ProfileViewState extends State<_ProfileView> {
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Subtle gradient background
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -130,9 +129,6 @@ class _ProfileViewState extends State<_ProfileView> {
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(child: _ProvidersSection()),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                // Repo management runs the native DEX plugins, so it only makes
-                // sense on the phone (host). On desktop the sources arrive over
-                // the bridge and are managed on the phone — hide these there.
                 if (BridgeControl.canHost && CloudStreamChannel.isSupported) ...[
                   SliverToBoxAdapter(
                     child: Padding(
@@ -257,7 +253,6 @@ class _ProfileViewState extends State<_ProfileView> {
               ],
             ),
           ),
-          // Blur header
           Positioned(
             top: 0,
             left: 0,
@@ -603,7 +598,6 @@ class _ProvidersSection extends StatelessWidget {
   }
 }
 
-/// Provider filter group: CloudStream first, otherwise by delivery mode.
 String providerGroup(ProviderEntity p) {
   if (p.category == 'cloudstream') return 'cloudstream';
   if (p.category == 'aniyomi') return 'aniyomi';
@@ -615,19 +609,12 @@ String providerGroup(ProviderEntity p) {
   };
 }
 
-/// Remembers the last-picked provider filter for the session so reopening the
-/// sheet keeps the same view.
 String _providerSheetFilter = 'all';
 
-/// Public entry point so other features (e.g. the home top bar quick-switch)
-/// can open the otherwise-private full provider picker.
 void openProviderPicker(BuildContext context, ProviderBloc bloc) {
   _ProvidersPage.open(context, bloc);
 }
 
-/// Full-screen provider picker (replaces the old bottom sheet) with a search box
-/// and the category filter. A page scrolls long lists (60+ CloudStream
-/// providers) far more comfortably than a draggable sheet.
 class _ProvidersPage extends StatefulWidget {
   const _ProvidersPage();
 
@@ -647,8 +634,6 @@ class _ProvidersPage extends StatefulWidget {
 }
 
 class _ProvidersPageState extends State<_ProvidersPage> {
-  // Filter group: 'favorites' | 'all' | 'cloud' | 'hybrid' | 'local' |
-  // 'cloudstream' | 'aniyomi' | 'manga'.
   late String _selectedCategory;
   final _searchController = TextEditingController();
   String _query = '';
@@ -657,8 +642,6 @@ class _ProvidersPageState extends State<_ProvidersPage> {
   @override
   void initState() {
     super.initState();
-    // Default to the Favorites view when the user has any starred providers,
-    // otherwise fall back to the remembered (or 'all') filter.
     final hasFavorites =
         getIt<HiveService>().getFavoriteProviders().isNotEmpty;
     var initial = _providerSheetFilter;
@@ -678,7 +661,6 @@ class _ProvidersPageState extends State<_ProvidersPage> {
   Future<void> _toggleFavorite(String id) async {
     await getIt<HiveService>().toggleFavoriteProvider(id);
     if (!mounted) return;
-    // Leaving the Favorites view empty is confusing — drop back to All.
     if (_selectedCategory == 'favorites' &&
         getIt<HiveService>().getFavoriteProviders().isEmpty) {
       _selectedCategory = 'all';
@@ -694,8 +676,6 @@ class _ProvidersPageState extends State<_ProvidersPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        // Kill the Material 3 scroll-under tint (it pulls the seed colour and
-        // looked red as content scrolled under the bar).
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
@@ -710,7 +690,7 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                       selected: _selectedCategory,
                       onSelected: (cat) => setState(() {
                         _selectedCategory = cat;
-                        _providerSheetFilter = cat; // remember for next open
+                        _providerSheetFilter = cat;
                       }),
                     ),
                   )
@@ -720,8 +700,6 @@ class _ProvidersPageState extends State<_ProvidersPage> {
       ),
       body: BlocBuilder<ProviderBloc, ProviderState>(
         builder: (context, state) {
-          // Filter once per build (was computed twice — count + list — over 300+
-          // providers each frame, the main source of the open jank).
           final filtered = state is ProviderLoaded
               ? _filteredProviders(state.providers)
               : const <ProviderEntity>[];
@@ -733,8 +711,6 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
                 child: TextField(
                   controller: _searchController,
-                  // Debounce so each keystroke doesn't re-filter 300+ providers
-                  // and recompute the category counts on the whole tree.
                   onChanged: (v) {
                     _searchDebounce?.cancel();
                     _searchDebounce = Timer(
@@ -812,12 +788,8 @@ class _ProvidersPageState extends State<_ProvidersPage> {
   }
 
   List<ProviderEntity> _filteredProviders(List<ProviderEntity> all) {
-    // "All" excludes CloudStream (its own group). `repo:<name>` shows just one
-    // CloudStream repo's providers (their `description` carries the repo name).
-    // Otherwise match the delivery-mode group (cloud/hybrid/local) or cloudstream.
     Iterable<ProviderEntity> list;
     if (_selectedCategory == 'favorites') {
-      // Favorites span every group (cloud/hybrid/local/cloudstream/aniyomi/manga).
       final favs = getIt<HiveService>().getFavoriteProviders().toSet();
       list = all.where((p) => favs.contains(p.id));
     } else if (_selectedCategory == 'all') {
@@ -840,10 +812,6 @@ class _ProvidersPageState extends State<_ProvidersPage> {
   }
 }
 
-/// Compact category filter dropdown shown in the providers sheet header.
-/// Defaults to "All"; opens a popup menu listing only categories that have
-/// at least one provider (preserving the canonical order tmdb → anime →
-/// movies → other).
 class _CategoryFilterButton extends StatelessWidget {
   const _CategoryFilterButton({
     required this.providers,
@@ -855,8 +823,6 @@ class _CategoryFilterButton extends StatelessWidget {
   final String selected;
   final ValueChanged<String> onSelected;
 
-  // Filter groups: Favorites first (only shown when the user has starred any),
-  // then by delivery type (mode) plus CloudStream, per request.
   static const _canonicalOrder = [
     'favorites',
     'cloud',
@@ -878,11 +844,9 @@ class _CategoryFilterButton extends StatelessWidget {
     'manga':      ('Manga',       Icons.menu_book_outlined),
   };
 
-  /// Display label for a group — localised for 'favorites', static otherwise.
   String _label(String key) =>
       key == 'favorites' ? 'profile.favorites'.tr() : (_meta[key]?.$1 ?? key);
 
-  /// Short, chip-friendly form of a repo name (drops the GitHub owner, trims).
   String _repoShort(String repo) {
     final seg = repo.contains('/') ? repo.split('/').last : repo;
     return seg.length > 18 ? '${seg.substring(0, 17)}…' : seg;
@@ -895,12 +859,9 @@ class _CategoryFilterButton extends StatelessWidget {
       final g = providerGroup(p);
       counts[g] = (counts[g] ?? 0) + 1;
     }
-    // Favorites is a virtual group spanning every category; surface it only
-    // when the user has starred at least one provider that's still available.
     final favIds = getIt<HiveService>().getFavoriteProviders().toSet();
     final favoriteCount = providers.where((p) => favIds.contains(p.id)).length;
     if (favoriteCount > 0) counts['favorites'] = favoriteCount;
-    // Per-repo counts for CloudStream providers (their `description` = repo name).
     final repoCounts = <String, int>{};
     for (final p in providers) {
       if (providerGroup(p) != 'cloudstream') continue;
@@ -910,7 +871,6 @@ class _CategoryFilterButton extends StatelessWidget {
     }
     final available = _canonicalOrder.where(counts.containsKey).toList();
     final repos = repoCounts.keys.toList()..sort();
-    // Nothing to filter when there's only one category and no repos.
     if (available.length < 2 && repos.isEmpty) return const SizedBox.shrink();
 
     final (String, IconData) selectedMeta = selected.startsWith('repo:')
@@ -928,7 +888,6 @@ class _CategoryFilterButton extends StatelessWidget {
         final meta = _meta[cat] ?? (cat, Icons.label_outline);
         return (cat, _label(cat), meta.$2, counts[cat] ?? 0);
       }),
-      // One entry per CloudStream repo (e.g. "cs-kraptor", "…-phisher").
       ...repos.map((r) =>
           ('repo:$r', _repoShort(r), Icons.folder_outlined, repoCounts[r] ?? 0)),
     ];
@@ -1049,17 +1008,12 @@ class _ProvidersList extends StatefulWidget {
 }
 
 class _ProvidersListState extends State<_ProvidersList> {
-  // tile (~64) + separator (8); good enough to bring the selected row into view.
   static const double _estItemExtent = 72.0;
   late final ScrollController _controller;
 
   @override
   void initState() {
     super.initState();
-    // Open already positioned at the selected provider (via initialScrollOffset)
-    // instead of rendering at the top then post-frame jumping — that reposition
-    // was the visible "opens late then snaps" lag on the 300+ item list. Any
-    // overshoot past maxScrollExtent is clamped by the list on first layout.
     final i = widget.providers.indexWhere((p) => p.id == widget.currentProviderId);
     final offset = i > 2 ? (i * _estItemExtent - 80).clamp(0.0, double.infinity) : 0.0;
     _controller = ScrollController(initialScrollOffset: offset);
@@ -1077,10 +1031,6 @@ class _ProvidersListState extends State<_ProvidersList> {
       controller: _controller,
       padding: EdgeInsets.fromLTRB(16, 4, 16, widget.bottomPad + 16),
       addAutomaticKeepAlives: false,
-      // Fixed extent → the list computes any row's offset in O(1), so opening
-      // already-scrolled to a far-down selected provider is instant. A variable-
-      // extent (ListView.separated) list had to lay out EVERY row above the
-      // target to reach it — that was the ~2s open freeze on the 300+ list.
       itemExtent: _estItemExtent,
       itemCount: widget.providers.length,
       itemBuilder: (context, i) {
@@ -1160,8 +1110,6 @@ class _ProviderListTile extends StatelessWidget {
   final VoidCallback onToggleFavorite;
   final VoidCallback onTap;
 
-  // Only on-device extension providers (an:/mn:/cs:) sit behind a per-source
-  // Cloudflare challenge the interactive solver can pre-clear.
   bool get _canSolveCloudflare =>
       provider.id.startsWith('an:') ||
       provider.id.startsWith('mn:') ||
@@ -1199,7 +1147,6 @@ class _ProviderListTile extends StatelessWidget {
           onTap: onTap,
           onLongPress:
               _canSolveCloudflare ? () => _solveCloudflare(context) : null,
-          // Desktop: right-click also triggers the Cloudflare solver.
           onSecondaryTap:
               _canSolveCloudflare ? () => _solveCloudflare(context) : null,
           child: Padding(
@@ -1339,15 +1286,12 @@ class _ProviderModeBadge extends StatelessWidget {
   }
 }
 
-/// Hint that the provider sits behind a Cloudflare challenge — the
-/// CfBypassInterceptor will silently solve it on first use, so the first call
-/// of the session may take a few extra seconds.
 class _CfBypassBadge extends StatelessWidget {
   const _CfBypassBadge();
 
   @override
   Widget build(BuildContext context) {
-    const color = Color(0xFFF38020); // Cloudflare orange
+    const color = Color(0xFFF38020);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
@@ -1375,13 +1319,12 @@ class _CfBypassBadge extends StatelessWidget {
   }
 }
 
-/// Small "18+" pill shown for providers flagged adult/NSFW by their repo.
 class _NsfwBadge extends StatelessWidget {
   const _NsfwBadge();
 
   @override
   Widget build(BuildContext context) {
-    const color = Color(0xFFE53935); // red
+    const color = Color(0xFFE53935);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
@@ -1641,7 +1584,6 @@ class _SecuritySectionState extends State<_SecuritySection> {
   }
 }
 
-/// Desktop-only: appearance settings (currently the native-vs-custom title bar).
 class _AppearanceSection extends StatefulWidget {
   const _AppearanceSection();
 
@@ -2103,9 +2045,6 @@ class _ProviderLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Decode at display size (× DPR), not full resolution. With 60+ provider
-    // tiles sharing the same icon URL this keeps the image cache tiny instead
-    // of holding dozens of full-res bitmaps (a major OOM/jank source).
     final cache = (size * MediaQuery.devicePixelRatioOf(context)).round();
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
@@ -2116,9 +2055,6 @@ class _ProviderLogo extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.cover,
-              // Disk-cached + decoded at display size: with 280+ distinct source
-              // icons this avoids re-fetching every scroll/session and keeps the
-              // memory cache small (was a jank source on the Aniyomi list).
               memCacheWidth: cache,
               memCacheHeight: cache,
               fadeInDuration: const Duration(milliseconds: 120),
@@ -2155,7 +2091,6 @@ class _ProviderFallback extends StatelessWidget {
   }
 }
 
-// ─── Server Countdown Tile ──────────────────────────────────────
 
 class _ServerCountdownTile extends StatefulWidget {
   const _ServerCountdownTile();
@@ -2316,7 +2251,6 @@ class _ServerSupportSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // Live countdown
           ValueListenableBuilder<Duration>(
             valueListenable: remaining,
             builder: (_, rem, _) {

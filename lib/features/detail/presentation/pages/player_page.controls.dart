@@ -36,8 +36,6 @@ extension _PlayerControls on _PlayerPageState {
     }
   }
 
-  /// Desktop volume: drive the media_kit backend directly (the Android
-  /// system-volume channel is a no-op on Windows).
   void _setPlayerVolume(double v) {
     final clamped = v.clamp(0.0, 1.0);
     setState(() => _volume = clamped);
@@ -143,14 +141,10 @@ extension _PlayerControls on _PlayerPageState {
     }
   }
 
-  // Generated frames stand in for VTT/storyboard previews on network videos
-  // (most CloudStream providers ship no thumbnails).
   bool get _canGeneratePreview =>
       FramePreviewService.isSupported &&
       _isNetworkVideo &&
       _videoUrl != null &&
-      // HLS frame-sampling: iOS AVAssetImageGenerator handles m3u8, but Android
-      // MediaMetadataRetriever can't — so only attempt HLS previews on iOS.
       (!_isHls || Platform.isIOS);
 
   Widget _buildVideoLayer() {
@@ -648,9 +642,6 @@ extension _PlayerControls on _PlayerPageState {
                         ),
                         const SizedBox(width: 8),
                       ],
-                      // Mobile keeps every control in the top bar. Desktop moves
-                      // playback to a Movies&TV-style bottom bar and leaves only
-                      // the window controls up here.
                       if (!isDesktopPlatform) ...[
                         _IconButton(
                           icon: _isPortrait
@@ -690,9 +681,6 @@ extension _PlayerControls on _PlayerPageState {
                                   : _openSettingsSheet,
                         ),
                       ],
-                      // Window controls, but ONLY while the title bar is hidden
-                      // (immersive). Both are driven by the same flag, so they
-                      // can never appear at once — no double bar, ever.
                       if (isDesktopPlatform)
                         ValueListenableBuilder<bool>(
                           valueListenable: DesktopWindow.immersive,
@@ -705,8 +693,6 @@ extension _PlayerControls on _PlayerPageState {
                 ),
               ),
             ),
-            // Desktop puts transport controls in the bottom bar, so the big
-            // centre cluster is mobile-only.
             if (initialized && !isBuffering && !isDesktopPlatform)
               _buildCenterPlayCluster(c),
             if (isBuffering)
@@ -763,8 +749,6 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
-  /// Desktop only: the Movies&TV / WMP-style control row that sits under the
-  /// seekbar — volume on the left, transport centred, options on the right.
   Widget _buildDesktopControlRow(
     PlayerController c,
     bool hasEpisodes,
@@ -776,7 +760,6 @@ extension _PlayerControls on _PlayerPageState {
       padding: const EdgeInsets.only(top: 2, bottom: 2),
       child: Row(
         children: [
-          // Left — volume.
           Expanded(
             child: Align(
               alignment: Alignment.centerLeft,
@@ -787,7 +770,6 @@ extension _PlayerControls on _PlayerPageState {
               ),
             ),
           ),
-          // Centre — transport.
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -838,9 +820,6 @@ extension _PlayerControls on _PlayerPageState {
               ],
             ],
           ),
-          // Right — speed, subtitles, settings, quality/episodes, fullscreen.
-          // FittedBox shrinks the cluster on a narrow window instead of
-          // overflowing.
           Expanded(
             child: Align(
               alignment: Alignment.centerRight,
@@ -1033,9 +1012,6 @@ extension _PlayerControls on _PlayerPageState {
                                     max: maxMs,
                                     onChangeStart: (v) {
                                       _sliderDragValue.value = v;
-                                      // Keep controls + thumbnail preview on
-                                      // screen while the user holds/drags the
-                                      // seekbar (don't let auto-hide fire).
                                       _hideTimer?.cancel();
                                     },
                                     onChanged: (v) {
@@ -1045,7 +1021,7 @@ extension _PlayerControls on _PlayerPageState {
                                     onChangeEnd: (v) {
                                       final target = Duration(
                                           milliseconds: v.toInt());
-                                      _seekTo(target); // reschedules auto-hide
+                                      _seekTo(target);
                                       _clearDragAfterSeek(target);
                                     },
                                   ),
@@ -1069,8 +1045,6 @@ extension _PlayerControls on _PlayerPageState {
                 },
               ),
               const SizedBox(height: 4),
-              // Desktop: a Movies&TV-style control row (volume · transport ·
-              // options) under the seekbar. Mobile keeps its scrollable buttons.
               if (isDesktopPlatform)
                 _buildDesktopControlRow(
                     c, hasEpisodes, hasQualities, hasPrev, hasNext)
@@ -1124,7 +1098,6 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
-  /// Replaces the seek bar for live / IPTV streams (no fixed duration to scrub).
   Widget _buildLiveBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1142,7 +1115,6 @@ extension _PlayerControls on _PlayerPageState {
             ),
           ),
           const Spacer(),
-          // Jump back to the live edge after a pause / DVR rewind.
           _BottomTextButton(
             icon: Icons.fiber_manual_record_rounded,
             label: 'player.go_live'.tr(),

@@ -1,7 +1,7 @@
 class ExtractorEntity {
   final String name;
   final int version;
-  final String scope; // "all" | "resolveMedia"
+  final String scope;
   final String url;
 
   const ExtractorEntity({

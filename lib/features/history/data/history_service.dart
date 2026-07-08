@@ -68,7 +68,6 @@ class HistoryService {
   }
 
   Future<void> save(HistoryItem item) async {
-    // Items the user moved to their Private list must leave no history trail.
     if (getIt.isRegistered<PrivateListService>() &&
         getIt<PrivateListService>().contains(item.contentUrl)) {
       return;
@@ -83,9 +82,6 @@ class HistoryService {
     revision.value++;
   }
 
-  /// Removes every history entry for a content url (the base key plus any
-  /// `::episode::N` keys). Used when an item is moved to the Private list so no
-  /// trace of it remains in the history.
   Future<void> removeByContentUrl(String contentUrl) async {
     final keys = _box.keys
         .whereType<String>()

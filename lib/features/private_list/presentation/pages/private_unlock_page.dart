@@ -10,12 +10,6 @@ import 'package:soplay/features/app_lock/presentation/bloc/app_lock_state.dart';
 import 'package:soplay/features/app_lock/presentation/widgets/pin_dots.dart';
 import 'package:soplay/features/app_lock/presentation/widgets/pin_keypad.dart';
 
-/// A CANCELLABLE full-screen verify gate for the private list.
-///
-/// Reuses the app-lock VERIFY flow ([AppLockBloc] + [PinDots]/[PinKeypad]) but,
-/// unlike [PinVerifyPage] (the non-cancellable startup gate), this page returns
-/// a `bool` via `Navigator.pop`: `true` once the PIN/biometric is accepted,
-/// `false`/`null` if the user backs out.
 class PrivateUnlockPage extends StatelessWidget {
   const PrivateUnlockPage({super.key});
 

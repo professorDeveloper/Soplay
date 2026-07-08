@@ -2,7 +2,6 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/detail/domain/repositories/detail_repository.dart';
 import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
 
-/// Resolves a manga chapter to its image pages (manga `mn:` providers only).
 class GetPagesUseCase {
   final DetailRepository repository;
   const GetPagesUseCase(this.repository);

@@ -2,29 +2,12 @@ import 'dart:async';
 
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-/// Solves a Cloudflare managed challenge inside a hidden WebView and returns
-/// the `Cookie` header string ready to be sent to the backend.
-///
-/// Backend signals a CF challenge via HTTP 428 + body
-/// `{ cfChallenge: true, host, url, userAgent }`. The interceptor calls
-/// [solve] with those fields; if a non-null cookie string comes back, it
-/// POSTs to `/api/cf-cookies` and retries the original request.
-///
-/// Mirrors `CloudflareKiller.kt` from CloudStream but stays on the client —
-/// only this device runs the JS challenge; the cookies are then shared with
-/// the backend so every subsequent provider call goes straight through.
 class CfBypassService {
   static const _pollInterval = Duration(milliseconds: 600);
   static const _defaultTimeout = Duration(seconds: 30);
 
-  /// Single-flight per host so concurrent 428s don't open 5 WebViews.
   final Map<String, Future<String?>> _inflight = {};
 
-  /// Runs a [HeadlessInAppWebView] against the challenged URL until the
-  /// `cf_clearance` cookie appears in the [CookieManager], then collects all
-  /// cookies for that host into a `Cookie` header string.
-  ///
-  /// Returns `null` on timeout.
   Future<String?> solve({
     required String host,
     required String url,
@@ -56,8 +39,6 @@ class CfBypassService {
         javaScriptEnabled: true,
         domStorageEnabled: true,
         cacheEnabled: true,
-        // CF inspects various surface flags — leaving defaults gets us closest
-        // to a real Chrome.
         useShouldInterceptRequest: false,
       ),
     );
@@ -84,7 +65,6 @@ class CfBypassService {
         if (!completer.isCompleted) completer.complete(header);
         await stop();
       } catch (_) {
-        // keep polling — getCookies can throw transiently right after start
       }
     });
 

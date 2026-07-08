@@ -6,11 +6,6 @@ import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/features/my_list/data/models/favorite_model.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 
-/// Local-first storage for "My List" favorites.
-///
-/// Mirrors [HistoryService]: a GetIt singleton over a Hive box that stores
-/// JSON-String values and exposes a [revision] notifier so UIs can rebuild
-/// when the favorites set changes.
 class MyListLocalDataSource {
   final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
@@ -65,7 +60,6 @@ class MyListLocalDataSource {
     revision.value++;
   }
 
-  /// Flags every stored entry matching [contentUrl] as synced to the account.
   Future<void> markSynced(String contentUrl) async {
     final updates = <dynamic, String>{};
     for (final key in _box.keys) {
@@ -114,15 +108,10 @@ class MyListLocalDataSource {
     revision.value++;
   }
 
-  /// Merges server entries into the local box, flagging them [synced] = true.
-  ///
-  /// Existing local-only entries that also appear on the server are upgraded to
-  /// synced; local entries NOT in [items] keep their current synced flag.
   Future<void> upsertAll(Iterable<FavoriteEntity> items) async {
     for (final e in items) {
       final key = _key(e.provider, e.contentUrl);
       if (_box.containsKey(key)) {
-        // Already stored — confirm it is synced to the account.
         try {
           final raw = _box.get(key);
           if (raw is String) {

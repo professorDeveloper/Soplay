@@ -61,8 +61,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      // Android-only distribution concerns: app-links opt-in and the
-      // (platform=android) version check don't apply on desktop.
       if (!isDesktopPlatform) {
         getIt<UpdateChecker>().run(context);
         DeeplinkOptIn.maybePrompt(context);
@@ -96,9 +94,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     final newId = state.currentProviderId;
     if (_lastProviderId == null) {
       _lastProviderId = newId;
-      // First provider resolution (e.g. fresh install): the home tab already
-      // fired HomeLoad before any provider was selected, so it may have failed
-      // into the retry view. Reload it now that a default provider exists.
       if (context.read<HomeBloc>().state is! HomeLoaded) {
         context.read<HomeBloc>().add(HomeLoad(silent: true));
       }
@@ -173,8 +168,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             setState(() => _index = 0);
             _navController.goTo(0);
           },
-          // Desktop (Windows/Linux/macOS): a side NavigationRail instead of a
-          // mobile bottom bar. Mobile keeps the original bottom navigation.
           child: isDesktopPlatform
               ? Scaffold(
                   backgroundColor: AppColors.background,
@@ -300,8 +293,6 @@ class _SoplayBottomNav extends StatelessWidget {
   }
 }
 
-/// Desktop side navigation — a [NavigationRail] mirroring the mobile bottom
-/// bar's destinations. Shown only on desktop platforms.
 class _SoplaySideRail extends StatelessWidget {
   const _SoplaySideRail({required this.index, required this.onTap});
 
@@ -318,13 +309,10 @@ class _SoplaySideRail extends StatelessWidget {
       groupAlignment: -0.9,
       minWidth: 78,
       useIndicator: true,
-      // Subtle neutral, rounded selection pill (also the hover cue) — desktop
-      // rail destinations show a pointer cursor + hover highlight by default.
       indicatorColor: Colors.white.withValues(alpha: 0.12),
       indicatorShape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(14)),
       ),
-      // Brand mark up top so the rail reads as a proper app sidebar.
       leading: const Padding(
         padding: EdgeInsets.only(top: 8, bottom: 14),
         child: Column(
@@ -358,9 +346,6 @@ class _SoplaySideRail extends StatelessWidget {
         fontSize: 11,
         fontWeight: FontWeight.w500,
       ),
-      // Desktop: force a pointer (hand) cursor over each destination — the rail's
-      // default doesn't always show it. Wrapping the icon + label covers the
-      // visible tap target of every tab.
       destinations: [
         for (final item in _SoplayBottomNav._items)
           NavigationRailDestination(

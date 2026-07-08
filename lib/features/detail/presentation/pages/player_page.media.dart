@@ -332,9 +332,6 @@ extension _PlayerMedia on _PlayerPageState {
         });
         return;
       }
-      // Live / IPTV detection: a live HLS has no real duration (it's a sliding
-      // window), so video_player reports zero or an absurd length. When live we
-      // skip resume-seeking and generated previews, which don't apply.
       final dur = controller.value.duration;
       _isLive = dur <= Duration.zero || dur.inHours >= 12;
       PlayerLog.instance.setContext({
@@ -342,12 +339,7 @@ extension _PlayerMedia on _PlayerPageState {
         'duration': _isLive ? 'live' : dur.toString(),
       });
       _plog('initialized — ${_isLive ? 'LIVE stream' : 'duration $dur'}');
-      // Warm the seek-preview generator so the very first scrub already has a
-      // frame ready. `_canGeneratePreview` already encodes the platform/HLS
-      // rules (Android skips HLS, iOS allows it). Live has no seekable window.
       if (_canGeneratePreview && !_isLive) {
-        // Warm at the resume position (or start) so the first scrub there is
-        // already decoded instead of cold-starting the codec on first drag.
         FramePreviewService.open(
           _videoUrl!,
           _headers,
@@ -437,7 +429,6 @@ extension _PlayerMedia on _PlayerPageState {
 
   bool _isRecoverableError(String msg) {
     final l = msg.toLowerCase();
-    // Never retry format/config/404 errors — these will always fail
     if (l.contains('-12939') ||
         l.contains('-12938') ||
         l.contains('-12660') ||

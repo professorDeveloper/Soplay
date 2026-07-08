@@ -16,7 +16,6 @@ class MyListHeader extends StatelessWidget {
   final double topPad;
   final double blurProgress;
 
-  /// Desktop-only manual refresh (mouse can't pull-to-refresh). Null hides it.
   final VoidCallback? onRefresh;
 
   static const double contentHeight = 58.0;

@@ -48,7 +48,6 @@ class DownloadService {
     return hash.toRadixString(36);
   }
 
-  /// Stable id for a downloaded manga chapter.
   static String mangaChapterId({
     required String contentUrl,
     required String provider,
@@ -175,11 +174,7 @@ class DownloadService {
 
     final String localPath;
     if (item.kind == 'manga') {
-      // For manga, localPath is the destination FOLDER (the native service
-      // writes p_NNN.<ext> page files into it), never a single media file.
       localPath = dir;
-      // Pages are normally captured at enqueue time and persisted; re-resolve
-      // as a safety net if they're missing so the native task has work to do.
       if (dl.pageUrls.isEmpty && dl.chapterRef != null) {
         final res = await getIt<GetPagesUseCase>()(
           ref: dl.chapterRef!,
@@ -395,7 +390,6 @@ class DownloadService {
     var urls = dl.pageUrls;
     var headers = dl.headers;
 
-    // Re-resolve pages on demand if we weren't given any up front.
     if (urls.isEmpty && dl.chapterRef != null) {
       final res = await getIt<GetPagesUseCase>()(
         ref: dl.chapterRef!,
@@ -445,7 +439,6 @@ class DownloadService {
     return current;
   }
 
-  /// Local page images for a completed manga chapter download, in order.
   Future<List<MangaPageEntity>> localMangaPages(String id) async {
     final item = get(id);
     if (item == null ||

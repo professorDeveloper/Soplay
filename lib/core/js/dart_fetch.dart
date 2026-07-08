@@ -8,35 +8,17 @@ import '../network/cf_bypass_service.dart';
 import 'js_log.dart';
 import 'safe_cookie_manager.dart';
 
-/// HTTP bridge for JS extractors. Runs every call through dio so we can:
-///   - keep cookies sticky inside a single playback session (per-host
-///     CookieJar)
-///   - solve Cloudflare challenges on the device itself when the upstream
-///     site is CF-protected (PrimeSrc et al.); the resulting cookies are
-///     cached against the host and reused on subsequent requests
-///   - report the cf_clearance back to the backend via /api/cf-cookies so
-///     server-side providers also benefit
 class DartFetch {
   final Dio _dio;
   final CfBypassService? _cfService;
   final Dio? _backendDio;
 
-  /// Maps host → cookie header solved earlier in this session. Stored here
-  /// in addition to the dio CookieJar so subsequent JS calls see them even
-  /// if the upstream resets cookies between requests.
   final Map<String, String> _savedCookies = {};
 
   DartFetch._(this._dio, this._cfService, this._backendDio);
 
-  /// Exposed so the in-process HLS proxy can talk to upstream CDNs with the
-  /// same cookie jar — extractors save dailymotion session cookies in this
-  /// jar and the proxy must replay them on segment requests.
   Dio get dio => _dio;
 
-  /// `backendDio` is the app-wide dio used to POST solved cookies to
-  /// `/api/cf-cookies`. Both params are optional — if either is missing the
-  /// CF bypass simply doesn't run and a 428 propagates back to the JS side
-  /// as a normal response.
   factory DartFetch.create({CfBypassService? cfService, Dio? backendDio}) {
     final dio = Dio(
       BaseOptions(
@@ -67,9 +49,6 @@ class DartFetch {
     final sw = Stopwatch()..start();
     JsLog.req('fetch', '${req.method} ${_shortUrl(req.url)}');
 
-    // Inject cached CF cookies for the target host if we have them — saves a
-    // round-trip on every subsequent extractor call once the challenge has
-    // been solved once.
     final host = _hostOf(req.url);
     final extraHeaders = Map<String, String>.from(req.headers);
     if (host != null) {
@@ -97,7 +76,6 @@ class DartFetch {
       response.headers.forEach((k, v) => headers[k] = v.join(','));
       final status = response.statusCode ?? 0;
 
-      // Detect Cloudflare challenge → solve and retry once.
       final cf = _cfService;
       if (allowCfRetry &&
           host != null &&
@@ -113,7 +91,6 @@ class DartFetch {
         );
         if (cookieHeader != null) {
           _savedCookies[host] = cookieHeader;
-          // Best-effort echo to backend so server-side flows also benefit.
           unawaited(_pushCookiesToBackend(host, cookieHeader, req.headers));
           return _send(req, allowCfRetry: false);
         }
@@ -167,7 +144,6 @@ class DartFetch {
         options: Options(extra: const {'skipCfBypassInterceptor': true}),
       );
     } catch (_) {
-      // Non-fatal — the backend will just see another 428 next time.
     }
   }
 

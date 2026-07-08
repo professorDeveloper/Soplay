@@ -40,9 +40,6 @@ class _PinVerifyView extends StatefulWidget {
 class _PinVerifyViewState extends State<_PinVerifyView> {
   bool _biometricTried = false;
 
-  /// Desktop escape hatch for a forgotten PIN: clears the saved PIN (and
-  /// biometric flag) and drops the user into the app. Keeps their library and
-  /// history — only the lock is removed.
   Future<void> _resetLock() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -185,10 +182,6 @@ class _PinVerifyViewState extends State<_PinVerifyView> {
                                   ))
                               : null,
                     ),
-                    // Desktop has no biometrics and no OS-level recovery, so a
-                    // forgotten PIN would lock the user out for good. Offer a
-                    // reset escape hatch here (desktop only — mobile keeps the
-                    // strict lock with no bypass).
                     if (isDesktopPlatform)
                       TextButton(
                         onPressed: _resetLock,

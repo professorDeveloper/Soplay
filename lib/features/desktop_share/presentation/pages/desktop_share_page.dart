@@ -16,10 +16,6 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 
-/// Share the phone's CloudStream / Aniyomi / Manga sources with the Sozo desktop
-/// app over the same Wi‑Fi. On **Android** this is the host (a toggle, a link and
-/// a source picker); on **desktop / iOS** it's the client (paste the phone's
-/// link and pull the sources).
 class DesktopSharePage extends StatefulWidget {
   const DesktopSharePage({super.key});
 
@@ -32,7 +28,6 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
   bool _busy = false;
   final TextEditingController _urlCtrl = TextEditingController();
 
-  // ---- host (phone) source selection ----
   List<_ShareProvider> _providers = const [];
   final Set<String> _picked = <String>{};
   bool _shareAll = true;
@@ -40,8 +35,6 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
 
   bool get _isHost => BridgeControl.canHost;
 
-  // A client that is an iPhone/iPad (not a desktop). Both are Dalvik-less and use
-  // the phone as the extension host, but the wording must say "iOS", not "desktop".
   bool get _isIosClient => !_isHost && Platform.isIOS;
 
   @override
@@ -85,7 +78,6 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
     if (value) _loadProviders();
   }
 
-  /// Load every provider the phone can serve, so the user can pick which to share.
   Future<void> _loadProviders() async {
     if (_loadingProviders) return;
     setState(() => _loadingProviders = true);
@@ -122,8 +114,6 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
     setState(() {
       _providers = out;
       _loadingProviders = false;
-      // "Share all" (or a never-customised selection) starts with everything
-      // ticked, so turning the switch off leaves a sensible editable set.
       if (_shareAll || _picked.isEmpty) {
         _picked
           ..clear()
@@ -164,8 +154,6 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
     );
   }
 
-  /// Desktop: re-pull the provider list from the phone over the bridge (picks up
-  /// sources the phone added or newly shared since this app started).
   void _refreshDesktopSources() {
     context.read<ProviderBloc>().add(const ProviderLoad());
     ScaffoldMessenger.of(context).showSnackBar(
@@ -195,14 +183,12 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
                 ? 'ios.sources_title'.tr()
                 : 'desktop.sources_title'.tr()),
       ),
-      // Desktop: keep the column centred and readable instead of edge-to-edge.
       body: isDesktopPlatform
           ? MaxWidthBox(maxWidth: 560, child: body)
           : body,
     );
   }
 
-  // ---- Android (host) ------------------------------------------------------
 
   List<Widget> _hostBody() {
     final link = _status.link;
@@ -306,7 +292,6 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
     ];
   }
 
-  /// Host: pick exactly which sources are exposed to the desktop.
   Widget _sourcePickerCard() {
     final total = _providers.length;
     final sharedCount = _shareAll ? total : _picked.length;
@@ -444,7 +429,6 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
         children.add(_providerCheck(p));
       }
     }
-    // Cap the height so a big source list stays scrollable inside the card.
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 320),
       child: Scrollbar(
@@ -512,7 +496,6 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
     );
   }
 
-  // ---- Desktop / iOS (client) ----------------------------------------------
 
   List<Widget> _clientBody() {
     return [
@@ -570,8 +553,6 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
           'desktop.step_client_copy_link'.tr(),
           'desktop.step_client_refresh'.tr(),
           'desktop.step_client_keep_open'.tr(),
-          // The emulator hint is about an Android emulator + adb on a PC — it
-          // doesn't apply to a real iPhone/iPad, so hide it there.
           if (!_isIosClient) 'desktop.step_client_emulator'.tr(),
         ],
         descKey: _isIosClient ? 'ios.how_it_works_desc' : null,
@@ -579,7 +560,6 @@ class _DesktopSharePageState extends State<DesktopSharePage> {
     ];
   }
 
-  // ---- shared --------------------------------------------------------------
 
   Widget _card({required Widget child}) => Container(
         padding: const EdgeInsets.all(16),
@@ -665,7 +645,7 @@ class _ShareProvider {
   final String id;
   final String name;
   final String? icon;
-  final String category; // 'cloudstream' | 'aniyomi' | 'manga'
+  final String category;
 }
 
 class _SourceIconFallback extends StatelessWidget {

@@ -5,23 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
-/// Visible WebView that lets the user manually pass a source's Cloudflare
-/// "Verify you are human" (Turnstile / managed) challenge.
-///
-/// How the harvested cookie reaches native OkHttp:
-/// flutter_inappwebview's [CookieManager] reads/writes the SAME Android global
-/// `android.webkit.CookieManager` that the native Tachiyomi
-/// `AndroidCookieJar` (OkHttp's cookie jar) uses. So the moment the WebView is
-/// issued a `cf_clearance` cookie, it's already visible to the native HTTP
-/// client — no manual transfer is needed. We only [CookieManager.flush] it to
-/// disk after success.
-///
-/// Why [userAgent] matters: `cf_clearance` is bound to the User-Agent that
-/// solved the challenge. [userAgent] is fetched from native (the exact UA the
-/// OkHttp client sends), so the cookie the WebView earns is accepted by OkHttp.
-///
-/// Pops `true` once a non-empty `cf_clearance` cookie is present, `false` if the
-/// user backs out.
 class CloudflareSolverPage extends StatefulWidget {
   const CloudflareSolverPage({
     super.key,
@@ -45,8 +28,6 @@ class _CloudflareSolverPageState extends State<CloudflareSolverPage> {
   @override
   void initState() {
     super.initState();
-    // Poll the cookie jar — the challenge can be solved by a background XHR that
-    // never fires onLoadStop, so a periodic check is the reliable signal.
     _pollTimer = Timer.periodic(
       const Duration(milliseconds: 800),
       (_) => _checkCookies(),
@@ -85,10 +66,6 @@ class _CloudflareSolverPageState extends State<CloudflareSolverPage> {
     if (_solved || !mounted) return;
     _solved = true;
     _pollTimer?.cancel();
-    // No explicit flush needed: the WebView already wrote `cf_clearance` into the
-    // SAME global android.webkit.CookieManager that native OkHttp's
-    // AndroidCookieJar reads, so the cookie is visible to the HTTP client
-    // immediately. (This flutter_inappwebview binding exposes no flush() API.)
     Navigator.of(context).pop(true);
   }
 

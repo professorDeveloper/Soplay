@@ -48,8 +48,6 @@ class HomeTopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          // Quick-switch between the user's favorite providers; the Flexible
-          // absorbs the slack the old Spacer did so the icons stay right-aligned.
           const Flexible(
             child: Align(
               alignment: Alignment.centerLeft,
@@ -58,8 +56,6 @@ class HomeTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           const StreakBadge(),
-          // Desktop can't pull-to-refresh with a mouse — give the home feed a
-          // visible refresh button that spins for feedback (silent reload).
           DesktopRefreshButton(
             color: AppColors.textPrimary,
             onRefresh: () =>
@@ -75,7 +71,6 @@ class HomeTopBar extends StatelessWidget {
       ),
     );
 
-    // No scroll — gradient scrim over banner
     if (progress < 0.01) {
       return Container(
         decoration: BoxDecoration(
@@ -92,7 +87,6 @@ class HomeTopBar extends StatelessWidget {
       );
     }
 
-    // Scrolling — frosted glass blur
     return RepaintBoundary(
       child: ClipRect(
         child: BackdropFilter(
@@ -120,10 +114,6 @@ class HomeTopBar extends StatelessWidget {
   }
 }
 
-/// Compact pill in the top bar showing the current provider. Tapping it opens a
-/// quick-switch sheet of the user's favorite providers (plus an "All providers"
-/// shortcut to the full picker). With no favorites it jumps straight to the
-/// full picker.
 class _ProviderSwitcher extends StatelessWidget {
   const _ProviderSwitcher();
 
@@ -213,12 +203,8 @@ class _ProviderSwitcher extends StatelessWidget {
   }
 }
 
-/// Sentinel returned by the quick-switch sheet for the "All providers" row.
 const String _kAllProvidersAction = '__all_providers__';
 
-/// Bottom sheet listing the user's favorite providers for one-tap switching,
-/// plus a shortcut to the full provider picker. Pops the chosen provider id
-/// (or [_kAllProvidersAction]) so the caller owns navigation/selection.
 class _ProviderQuickSwitchSheet extends StatelessWidget {
   const _ProviderQuickSwitchSheet({
     required this.favorites,
@@ -263,9 +249,6 @@ class _ProviderQuickSwitchSheet extends StatelessWidget {
               ],
             ),
           ),
-          // Desktop: this lives inside showAdaptiveModal's unbounded-height
-          // dialog scroll view, where a Flexible child asserts. Give the list a
-          // bounded height there; keep Flexible on the (bounded) mobile sheet.
           if (isDesktopPlatform)
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 360),
@@ -318,8 +301,6 @@ class _ProviderQuickSwitchSheet extends StatelessWidget {
   }
 }
 
-/// One favorite-provider row in the quick-switch sheet (shared by the desktop
-/// bounded-list and mobile Flexible-list branches).
 Widget _favoriteProviderTile(
     BuildContext context, ProviderEntity p, String currentProviderId) {
   final selected = p.id == currentProviderId;
@@ -342,8 +323,6 @@ Widget _favoriteProviderTile(
   );
 }
 
-/// Small rounded provider logo with a graceful fallback when the image is
-/// missing or fails to load.
 class _ProviderLogo extends StatelessWidget {
   const _ProviderLogo({required this.image, required this.size});
 

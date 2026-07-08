@@ -13,10 +13,6 @@ class FavoriteModel extends FavoriteEntity {
 
   final int addedAt;
 
-  /// Whether this favorite is known to exist on the server/account.
-  ///
-  /// `true`  → saved to the user's account (synced).
-  /// `false` → local-only (added while logged out, or not yet pushed).
   final bool synced;
 
   factory FavoriteModel.fromJson(Map<String, dynamic> json) => FavoriteModel(

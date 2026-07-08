@@ -23,7 +23,6 @@ class MyListRepositoryImpl implements MyListRepository {
       await local.upsertAll(server);
       return Success(local.getAll());
     } catch (_) {
-      // Graceful: any error (incl. 401 / DioException) falls back to local.
       return Success(local.getAll());
     }
   }

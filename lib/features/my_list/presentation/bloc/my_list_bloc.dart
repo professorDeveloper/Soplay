@@ -42,8 +42,6 @@ class MyListBloc extends Bloc<MyListEvent, MyListState> {
     final result = await useCase();
     switch (result) {
       case Success<List<FavoriteEntity>>(:final value):
-        // Subtract the locked private set so private items never surface in the
-        // normal tab.
         final privateUrls =
             _private.getAll().map((e) => e.contentUrl).toSet();
         final visible = privateUrls.isEmpty

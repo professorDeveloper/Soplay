@@ -67,9 +67,6 @@ class _EpisodesPageState extends State<EpisodesPage> {
     _maybeAutoFill();
   }
 
-  /// Desktop: a tall window can show the whole first page without any scroll
-  /// overflow, so the scroll-based load-more never fires and later
-  /// episodes/chapters stay unreachable. Auto-load until the viewport fills.
   void _maybeAutoFill() {
     if (!isDesktopPlatform) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -151,7 +148,6 @@ class _EpisodesPageState extends State<EpisodesPage> {
           _showImages = _showImages || _hasAnyImage(value.episodes);
           _loadingMore = false;
         });
-        // Keep filling until the desktop viewport actually overflows.
         _maybeAutoFill();
       case Failure(:final error):
         setState(() {
@@ -212,13 +208,10 @@ class _EpisodesPageState extends State<EpisodesPage> {
   }
 
   void _playFrom(int index) {
-    // Resume from saved position if this is the history episode/chapter.
     final isHistoryEntry = _historyItem != null &&
         _historyItem!.episodeIndex == index &&
         _historyItem!.positionMs > 0;
 
-    // Manga sources open the page reader instead of the video player. The saved
-    // `positionMs` for manga is the page index (see ReaderPage).
     if (widget.args.provider.startsWith('mn:')) {
       context.push(
         '/reader',
@@ -251,7 +244,6 @@ class _EpisodesPageState extends State<EpisodesPage> {
     );
   }
 
-  /// Resolves the chapter's pages and starts an offline manga download.
   Future<void> _downloadChapter(int index) async {
     final ch = _episodes[index];
     final id = DownloadService.mangaChapterId(
@@ -806,7 +798,6 @@ class _DownloadControl extends StatelessWidget {
       );
     }
 
-    // Not downloaded yet (or previously failed) — tappable to (re)start.
     final failed = status == DownloadStatus.failed;
     return GestureDetector(
       onTap: onDownload,

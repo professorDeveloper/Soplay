@@ -69,7 +69,6 @@ class _NotificationsViewState extends State<_NotificationsView> {
           style: const TextStyle(color: AppColors.textPrimary),
         ),
         actions: [
-          // Desktop can't pull-to-refresh — expose a spinning refresh button.
           DesktopRefreshButton(
             color: AppColors.textPrimary,
             onRefresh: () => context
@@ -117,8 +116,6 @@ class _NotificationsViewState extends State<_NotificationsView> {
             onRefresh: () async {
               context.read<NotificationsBloc>().add(const NotificationsRefresh());
             },
-            // Desktop: cap the width so an image notification's 16:9 poster
-            // doesn't blow up to full-window height. Pass-through on mobile.
             child: MaxWidthBox(
               maxWidth: 560,
               child: ListView.separated(
@@ -178,8 +175,6 @@ class _NotificationTile extends StatelessWidget {
       ),
     );
 
-    // Desktop: a mouse can't swipe a row, so surface an explicit delete button
-    // instead of the Dismissible.
     if (isDesktopPlatform) {
       return Stack(
         children: [

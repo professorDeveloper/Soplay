@@ -33,11 +33,6 @@ import '../../features/home/presentation/pages/home_view_all_page.dart';
 class AppRouter {
   AppRouter._();
 
-  /// Pop the topmost route on the ROOT navigator — a dialog / bottom sheet if
-  /// one is open, otherwise the current page — respecting `PopScope`. Unlike
-  /// `GoRouter.pop()` (which only knows about GoRouter *pages* and would pop the
-  /// page *underneath* an open dialog), this also dismisses imperative overlays.
-  /// Returns true if something was popped. Used for the desktop Esc key.
   static bool dismissTopmost() {
     final nav = router.routerDelegate.navigatorKey.currentState;
     if (nav != null && nav.canPop()) {
@@ -58,8 +53,6 @@ class AppRouter {
         builder: (context, state) {
           final args = state.extra as ViewAllEntity;
           final slug = args.slug;
-          // Prefer the section's real label; fall back to slug/type. Never show a
-          // raw CloudStream API URL (slug) as the title.
           final title = args.name.isNotEmpty
               ? args.name
               : (slug.isEmpty ? args.type : slug);
@@ -73,7 +66,6 @@ class AppRouter {
       GoRoute(
         path: '/detail',
         builder: (context, state) {
-          // Support deep link: /detail?url=<contentUrl>&provider=<id>
           final extra = state.extra;
           if (extra is DetailArgs) return DetailPage(args: extra);
           final q = state.uri.queryParameters;

@@ -243,7 +243,6 @@ class AppTheme {
           ),
           behavior: SnackBarBehavior.floating,
           elevation: isDesktopPlatform ? 6 : null,
-          // Desktop: a compact, centred toast instead of an edge-to-edge bar.
           width: isDesktopPlatform ? 420 : null,
         ),
         dialogTheme: DialogThemeData(

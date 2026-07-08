@@ -9,9 +9,6 @@ const Color _ember = Color(0xFFFFA94D);
 const Color _emberDeep = Color(0xFFEF7A35);
 const Color _emberSoft = Color(0xFFFFC078);
 
-/// Celebration shown when the user crosses a milestone (7 / 30 / 100 / 365…).
-/// Lightweight on purpose — a CustomPaint confetti burst, gradient flame, and
-/// two CTAs. Dismiss returns control to the player.
 class StreakMilestoneDialog extends StatefulWidget {
   const StreakMilestoneDialog({super.key, required this.days});
 

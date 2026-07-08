@@ -20,6 +20,9 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/home/presentation/bloc/home/home_bloc.dart';
 
+/// Desktop scroll behaviour: adds mouse + trackpad + stylus as drag devices so
+/// touch-oriented scrollables (PageView, horizontal ListViews) can be dragged
+/// with a pointer, and keeps a visible scrollbar.
 class _DesktopScrollBehavior extends MaterialScrollBehavior {
   const _DesktopScrollBehavior();
 
@@ -44,12 +47,16 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     getIt<NotificationService>().onTap = _handlePushTap;
+    // Desktop: hide the custom title-bar strip on the immersive full-bleed
+    // routes (player / reader) by watching the router itself — reliable
+    // regardless of a page's initState timing.
     if (isDesktopPlatform) {
       AppRouter.router.routerDelegate.addListener(_syncImmersive);
       _syncImmersive();
     }
   }
 
+  /// Set [DesktopWindow.immersive] from the current top-of-stack route.
   void _syncImmersive() {
     try {
       final path =

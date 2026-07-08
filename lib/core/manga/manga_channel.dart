@@ -5,9 +5,6 @@ import 'dart:io' show Platform;
 import 'package:flutter/services.dart';
 import 'package:soplay/core/extensions/extension_bridge.dart';
 
-/// Dart bridge to the native MANGA extension host (`MangaHost`). Mirror of
-/// [AniyomiChannel] but for manga: `load` returns chapters (as the `episodes`
-/// array) and `pageList` resolves a chapter to its image-page list.
 class MangaChannel {
   MangaChannel._();
 
@@ -107,25 +104,15 @@ class MangaChannel {
   static Future<Map<String, dynamic>> load(String provider, String url) async =>
       _obj(await _call<String>('load', {'provider': provider, 'url': url}));
 
-  /// Resolves a chapter (`data` = the chapter's mediaRef) to its image pages.
-  /// Returns `{provider, headers, pages:[{index, imageUrl}]}`.
   static Future<Map<String, dynamic>> pageList(String provider, String data) async =>
       _obj(await _call<String>('pageList', {'provider': provider, 'data': data}));
 
-  /// Base url + UA for the interactive Cloudflare solver: `{baseUrl, userAgent}`
-  /// (or `{}` if the source can't be resolved). [id] is the raw source id (no
-  /// `mn:` prefix). The userAgent matches what native OkHttp sends so the
-  /// harvested `cf_clearance` cookie is accepted.
   static Future<Map<String, dynamic>> cloudflareInfo(String id) async =>
       _obj(await _call<String>('cloudflareInfo', {'id': id}));
 
-  /// The source's configurable preferences (or `[]` if it has none).
-  /// Each entry: `{key, title, summary, type, entries?, entryValues?, value}`.
   static Future<List<dynamic>> getPreferences(String provider) async =>
       _arr(await _call<String>('getPreferences', {'provider': provider}));
 
-  /// Persists one preference. [type] is 'switch' | 'list' | 'multi' | 'text';
-  /// [value] is a bool, String, or list-of-strings accordingly.
   static Future<void> setPreference(
     String provider,
     String key,

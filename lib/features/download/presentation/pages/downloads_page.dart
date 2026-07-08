@@ -433,8 +433,6 @@ class _DownloadRow extends StatelessWidget {
         ),
       );
 
-    // Desktop: a mouse can't swipe — add an explicit remove button beside the
-    // row (retry/status glyph stays inside the row).
     if (isDesktopPlatform) {
       return Row(
         children: [

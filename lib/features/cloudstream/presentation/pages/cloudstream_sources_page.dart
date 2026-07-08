@@ -8,9 +8,6 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 
-/// Settings screen to manage CloudStream source repos (Android-only).
-/// Add by `repo.json` / `plugins.json` URL; the native side downloads the
-/// `.cs3` plugins and they appear as `cs:` providers.
 class CloudStreamSourcesPage extends StatefulWidget {
   const CloudStreamSourcesPage({super.key});
 
@@ -22,8 +19,6 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
   static const _icon =
       'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTRzeluIShlMnhgHeVHgTSkvsthvQEK2xaS5A&s';
 
-  // Curated repos so users who don't know what to paste can install a known-good
-  // source in one tap. Tapping a card runs the same install flow as the URL box.
   static const List<Map<String, String>> _recommended = [
     {
       'name': 'Phisher Extensions',
@@ -51,7 +46,6 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
   void initState() {
     super.initState();
     _refresh();
-    // Live "N / M installed" updates while a repo downloads.
     _progressSub = CloudStreamChannel.installProgress.listen((p) {
       if (!mounted || !_busy) return;
       setState(() {
@@ -89,7 +83,6 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
 
   Future<void> _add() => _install(_controller.text.trim());
 
-  /// Shared install flow used by both the URL box and the recommended cards.
   Future<void> _install(String input) async {
     if (input.isEmpty || _busy) return;
     FocusScope.of(context).unfocus();
@@ -281,7 +274,7 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
               controller: _controller,
               enabled: !_busy,
               style: const TextStyle(color: Colors.white),
-              onChanged: (_) => setState(() {}), // toggle the clear button
+              onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 labelText: 'Repo URL',
                 hintText: 'https://…/repo.json',
@@ -510,7 +503,6 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
   }
 }
 
-/// Small "Installed ✓" pill shown on a recommended card that's already added.
 class _InstalledChip extends StatelessWidget {
   const _InstalledChip();
 

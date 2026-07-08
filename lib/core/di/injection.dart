@@ -125,9 +125,6 @@ Future<void> configureDependencies() async {
       },
     ),
   );
-  // Cloudflare 428 challenges are solved in a hidden WebView, cached
-  // server-side, and the original request is retried — all transparent
-  // to the rest of the app.
   getIt.registerSingleton<CfBypassService>(CfBypassService());
   dio.interceptors.add(
     CfBypassInterceptor(dio: dio, service: getIt<CfBypassService>()),

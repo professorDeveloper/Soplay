@@ -17,17 +17,11 @@ class OnlineSubtitle {
   final int downloadCount;
   final bool hearingImpaired;
 
-  /// The provider's exact release / file name for this subtitle when present
-  /// (e.g. "Movie.2010.1080p.BluRay.x264-GROUP"), so the user can match it to
-  /// their video. Empty when the provider only exposes a language label.
   final String fileName;
 
-  /// Subtitle format (SRT / VTT / ASS …) when reported.
   final String format;
 }
 
-/// Online subtitle search. Resolves the title to an IMDB id via Cinemeta
-/// (Stremio metadata, keyless), then queries Wyzie Subs for direct .srt links.
 class OnlineSubtitlesService {
   OnlineSubtitlesService._();
 
@@ -38,7 +32,6 @@ class OnlineSubtitlesService {
     ),
   );
 
-  /// Title → IMDB id (e.g. "tt1375666"). Tries the movie or series catalog.
   static Future<String?> resolveImdbId({
     required String title,
     required bool series,
@@ -72,8 +65,6 @@ class OnlineSubtitlesService {
     var results = await _wyzie(wyzieKey, imdb,
         season: isSerial ? (season ?? 1) : null,
         episode: isSerial ? episode : null);
-    // Series episode filter sometimes returns nothing — fall back to the whole
-    // title so the user still gets options to pick from.
     if (results.isEmpty && isSerial) {
       results = await _wyzie(wyzieKey, imdb);
     }
@@ -92,14 +83,12 @@ class OnlineSubtitlesService {
     final res = await _dio.get('https://sub.wyzie.io/search',
         queryParameters: params);
     final data = res.data;
-    if (data is! List) return const []; // 400 body = no subtitles found
+    if (data is! List) return const [];
     final out = <OnlineSubtitle>[];
     for (final m in data) {
       if (m is! Map) continue;
       final url = '${m['url'] ?? ''}';
       if (url.isEmpty) continue;
-      // Providers name the exact release differently; take the most specific
-      // field available so the user sees the real subtitle name when it exists.
       final fileName =
           '${m['media'] ?? m['fileName'] ?? m['release'] ?? m['source'] ?? m['title'] ?? ''}'
               .trim();

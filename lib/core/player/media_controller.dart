@@ -7,10 +7,6 @@ import 'package:media_kit_video/media_kit_video.dart' as mkv;
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:video_player/video_player.dart' as vp;
 
-// The player UI is built on `VideoPlayerValue` and the caption parsers. Those
-// types are pure Dart and platform-agnostic, so we keep reusing them on every
-// platform and re-export them here — callers keep writing `VideoPlayerValue`,
-// `WebVTTCaptionFile`, etc. unchanged.
 export 'package:video_player/video_player.dart'
     show
         VideoPlayerValue,
@@ -21,16 +17,6 @@ export 'package:video_player/video_player.dart'
         WebVTTCaptionFile,
         SubRipCaptionFile;
 
-/// Cross-platform video controller facade.
-///
-/// Exposes the exact `ValueListenable<VideoPlayerValue>` surface the existing
-/// player UI consumes. On **mobile** it wraps the native `video_player`
-/// controller (unchanged behaviour — ExoPlayer / AVPlayer). On **desktop**
-/// (Windows / Linux / macOS) it is backed by `media_kit` (libmpv), which
-/// `video_player` does not support.
-///
-/// Construct via [PlayerController.networkUrl] / [PlayerController.file] — the
-/// right backend is chosen automatically from the platform.
 abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   PlayerController() : super(vp.VideoPlayerValue.uninitialized());
 
@@ -76,25 +62,14 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
   Future<void> setVolume(double volume);
   Future<void> setLooping(bool looping);
 
-  /// Whether the backend letterboxes the video itself for a given [BoxFit].
-  /// media_kit does (its `Video` widget fills the parent and applies [fit]);
-  /// video_player does not (the UI's own fit box sizes the raw surface).
   bool get letterboxesInternally;
 
-  /// The video surface. When [letterboxesInternally] is true the widget fills
-  /// its parent and [fit] controls letterboxing; otherwise it is the raw
-  /// surface and the caller is responsible for sizing it.
   Widget buildView({BoxFit fit = BoxFit.contain});
 
-  // Re-declared with a `Future` return type (ValueNotifier.dispose is `void`)
-  // so callers can `await controller.dispose()`.
   @override
   Future<void> dispose();
 }
 
-// ---------------------------------------------------------------------------
-// Mobile backend — thin pass-through to the native video_player controller.
-// ---------------------------------------------------------------------------
 
 class _NativeController extends PlayerController {
   _NativeController(this._inner) {
@@ -147,9 +122,6 @@ class _NativeController extends PlayerController {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Desktop backend — media_kit (libmpv).
-// ---------------------------------------------------------------------------
 
 class _MediaKitSource {
   _MediaKitSource.uri(Uri uri, this.headers)
@@ -161,8 +133,6 @@ class _MediaKitSource {
 }
 
 class _MediaKitController extends PlayerController {
-  // Create the VideoController eagerly (before open) so the video output is
-  // registered from the first decoded frame — otherwise the surface stays black.
   _MediaKitController(this._src) {
     _videoController = mkv.VideoController(_player);
   }
@@ -231,9 +201,6 @@ class _MediaKitController extends PlayerController {
     value = v;
   }
 
-  /// media_kit reports readiness through streams. Treat the media as
-  /// initialised once we know its duration (VOD), its video dimensions (live /
-  /// still-unknown duration), an error occurs, or a safety timeout elapses.
   Future<void> _awaitReady() async {
     final completer = Completer<void>();
     void finish() {

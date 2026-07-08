@@ -87,7 +87,6 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
         _accentDeep = Color.lerp(dominant, Colors.black, 0.7) ?? _accentDeep;
       });
     } catch (_) {
-      // Keep defaults.
     }
   }
 
@@ -100,8 +99,6 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
     }
   }
 
-  /// Desktop: the filmography grid can fit on screen, so scroll-based load-more
-  /// never fires. Auto-load until the viewport fills.
   void _maybeAutoFill(ViewAllState state) {
     if (!isDesktopPlatform) return;
     if (state is! ViewAllLoaded || !state.hasMore || state.isLoadingMore) return;
@@ -292,8 +289,6 @@ class _ActorScaffoldState extends State<_ActorScaffold> {
             (_, i) => _ActorMovieCard(movie: state.items[i]),
             childCount: state.items.length,
           ),
-          // Desktop: scale poster columns to the window width (fixed 3 made them
-          // giant on a wide window); mobile keeps the original 3-up layout.
           gridDelegate: responsiveGridDelegate(
             mobileCrossAxisCount: 3,
             mainAxisSpacing: 14,

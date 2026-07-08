@@ -7,18 +7,6 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/router/app_router.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 
-/// Listens for incoming universal links and custom-scheme URLs and routes
-/// them through go_router.
-///
-/// Accepted shapes (see `apple-app-site-association` and `assetlinks.json`
-/// hosted on sozo.azamov.me):
-///
-///   https://sozo.azamov.me/detail?url=...
-///   https://sozo.azamov.me/play?url=...&type=hls&provider=...
-///   sozo://detail?url=...
-///   sozo://play?url=...&type=hls
-///
-/// Unknown paths are ignored so a stale link can't crash the app.
 class DeeplinkService {
   DeeplinkService({AppLinks? appLinks}) : _appLinks = appLinks ?? AppLinks();
 
@@ -30,8 +18,6 @@ class DeeplinkService {
   StreamSubscription<Uri>? _sub;
   bool _started = false;
 
-  /// Starts listening for links. Call once after `runApp` so go_router has a
-  /// context to navigate with.
   Future<void> start() async {
     if (_started) return;
     _started = true;
@@ -88,8 +74,6 @@ class DeeplinkService {
   }
 
   String? _resolveRoute(String path, Map<String, String> q) {
-    // Normalize: for custom scheme, host becomes the first path segment.
-    // soplay://detail?url=... → path "/detail" or "detail"
     final segments = path.split('/').where((s) => s.isNotEmpty).toList();
     if (segments.isEmpty) return null;
 
@@ -100,9 +84,6 @@ class DeeplinkService {
         return _detailRoute(url, q['provider']?.trim());
       case 'play':
       case 'player':
-        // Player needs PlayerArgs via extra — universal link only opens
-        // detail page which then triggers playback through normal UX.
-        // Forwarding to detail is the safest entry point.
         final url = q['url']?.trim();
         if (url == null || url.isEmpty) return null;
         return _detailRoute(url, q['provider']?.trim());

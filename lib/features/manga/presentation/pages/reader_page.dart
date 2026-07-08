@@ -45,10 +45,9 @@ class _ReaderPageState extends State<ReaderPage> {
   bool _localChapter = false;
   String? _error;
 
-  // 'vertical' (continuous webtoon) | 'horizontal' (paged)
   late String _mode;
   late bool _rtl;
-  late String _bgPref; // 'black' | 'gray' | 'white'
+  late String _bgPref;
   double _brightness = 0.5;
 
   Color get _backgroundColor => switch (_bgPref) {
@@ -57,19 +56,11 @@ class _ReaderPageState extends State<ReaderPage> {
         _ => const Color(0xFF0A0A0A),
       };
 
-  // Current page is a ValueNotifier so scrolling/paging only rebuilds the tiny
-  // page indicator + slider — NOT the whole reader (that was the main-thread jank).
   final ValueNotifier<int> _page = ValueNotifier<int>(0);
-  // In-progress seekbar drag target (null when not scrubbing). While dragging we
-  // only move the thumb + counter; the content jumps once on release — jumping a
-  // huge webtoon on every slider tick was the lag.
   final ValueNotifier<int?> _dragging = ValueNotifier<int?>(null);
   bool _showOverlay = true;
 
   PageController? _pageController;
-  // Vertical (webtoon) mode uses a positioned list so the current page can be
-  // read from the actually-rendered item positions (accurate with variable
-  // image heights + fast scroll), and seeking jumps to an exact page index.
   final ItemScrollController _itemScrollController = ItemScrollController();
   final ItemPositionsListener _itemPositionsListener =
       ItemPositionsListener.create();
@@ -89,8 +80,6 @@ class _ReaderPageState extends State<ReaderPage> {
     _rtl = _hive.getReaderRtl(widget.args.contentUrl);
     _bgPref = _hive.getReaderBackground();
     _itemPositionsListener.itemPositions.addListener(_onItemPositions);
-    // Immersive/edge-to-edge is an Android system-UI concern. On desktop the
-    // custom title bar is hidden for /reader by the router (see app.dart).
     if (!isDesktopPlatform) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
@@ -103,7 +92,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   @override
   void dispose() {
-    _saveProgress(); // flush final position
+    _saveProgress();
     _saveDebounce?.cancel();
     _itemPositionsListener.itemPositions.removeListener(_onItemPositions);
     _pageController?.dispose();
@@ -136,7 +125,6 @@ class _ReaderPageState extends State<ReaderPage> {
     final ch = widget.args.chapters[index];
     final ref = ch.mediaRef;
 
-    // Prefer an already-downloaded copy of this chapter (offline first).
     final localId = DownloadService.mangaChapterId(
       contentUrl: widget.args.contentUrl,
       provider: widget.args.provider,
@@ -189,19 +177,12 @@ class _ReaderPageState extends State<ReaderPage> {
     }
   }
 
-  // ---- progress / page tracking ----
 
-  // The current page is the list item occupying the top of the viewport — read
-  // directly from the actually-rendered item positions. This is accurate with
-  // variable webtoon image heights and fast scrolling (a scroll-fraction
-  // estimate is not, which made the seekbar/counter jump around).
   void _onItemPositions() {
     if (_mode != 'vertical' || _pageCount == 0) return;
     final positions = _itemPositionsListener.itemPositions.value
         .where((p) => p.index < _pageCount && p.itemTrailingEdge > 0);
     if (positions.isEmpty) return;
-    // Prefer the page straddling the top edge (leadingEdge <= 0); else the first
-    // visible page.
     final straddling = positions.where((p) => p.itemLeadingEdge <= 0);
     final page = (straddling.isNotEmpty
             ? straddling.reduce(
@@ -210,7 +191,7 @@ class _ReaderPageState extends State<ReaderPage> {
                 (a, b) => a.itemLeadingEdge <= b.itemLeadingEdge ? a : b))
         .index;
     if (page != _page.value) {
-      _page.value = page; // notifier only — slider + counter rebuild, not the list
+      _page.value = page;
       _scheduleSave();
     }
   }
@@ -243,7 +224,6 @@ class _ReaderPageState extends State<ReaderPage> {
     ));
   }
 
-  // ---- navigation ----
 
   void _toggleOverlay() => setState(() => _showOverlay = !_showOverlay);
 
@@ -291,7 +271,6 @@ class _ReaderPageState extends State<ReaderPage> {
       _pageController?.dispose();
       _pageController = PageController(initialPage: page);
     } else {
-      // The freshly-built vertical list starts at the current page.
       _initialIndex = page;
     }
     setState(() => _mode = mode);
@@ -311,8 +290,6 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _handleTapZone(TapUpDetails d) {
-    // In continuous (webtoon) mode scrolling is the navigation, so any tap just
-    // toggles the overlay. Side tap-zones only make sense in paged mode.
     if (_mode == 'vertical') {
       _toggleOverlay();
       return;
@@ -328,7 +305,6 @@ class _ReaderPageState extends State<ReaderPage> {
     }
   }
 
-  // ---- UI ----
 
   @override
   Widget build(BuildContext context) {
@@ -337,8 +313,6 @@ class _ReaderPageState extends State<ReaderPage> {
       body: Stack(
         children: [
           Positioned.fill(child: _content()),
-          // Desktop: visible page chevrons — the side tap-zones are invisible to
-          // a mouse. Arrow keys work too (see _onKey).
           if (isDesktopPlatform &&
               _showOverlay &&
               !_loading &&
@@ -347,15 +321,12 @@ class _ReaderPageState extends State<ReaderPage> {
             _pageArrow(left: false),
           ],
           if (_showOverlay) _topBar(),
-          // Desktop: a persistent close so exit is never hidden with the overlay.
           if (isDesktopPlatform && !_showOverlay) _persistentClose(),
           if (_showOverlay && !_loading && _error == null) _bottomBar(),
         ],
       ),
     );
     if (!isDesktopPlatform) return scaffold;
-    // Desktop keyboard navigation: arrows/space/page-keys turn pages, Home/End
-    // jump, Esc closes the reader.
     return Focus(autofocus: true, onKeyEvent: _onKey, child: scaffold);
   }
 
@@ -470,12 +441,10 @@ class _ReaderPageState extends State<ReaderPage> {
     return GestureDetector(
       onTapUp: _handleTapZone,
       child: ScrollablePositionedList.builder(
-        // Fresh list per chapter so initialScrollIndex (the resume page) applies.
         key: ValueKey('v_$_chapterIndex'),
         itemScrollController: _itemScrollController,
         itemPositionsListener: _itemPositionsListener,
         initialScrollIndex: _initialIndex.clamp(0, _pageCount),
-        // Render a screen ahead so the next strip is decoded before it scrolls in.
         minCacheExtent: 2000,
         itemCount: _pages.length + 1,
         itemBuilder: (context, i) {
@@ -499,7 +468,7 @@ class _ReaderPageState extends State<ReaderPage> {
           reverse: _rtl,
           itemCount: _pages.length,
           onPageChanged: (i) {
-            _page.value = i; // notifier only — no setState
+            _page.value = i;
             _scheduleSave();
           },
           itemBuilder: (context, i) => Center(
@@ -511,8 +480,6 @@ class _ReaderPageState extends State<ReaderPage> {
             ),
           ),
         ),
-        // Translucent tap layer so PageView still gets horizontal drags and
-        // InteractiveViewer still gets pinch gestures.
         Positioned.fill(
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
@@ -658,8 +625,6 @@ class _ReaderPageState extends State<ReaderPage> {
               icon: const Icon(Icons.tune, color: Colors.white),
               onPressed: _openSettingsSheet,
             ),
-            // Desktop: window controls, but only while the title bar is hidden
-            // (immersive) — the two can never both show.
             if (isDesktopPlatform)
               ValueListenableBuilder<bool>(
                 valueListenable: DesktopWindow.immersive,
@@ -748,7 +713,6 @@ class _ReaderPageState extends State<ReaderPage> {
     _snack('manga.download_started'.tr());
   }
 
-  // ---- sheets ----
 
   void _openChapterList() {
     Widget tile(int i) {
@@ -781,9 +745,6 @@ class _ReaderPageState extends State<ReaderPage> {
       isScrollControlled: true,
       showDragHandle: !isDesktopPlatform,
       builder: (_) {
-        // Desktop: showAdaptiveModal renders inside a Dialog -> unbounded-height
-        // scroll view, where a DraggableScrollableSheet collapses to nothing.
-        // Use a fixed-size list instead.
         if (isDesktopPlatform) {
           return SizedBox(
             width: 360,
@@ -897,7 +858,6 @@ class _ReaderPageState extends State<ReaderPage> {
                   setSheet(() {});
                 },
               ),
-              // Screen brightness is an Android-only control (no-op on desktop).
               if (!isDesktopPlatform) ...[
                 const SizedBox(height: 18),
                 Row(
@@ -998,7 +958,6 @@ class _ReaderPageState extends State<ReaderPage> {
               onPressed: hasPrevChapter ? _prevChapter : null,
             ),
             Expanded(
-              // Only this rebuilds as pages change / while scrubbing.
               child: ValueListenableBuilder<int?>(
                 valueListenable: _dragging,
                 builder: (context, drag, _) => ValueListenableBuilder<int>(
@@ -1021,8 +980,6 @@ class _ReaderPageState extends State<ReaderPage> {
                               min: 0,
                               max: maxPage,
                               value: display.toDouble(),
-                              // Live: move thumb + counter only (cheap). The
-                              // content jumps once on release.
                               onChanged: _pageCount > 1
                                   ? (v) => _dragging.value = v.round()
                                   : null,
@@ -1058,9 +1015,6 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 }
 
-/// A single page image. Decoded at screen width (`memCacheWidth`) so huge
-/// webtoon strips don't blow up memory or jank the main thread, with tap-to-retry
-/// on failure. Kept as its own widget so each image rebuilds independently.
 class _PageImage extends StatefulWidget {
   const _PageImage({
     super.key,
@@ -1105,7 +1059,6 @@ class _PageImageState extends State<_PageImage> {
             httpHeaders: widget.headers,
             fit: BoxFit.fitWidth,
             width: width,
-            // Downscale to the screen's pixel width — the key perf fix for tall strips.
             memCacheWidth: cacheW,
             fadeInDuration: const Duration(milliseconds: 120),
             placeholder: (_, _) => Container(

@@ -75,7 +75,6 @@ class ProviderManager {
     );
   }
 
-  // ── Home ───────────────────────────────────────────────────────
 
   Future<Result<HomeDataEntity>> getHome({String? providerId}) async {
     final pid = providerId ?? currentProviderId;
@@ -102,7 +101,6 @@ class ProviderManager {
         () => _homeDataSource.loadViewAll(type: key, slug: slug, page: page),
       );
 
-  // ── Search ─────────────────────────────────────────────────────
 
   Future<Result<SearchEntity>> search({
     String? providerId,
@@ -132,7 +130,6 @@ class ProviderManager {
         () => _searchDataSource.getMoviesByGenre(genre, page: page),
       );
 
-  // ── Detail ─────────────────────────────────────────────────────
 
   Future<Result<DetailEntity>> getDetail(
     String contentUrl, {
@@ -175,7 +172,6 @@ class ProviderManager {
     );
   }
 
-  // ── Resolve Media ──────────────────────────────────────────────
 
   Future<Result<MediaResolveEntity>> resolveMedia({
     required String ref,
@@ -200,7 +196,6 @@ class ProviderManager {
     );
   }
 
-  // ── Routing ────────────────────────────────────────────────────
 
   Future<Result<T>> _resolve<T>({
     required ProviderEntity? info,

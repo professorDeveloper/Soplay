@@ -19,8 +19,6 @@ abstract class DetailRepository {
     String? lang,
   });
 
-  /// Resolves a manga chapter ([ref] = the chapter's mediaRef) to its image
-  /// pages. Only supported for `mn:` (manga) providers.
   Future<Result<MangaPagesEntity>> getPages({
     required String ref,
     required String provider,

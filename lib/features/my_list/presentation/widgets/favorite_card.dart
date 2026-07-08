@@ -16,7 +16,6 @@ class FavoriteCard extends StatelessWidget {
   final FavoriteEntity item;
   final VoidCallback onTap;
 
-  /// Whether this favorite is saved to the user's account (vs local-only).
   final bool synced;
 
   @override

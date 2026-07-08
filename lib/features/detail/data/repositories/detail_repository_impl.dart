@@ -257,35 +257,17 @@ class DetailRepositoryImpl implements DetailRepository {
   Future<Result<MediaResolveEntity>> _postProcess(
     MediaResolveEntity media,
   ) async {
-    // No special post-processing currently. webview-extract was used by
-    // uzmovi which has been removed — kept here as a no-op pass-through so
-    // future webview-extract providers (if any) don't break the flow.
     return Success(media);
   }
 
-  /// Applies the requested Oldest/Newest [sort] to a freshly-built [model].
-  ///
-  /// The CloudStream / Aniyomi / Manga / JS source paths return the full
-  /// episode list in a single page and ignore server-side sorting, so the
-  /// in-app Oldest/Newest toggle has no effect unless we reorder here.
-  ///
-  /// Ascending = oldest first (by episode number, with the source's original
-  /// order as a stable tiebreaker); descending is the exact reverse, so the
-  /// toggle always visibly flips the list even when episode numbers are
-  /// missing or unreliable.
   PlaybackModel _applySort(PlaybackModel model, String sort) {
     final eps = model.episodes;
     if (eps.length < 2) return model;
     final desc = sort.toLowerCase() == 'desc';
-    // Capture the source's original order for a stable tiebreaker.
     final orig = Map<Object?, int>.identity();
     for (var i = 0; i < eps.length; i++) {
       orig[eps[i]] = i;
     }
-    // Sort IN PLACE. Rebuilding via clear()+addAll() reifies a
-    // List<EpisodeEntity> literal and then fails the runtime cast back into
-    // the concrete List<EpisodeModel> ("'List<EpisodeEntity>' is not a subtype
-    // of 'Iterable<EpisodeModel>'"), which broke every channel detail page.
     eps.sort((a, b) {
       var c = a.episode.compareTo(b.episode);
       if (c == 0) c = (orig[a] ?? 0).compareTo(orig[b] ?? 0);

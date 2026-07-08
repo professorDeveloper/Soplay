@@ -25,7 +25,6 @@ class HomeSkeleton extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(child: HomeBannerSkeleton(topPadding: topPad)),
-              // Genre row skeleton
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
@@ -55,7 +54,6 @@ class HomeSkeleton extends StatelessWidget {
                 ),
               ),
               for (int i = 0; i < 3; i++) ...[
-                // Section header skeleton
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
@@ -72,7 +70,6 @@ class HomeSkeleton extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Card row skeleton
                 SliverToBoxAdapter(
                   child: SizedBox(
                     height: 195,
@@ -119,7 +116,6 @@ class _SkeletonCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Expanded mirrors the real _MovieCard which also uses Expanded
             Expanded(
               child: HomeSkeletonBox(
                 width: double.infinity,

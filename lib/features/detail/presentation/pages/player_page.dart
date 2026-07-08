@@ -75,12 +75,7 @@ class _PlayerPageState extends State<PlayerPage>
   String? _mediaType;
   Map<String, String> _headers = const {};
   bool _isNetworkVideo = false;
-  // HLS can't be frame-sampled by MediaMetadataRetriever, so the *generated*
-  // preview is skipped for it. Provider-supplied VTT/storyboard thumbnails
-  // (e.g. anikai) are images and still show on HLS via `_thumbnailAt`.
   bool _isHls = false;
-  // Live / IPTV streams report no real duration (sliding window). Detected after
-  // init so the UI can skip resume-seeking and history that don't apply to live.
   bool _isLive = false;
   List<VideoSourceEntity> _videoSources = const [];
   int _currentSourceIndex = -1;
@@ -99,10 +94,6 @@ class _PlayerPageState extends State<PlayerPage>
   List<SubtitleEntity> _subtitles = const [];
   int _activeSubtitleIndex = -1;
   ClosedCaptionFile? _captionFile;
-  // Subtitle sync offset (ms). Positive = subtitles appear later, negative =
-  // earlier, relative to the audio/video. A ValueNotifier so dragging the sync
-  // slider only rebuilds the subtitle overlay — NOT the whole player (rebuilding
-  // the media_kit video layer per tick froze the UI).
   final ValueNotifier<int> _subtitleOffsetMs = ValueNotifier<int>(0);
   SubtitleStyle _subtitleStyle = SubtitleStyle.defaults();
 
@@ -114,8 +105,6 @@ class _PlayerPageState extends State<PlayerPage>
   double _playbackSpeed = 1.0;
   _PlayerFit _fit = _PlayerFit.contain;
   bool _isPortrait = false;
-  // Desktop only: OS-window fullscreen state (window_manager) and the volume to
-  // restore when unmuting.
   bool _isFullscreen = false;
   double _volumeBeforeMute = 1.0;
 
@@ -172,7 +161,6 @@ class _PlayerPageState extends State<PlayerPage>
     WidgetsBinding.instance.addObserver(this);
     _pipChannel.setMethodCallHandler(_onPipMethodCall);
     unawaited(_loadSystemControlValues());
-    // Fresh diagnostics buffer per playback session.
     PlayerLog.instance
       ..clear()
       ..clearContext()
@@ -193,8 +181,6 @@ class _PlayerPageState extends State<PlayerPage>
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
-        // Desktop keeps playing when the window loses focus / is minimised
-        // (background & PiP-style playback). Only mobile auto-pauses.
         if (!isDesktopPlatform &&
             c.value.isInitialized &&
             c.value.isPlaying &&
@@ -217,8 +203,6 @@ class _PlayerPageState extends State<PlayerPage>
     }
   }
 
-  /// Capture a player log line (mirrored to the debug console) so the in-app
-  /// log viewer can show and share it.
   void _plog(String message, {LogLevel level = LogLevel.info}) =>
       PlayerLog.instance.add(message, level: level);
 
@@ -265,8 +249,6 @@ class _PlayerPageState extends State<PlayerPage>
             builder: (context, constraints) => _wrapHover(GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _locked ? null : _toggleControls,
-              // Desktop: double-click toggles fullscreen (standard). Mobile keeps
-              // double-tap-to-seek.
               onDoubleTapDown: _locked || isDesktopPlatform
                   ? null
                   : (d) => _onDoubleTapDown(d, constraints),
@@ -301,20 +283,13 @@ class _PlayerPageState extends State<PlayerPage>
     );
   }
 
-  /// Desktop: give the player keyboard focus + shortcuts (Space, arrows, F, M,
-  /// Esc). Mobile returns the child untouched.
   Widget _wrapDesktopShortcuts(Widget child) {
     if (!isDesktopPlatform) return child;
     return Focus(autofocus: true, onKeyEvent: _onPlayerKey, child: child);
   }
 
-  /// Desktop: reveal controls when the mouse moves and hide the cursor with them
-  /// (standard desktop-player behaviour). Mobile returns the child as-is.
   Widget _wrapHover(Widget child) {
     if (!isDesktopPlatform) return child;
-    // NOTE: the mouse wheel adjusts volume only when the pointer is over the
-    // volume control (see _DesktopVolumeControl) — NOT anywhere over the video,
-    // which was accidentally muting playback.
     return MouseRegion(
       onHover: (_) => _revealControlsForHover(),
       cursor: _controlsVisible ? MouseCursor.defer : SystemMouseCursors.none,
@@ -366,8 +341,6 @@ class _PlayerPageState extends State<PlayerPage>
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.escape) {
-      // Cancel the most local thing first: an open side-panel, then fullscreen,
-      // then leave the player.
       if (_panel != _SidePanel.none) {
         _closePanel();
       } else if (_isFullscreen) {

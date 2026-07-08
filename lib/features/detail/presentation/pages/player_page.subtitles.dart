@@ -107,7 +107,6 @@ extension _PlayerSubtitles on _PlayerPageState {
                   _searchOnlineSubtitles();
                 },
               ),
-              // Subtitle sync only has a visible effect when a subtitle is on.
               if (_activeSubtitleIndex != -1)
               ListTile(
                 leading: const Icon(Icons.av_timer_rounded,
@@ -204,10 +203,6 @@ extension _PlayerSubtitles on _PlayerPageState {
     return _hive.getOpenSubtitlesKey();
   }
 
-  /// One combined sheet: a query field plus inline results, so searching a
-  /// subtitle is a single screen (the old flow chained a query dialog → a
-  /// separate results sheet, which felt clunky — especially on mobile). It
-  /// auto-runs once with the title prefilled. Works on mobile and desktop.
   Future<void> _searchOnlineSubtitles() async {
     var key = _wyzieKey();
     if (key.isEmpty) {
@@ -267,7 +262,6 @@ extension _PlayerSubtitles on _PlayerPageState {
               }
             }
 
-            // Auto-run the first search with the prefilled title.
             if (!started) {
               started = true;
               WidgetsBinding.instance
@@ -390,8 +384,6 @@ extension _PlayerSubtitles on _PlayerPageState {
         for (final r in results.take(60))
           ListTile(
             dense: true,
-            // Show the exact release / file name so the user can match the
-            // subtitle to their video.
             title: Text(r.fileName.isNotEmpty ? r.fileName : r.display,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -422,7 +414,6 @@ extension _PlayerSubtitles on _PlayerPageState {
   Future<void> _applyOnlineSubtitle(OnlineSubtitle sub) async {
     if (sub.url.isEmpty) return;
     _toast('player.loading_subtitle'.tr());
-    // Prefer the exact release name so the loaded-subtitles list shows it.
     final name = sub.fileName.isNotEmpty ? sub.fileName : sub.display;
     final entity = SubtitleEntity(
       label: name,
@@ -439,9 +430,6 @@ extension _PlayerSubtitles on _PlayerPageState {
     return '$sign$s s';
   }
 
-  /// Subtitle sync: shift subtitle timing earlier (−) or later (+) so it lines
-  /// up with the audio. Adjustable via fine buttons and a slider (thumb). Works
-  /// on mobile and desktop.
   void _openSubtitleSyncSheet() {
     showAdaptiveModal<void>(
       context: context,
@@ -456,9 +444,6 @@ extension _PlayerSubtitles on _PlayerPageState {
           builder: (ctx, setSheet) {
             void setOffset(int ms) {
               final clamped = ms.clamp(-20000, 20000);
-              // Only the overlay listens to this notifier, so a drag no longer
-              // rebuilds the whole player. setSheet refreshes this sheet's own
-              // number/slider.
               _subtitleOffsetMs.value = clamped;
               setSheet(() {});
             }
@@ -853,14 +838,11 @@ extension _PlayerSubtitles on _PlayerPageState {
       right: 16,
       bottom: _subtitleBottomOffset,
       child: IgnorePointer(
-        // Outer: rebuild when the user changes the sync offset (even while
-        // paused). Inner: rebuild as the video position advances.
         child: ValueListenableBuilder<int>(
           valueListenable: _subtitleOffsetMs,
           builder: (_, offsetMs, _) => ValueListenableBuilder<VideoPlayerValue>(
             valueListenable: c,
             builder: (_, value, _) {
-              // Apply the user's sync offset: positive shifts subtitles later.
               final position =
                   value.position - Duration(milliseconds: offsetMs);
               Caption? active;

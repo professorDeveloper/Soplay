@@ -17,9 +17,6 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
 
   Timer? _debounce;
 
-  /// Monotonic token bumped on every execute. Async results compare against it
-  /// and bail when a newer query has started, so stale (debounced or
-  /// out-of-order) results can never clobber the current search.
   int _execToken = 0;
 
   SearchBloc({
@@ -61,7 +58,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     final token = ++_execToken;
     emit(const SearchLoading());
     final result = await _searchUseCase(event.query);
-    if (token != _execToken) return; // a newer query superseded this one.
+    if (token != _execToken) return;
     if (result.isSuccess) {
       final data = result.getOrNull()!;
       emit(SearchLoaded(
@@ -88,9 +85,6 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
 
     if (result.isSuccess) {
       final data = result.getOrNull()!;
-      // De-dupe against what's already shown. A single-page source (e.g. a
-      // `cs:` provider) re-queried for the next page can echo its first page,
-      // which would otherwise append duplicate cards.
       final seen = {
         for (final m in current.items) '${m.provider}::${m.url}',
       };

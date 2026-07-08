@@ -52,8 +52,6 @@ class HomeRepositoryImp implements HomeRepository {
     if (provider != null && provider.startsWith('mn:')) {
       try {
         final map = await MangaChannel.getMainPage(provider.substring(3));
-        // Native surfaces the real extension-load failure here so it's visible
-        // in the home error state instead of a silent empty screen.
         final err = map['error'];
         if (err is String && err.isNotEmpty) {
           return Failure(Exception('Manga: $err'));
@@ -98,7 +96,6 @@ class HomeRepositoryImp implements HomeRepository {
     final provider = _currentProvider;
     if (provider != null && provider.startsWith('cs:')) {
       try {
-        // slug = the section's MainPageData.data → fetch just that section.
         final map = await CloudStreamChannel.getSection(
           provider.substring(3),
           slug,
@@ -163,7 +160,6 @@ class HomeRepositoryImp implements HomeRepository {
 
   @override
   Future<Result<List<GenreEntity>>> loadGenres() async {
-    // CloudStream "genres" = the provider's mainPage categories (native side).
     final provider = _currentProvider;
     if (provider != null && provider.startsWith('cs:')) {
       try {

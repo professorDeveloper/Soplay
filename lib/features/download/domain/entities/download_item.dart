@@ -18,17 +18,12 @@ class DownloadItem {
   final int? episodeNumber;
   final String? episodeLabel;
 
-  /// 'video' (default) or 'manga'. Manga downloads are a list of page images
-  /// rather than a single video file.
   final String kind;
 
-  /// Resolved page image URLs for a manga chapter download.
   final List<String> pageUrls;
 
-  /// The chapter media reference (used to re-resolve pages if needed).
   final String? chapterRef;
 
-  /// Index of the chapter within its series (for grouping/ordering).
   final int? chapterIndex;
 
   const DownloadItem({

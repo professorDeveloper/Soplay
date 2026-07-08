@@ -6,12 +6,6 @@ import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 
-/// Compact "🔥 12" chip displayed in the home top bar.
-///
-/// - Hidden when the user isn't logged in or has no streak yet.
-/// - Pulses softly when the streak is at risk (after 21:00 local and the user
-///   hasn't pinged yet) — gives a passive nudge without a notification.
-/// - Tapping it switches to the profile tab where the full streak card lives.
 class StreakBadge extends StatefulWidget {
   const StreakBadge({super.key});
 

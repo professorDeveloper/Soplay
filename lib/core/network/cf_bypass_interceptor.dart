@@ -2,13 +2,6 @@ import 'package:dio/dio.dart';
 
 import 'cf_bypass_service.dart';
 
-/// Catches `428 cfChallenge` responses, solves the Cloudflare challenge in
-/// a hidden WebView, POSTs the cookies back to the backend so every later
-/// call goes straight through, then transparently retries the original
-/// request. From the caller's perspective the round-trip just took a few
-/// extra seconds.
-///
-/// Pattern mirrors [AuthInterceptor]'s 401 → refresh → retry flow.
 class CfBypassInterceptor extends Interceptor {
   static const String _skipKey = 'skipCfBypassInterceptor';
   static const String _retriedKey = 'cfBypassRetried';
