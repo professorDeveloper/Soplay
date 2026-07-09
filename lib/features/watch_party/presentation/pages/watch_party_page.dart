@@ -206,7 +206,16 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
         final blocked = _blocked;
         final room = s.room;
 
-        return Scaffold(
+        return PopScope(
+          canPop: true,
+          onPopInvokedWithResult: (didPop, _) {
+            // Backing out of the lobby leaves the party (disconnects the socket);
+            // an empty room is then auto-closed by the server's grace timer.
+            if (didPop && _service.state.value.inParty) {
+              _service.leaveParty();
+            }
+          },
+          child: Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
             backgroundColor: AppColors.background,
@@ -227,6 +236,7 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
           body: SafeArea(
             top: false,
             child: _buildBody(s, room, blocked),
+          ),
           ),
         );
       },
@@ -264,27 +274,53 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
     final content = room.content;
     final playable = content != null && content.playable;
 
+    // Two flex regions so the layout never overflows when the keyboard opens:
+    // a scrollable top (room info + actions + reaction picker) that can shrink,
+    // and the chat below with the composer lifting over the keyboard.
     return Column(
       children: [
-        _CodeBar(code: room.code, onCopy: _copyCode),
-        _ContentCard(content: content),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: PartyMemberBar(room: room, myUserId: s.myUserId),
+        Expanded(
+          flex: 5,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              children: [
+                _CodeBar(code: room.code, onCopy: _copyCode),
+                _ContentCard(content: content),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: PartyMemberBar(room: room, myUserId: s.myUserId),
+                ),
+                const SizedBox(height: 8),
+                _BottomActions(
+                  isHost: s.isHost,
+                  playable: playable,
+                  busy: _opening,
+                  onStart: playable ? () => _openPlayer(content) : null,
+                  onLeave: _leave,
+                  onClose: _closeParty,
+                ),
+                const SizedBox(height: 6),
+                Center(child: PartyReactionPicker(service: _service)),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
         const Divider(height: 1, color: AppColors.border),
         Expanded(
-          child: PartyChatPanel(service: _service, myUserId: s.myUserId),
-        ),
-        PartyReactionsBar(service: _service),
-        _BottomActions(
-          isHost: s.isHost,
-          playable: playable,
-          busy: _opening,
-          onStart: playable ? () => _openPlayer(content) : null,
-          onLeave: _leave,
-          onClose: _closeParty,
+          flex: 6,
+          child: Stack(
+            children: [
+              PartyChatPanel(service: _service, myUserId: s.myUserId),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 180,
+                child: PartyReactionsOverlay(service: _service),
+              ),
+            ],
+          ),
         ),
       ],
     );

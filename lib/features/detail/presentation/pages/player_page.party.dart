@@ -151,172 +151,12 @@ extension _PlayerParty on _PlayerPageState {
   }
 
   // ---------------------------------------------------------------------------
-  // In-player chat + reactions overlay
+  // In-player reactions overlay (chat + host controls live in the lobby)
   // ---------------------------------------------------------------------------
-
-  void _toggleChat() => _chatOpen ? _closeChat() : _openChat();
-
-  void _openChat() {
-    if (!_inParty) return;
-    _hideTimer?.cancel();
-    setState(() {
-      _chatOpen = true;
-      _controlsVisible = true;
-    });
-  }
-
-  void _closeChat() {
-    FocusScope.of(context).unfocus();
-    setState(() => _chatOpen = false);
-  }
-
-  Future<void> _endParty() async {
-    await _party.closeParty();
-    if (!mounted) return;
-    _closeChat();
-  }
-
-  Future<void> _leaveParty() async {
-    await _party.leaveParty();
-    if (!mounted) return;
-    _closeChat();
-  }
 
   /// Full-bleed, non-interactive layer that floats reactions up over the video.
   Widget _buildPartyReactionsLayer() {
     return Positioned.fill(child: PartyReactionsOverlay(service: _party));
-  }
-
-  /// Right-anchored chat panel: room header + host/guest actions + reaction
-  /// picker + live chat. The composer lifts itself over the keyboard.
-  Widget _buildPartyChatOverlay() {
-    final s = _partyState;
-    final PartyRoom? room = s.room;
-    final code = s.code;
-    final online = room?.onlineCount ?? 0;
-    final width = MediaQuery.sizeOf(context).width;
-    final panelWidth = width < 560 ? width * 0.84 : 380.0;
-
-    return Positioned(
-      top: 0,
-      bottom: 0,
-      right: 0,
-      width: panelWidth,
-      // Gesture barrier: the root video GestureDetector is an ANCESTOR of this
-      // Stack, so on inert panel regions (empty chat area, header gaps, divider)
-      // its tap/double-tap/pan/long-press recognizers would otherwise win the
-      // arena and toggle controls or fire a party-wide forward-seek. Claiming the
-      // same gestures as no-ops here lets the panel win on those inert regions,
-      // while the panel's own buttons/TextField/ListView still beat this barrier.
-      // (An empty onTap alone is insufficient; AbsorbPointer would kill the
-      // panel's own controls.)
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {},
-        onDoubleTap: () {},
-        onLongPress: () {},
-        onVerticalDragUpdate: (_) {},
-        onHorizontalDragUpdate: (_) {},
-        child: Material(
-          color: Colors.black.withValues(alpha: 0.94),
-          child: SafeArea(
-            left: false,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 2, 4),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.groups_rounded,
-                        color: AppColors.primary,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              code ?? 'watch_party.title'.tr(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                            Text(
-                              '$online · ${'watch_party.members'.tr()}',
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 10.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        tooltip: 'watch_party.share_invite'.tr(),
-                        icon: const Icon(
-                          Icons.ios_share_rounded,
-                          color: Colors.white70,
-                          size: 18,
-                        ),
-                        onPressed: code == null
-                            ? null
-                            : () => Share.share(partyInviteLink(code)),
-                      ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        tooltip: _isPartyHost
-                            ? 'watch_party.close_party'.tr()
-                            : 'watch_party.leave_party'.tr(),
-                        icon: Icon(
-                          _isPartyHost
-                              ? Icons.stop_circle_outlined
-                              : Icons.logout_rounded,
-                          color: AppColors.error,
-                          size: 18,
-                        ),
-                        onPressed: _isPartyHost ? _endParty : _leaveParty,
-                      ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: Colors.white70,
-                          size: 20,
-                        ),
-                        onPressed: _closeChat,
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  height: 46,
-                  child: Center(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: PartyReactionPicker(service: _party),
-                    ),
-                  ),
-                ),
-                const Divider(height: 1, color: Colors.white12),
-                Expanded(
-                  child: PartyChatPanel(service: _party, myUserId: s.myUserId),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   void _onPartySync(PartyPlayback pb) {
@@ -434,9 +274,13 @@ extension _PlayerParty on _PlayerPageState {
         _playbackSpeed = pb.rate;
         await c.setPlaybackSpeed(pb.rate);
       }
-      if (pb.isPlaying) {
+      // Toggle ONLY on an actual state mismatch. The drift timer re-applies the
+      // last sync every 2s; calling play()/pause() unconditionally each tick
+      // thrashes the native player and shows up as micro-stutter / a jumpy
+      // play-pause feel.
+      if (pb.isPlaying && !c.value.isPlaying) {
         await c.play();
-      } else {
+      } else if (!pb.isPlaying && c.value.isPlaying) {
         await c.pause();
       }
     } finally {

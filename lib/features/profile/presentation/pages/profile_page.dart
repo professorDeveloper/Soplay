@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -1772,9 +1773,15 @@ class _AboutSection extends StatelessWidget {
               _Tile(
                 icon: Icons.info_outline_rounded,
                 title: 'Sozo',
-                trailing: const Text(
-                  '1.0.0',
-                  style: TextStyle(color: AppColors.textHint, fontSize: 13),
+                trailing: FutureBuilder<PackageInfo>(
+                  future: PackageInfo.fromPlatform(),
+                  builder: (_, snap) => Text(
+                    snap.hasData
+                        ? 'v${snap.data!.version} (${snap.data!.buildNumber})'
+                        : '…',
+                    style: const TextStyle(
+                        color: AppColors.textHint, fontSize: 13),
+                  ),
                 ),
                 onTap: null,
               ),

@@ -42,11 +42,7 @@ import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_playback.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_state.dart';
 import 'package:soplay/features/watch_party/presentation/party_entry.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_room.dart';
-import 'package:soplay/features/watch_party/presentation/widgets/party_chat_panel.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_reactions_bar.dart';
-import 'package:soplay/features/watch_party/presentation/widgets/party_code_sheet.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -165,8 +161,6 @@ class _PlayerPageState extends State<PlayerPage>
   // True while the sync binding (timers + stream subs) is live. Lets the player
   // activate the binding when a party is created/joined WHILE it is already open.
   bool _partyBindingActive = false;
-  // Whether the in-player party chat/side panel is open.
-  bool _chatOpen = false;
   // Set when a party:content identity cannot be resolved on THIS device because
   // the required on-device plugin/extension is missing. Renders the actionable
   // install view in place of the generic error overlay.
@@ -279,9 +273,6 @@ class _PlayerPageState extends State<PlayerPage>
         child: _wrapDesktopShortcuts(
           Scaffold(
           backgroundColor: Colors.black,
-          // The chat composer lifts itself over the keyboard; don't let the
-          // Scaffold squish the full-bleed video when the keyboard opens.
-          resizeToAvoidBottomInset: false,
           body: LayoutBuilder(
             builder: (context, constraints) => _wrapHover(GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -312,7 +303,6 @@ class _PlayerPageState extends State<PlayerPage>
                   if (!_locked) _buildSwipeIndicator(),
                   if (!_locked && _panel != _SidePanel.none) _buildSidePanel(),
                   if (!_locked && _inParty) _buildPartyReactionsLayer(),
-                  if (!_locked && _inParty && _chatOpen) _buildPartyChatOverlay(),
                 ],
               ),
             )),

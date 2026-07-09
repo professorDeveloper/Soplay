@@ -684,16 +684,6 @@ extension _PlayerControls on _PlayerPageState {
                         ),
                         const SizedBox(width: 8),
                       ],
-                      if (_inParty) ...[
-                        _IconButton(
-                          icon: _chatOpen
-                              ? Icons.forum_rounded
-                              : Icons.forum_outlined,
-                          color: _chatOpen ? AppColors.primary : null,
-                          onTap: _toggleChat,
-                        ),
-                        const SizedBox(width: 8),
-                      ],
                       if (!isDesktopPlatform) ...[
                         _IconButton(
                           icon: _isPortrait
