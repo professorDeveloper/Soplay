@@ -114,6 +114,8 @@ extension _PlayerMedia on _PlayerPageState {
           type: value.type,
           resumeAt: resumeAt,
         );
+        // Host announces the new episode identity (never a video URL).
+        if (_errorMessage == null) _partyEmitContent(ep, _currentLang);
         if (subs.isNotEmpty) {
           final defaultIdx = subs.indexWhere((s) => s.isDefault);
           if (defaultIdx >= 0) {
@@ -218,6 +220,7 @@ extension _PlayerMedia on _PlayerPageState {
     required Map<String, String> headers,
     required String? type,
     Duration resumeAt = Duration.zero,
+    PartyPlayback? party,
   }) async {
     if (url.isEmpty) {
       setState(() {
@@ -348,11 +351,30 @@ extension _PlayerMedia on _PlayerPageState {
       }
       controller.addListener(_onMajorChange);
       await controller.setLooping(false);
-      await controller.setPlaybackSpeed(_playbackSpeed);
-      if (resumeAt > Duration.zero && !_isLive) {
-        await controller.seekTo(resumeAt);
+      if (party != null) {
+        // Watch2Gether: ignore the local resume point and align to the party.
+        if ((party.rate - _playbackSpeed).abs() > 0.01) {
+          _playbackSpeed = party.rate;
+        }
+        await controller.setPlaybackSpeed(_playbackSpeed);
+        if (!_isLive) {
+          final expected = party.expectedPositionAt(DateTime.now());
+          if (expected > 0) {
+            await controller.seekTo(
+              Duration(milliseconds: (expected * 1000).round()),
+            );
+          }
+        }
+        if (party.isPlaying) {
+          await controller.play();
+        }
+      } else {
+        await controller.setPlaybackSpeed(_playbackSpeed);
+        if (resumeAt > Duration.zero && !_isLive) {
+          await controller.seekTo(resumeAt);
+        }
+        await controller.play();
       }
-      await controller.play();
       _plog('play started — total ${stopwatch.elapsedMilliseconds}ms');
       setState(() {
         _initializing = false;
@@ -506,7 +528,11 @@ extension _PlayerMedia on _PlayerPageState {
       final remaining = v.duration - v.position;
       final isEnding = remaining <= const Duration(seconds: 2);
       if (isEnding) {
-        if (widget.args.isSerial &&
+        // Guests in a party never self-advance — they wait for the host's
+        // next party:content. The host auto-advances and emits it.
+        final guestInParty = _inParty && !_isPartyHost;
+        if (!guestInParty &&
+            widget.args.isSerial &&
             _episodeIndex + 1 < widget.args.episodes.length) {
           _saveHistoryForNextEpisode();
           _loadEpisode(_episodeIndex + 1);

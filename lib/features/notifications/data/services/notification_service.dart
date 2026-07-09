@@ -12,7 +12,36 @@ typedef NotificationTapHandler = void Function(Map<String, dynamic> data);
 
 class NotificationService {
   final NotificationsRepository repository;
-  NotificationTapHandler? onTap;
+
+  NotificationTapHandler? _onTap;
+
+  /// A tap that arrived before [onTap] was wired (e.g. a cold-start invite tap
+  /// routed via [FirebaseMessaging.getInitialMessage] during the auth flow,
+  /// which runs before `MyApp` assigns [onTap]). Drained the moment a handler
+  /// is assigned, so the tap is never lost.
+  Map<String, dynamic>? _pendingTap;
+
+  NotificationTapHandler? get onTap => _onTap;
+
+  set onTap(NotificationTapHandler? handler) {
+    _onTap = handler;
+    final pending = _pendingTap;
+    if (handler != null && pending != null) {
+      _pendingTap = null;
+      handler(pending);
+    }
+  }
+
+  /// Route a tap immediately if a handler is wired, otherwise buffer it until
+  /// one is assigned. Never drops the tap.
+  void _dispatchTap(Map<String, dynamic> data) {
+    final handler = _onTap;
+    if (handler != null) {
+      handler(data);
+    } else {
+      _pendingTap = data;
+    }
+  }
 
   bool _initialized = false;
   String? _registeredToken;
@@ -49,7 +78,7 @@ class NotificationService {
       ),
       onDidReceiveNotificationResponse: (resp) {
         final payload = _decodePayload(resp.payload);
-        if (payload != null) onTap?.call(payload);
+        if (payload != null) _dispatchTap(payload);
       },
     );
     final androidImpl = _local
@@ -82,12 +111,12 @@ class NotificationService {
     _foregroundSub ??= FirebaseMessaging.onMessage.listen(_showLocal);
 
     _openedSub ??= FirebaseMessaging.onMessageOpenedApp.listen((msg) {
-      onTap?.call(_normalizeData(msg.data));
+      _dispatchTap(_normalizeData(msg.data));
     });
 
     final initial = await FirebaseMessaging.instance.getInitialMessage();
     if (initial != null) {
-      onTap?.call(_normalizeData(initial.data));
+      _dispatchTap(_normalizeData(initial.data));
     }
   }
 

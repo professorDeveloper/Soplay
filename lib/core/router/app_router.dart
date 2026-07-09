@@ -27,6 +27,8 @@ import 'package:soplay/features/notifications/presentation/pages/notifications_p
 import 'package:soplay/features/private_list/presentation/pages/private_list_page.dart';
 import 'package:soplay/features/splash/presentation/pages/splash_page.dart';
 import 'package:soplay/features/streak/presentation/pages/streak_page.dart';
+import 'package:soplay/features/watch_party/presentation/party_entry.dart';
+import 'package:soplay/features/watch_party/presentation/pages/watch_party_page.dart';
 
 import '../../features/home/presentation/pages/home_view_all_page.dart';
 
@@ -132,6 +134,17 @@ class AppRouter {
       GoRoute(
         path: '/streak',
         builder: (context, state) => const StreakPage(),
+      ),
+      GoRoute(
+        path: '/watch-party',
+        builder: (context, state) {
+          final extra = state.extra;
+          return WatchPartyPage(
+            code: extra is WatchPartyArgs
+                ? extra.code
+                : state.uri.queryParameters['code'],
+          );
+        },
       ),
       GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
       GoRoute(path: '/main', builder: (context, state) => const MainPage()),

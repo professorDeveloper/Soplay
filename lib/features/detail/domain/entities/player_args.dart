@@ -18,6 +18,13 @@ class PlayerArgs {
   final bool showDownloadAction;
   final ThumbnailsEntity? thumbnails;
 
+  // Watch2Gether identity: lets a movie carry its resolvable ref/lang and lets
+  // the player know which party (if any) it belongs to. `provider` and
+  // `contentUrl` already exist above.
+  final String? mediaRef;
+  final String? lang;
+  final String? partyCode;
+
   const PlayerArgs({
     required this.title,
     required this.provider,
@@ -33,6 +40,9 @@ class PlayerArgs {
     this.resumePosition = Duration.zero,
     this.showDownloadAction = true,
     this.thumbnails,
+    this.mediaRef,
+    this.lang,
+    this.partyCode,
   });
 
   bool get isSerial => episodes.isNotEmpty;

@@ -76,6 +76,15 @@ class _MyAppState extends State<MyApp> {
 
   void _handlePushTap(Map<String, dynamic> data) {
     final router = AppRouter.router;
+
+    // Watch-party invites arrive as type:'system_other' + data.roomCode, so a
+    // type-based branch would never fire — key off roomCode before the switch.
+    final roomCode = data['roomCode'];
+    if (roomCode is String && roomCode.isNotEmpty) {
+      router.push('/watch-party?code=$roomCode');
+      return;
+    }
+
     final type = data['type']?.toString() ?? '';
     final contentUrl = data['contentUrl']?.toString();
     final provider = data['provider']?.toString();

@@ -51,7 +51,16 @@ class DeeplinkService {
       return;
     }
 
-    final path = uri.path.isEmpty ? '/${uri.host}' : uri.path;
+    // Custom-scheme links encode the route in the authority:
+    //   sozo://detail?url=…   -> /detail
+    //   sozo://party/<CODE>   -> /party/<CODE>   (path segment carries the code)
+    // Universal (https) links carry the whole route in the path already.
+    final String path;
+    if (isCustom && uri.host.isNotEmpty) {
+      path = '/${uri.host}${uri.path}';
+    } else {
+      path = uri.path.isEmpty ? '/${uri.host}' : uri.path;
+    }
     final query = uri.queryParameters;
 
     final provider = query['provider']?.trim();
@@ -87,6 +96,11 @@ class DeeplinkService {
         final url = q['url']?.trim();
         if (url == null || url.isEmpty) return null;
         return _detailRoute(url, q['provider']?.trim());
+      case 'party':
+        // Code lives in the PATH segment: /party/<CODE> — not a query param.
+        final code = segments.length > 1 ? segments[1].trim() : '';
+        if (code.isEmpty) return null;
+        return '/watch-party?code=${Uri.encodeComponent(code)}';
       default:
         return null;
     }

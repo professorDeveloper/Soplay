@@ -26,14 +26,20 @@ extension _PlayerControls on _PlayerPageState {
   }
 
   void _togglePlay() {
+    if (_partyBlockLocal()) return;
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
-    if (c.value.isPlaying) {
+    final wasPlaying = c.value.isPlaying;
+    if (wasPlaying) {
       c.pause();
     } else {
       c.play();
       _scheduleHide();
     }
+    _partyEmit(
+      wasPlaying ? 'pause' : 'play',
+      positionSec: c.value.position.inMilliseconds / 1000.0,
+    );
   }
 
   void _setPlayerVolume(double v) {
@@ -57,6 +63,7 @@ extension _PlayerControls on _PlayerPageState {
   }
 
   void _seekRelative(Duration delta) {
+    if (_partyBlockLocal()) return;
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     final next = c.value.position + delta;
@@ -67,13 +74,20 @@ extension _PlayerControls on _PlayerPageState {
         : next;
     c.seekTo(clamped);
     _scheduleHide();
+    if (!_isLive) {
+      _partyEmit('seek', positionSec: clamped.inMilliseconds / 1000.0);
+    }
   }
 
   void _seekTo(Duration position) {
+    if (_partyBlockLocal()) return;
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     c.seekTo(position);
     _scheduleHide();
+    if (!_isLive) {
+      _partyEmit('seek', positionSec: position.inMilliseconds / 1000.0);
+    }
   }
 
   void _clearDragAfterSeek(Duration target) {
@@ -122,8 +136,10 @@ extension _PlayerControls on _PlayerPageState {
   }
 
   Future<void> _setSpeed(double speed) async {
+    if (_partyBlockLocal()) return;
     setState(() => _playbackSpeed = speed);
     await _controller?.setPlaybackSpeed(speed);
+    _partyEmit('rate', rate: speed);
   }
 
   void _setFit(_PlayerFit fit) {
@@ -152,6 +168,20 @@ extension _PlayerControls on _PlayerPageState {
       return ColoredBox(
         color: Colors.black,
         child: _LoadingOverlay(stage: _stage, title: _episodeTitle()),
+      );
+    }
+    final pluginCap = _pluginRequired;
+    if (pluginCap != null) {
+      // A party:content identity this device cannot resolve (missing on-device
+      // plugin). Show the actionable install view — not a generic error — and
+      // let the guest back out to the lobby to retry after installing.
+      return ColoredBox(
+        color: Colors.black,
+        child: PartyPluginRequiredView(
+          provider: _partyState.room?.content?.provider ?? widget.args.provider,
+          installTarget: pluginCap.installTarget,
+          onBack: () => Navigator.of(context).maybePop(),
+        ),
       );
     }
     if (_errorMessage != null) {
@@ -777,7 +807,9 @@ extension _PlayerControls on _PlayerPageState {
                 _IconButton(
                   icon: Icons.skip_previous_rounded,
                   onTap: () {
-                    if (_episodeIndex - 1 >= 0) _loadEpisode(_episodeIndex - 1);
+                    if (_episodeIndex - 1 >= 0) {
+                      _partyEpisodeNav(_episodeIndex - 1);
+                    }
                   },
                 ),
                 const SizedBox(width: 4),
@@ -813,7 +845,7 @@ extension _PlayerControls on _PlayerPageState {
                   icon: Icons.skip_next_rounded,
                   onTap: () {
                     if (_episodeIndex + 1 < widget.args.episodes.length) {
-                      _loadEpisode(_episodeIndex + 1);
+                      _partyEpisodeNav(_episodeIndex + 1);
                     }
                   },
                 ),
@@ -1058,14 +1090,14 @@ extension _PlayerControls on _PlayerPageState {
                         icon: Icons.skip_previous_rounded,
                         label: 'player.previous'.tr(),
                         enabled: hasPrev,
-                        onTap: () => _loadEpisode(_episodeIndex - 1),
+                        onTap: () => _partyEpisodeNav(_episodeIndex - 1),
                       ),
                     if (hasEpisodes)
                       _BottomTextButton(
                         icon: Icons.skip_next_rounded,
                         label: 'general.next'.tr(),
                         enabled: hasNext,
-                        onTap: () => _loadEpisode(_episodeIndex + 1),
+                        onTap: () => _partyEpisodeNav(_episodeIndex + 1),
                       ),
                     _BottomTextButton(
                       icon: Icons.speed_rounded,

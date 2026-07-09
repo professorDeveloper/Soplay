@@ -50,7 +50,9 @@ extension _PlayerGestures on _PlayerPageState {
       return;
     }
     final target = state.previewPosition(_scrubSecondsPerFullSwipe);
-    c.seekTo(target);
+    // Route through _seekTo so the swipe-scrub honours the party control gate
+    // and broadcasts the seek, like every other seek surface.
+    _seekTo(target);
     _scheduleHide();
   }
 
@@ -63,9 +65,14 @@ extension _PlayerGestures on _PlayerPageState {
     if (_controlsVisible) return;
     final c = _controller;
     if (c == null || !c.value.isInitialized || !c.value.isPlaying) return;
+    // A guest without control must not boost; and when we do boost, share the
+    // rate so peers speed up together instead of the host's heartbeat leaking a
+    // 2x-advanced position that jerks guests forward.
+    if (_partyBlockLocal()) return;
     _speedBeforeBoost = _playbackSpeed;
     _speedBoost.value = true;
     c.setPlaybackSpeed(2.0);
+    _partyEmit('rate', rate: 2.0);
   }
 
   void _onLongPressEnd(LongPressEndDetails _) {
@@ -77,6 +84,7 @@ extension _PlayerGestures on _PlayerPageState {
     if (c != null && c.value.isInitialized) {
       c.setPlaybackSpeed(restore);
     }
+    _partyEmit('rate', rate: restore);
   }
 
   void _showSeekRipple(int direction) {

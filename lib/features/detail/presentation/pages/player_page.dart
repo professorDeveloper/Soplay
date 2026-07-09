@@ -35,6 +35,12 @@ import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
+import 'package:soplay/features/watch_party/data/watch_party_service.dart';
+import 'package:soplay/features/watch_party/domain/party_resolve_gate.dart';
+import 'package:soplay/features/watch_party/presentation/widgets/party_plugin_required_view.dart';
+import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
+import 'package:soplay/features/watch_party/domain/entities/party_playback.dart';
+import 'package:soplay/features/watch_party/domain/entities/party_state.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -48,6 +54,7 @@ part 'player_page.subtitles.dart';
 part 'player_page.gestures.dart';
 part 'player_page.history.dart';
 part 'player_page.pip.dart';
+part 'player_page.party.dart';
 
 class PlayerPage extends StatefulWidget {
   const PlayerPage({super.key, required this.args});
@@ -140,6 +147,20 @@ class _PlayerPageState extends State<PlayerPage>
   bool _wasInitialized = false;
   String? _lastError;
 
+  // --- Watch2Gether (see player_page.party.dart). Fields must live here
+  // because Dart extensions cannot declare instance fields.
+  bool _applyingRemote = false;
+  Timer? _partyHeartbeat;
+  Timer? _partyDrift;
+  PartyPlayback? _lastPartyPlayback;
+  StreamSubscription<PartyPlayback>? _partySyncSub;
+  StreamSubscription<PartyContent>? _partyContentSub;
+  bool _partyControlSnapshot = false;
+  // Set when a party:content identity cannot be resolved on THIS device because
+  // the required on-device plugin/extension is missing. Renders the actionable
+  // install view in place of the generic error overlay.
+  PartyResolveCapability? _pluginRequired;
+
   @override
   void initState() {
     super.initState();
@@ -170,6 +191,7 @@ class _PlayerPageState extends State<PlayerPage>
         'serial': widget.args.isSerial.toString(),
       });
     unawaited(PlayerLog.instance.init());
+    _partyInit();
     _startup();
   }
 
@@ -209,6 +231,7 @@ class _PlayerPageState extends State<PlayerPage>
   @override
   void dispose() {
     _saveHistory();
+    _partyDispose();
     WidgetsBinding.instance.removeObserver(this);
     _pipChannel.setMethodCallHandler(null);
     _hideTimer?.cancel();
@@ -309,6 +332,15 @@ class _PlayerPageState extends State<PlayerPage>
   KeyEventResult _onPlayerKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
     final k = event.logicalKey;
+    // Block playback-control keys (play/pause + seek) when not allowed to
+    // control the party; consume the event so no local action happens.
+    final isPartyControlKey = k == LogicalKeyboardKey.space ||
+        k == LogicalKeyboardKey.mediaPlayPause ||
+        k == LogicalKeyboardKey.arrowLeft ||
+        k == LogicalKeyboardKey.arrowRight;
+    if (isPartyControlKey && _partyBlockLocal()) {
+      return KeyEventResult.handled;
+    }
     if (k == LogicalKeyboardKey.space ||
         k == LogicalKeyboardKey.mediaPlayPause) {
       _togglePlay();

@@ -50,6 +50,8 @@ dependencies:
   dio: ^5.8.0+1
   dio_cookie_manager: ^3.2.0
   cookie_jar: ^4.0.8
+  # Watch2Gether real-time sync (backend: socket.io v4, namespace /watch)
+  socket_io_client: ^3.1.6
 
 
   # Firebase / Push

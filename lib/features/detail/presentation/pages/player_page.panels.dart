@@ -367,7 +367,7 @@ extension _PlayerPanels on _PlayerPageState {
                         itemBuilder: (_, i) => _EpisodeRow(
                           episode: widget.args.episodes[i],
                           isActive: i == _episodeIndex,
-                          onTap: () => _loadEpisode(i),
+                          onTap: () => _partyEpisodeNav(i),
                         ),
                       ),
               ),

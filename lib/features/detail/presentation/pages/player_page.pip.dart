@@ -19,17 +19,22 @@ extension _PlayerPip on _PlayerPageState {
     if (action is! String) return;
     switch (action) {
       case 'play_pause':
+        if (_partyBlockLocal()) return;
         _togglePlay();
         _refreshPipActions();
       case 'rewind':
+        if (_partyBlockLocal()) return;
         _seekRelative(const Duration(seconds: -10));
       case 'forward':
+        if (_partyBlockLocal()) return;
         _seekRelative(const Duration(seconds: 10));
       case 'prev':
+        if (_partyBlockEpisodeNav()) return;
         if (widget.args.isSerial && _episodeIndex - 1 >= 0) {
           _loadEpisode(_episodeIndex - 1);
         }
       case 'next':
+        if (_partyBlockEpisodeNav()) return;
         if (widget.args.isSerial &&
             _episodeIndex + 1 < widget.args.episodes.length) {
           _loadEpisode(_episodeIndex + 1);

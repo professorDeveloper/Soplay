@@ -17,6 +17,12 @@ class AppConstants {
       List<int>.generate(bytes.length, (i) => bytes[i] ^ key[i % key.length]),
     );
   }
+
+  /// Origin (scheme + host + port) for the socket.io connection. [baseUrl] ends
+  /// with `/api`, but the `/watch` namespace lives at the host root — strip the
+  /// path so socket handshakes resolve against the origin.
+  static String get socketOrigin => Uri.parse(baseUrl).origin;
+
   static const String authBox = 'auth_box';
   static const String settingsBox = 'settings_box';
   static const String historyBox = 'history_box';
