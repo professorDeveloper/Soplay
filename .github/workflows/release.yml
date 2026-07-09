@@ -157,6 +157,17 @@ jobs:
       - run: flutter --version
       - run: flutter pub get
       - run: flutter build macos --release
+      # No paid Apple Developer cert, so this is NOT notarized — Gatekeeper still
+      # warns on first open (users: right-click → Open, or run
+      #   xattr -dr com.apple.quarantine /Applications/Sozo.app ).
+      # But an ad-hoc signature makes the app self-consistent, avoiding the
+      # harsher "app is damaged" hard-block on Apple Silicon and letting the
+      # right-click-Open / quarantine-removal path work reliably.
+      - name: Ad-hoc codesign
+        run: |
+          APP=$(ls -d build/macos/Build/Products/Release/*.app | head -n1)
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP" || true
       - name: Create unsigned DMG
         run: |
           brew install create-dmg

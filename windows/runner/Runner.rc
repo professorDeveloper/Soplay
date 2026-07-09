@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.soplay" "\0"
-            VALUE "FileDescription", "soplay" "\0"
+            VALUE "CompanyName", "Sozo" "\0"
+            VALUE "FileDescription", "Sozo" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "soplay" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.soplay. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Sozo. All rights reserved." "\0"
             VALUE "OriginalFilename", "soplay.exe" "\0"
-            VALUE "ProductName", "soplay" "\0"
+            VALUE "ProductName", "Sozo" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
