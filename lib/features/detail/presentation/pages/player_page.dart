@@ -41,6 +41,7 @@ import 'package:soplay/features/watch_party/presentation/widgets/party_plugin_re
 import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_playback.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_state.dart';
+import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -156,6 +157,9 @@ class _PlayerPageState extends State<PlayerPage>
   StreamSubscription<PartyPlayback>? _partySyncSub;
   StreamSubscription<PartyContent>? _partyContentSub;
   bool _partyControlSnapshot = false;
+  // True while the sync binding (timers + stream subs) is live. Lets the player
+  // activate the binding when a party is created/joined WHILE it is already open.
+  bool _partyBindingActive = false;
   // Set when a party:content identity cannot be resolved on THIS device because
   // the required on-device plugin/extension is missing. Renders the actionable
   // install view in place of the generic error overlay.

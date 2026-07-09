@@ -381,6 +381,12 @@
   },
   "watch_party": {
     "title": "Birga tomosha",
+    "entry_subtitle": "Do'stlaringiz bilan sinxron tomosha qiling — biri o'ynatadi, hammasi ergashadi.",
+    "entry_create": "Xona ochish",
+    "entry_create_hint": "Party boshlab, do'stlarni kod bilan taklif qiling",
+    "entry_join": "Kod bilan qo'shilish",
+    "entry_join_hint": "Do'st bergan kodni kiriting",
+    "not_available": "Bu kontent uchun birga tomosha hozircha mavjud emas",
     "create": "Xona yaratish",
     "join": "Xonaga qo'shilish",
     "join_hint": "Xona kodini kiriting",

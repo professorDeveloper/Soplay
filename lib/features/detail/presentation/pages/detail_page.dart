@@ -596,6 +596,9 @@ class _DetailViewState extends State<_DetailView>
         contentUrl: widget.detail.contentUrl,
         thumbnail: widget.detail.thumbnail,
         movieUrl: movieUrl,
+        mediaRef: playback.episodes.isNotEmpty
+            ? playback.episodes.first.mediaRef
+            : null,
         type: playback.type,
         videoSources: playback.videoSources,
         resumePosition: resumePos,
@@ -655,6 +658,7 @@ class _DetailViewState extends State<_DetailView>
             contentUrl: widget.detail.contentUrl,
             thumbnail: widget.detail.thumbnail,
             movieUrl: value.videoUrl,
+            mediaRef: ref,
             type: value.type,
             videoSources: value.videoSources,
             resumePosition: resumePos,

@@ -22,6 +22,7 @@ import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
 import 'package:soplay/features/streak/presentation/widgets/streak_badge.dart';
+import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 
 class HomeTopBar extends StatelessWidget {
   const HomeTopBar({super.key, required this.blurProgress});
@@ -60,6 +61,10 @@ class HomeTopBar extends StatelessWidget {
             color: AppColors.textPrimary,
             onRefresh: () =>
                 context.read<HomeBloc>().add(HomeLoad(silent: true)),
+          ),
+          _TopBarIcon(
+            icon: Icons.groups_rounded,
+            onTap: () => showPartyEntrySheet(context),
           ),
           _TopBarIcon(
             icon: Icons.search_rounded,

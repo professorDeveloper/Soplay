@@ -25,15 +25,35 @@ extension _PlayerParty on _PlayerPageState {
   // ---------------------------------------------------------------------------
 
   void _partyInit() {
-    if (!_inParty) return;
+    _party.state.addListener(_onPartyStateChanged);
+    _syncPartyBinding();
+  }
+
+  void _partyDispose() {
+    _party.state.removeListener(_onPartyStateChanged);
+    _stopPartyBinding();
+  }
+
+  /// Starts the sync binding when in a party — including the case where the
+  /// party is created/joined WHILE this player is already open — and tears it
+  /// down when the party ends.
+  void _syncPartyBinding() {
+    if (_inParty && !_partyBindingActive) {
+      _startPartyBinding();
+    } else if (!_inParty && _partyBindingActive) {
+      _stopPartyBinding();
+    }
+  }
+
+  void _startPartyBinding() {
+    _partyBindingActive = true;
+    _partyControlSnapshot = _canPartyControl;
     // Seed the guest's drift target from the room snapshot so the first drift
     // correction can happen before the first `party:sync` arrives.
     final snapshot = _partyState.room?.playback;
     if (!_isPartyHost && snapshot != null) {
       _lastPartyPlayback = snapshot;
     }
-    _partyControlSnapshot = _canPartyControl;
-    _party.state.addListener(_onPartyStateChanged);
     _partySyncSub = _party.syncs.listen(_onPartySync);
     _partyContentSub = _party.contentChanges.listen(_onPartyContent);
     // Both timers run and self-guard by role, so host migration is handled
@@ -46,9 +66,13 @@ extension _PlayerParty on _PlayerPageState {
       const Duration(seconds: 2),
       (_) => _onDriftTick(),
     );
+    // As host, announce what this player is showing so guests can resolve it on
+    // their own device (covers "create a party while already watching").
+    if (_isPartyHost) _partyEmitCurrentContent();
   }
 
-  void _partyDispose() {
+  void _stopPartyBinding() {
+    _partyBindingActive = false;
     _partyHeartbeat?.cancel();
     _partyHeartbeat = null;
     _partyDrift?.cancel();
@@ -57,7 +81,6 @@ extension _PlayerParty on _PlayerPageState {
     _partySyncSub = null;
     unawaited(_partyContentSub?.cancel());
     _partyContentSub = null;
-    _party.state.removeListener(_onPartyStateChanged);
   }
 
   // ---------------------------------------------------------------------------
@@ -66,13 +89,63 @@ extension _PlayerParty on _PlayerPageState {
 
   void _onPartyStateChanged() {
     if (!mounted) return;
-    // Only rebuild when the control gate flips (e.g. host migration) to avoid a
-    // rebuild storm from the frequent playback updates on the same notifier.
+    final wasActive = _partyBindingActive;
+    _syncPartyBinding(); // may flip _partyBindingActive on join/leave
+    // Rebuild ONLY on visible transitions (join/leave or host migration) — never
+    // on the frequent playback syncs, which also fire this notifier.
     final canControl = _canPartyControl;
-    if (canControl != _partyControlSnapshot) {
+    if (_partyBindingActive != wasActive || canControl != _partyControlSnapshot) {
       _partyControlSnapshot = canControl;
       setState(() {});
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Entry point (top-bar "Watch together" button)
+  // ---------------------------------------------------------------------------
+
+  /// Identity of what this player is currently showing. Never a stream URL —
+  /// each device resolves its own from this. For a serial it is the current
+  /// episode; for a movie it is the retained args mediaRef.
+  PartyContent _currentPartyContent() {
+    final eps = widget.args.episodes;
+    final ep = (eps.isNotEmpty && _episodeIndex >= 0 && _episodeIndex < eps.length)
+        ? eps[_episodeIndex]
+        : null;
+    return PartyContent(
+      provider: widget.args.provider,
+      contentUrl: widget.args.contentUrl,
+      mediaRef: ep?.mediaRef ?? widget.args.mediaRef,
+      title: widget.args.title,
+      thumbnail: widget.args.thumbnail,
+      episode: ep?.episode,
+      lang: _currentLang ?? widget.args.lang,
+    );
+  }
+
+  void _partyEmitCurrentContent() {
+    final c = _currentPartyContent();
+    if (c.mediaRef != null && c.mediaRef!.isNotEmpty) {
+      _party.sendContent(c);
+    }
+  }
+
+  /// Top-bar action: open the lobby if already in a party, otherwise create one
+  /// for the current content (the binding then activates via the state listener).
+  Future<void> _openWatchParty() async {
+    if (_inParty) {
+      final code = _partyState.code;
+      if (code != null) {
+        context.push('/watch-party', extra: WatchPartyArgs(code: code));
+      }
+      return;
+    }
+    final content = _currentPartyContent();
+    if (content.mediaRef == null || content.mediaRef!.isEmpty) {
+      _partyToast('watch_party.not_available');
+      return;
+    }
+    await showCreatePartySheet(context, content: content);
   }
 
   void _onPartySync(PartyPlayback pb) {

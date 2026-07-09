@@ -672,6 +672,14 @@ extension _PlayerControls on _PlayerPageState {
                         ),
                         const SizedBox(width: 8),
                       ],
+                      _IconButton(
+                        icon: _inParty
+                            ? Icons.groups_rounded
+                            : Icons.groups_2_outlined,
+                        color: _inParty ? AppColors.primary : null,
+                        onTap: _openWatchParty,
+                      ),
+                      const SizedBox(width: 8),
                       if (!isDesktopPlatform) ...[
                         _IconButton(
                           icon: _isPortrait

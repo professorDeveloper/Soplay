@@ -381,6 +381,12 @@
   },
   "watch_party": {
     "title": "Watch Party",
+    "entry_subtitle": "Watch in sync with friends — one plays, everyone follows.",
+    "entry_create": "Create a party",
+    "entry_create_hint": "Start a room and invite friends with a code",
+    "entry_join": "Join by code",
+    "entry_join_hint": "Enter a code a friend shared with you",
+    "not_available": "Watch together isn't available for this title yet",
     "create": "Create party",
     "join": "Join party",
     "join_hint": "Enter the party code",

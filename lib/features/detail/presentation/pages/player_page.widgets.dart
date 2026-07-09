@@ -238,14 +238,20 @@ class _LoadingOverlay extends StatelessWidget {
 }
 
 class _IconButton extends StatelessWidget {
-  const _IconButton({required this.icon, required this.onTap});
+  const _IconButton({required this.icon, required this.onTap, this.color});
   final IconData icon;
   final VoidCallback onTap;
+
+  /// When set, tints the icon (and gives a subtle matching background) — used
+  /// to show an "active" state, e.g. the Watch Party button while in a party.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black.withValues(alpha: 0.35),
+      color: color != null
+          ? color!.withValues(alpha: 0.22)
+          : Colors.black.withValues(alpha: 0.35),
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
@@ -253,7 +259,7 @@ class _IconButton extends StatelessWidget {
         child: SizedBox(
           width: 38,
           height: 38,
-          child: Icon(icon, color: Colors.white, size: 18),
+          child: Icon(icon, color: color ?? Colors.white, size: 18),
         ),
       ),
     );
