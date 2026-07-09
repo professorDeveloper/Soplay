@@ -1,19 +1,18 @@
 name: Release → Telegram
 
 # Builds ALL FOUR platforms (Android / Windows / Linux / macOS) when you cut a
-# version, and hands them off. It NEVER publishes a public GitHub Release — you
-# do that yourself. It runs only:
+# version, and hands them off. It NEVER touches GitHub Releases at all — you cut
+# the release yourself, by hand. It runs only:
 #   * on a version tag, e.g.  git tag v1.0.1 && git push origin v1.0.1
 #   * or manually — Actions tab → this workflow → Run workflow
 # (No per-push builds: day-to-day master pushes do nothing here.)
 #
 # Delivery:
 #   * Android APKs (per-ABI, each < 50 MB) are sent straight to Telegram.
-#   * On a tag, all four platforms are attached to a DRAFT GitHub Release —
-#     private to maintainers until YOU press Publish. Desktop installers exceed
-#     Telegram's 50 MB bot limit, so the draft (or the run artifacts) is where
-#     you grab them.
-#   * A Telegram message links the draft + the Actions run.
+#   * All four platforms are uploaded as Actions run artifacts. Desktop
+#     installers exceed Telegram's 50 MB bot limit, so the run is where you grab
+#     them; a Telegram message links the run.
+#   * Nothing is ever written to the Releases tab — that stays 100% manual.
 #
 # Required repo secrets (Settings → Secrets and variables → Actions):
 #   DOTENV              contents of the app's .env (it is a pubspec asset — the
@@ -178,15 +177,13 @@ jobs:
           path: Sozo-macOS.dmg
           if-no-files-found: error
 
-  # ------------------------------------------- Deliver (Telegram + draft) ------
+  # ------------------------------------------------- Deliver (Telegram) --------
   deliver:
     needs: [android, windows, linux, macos]
     # Deliver whatever succeeded, even if one platform's build failed — but not
     # if the run was cancelled.
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: write   # only to create/refresh the DRAFT release
     steps:
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -201,19 +198,6 @@ jobs:
             -o -name '*.tar.gz' -o -name '*.dmg' \) -exec cp {} out/ \;
           echo "Collected:"
           ls -lh out || true
-
-      # A DRAFT release keeps every artifact (desktop installers ignore the 50 MB
-      # Telegram limit) in one place — private to maintainers until you press
-      # Publish. Only on a version tag; manual dispatch just builds + Telegram.
-      - name: Attach to DRAFT GitHub Release (tag only — never auto-published)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          tag_name: ${{ github.ref_name }}
-          name: Sozo ${{ github.ref_name }}
-          files: out/*
-          fail_on_unmatched_files: false
 
       - name: Send to Telegram
         env:
@@ -232,15 +216,14 @@ jobs:
           MAX=$((49 * 1024 * 1024))   # Bot API sendDocument limit is 50 MB
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           if [ "${IS_TAG}" = "true" ]; then
-            REL_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases"
-            HEAD="$(printf '🎬 Sozo %s — yangi build\n\n📥 Draft release (Publish qilishni kutmoqda):\n%s\n\n🧰 Run (barcha fayllar):\n%s' \
-                    "${GITHUB_REF_NAME}" "${REL_URL}" "${RUN_URL}")"
+            HEAD="$(printf '🎬 Sozo %s — yangi build\n\n🧰 Win/Linux/macOS fayllar shu run da (artifacts):\n%s' \
+                    "${GITHUB_REF_NAME}" "${RUN_URL}")"
           else
-            HEAD="$(printf '🎬 Sozo — qo'\''lda build (%s)\n\n🧰 Run (barcha fayllar):\n%s' \
+            HEAD="$(printf '🎬 Sozo — build (%s)\n\n🧰 Barcha fayllar shu run da (artifacts):\n%s' \
                     "${GITHUB_SHA:0:7}" "${RUN_URL}")"
           fi
 
-          # Files too big for the bot are only listed (the draft/run has them).
+          # Files too big for the bot are only listed (the run artifacts have them).
           BIG=""
           for f in out/*; do
             [ -f "${f}" ] || continue
@@ -250,7 +233,7 @@ jobs:
             fi
           done
           if [ -n "${BIG}" ]; then
-            HEAD="${HEAD}$(printf '\n\n⬇️ Telegram limiti (50MB) dan katta, draft/run dan oling:%b' "${BIG}")"
+            HEAD="${HEAD}$(printf '\n\n⬇️ Telegram limiti (50MB) dan katta, run artifacts dan oling:%b' "${BIG}")"
           fi
 
           fail=0
