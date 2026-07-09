@@ -73,9 +73,22 @@ extension _PlayerHistory on _PlayerPageState {
 
   Future<void> _pingStreak() async {
     try {
-      final milestone = await getIt<StreakService>().ping();
-      if (milestone == null || !mounted) return;
-      await StreakMilestoneDialog.show(context, milestone);
+      final result = await getIt<StreakService>().ping();
+      if (result == null || !mounted) return;
+      final milestone = result.newMilestone;
+      if (milestone != null) {
+        await StreakMilestoneDialog.show(
+          context,
+          milestone,
+          freezeAwarded: result.freezeAwarded,
+        );
+      }
+      // Independent of the milestone: a ping can both cross a milestone AND
+      // consume a banked freeze to rescue a missed day. Surface the freeze
+      // rescue too (re-checking mounted after the milestone dialog's await).
+      if (result.freezeSaved && mounted) {
+        await StreakFreezeSavedDialog.show(context);
+      }
     } catch (_) {}
   }
 

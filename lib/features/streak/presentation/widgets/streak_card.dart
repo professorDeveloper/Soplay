@@ -10,6 +10,7 @@ import 'package:soplay/features/streak/domain/entities/streak_state.dart';
 const Color _ember = Color(0xFFFFA94D);
 const Color _emberDeep = Color(0xFFEF7A35);
 const Color _emberSoft = Color(0xFFFFC078);
+const Color _frost = Color(0xFF8FD4FF);
 
 class StreakCard extends StatefulWidget {
   const StreakCard({super.key});
@@ -139,6 +140,28 @@ class _CompactStreakRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
+                if (state.freezes.available > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.ac_unit_rounded,
+                          color: _frost,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${state.freezes.available}',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (state.longest > 0)
                   Padding(
                     padding: const EdgeInsets.only(right: 6),

@@ -8,20 +8,32 @@ import 'package:soplay/core/theme/app_colors.dart';
 const Color _ember = Color(0xFFFFA94D);
 const Color _emberDeep = Color(0xFFEF7A35);
 const Color _emberSoft = Color(0xFFFFC078);
+const Color _frost = Color(0xFF8FD4FF);
+const Color _frostDeep = Color(0xFF4FA3E0);
 
 class StreakMilestoneDialog extends StatefulWidget {
-  const StreakMilestoneDialog({super.key, required this.days});
+  const StreakMilestoneDialog({
+    super.key,
+    required this.days,
+    this.freezeAwarded = false,
+  });
 
   final int days;
+  final bool freezeAwarded;
 
-  static Future<void> show(BuildContext context, int days) {
+  static Future<void> show(
+    BuildContext context,
+    int days, {
+    bool freezeAwarded = false,
+  }) {
     return showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Streak milestone',
       barrierColor: Colors.black.withValues(alpha: 0.78),
       transitionDuration: const Duration(milliseconds: 320),
-      pageBuilder: (_, _, _) => StreakMilestoneDialog(days: days),
+      pageBuilder: (_, _, _) =>
+          StreakMilestoneDialog(days: days, freezeAwarded: freezeAwarded),
       transitionBuilder: (_, anim, _, child) {
         final scale = Curves.easeOutBack.transform(anim.value.clamp(0, 1));
         return Opacity(
@@ -129,6 +141,10 @@ class _StreakMilestoneDialogState extends State<StreakMilestoneDialog>
                         height: 1.45,
                       ),
                     ),
+                    if (widget.freezeAwarded) ...[
+                      const SizedBox(height: 16),
+                      const _FreezeAwardedChip(),
+                    ],
                     const SizedBox(height: 22),
                     Row(
                       children: [
@@ -212,6 +228,168 @@ class _Flame extends StatelessWidget {
         Icons.local_fire_department_rounded,
         color: Colors.white,
         size: 50,
+      ),
+    );
+  }
+}
+
+class _FreezeAwardedChip extends StatelessWidget {
+  const _FreezeAwardedChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _frost.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: _frost.withValues(alpha: 0.35),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.ac_unit_rounded, color: _frost, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            'streak.freeze_awarded_title'.tr(),
+            style: const TextStyle(
+              color: _frost,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Celebration shown when a streak-freeze automatically covered a missed day.
+class StreakFreezeSavedDialog extends StatelessWidget {
+  const StreakFreezeSavedDialog({super.key});
+
+  static Future<void> show(BuildContext context) {
+    return showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Streak freeze saved',
+      barrierColor: Colors.black.withValues(alpha: 0.78),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, _, _) => const StreakFreezeSavedDialog(),
+      transitionBuilder: (_, anim, _, child) {
+        final scale = Curves.easeOutBack.transform(anim.value.clamp(0, 1));
+        return Opacity(
+          opacity: anim.value,
+          child: Transform.scale(scale: 0.85 + 0.15 * scale, child: child),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 360),
+            padding: const EdgeInsets.fromLTRB(24, 30, 24, 22),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF20262B), Color(0xFF15181B)],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: _frost.withValues(alpha: 0.24),
+                width: 0.8,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _frostDeep.withValues(alpha: 0.18),
+                  blurRadius: 34,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const RadialGradient(
+                      colors: [_frost, _frostDeep],
+                      stops: [0, 1],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _frostDeep.withValues(alpha: 0.4),
+                        blurRadius: 28,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.ac_unit_rounded,
+                    color: Colors.white,
+                    size: 46,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'streak.freeze_saved_title'.tr(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'streak.freeze_saved_subtitle'.tr(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      backgroundColor: _frostDeep,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'streak.cta_continue'.tr(),
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

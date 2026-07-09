@@ -46,7 +46,6 @@ class StreakService {
     } catch (_) {}
   }
 
-  String _timezone() => DateTime.now().timeZoneName;
   int _tzOffset() => DateTime.now().timeZoneOffset.inMinutes;
 
   String _todayLocal() {
@@ -60,7 +59,7 @@ class StreakService {
     if (!_hive.isLoggedIn || _refreshInFlight) return;
     _refreshInFlight = true;
     try {
-      final fresh = await _remote.getMe(_timezone(), _tzOffset());
+      final fresh = await _remote.getMe(_tzOffset());
       state.value = fresh;
       await _writeCache(fresh);
     } catch (_) {
@@ -69,19 +68,19 @@ class StreakService {
     }
   }
 
-  Future<int?> ping() async {
+  Future<StreakPingResult?> ping() async {
     if (!_hive.isLoggedIn) return null;
     final today = _todayLocal();
     if (_lastPingDay == today) return null;
     try {
-      final result = await _remote.ping(_timezone(), _tzOffset());
+      final result = await _remote.ping(_tzOffset());
       _lastPingDay = today;
       state.value = result.state;
       await _writeCache(result.state);
       if (result.newMilestone != null && !milestones.isClosed) {
         milestones.add(result.newMilestone!);
       }
-      return result.newMilestone;
+      return result;
     } catch (_) {
       return null;
     }

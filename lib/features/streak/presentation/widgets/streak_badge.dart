@@ -87,7 +87,11 @@ class _StreakBadgeState extends State<StreakBadge>
             animation: _pulse,
             builder: (_, _) {
               final pulse = state.isAtRisk ? _pulse.value : 0.0;
-              return _BadgeBody(count: state.current, pulse: pulse);
+              return _BadgeBody(
+                count: state.current,
+                pulse: pulse,
+                freezes: state.freezes.available,
+              );
             },
           ),
         ),
@@ -97,10 +101,15 @@ class _StreakBadgeState extends State<StreakBadge>
 }
 
 class _BadgeBody extends StatelessWidget {
-  const _BadgeBody({required this.count, required this.pulse});
+  const _BadgeBody({
+    required this.count,
+    required this.pulse,
+    this.freezes = 0,
+  });
 
   final int count;
   final double pulse;
+  final int freezes;
 
   @override
   Widget build(BuildContext context) {
@@ -141,6 +150,14 @@ class _BadgeBody extends StatelessWidget {
               letterSpacing: 0.2,
             ),
           ),
+          if (freezes > 0) ...[
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.ac_unit_rounded,
+              color: Colors.white,
+              size: 11,
+            ),
+          ],
         ],
       ),
     );

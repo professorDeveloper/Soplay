@@ -6,12 +6,12 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/streak/domain/entities/streak_state.dart';
+import 'package:soplay/features/streak/presentation/widgets/streak_calendar_heatmap.dart';
 
 const Color _ember = Color(0xFFFFA94D);
 const Color _emberDeep = Color(0xFFEF7A35);
 const Color _emberSoft = Color(0xFFFFC078);
-
-const List<int> _milestones = [7, 30, 60, 100, 180, 365, 500, 1000];
+const Color _frost = Color(0xFF8FD4FF);
 
 class StreakPage extends StatefulWidget {
   const StreakPage({super.key});
@@ -47,31 +47,23 @@ class _StreakPageState extends State<StreakPage>
     super.dispose();
   }
 
-  int _nextMilestone(int current) {
-    for (final m in _milestones) {
-      if (current < m) return m;
-    }
-    return _milestones.last;
-  }
-
-  int _prevMilestone(int current) {
-    var prev = 0;
-    for (final m in _milestones) {
-      if (current < m) break;
-      prev = m;
-    }
-    return prev;
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = _service.state.value;
     final hasStreak = state.current > 0;
-    final next = _nextMilestone(state.current);
-    final prev = _prevMilestone(state.current);
-    final span = (next - prev).clamp(1, 100000);
-    final progress = ((state.current - prev) / span).clamp(0.0, 1.0);
-    final daysLeft = (next - state.current).clamp(0, 100000);
+    final next = state.nextMilestone;
+    var prev = 0;
+    for (final m in state.milestones) {
+      if (m.reached && m.value > prev) prev = m.value;
+    }
+    final double progress;
+    if (next == null) {
+      progress = 1.0;
+    } else {
+      final span = (next - prev).clamp(1, 100000);
+      progress = ((state.current - prev) / span).clamp(0.0, 1.0);
+    }
+    final daysLeft = state.daysToNextMilestone ?? 0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -180,12 +172,49 @@ class _StreakPageState extends State<StreakPage>
                     ),
                     const SizedBox(width: 12),
                     _StatTile(
-                      icon: Icons.flag_rounded,
-                      label: 'streak.next_milestone'.tr(),
-                      value: '$next',
+                      icon: Icons.calendar_month_rounded,
+                      label: 'streak.total_days_label'.tr(),
+                      value: '${state.totalDays}',
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _StatTile(
+                      icon: Icons.date_range_rounded,
+                      label: 'streak.this_week_label'.tr(),
+                      value: '${state.thisWeekCount}',
+                    ),
+                    const SizedBox(width: 12),
+                    _StatTile(
+                      icon: Icons.ac_unit_rounded,
+                      iconColor: _frost,
+                      label: 'streak.freeze_label'.tr(),
+                      value: 'streak.freeze_count'.tr(
+                        args: [
+                          '${state.freezes.available}',
+                          '${state.freezes.max}',
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 26),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'streak.calendar_label'.tr(),
+                    style: const TextStyle(
+                      color: AppColors.textHint,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                StreakCalendarHeatmap(days: state.calendar),
               ],
             ),
           ),
@@ -259,12 +288,13 @@ class _ProgressBlock extends StatelessWidget {
   });
 
   final int current;
-  final int next;
+  final int? next;
   final double progress;
   final int daysLeft;
 
   @override
   Widget build(BuildContext context) {
+    final goal = next;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
@@ -289,14 +319,21 @@ class _ProgressBlock extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              Text(
-                '$next',
-                style: const TextStyle(
-                  color: AppColors.textHint,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
+              if (goal != null)
+                Text(
+                  '$goal',
+                  style: const TextStyle(
+                    color: AppColors.textHint,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                )
+              else
+                const Icon(
+                  Icons.emoji_events_rounded,
+                  color: _emberSoft,
+                  size: 15,
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -316,7 +353,9 @@ class _ProgressBlock extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '${'streak.next_milestone'.tr()} · $daysLeft',
+            goal != null
+                ? 'streak.days_to_milestone'.tr(args: ['$daysLeft'])
+                : 'streak.milestone_subtitle'.tr(),
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
@@ -336,13 +375,13 @@ class _WeekStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
+    final activity = state.weeklyActivity;
     final cells = List.generate(7, (i) {
-      final date = today.subtract(Duration(days: 6 - i));
+      final StreakDay? day = activity.length == 7 ? activity[i] : null;
+      final date = (day != null ? DateTime.tryParse(day.date) : null) ??
+          today.subtract(Duration(days: 6 - i));
       final isToday = i == 6;
-      final activeCount = state.current.clamp(0, 7);
-      final activeFrom = 7 - activeCount;
-      final isActive = i >= activeFrom &&
-          (!isToday || state.pingedToday || state.current > 0);
+      final isActive = day?.active ?? false;
       return _DayCell(
         weekday: _shortDay(date.weekday),
         day: '${date.day}',
@@ -451,11 +490,13 @@ class _StatTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.iconColor = _emberSoft,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -473,7 +514,7 @@ class _StatTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: _emberSoft, size: 20),
+            Icon(icon, color: iconColor, size: 20),
             const SizedBox(height: 10),
             Text(
               value,
