@@ -1,9 +1,20 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
 import 'package:soplay/features/watch_party/presentation/widgets/party_code_sheet.dart';
+
+/// Watch Party is auth-gated on the server (REST + socket). Returns true when a
+/// user is signed in; otherwise routes to login and reports the result.
+Future<bool> _ensurePartyLogin(BuildContext context) async {
+  if (getIt<HiveService>().isLoggedIn) return true;
+  await context.push('/login');
+  return getIt<HiveService>().isLoggedIn;
+}
 
 /// Navigation payload for `/watch-party` (passed via `GoRouter` `state.extra`).
 class WatchPartyArgs {
@@ -19,8 +30,9 @@ class WatchPartyArgs {
 Future<void> showCreatePartySheet(
   BuildContext context, {
   PartyContent? content,
-}) {
-  return showAdaptiveModal<void>(
+}) async {
+  if (!await _ensurePartyLogin(context) || !context.mounted) return;
+  await showAdaptiveModal<void>(
     context: context,
     backgroundColor: AppColors.surface,
     isScrollControlled: true,
@@ -33,8 +45,9 @@ Future<void> showCreatePartySheet(
 }
 
 /// Opens the "join a watch party" bottom sheet / dialog (code entry).
-Future<void> showJoinPartySheet(BuildContext context) {
-  return showAdaptiveModal<void>(
+Future<void> showJoinPartySheet(BuildContext context) async {
+  if (!await _ensurePartyLogin(context) || !context.mounted) return;
+  await showAdaptiveModal<void>(
     context: context,
     backgroundColor: AppColors.surface,
     isScrollControlled: true,
@@ -49,6 +62,7 @@ Future<void> showJoinPartySheet(BuildContext context) {
 /// Opens the Watch Party entry chooser (Create / Join by code). Used where there
 /// is no content context yet — e.g. the home top bar.
 Future<void> showPartyEntrySheet(BuildContext context) async {
+  if (!await _ensurePartyLogin(context) || !context.mounted) return;
   final choice = await showAdaptiveModal<String>(
     context: context,
     backgroundColor: AppColors.surface,
