@@ -1,0 +1,283 @@
+name: Release → Telegram
+
+# Builds ALL FOUR platforms (Android / Windows / Linux / macOS) when you cut a
+# version, and hands them off. It NEVER publishes a public GitHub Release — you
+# do that yourself. It runs only:
+#   * on a version tag, e.g.  git tag v1.0.1 && git push origin v1.0.1
+#   * or manually — Actions tab → this workflow → Run workflow
+# (No per-push builds: day-to-day master pushes do nothing here.)
+#
+# Delivery:
+#   * Android APKs (per-ABI, each < 50 MB) are sent straight to Telegram.
+#   * On a tag, all four platforms are attached to a DRAFT GitHub Release —
+#     private to maintainers until YOU press Publish. Desktop installers exceed
+#     Telegram's 50 MB bot limit, so the draft (or the run artifacts) is where
+#     you grab them.
+#   * A Telegram message links the draft + the Actions run.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   DOTENV              contents of the app's .env (it is a pubspec asset — the
+#                       build FAILS without it)
+#   TELEGRAM_BOT_TOKEN  @taskNotifierrbot token from @BotFather
+#   TELEGRAM_CHAT_IDS   comma-separated NUMERIC chat ids, e.g. "123456789".
+#                       The Bot API cannot message a person by @username; each
+#                       recipient must press Start on the bot once. Get your id
+#                       from @userinfobot.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # CI runners ship CMake 4.x, which hard-errors on dependencies that still
+  # declare cmake_minimum_required(VERSION < 3.5) (e.g. firebase_cpp_sdk).
+  CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+
+jobs:
+  # ---------------------------------------------------------------- Android ----
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Create .env (declared as a pubspec asset — the build fails without it)
+        run: printf '%s' "${{ secrets.DOTENV }}" > .env
+      - run: flutter --version
+      - run: flutter pub get
+      # Split per ABI: release keeps R8/minify disabled (extensions break under
+      # it), so a universal APK would be large. Per-ABI keeps each under the
+      # 50 MB Telegram Bot API document limit.
+      - name: Build release APKs
+        run: flutter build apk --release --split-per-abi
+      - name: Collect APKs
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-*-release.apk dist/
+          ls -lh dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sozo-android
+          path: dist/*.apk
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------- Windows ----
+  windows:
+    runs-on: windows-latest
+    env:
+      # The runner's very new MSVC turns flutter_inappwebview_windows's use of the
+      # deprecated <experimental/coroutine> header into a hard error (STL1011).
+      CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Ensure NuGet (flutter_inappwebview_windows fetches WebView2 with it)
+        uses: NuGet/setup-nuget@v2
+      - name: Create .env (from secret, or empty placeholder)
+        shell: bash
+        run: printf '%s' "${{ secrets.DOTENV }}" > .env
+      - run: flutter --version
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: Build installer (Inno Setup)
+        run: |
+          choco install innosetup --no-progress -y
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "windows\installer\Sozo.iss"
+      - name: Also zip the raw build (portable)
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" `
+            -DestinationPath "build\installer\Sozo-Windows-portable.zip" -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sozo-Windows
+          path: |
+            build/installer/Sozo-Setup.exe
+            build/installer/Sozo-Windows-portable.zip
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------ Linux ----
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install Linux desktop + plugin system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libmpv-dev mpv \
+            libsecret-1-dev libjsoncpp-dev libsecret-1-0
+      - name: Create .env (from secret, or empty placeholder)
+        run: printf '%s' "${{ secrets.DOTENV }}" > .env
+      - run: flutter --version
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - name: Package (tar.gz)
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czf "$GITHUB_WORKSPACE/Sozo-Linux-x64.tar.gz" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sozo-Linux
+          path: Sozo-Linux-x64.tar.gz
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------ macOS ----
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Create .env (from secret, or empty placeholder)
+        run: printf '%s' "${{ secrets.DOTENV }}" > .env
+      - run: flutter --version
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - name: Create unsigned DMG
+        run: |
+          brew install create-dmg
+          APP=$(ls -d build/macos/Build/Products/Release/*.app | head -n1)
+          echo "Packaging: $APP"
+          create-dmg \
+            --volname "Sozo" \
+            --window-size 540 380 \
+            --icon-size 110 \
+            --app-drop-link 380 170 \
+            --icon "$(basename "$APP")" 150 170 \
+            --no-internet-enable \
+            "Sozo-macOS.dmg" "$APP" || \
+          create-dmg --volname "Sozo" "Sozo-macOS.dmg" "$APP"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sozo-macOS
+          path: Sozo-macOS.dmg
+          if-no-files-found: error
+
+  # ------------------------------------------- Deliver (Telegram + draft) ------
+  deliver:
+    needs: [android, windows, linux, macos]
+    # Deliver whatever succeeded, even if one platform's build failed — but not
+    # if the run was cancelled.
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # only to create/refresh the DRAFT release
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Flatten
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          find dist -type f \( -name '*.apk' -o -name '*.exe' -o -name '*.zip' \
+            -o -name '*.tar.gz' -o -name '*.dmg' \) -exec cp {} out/ \;
+          echo "Collected:"
+          ls -lh out || true
+
+      # A DRAFT release keeps every artifact (desktop installers ignore the 50 MB
+      # Telegram limit) in one place — private to maintainers until you press
+      # Publish. Only on a version tag; manual dispatch just builds + Telegram.
+      - name: Attach to DRAFT GitHub Release (tag only — never auto-published)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: ${{ github.ref_name }}
+          name: Sozo ${{ github.ref_name }}
+          files: out/*
+          fail_on_unmatched_files: false
+
+      - name: Send to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          set -uo pipefail
+
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_IDS}" ]; then
+            echo "::warning title=Telegram skipped::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_IDS not set. Builds are attached to this run as artifacts."
+            exit 0
+          fi
+
+          API="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}"
+          MAX=$((49 * 1024 * 1024))   # Bot API sendDocument limit is 50 MB
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ "${IS_TAG}" = "true" ]; then
+            REL_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases"
+            HEAD="$(printf '🎬 Sozo %s — yangi build\n\n📥 Draft release (Publish qilishni kutmoqda):\n%s\n\n🧰 Run (barcha fayllar):\n%s' \
+                    "${GITHUB_REF_NAME}" "${REL_URL}" "${RUN_URL}")"
+          else
+            HEAD="$(printf '🎬 Sozo — qo'\''lda build (%s)\n\n🧰 Run (barcha fayllar):\n%s' \
+                    "${GITHUB_SHA:0:7}" "${RUN_URL}")"
+          fi
+
+          # Files too big for the bot are only listed (the draft/run has them).
+          BIG=""
+          for f in out/*; do
+            [ -f "${f}" ] || continue
+            sz="$(stat -c%s "${f}")"
+            if [ "${sz}" -gt "${MAX}" ]; then
+              BIG="${BIG}\n• $(basename "${f}") ($((sz/1024/1024)) MB)"
+            fi
+          done
+          if [ -n "${BIG}" ]; then
+            HEAD="${HEAD}$(printf '\n\n⬇️ Telegram limiti (50MB) dan katta, draft/run dan oling:%b' "${BIG}")"
+          fi
+
+          fail=0
+          IFS=',' read -ra CHATS <<< "${TELEGRAM_CHAT_IDS}"
+          for raw in "${CHATS[@]}"; do
+            chat="$(echo "${raw}" | xargs)"
+            [ -z "${chat}" ] && continue
+            echo "──▶ ${chat}"
+
+            curl -sS --fail-with-body -X POST "${API}/sendMessage" \
+              --data-urlencode "chat_id=${chat}" \
+              --data-urlencode "text=${HEAD}" \
+              --data "disable_web_page_preview=true" -o /tmp/tg_msg.json \
+              || { echo "::error::sendMessage ${chat}: $(cat /tmp/tg_msg.json)"; fail=1; }
+
+            for f in out/*; do
+              [ -f "${f}" ] || continue
+              name="$(basename "${f}")"
+              size="$(stat -c%s "${f}")"
+              [ "${size}" -gt "${MAX}" ] && continue   # too big — already listed
+              if curl -sS --fail-with-body -X POST "${API}/sendDocument" \
+                   -F "chat_id=${chat}" -F "document=@${f}" -o /tmp/tg_doc.json; then
+                echo "    ✓ ${name} ($((size/1024/1024)) MB)"
+              else
+                echo "::error::sendDocument ${chat}/${name}: $(cat /tmp/tg_doc.json)"
+                fail=1
+              fi
+            done
+          done
+          exit "${fail}"
