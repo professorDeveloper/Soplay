@@ -672,14 +672,28 @@ extension _PlayerControls on _PlayerPageState {
                         ),
                         const SizedBox(width: 8),
                       ],
-                      _IconButton(
-                        icon: _inParty
-                            ? Icons.groups_rounded
-                            : Icons.groups_2_outlined,
-                        color: _inParty ? AppColors.primary : null,
-                        onTap: _openWatchParty,
-                      ),
-                      const SizedBox(width: 8),
+                      // CloudStream (cs:) sources are excluded from Watch2Gether
+                      // for now (they need an on-device plugin per peer).
+                      if (_inParty || !widget.args.provider.startsWith('cs:')) ...[
+                        _IconButton(
+                          icon: _inParty
+                              ? Icons.groups_rounded
+                              : Icons.groups_2_outlined,
+                          color: _inParty ? AppColors.primary : null,
+                          onTap: _openWatchParty,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      if (_inParty) ...[
+                        _IconButton(
+                          icon: _chatOpen
+                              ? Icons.forum_rounded
+                              : Icons.forum_outlined,
+                          color: _chatOpen ? AppColors.primary : null,
+                          onTap: _toggleChat,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       if (!isDesktopPlatform) ...[
                         _IconButton(
                           icon: _isPortrait

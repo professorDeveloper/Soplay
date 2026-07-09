@@ -59,6 +59,14 @@ class WatchPartyService with WidgetsBindingObserver {
   bool _handshakeRetried = false;
   bool _disposed = false;
 
+  // Own-echo dedupe: each outgoing chat/reaction carries a per-send client id
+  // that the server echoes back. An incoming event is suppressed only when its
+  // client id matches a still-pending send from THIS device — never by userId,
+  // which is shared with a second device signed into the same account.
+  int _clientSeq = 0;
+  final Set<String> _pendingChatIds = <String>{};
+  final Set<String> _pendingReactionIds = <String>{};
+
   bool get connected => _socket.connected;
 
   String? get _myUserId {
@@ -179,10 +187,27 @@ class WatchPartyService with WidgetsBindingObserver {
     if (trimmed.isEmpty) return;
     final capped =
         trimmed.length > 500 ? trimmed.substring(0, 500) : trimmed;
+    final clientId = _nextClientId();
+    _rememberPending(_pendingChatIds, clientId);
     _socket.emit('party:chat', <String, dynamic>{
       'code': _currentCode,
       'text': capped,
+      'clientId': clientId,
     });
+    // Optimistic local echo: show instantly instead of waiting for the server
+    // round-trip (which can be slow on a distant server). The server echoes our
+    // clientId back; _onChat suppresses only the matching pending entry on THIS
+    // device, so a second device on the same account still renders the message.
+    if (!_chatCtrl.isClosed) {
+      final me = hive.getUser();
+      _chatCtrl.add(PartyChatMessage(
+        userId: _myUserId ?? '',
+        username: me?.username ?? me?.displayName,
+        photoURL: me?.photoURL,
+        text: capped,
+        ts: DateTime.now().millisecondsSinceEpoch,
+      ));
+    }
   }
 
   void sendReaction(String emoji) {
@@ -190,10 +215,22 @@ class WatchPartyService with WidgetsBindingObserver {
     final trimmed = emoji.trim();
     if (trimmed.isEmpty) return;
     final capped = trimmed.length > 16 ? trimmed.substring(0, 16) : trimmed;
+    final clientId = _nextClientId();
+    _rememberPending(_pendingReactionIds, clientId);
     _socket.emit('party:reaction', <String, dynamic>{
       'code': _currentCode,
       'emoji': capped,
+      'clientId': clientId,
     });
+    // Optimistic local echo (see sendChat); own server echo dropped in
+    // _onReaction by matching the pending clientId for THIS device only.
+    if (!_reactionCtrl.isClosed) {
+      _reactionCtrl.add(PartyReaction(
+        userId: _myUserId ?? '',
+        emoji: capped,
+        ts: DateTime.now().millisecondsSinceEpoch,
+      ));
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -339,15 +376,33 @@ class WatchPartyService with WidgetsBindingObserver {
   void _onChat(dynamic d) {
     final j = _asMap(d);
     if (j == null) return;
-    if (!_chatCtrl.isClosed) _chatCtrl.add(PartyChatMessage.fromJson(j));
+    final msg = PartyChatMessage.fromJson(j);
+    // Suppress ONLY this device's own optimistic echo, matched by the clientId
+    // we attached on send and the server echoed back. Never dedupe by userId
+    // alone: a second device on the same account shares our account id and must
+    // still render our messages.
+    final clientId = j['clientId'] as String?;
+    if (clientId != null) {
+      if (_pendingChatIds.remove(clientId)) return;
+    } else if (msg.userId.isNotEmpty && msg.userId == _myUserId) {
+      // Legacy fallback for a server that doesn't echo the clientId.
+      return;
+    }
+    if (!_chatCtrl.isClosed) _chatCtrl.add(msg);
   }
 
   void _onReaction(dynamic d) {
     final j = _asMap(d);
     if (j == null) return;
-    if (!_reactionCtrl.isClosed) {
-      _reactionCtrl.add(PartyReaction.fromJson(j));
+    final r = PartyReaction.fromJson(j);
+    // Own echo matched by pending clientId only (see _onChat) — not by userId.
+    final clientId = j['clientId'] as String?;
+    if (clientId != null) {
+      if (_pendingReactionIds.remove(clientId)) return;
+    } else if (r.userId.isNotEmpty && r.userId == _myUserId) {
+      return; // legacy fallback: server didn't echo the clientId
     }
+    if (!_reactionCtrl.isClosed) _reactionCtrl.add(r);
   }
 
   void _onClosed(dynamic d) {
@@ -399,6 +454,21 @@ class WatchPartyService with WidgetsBindingObserver {
 
   static Map<String, dynamic>? _asMap(dynamic d) =>
       d is Map ? Map<String, dynamic>.from(d) : null;
+
+  /// Per-send id unique to this device, round-tripped through the server so an
+  /// own echo can be recognised without deduping by the shared account userId.
+  String _nextClientId() =>
+      '${DateTime.now().microsecondsSinceEpoch}-${_clientSeq++}';
+
+  /// Records a pending own-send id, evicting the oldest (insertion-ordered) when
+  /// the set grows — a server that drops a rate-limited message never echoes its
+  /// id back, so the entry would otherwise leak.
+  static void _rememberPending(Set<String> pending, String id) {
+    pending.add(id);
+    while (pending.length > 64) {
+      pending.remove(pending.first);
+    }
+  }
 
   void dispose() {
     _disposed = true;
