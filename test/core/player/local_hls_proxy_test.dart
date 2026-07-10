@@ -237,6 +237,48 @@ void main() {
       expect(upstream.lastUri?.path, isNot('/live/show/index.m3u8'));
     });
 
+    test('percent-encodes spaces in loopback + rewritten paths', () async {
+      // uzdown paths contain literal spaces (".../uzmovi.com kichina .../…").
+      // The player URL and every rewritten manifest URL must be percent-encoded
+      // or desktop libmpv refuses to open them (mobile players tolerate spaces).
+      // The proxy always fetches upstream with the encoded path, so the mock
+      // routes are keyed encoded; the manifest BODY keeps a raw space to prove
+      // the rewrite encodes it.
+      upstream.respond(
+        path: '/live/movie%20hd/index.m3u8',
+        contentType: 'application/vnd.apple.mpegurl',
+        body: '#EXTM3U\nseg 0.ts\n',
+      );
+      upstream.respondBytes(
+        path: '/live/movie%20hd/seg%200.ts',
+        contentType: 'video/MP2T',
+        body: const [1, 2, 3, 4],
+      );
+
+      final loopback = await proxy.register(
+        upstreamUrl: '${upstream.origin}/live/movie%20hd/index.m3u8',
+        headers: const {'User-Agent': 'test'},
+      );
+
+      // register() hands the player an encoded URL — never a raw space.
+      expect(loopback, isNot(contains(' ')));
+      expect(loopback, contains('/live/movie%20hd/index.m3u8'));
+
+      final body = await _httpGetString(loopback);
+      final loopbackUri = Uri.parse(loopback);
+      final sid = loopbackUri.pathSegments[1];
+      // The rewritten segment line is encoded, not left with a raw space.
+      expect(body, contains('/hls/$sid/live/movie%20hd/seg%200.ts'));
+      expect(body, isNot(contains('seg 0.ts')));
+
+      // …and the encoded segment URL still round-trips to the decoded upstream.
+      final base = 'http://127.0.0.1:${loopbackUri.port}';
+      final segBytes = await _httpGetBytes(
+        '$base/hls/$sid/live/movie%20hd/seg%200.ts',
+      );
+      expect(segBytes, equals(const [1, 2, 3, 4]));
+    });
+
     test('returns 410 for unknown session id', () async {
       await proxy.register(
         upstreamUrl: '${upstream.origin}/cdn/manifest/video/x.m3u8?sec=tok',

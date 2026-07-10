@@ -193,11 +193,35 @@ extension _PlayerMedia on _PlayerPageState {
   }) async {
     if (_currentSourceIndex < 0 ||
         _currentSourceIndex >= _videoSources.length) {
+      _plog(
+        'local proxy skipped: no current source '
+        '(idx=$_currentSourceIndex, count=${_videoSources.length}) — direct URL',
+        level: LogLevel.warn,
+      );
       return null;
     }
     final source = _videoSources[_currentSourceIndex];
-    if (!source.useLocalProxy) return null;
-    if (source.videoUrl != url) return null;
+    if (!source.useLocalProxy) {
+      // If this fires for a uzmovi source, the backend flag or the
+      // localProxy/requestTransform maps were dropped somewhere between resolve
+      // and here — the player then hits the protected CDN directly and fails.
+      _plog(
+        'local proxy skipped: useLocalProxy=false '
+        '(transform=${source.requestTransform.isNotEmpty}, '
+        'localProxy=${source.localProxy.isNotEmpty}) — direct URL',
+        level: LogLevel.warn,
+      );
+      return null;
+    }
+    if (source.videoUrl != url) {
+      _plog(
+        'local proxy skipped: url mismatch — direct URL\n'
+        '  source.videoUrl=${source.videoUrl}\n'
+        '  play url       =$url',
+        level: LogLevel.warn,
+      );
+      return null;
+    }
     final upstreamHeaders = source.headers.isNotEmpty ? source.headers : headers;
     try {
       final proxied = await getIt<LocalHlsProxy>().register(
