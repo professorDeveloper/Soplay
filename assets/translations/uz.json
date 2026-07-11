@@ -424,7 +424,10 @@
     "error_rate": "Biroz sekinroq",
     "error_unauthorized": "Xonaga qo'shilish uchun tizimga kiring",
     "error_generic": "Xatolik yuz berdi",
-    "reconnecting": "Qayta ulanmoqda…"
+    "reconnecting": "Qayta ulanmoqda…",
+    "connecting": "Ulanmoqda…",
+    "connect_failed_title": "Ulanib bo'lmadi",
+    "connect_failed_msg": "Internet aloqangizni tekshirib, qayta urinib ko'ring."
   },
   "notifications": {
     "title": "Bildirishnomalar",

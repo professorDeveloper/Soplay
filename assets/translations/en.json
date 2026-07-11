@@ -424,7 +424,10 @@
     "error_rate": "Slow down a little",
     "error_unauthorized": "Please sign in to join a watch party",
     "error_generic": "Something went wrong",
-    "reconnecting": "Reconnecting…"
+    "reconnecting": "Reconnecting…",
+    "connecting": "Connecting…",
+    "connect_failed_title": "Couldn't connect",
+    "connect_failed_msg": "Check your internet connection and try again."
   },
   "notifications": {
     "title": "Notifications",
