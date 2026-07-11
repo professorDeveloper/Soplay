@@ -34,7 +34,12 @@ class WatchPartySocketClient {
     final socket = sio.io(
       '$origin/watch',
       sio.OptionBuilder()
-          .setTransports(<String>['websocket'])
+          // Polling first, then upgrade to websocket. A websocket-only client
+          // never connects when the WS upgrade is blocked (some mobile carriers
+          // / proxies in front of Cloudflare), which strands the whole party on
+          // a spinner. Polling always works, then engine.io upgrades to WS when
+          // it can — best of both.
+          .setTransports(<String>['polling', 'websocket'])
           .setAuth(<String, dynamic>{
             'token': token,
             'photoURL': ?photoURL,

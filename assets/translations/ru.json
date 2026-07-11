@@ -424,7 +424,10 @@
     "error_rate": "Помедленнее",
     "error_unauthorized": "Войдите, чтобы присоединиться к просмотру",
     "error_generic": "Что-то пошло не так",
-    "reconnecting": "Переподключение…"
+    "reconnecting": "Переподключение…",
+    "connecting": "Подключение…",
+    "connect_failed_title": "Не удалось подключиться",
+    "connect_failed_msg": "Проверьте подключение к интернету и повторите попытку."
   },
   "notifications": {
     "title": "Уведомления",
