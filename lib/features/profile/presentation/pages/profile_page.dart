@@ -56,6 +56,9 @@ class _ProfileViewState extends State<_ProfileView> {
 
   static const double _headerContentHeight = 58.0;
 
+  // Desktop settings use a Sozo-Desktop style sidebar + panel layout.
+  int _navIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -87,6 +90,8 @@ class _ProfileViewState extends State<_ProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    if (isDesktopPlatform) return _buildDesktop(context);
+
     final topPad = MediaQuery.paddingOf(context).top;
     final bottomPad = MediaQuery.paddingOf(context).bottom;
     final headerH = topPad + _headerContentHeight;
@@ -106,7 +111,8 @@ class _ProfileViewState extends State<_ProfileView> {
             ),
             child: SizedBox.expand(),
           ),
-          RefreshIndicator(
+          _ProfileScrollFrame(
+            child: RefreshIndicator(
             onRefresh: _onRefresh,
             color: AppColors.primary,
             backgroundColor: AppColors.surface,
@@ -121,14 +127,18 @@ class _ProfileViewState extends State<_ProfileView> {
                     builder: (context, state) {
                       final user =
                           state is AuthLoaded ? state.token.user : null;
-                      return _ProfileHeader(user: user);
+                      return _Reveal(order: 0, child: _ProfileHeader(user: user));
                     },
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 20)),
-                const SliverToBoxAdapter(child: StreakCard()),
+                const SliverToBoxAdapter(
+                  child: _Reveal(order: 1, child: StreakCard()),
+                ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                const SliverToBoxAdapter(child: _ProvidersSection()),
+                const SliverToBoxAdapter(
+                  child: _Reveal(order: 2, child: _ProvidersSection()),
+                ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 if (BridgeControl.canHost && CloudStreamChannel.isSupported) ...[
                   SliverToBoxAdapter(
@@ -241,18 +251,31 @@ class _ProfileViewState extends State<_ProfileView> {
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 ],
-                const SliverToBoxAdapter(child: _WatchHistorySection()),
+                const SliverToBoxAdapter(
+                  child: _Reveal(order: 3, child: _WatchHistorySection()),
+                ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                const SliverToBoxAdapter(child: _SecuritySection()),
+                const SliverToBoxAdapter(
+                  child: _Reveal(order: 4, child: _SecuritySection()),
+                ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 if (isDesktopPlatform) ...[
-                  const SliverToBoxAdapter(child: _AppearanceSection()),
+                  const SliverToBoxAdapter(
+                    child: _Reveal(order: 5, child: _AppearanceSection()),
+                  ),
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 ],
-                const SliverToBoxAdapter(child: _AboutSection()),
-                SliverToBoxAdapter(child: SizedBox(height: bottomPad + 96)),
+                const SliverToBoxAdapter(
+                  child: _Reveal(order: 6, child: _AboutSection()),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: bottomPad + (isDesktopPlatform ? 112 : 96),
+                  ),
+                ),
               ],
             ),
+          ),
           ),
           Positioned(
             top: 0,
@@ -262,6 +285,15 @@ class _ProfileViewState extends State<_ProfileView> {
               valueListenable: _headerBlur,
               builder: (_, blur, _) {
                 final progress = blur.clamp(0.0, 1.0);
+                final title = Text(
+                  'profile.title'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    height: 1.05,
+                  ),
+                );
                 final content = Container(
                   padding: EdgeInsets.fromLTRB(20, topPad + 14, 16, 14),
                   decoration: BoxDecoration(
@@ -277,15 +309,21 @@ class _ProfileViewState extends State<_ProfileView> {
                           )
                         : null,
                   ),
-                  child: Text(
-                    'profile.title'.tr(),
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      height: 1.05,
-                    ),
-                  ),
+                  child: isDesktopPlatform
+                      ? Center(
+                          child: ConstrainedBox(
+                            constraints:
+                                const BoxConstraints(maxWidth: 760),
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 16),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: title,
+                              ),
+                            ),
+                          ),
+                        )
+                      : title,
                 );
                 if (progress < 0.01) return content;
                 return ClipRect(
@@ -301,6 +339,277 @@ class _ProfileViewState extends State<_ProfileView> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Desktop: Sozo-Desktop style sidebar + panel ───────────────────────────
+  static const _desktopNav = <(IconData, String)>[
+    (Icons.person_outline_rounded, 'Account'),
+    (Icons.dns_outlined, 'Providers'),
+    (Icons.history_rounded, 'Activity'),
+    (Icons.lock_outline_rounded, 'Security'),
+    (Icons.palette_outlined, 'Appearance'),
+    (Icons.info_outline_rounded, 'About'),
+  ];
+
+  Widget _buildDesktop(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SettingsSidebar(
+            items: _desktopNav,
+            index: _navIndex,
+            onTap: (i) => setState(() => _navIndex = i),
+          ),
+          const VerticalDivider(
+            width: 1,
+            thickness: 1,
+            color: Color(0x14FFFFFF),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(36, 34, 36, 120),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 240),
+                    switchInCurve: Curves.easeOutCubic,
+                    transitionBuilder: (child, anim) => FadeTransition(
+                      opacity: anim,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.03),
+                          end: Offset.zero,
+                        ).animate(anim),
+                        child: child,
+                      ),
+                    ),
+                    child: KeyedSubtree(
+                      key: ValueKey<int>(_navIndex),
+                      child: _desktopPanel(_navIndex),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _desktopPanel(int index) {
+    switch (index) {
+      case 0:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, state) {
+                final user = state is AuthLoaded ? state.token.user : null;
+                return _ProfileHeader(user: user);
+              },
+            ),
+            const SizedBox(height: 8),
+            const StreakCard(),
+          ],
+        );
+      case 1:
+        return const _ProvidersSection();
+      case 2:
+        return const _WatchHistorySection();
+      case 3:
+        return const _SecuritySection();
+      case 4:
+        return const _AppearanceSection();
+      default:
+        return const _AboutSection();
+    }
+  }
+}
+
+/// Sozo-Desktop style settings sidebar: fixed-width nav rail with a title and
+/// hoverable, active-tinted category items.
+class _SettingsSidebar extends StatelessWidget {
+  const _SettingsSidebar({
+    required this.items,
+    required this.index,
+    required this.onTap,
+  });
+
+  final List<(IconData, String)> items;
+  final int index;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 236,
+      color: AppColors.navBackground,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 18),
+            child: Text(
+              'profile.title'.tr(),
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          for (int i = 0; i < items.length; i++)
+            _SettingsNavItem(
+              icon: items[i].$1,
+              label: items[i].$2,
+              active: index == i,
+              onTap: () => onTap(i),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsNavItem extends StatefulWidget {
+  const _SettingsNavItem({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  State<_SettingsNavItem> createState() => _SettingsNavItemState();
+}
+
+class _SettingsNavItemState extends State<_SettingsNavItem> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.active;
+    final color = active
+        ? AppColors.primary
+        : (_hover ? AppColors.textPrimary : AppColors.textSecondary);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: active
+                ? AppColors.primary.withValues(alpha: 0.12)
+                : (_hover
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.transparent),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(widget.icon, color: color, size: 18),
+              const SizedBox(width: 12),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Staggered fade + slide-up entrance for each settings section (desktop only,
+/// akuse-style). Mobile returns the child unchanged.
+class _Reveal extends StatefulWidget {
+  const _Reveal({required this.order, required this.child});
+  final int order;
+  final Widget child;
+
+  @override
+  State<_Reveal> createState() => _RevealState();
+}
+
+class _RevealState extends State<_Reveal>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _c;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!isDesktopPlatform) return;
+    final c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 440),
+    );
+    _c = c;
+    _fade = CurvedAnimation(parent: c, curve: Curves.easeOut);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: c, curve: Curves.easeOutCubic));
+    Future.delayed(Duration(milliseconds: 45 * widget.order), () {
+      if (mounted) c.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _c?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _c;
+    if (c == null) return widget.child;
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(position: _slide, child: widget.child),
+    );
+  }
+}
+
+/// Centers the settings list to a readable column on desktop; full-width on
+/// mobile (unchanged).
+class _ProfileScrollFrame extends StatelessWidget {
+  const _ProfileScrollFrame({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isDesktopPlatform) return child;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: child,
       ),
     );
   }
@@ -1813,7 +2122,7 @@ class _AboutSection extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               _SocialIcon(
                 icon: Icons.telegram,
