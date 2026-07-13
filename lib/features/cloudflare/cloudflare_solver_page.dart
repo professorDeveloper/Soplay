@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:soplay/core/system/webview_env.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
 class CloudflareSolverPage extends StatefulWidget {
@@ -24,10 +25,19 @@ class _CloudflareSolverPageState extends State<CloudflareSolverPage> {
   Timer? _pollTimer;
   bool _firstLoadDone = false;
   bool _solved = false;
+  WebViewEnvironment? _environment;
+  bool _environmentReady = false;
 
   @override
   void initState() {
     super.initState();
+    WebViewEnv.ensure().then((env) {
+      if (!mounted) return;
+      setState(() {
+        _environment = env;
+        _environmentReady = true;
+      });
+    });
     _pollTimer = Timer.periodic(
       const Duration(milliseconds: 800),
       (_) => _checkCookies(),
@@ -96,22 +106,24 @@ class _CloudflareSolverPageState extends State<CloudflareSolverPage> {
             Expanded(
               child: Stack(
                 children: [
-                  InAppWebView(
-                    initialUrlRequest: URLRequest(url: WebUri(widget.baseUrl)),
-                    initialSettings: InAppWebViewSettings(
-                      userAgent: widget.userAgent,
-                      javaScriptEnabled: true,
-                      domStorageEnabled: true,
-                      thirdPartyCookiesEnabled: true,
-                      clearCache: false,
+                  if (_environmentReady)
+                    InAppWebView(
+                      webViewEnvironment: _environment,
+                      initialUrlRequest: URLRequest(url: WebUri(widget.baseUrl)),
+                      initialSettings: InAppWebViewSettings(
+                        userAgent: widget.userAgent,
+                        javaScriptEnabled: true,
+                        domStorageEnabled: true,
+                        thirdPartyCookiesEnabled: true,
+                        clearCache: false,
+                      ),
+                      onLoadStop: (controller, url) async {
+                        if (mounted && !_firstLoadDone) {
+                          setState(() => _firstLoadDone = true);
+                        }
+                        await _checkCookies();
+                      },
                     ),
-                    onLoadStop: (controller, url) async {
-                      if (mounted && !_firstLoadDone) {
-                        setState(() => _firstLoadDone = true);
-                      }
-                      await _checkCookies();
-                    },
-                  ),
                   if (!_firstLoadDone)
                     const ColoredBox(
                       color: AppColors.background,

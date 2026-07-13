@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+
+import 'package:soplay/core/system/webview_env.dart';
 
 import 'dart_fetch.dart';
 import 'extractor_cache.dart';
@@ -41,7 +45,12 @@ class JsRuntimeService {
     required this.providers,
   });
 
+  /// flutter_inappwebview ships no Linux implementation, so client/hybrid
+  /// providers (which run their extractor inside a webview) can't work there.
+  static bool get isSupported => !Platform.isLinux;
+
   Future<void> ensureReady() {
+    if (!isSupported) return Future<void>.value();
     return _ready ??= _boot().catchError((Object e) {
       _ready = null;
       JsLog.err('js', 'boot failed: $e');
@@ -124,6 +133,10 @@ class JsRuntimeService {
       );
       return null;
     }
+    if (!isSupported) {
+      JsLog.info(tag, 'skip $fn — no webview runtime on this platform');
+      return null;
+    }
     final extractor = entity.extractor!;
     final sw = Stopwatch()..start();
     JsLog.req(tag, '$fn(${_summarizeArgs(args)})');
@@ -196,9 +209,24 @@ class JsRuntimeService {
       s.length <= max ? s : '${s.substring(0, max)}…';
 
   Future<void> _boot() async {
+    try {
+      await _bootOnce();
+    } on PlatformException catch (e) {
+      // Windows: the WebView2 profile is locked (orphaned msedgewebview2, a
+      // second window, or a read-only install dir). Move to a fresh profile and
+      // try once more — otherwise every client/hybrid provider stays dead.
+      JsLog.err('js', 'headless webview failed: ${e.message}');
+      if (!await WebViewEnv.rotate()) rethrow;
+      await _bootOnce();
+    }
+  }
+
+  Future<void> _bootOnce() async {
     final controllerCompleter = Completer<InAppWebViewController>();
+    final environment = await WebViewEnv.ensure();
 
     final webView = HeadlessInAppWebView(
+      webViewEnvironment: environment,
       initialUrlRequest: URLRequest(url: WebUri('about:blank')),
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
