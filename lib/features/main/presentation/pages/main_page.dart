@@ -457,11 +457,13 @@ class _SoplayClassicBar extends StatelessWidget {
         child: Container(
           height: 68 + bottomPad,
           decoration: BoxDecoration(
-            color: const Color(0xFF0E0E0E).withValues(alpha: 0.75),
+            // A translucent frosted grey (not near-black) so content shows
+            // through the blur and the bar reads as frosted glass.
+            color: const Color(0xFF262626).withValues(alpha: 0.72),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
             border: Border(
               top: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: Colors.white.withValues(alpha: 0.10),
                 width: 0.5,
               ),
             ),

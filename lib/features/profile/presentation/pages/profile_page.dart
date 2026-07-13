@@ -1918,8 +1918,58 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
     NavPrefs.navStyle.value = value;
   }
 
-  Widget _navSegment(String value, IconData icon, String labelKey) {
+  // A tiny visual mock of each nav style: solid/glass = a floating pill,
+  // classic = a full-width bar. Three dots stand in for the tabs.
+  Widget _navPreview(String value, Color accent) {
+    final dots = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: List.generate(
+        3,
+        (_) => Container(
+          width: 3.5,
+          height: 3.5,
+          decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+        ),
+      ),
+    );
+    if (value == 'classic') {
+      return Container(
+        width: double.infinity,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.16),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+        ),
+        child: dots,
+      );
+    }
+    return Container(
+      width: 50,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        gradient: value == 'glass'
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  accent.withValues(alpha: 0.30),
+                  accent.withValues(alpha: 0.08),
+                ],
+              )
+            : null,
+        color: value == 'solid' ? accent.withValues(alpha: 0.20) : null,
+        border: Border.all(color: accent.withValues(alpha: 0.45), width: 0.8),
+      ),
+      child: dots,
+    );
+  }
+
+  Widget _navSegment(String value, String labelKey) {
     final selected = _navStyle == value;
+    final accent = selected ? AppColors.primary : AppColors.textSecondary;
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -1928,25 +1978,22 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
           margin: const EdgeInsets.all(3),
-          padding: const EdgeInsets.symmetric(vertical: 11),
+          padding: const EdgeInsets.fromLTRB(6, 9, 6, 7),
           decoration: BoxDecoration(
             color: selected
-                ? AppColors.primary.withValues(alpha: 0.16)
+                ? AppColors.primary.withValues(alpha: 0.14)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(11),
             border: Border.all(
               color: selected
-                  ? AppColors.primary.withValues(alpha: 0.55)
+                  ? AppColors.primary.withValues(alpha: 0.5)
                   : Colors.transparent,
             ),
           ),
           child: Column(
             children: [
-              Icon(icon,
-                  size: 21,
-                  color:
-                      selected ? AppColors.primary : AppColors.textSecondary),
-              const SizedBox(height: 6),
+              SizedBox(height: 20, child: Center(child: _navPreview(value, accent))),
+              const SizedBox(height: 7),
               Text(labelKey.tr(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1954,7 +2001,7 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                       color: selected
                           ? AppColors.textPrimary
                           : AppColors.textSecondary,
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight:
                           selected ? FontWeight.w700 : FontWeight.w500)),
             ],
@@ -2015,12 +2062,9 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                     ),
                     child: Row(
                       children: [
-                        _navSegment('solid', Icons.crop_16_9_rounded,
-                            'profile.nav_style_solid'),
-                        _navSegment('glass', Icons.blur_on_rounded,
-                            'profile.nav_style_glass'),
-                        _navSegment('classic', Icons.view_day_rounded,
-                            'profile.nav_style_classic'),
+                        _navSegment('solid', 'profile.nav_style_solid'),
+                        _navSegment('glass', 'profile.nav_style_glass'),
+                        _navSegment('classic', 'profile.nav_style_classic'),
                       ],
                     ),
                   ),
