@@ -106,7 +106,7 @@ dependencies:
   flutter_dotenv: ^5.2.1
   media_kit_libs_macos_video: ^1.1.4
   media_kit_libs_linux: ^1.2.1
-  liquid_glass_easy: ^3.2.2
+  liquid_glass_widgets: ^0.18.4
 
 dev_dependencies:
   flutter_test:

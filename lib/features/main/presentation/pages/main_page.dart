@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:soplay/core/deeplink/deeplink_opt_in.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -112,6 +111,16 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     _maybeShowShortsRefreshTip();
   }
 
+  // The glass capsule has no per-tab double-tap, so re-tapping the already-active
+  // Shorts tab refreshes the reel (the packaged bar fires onTabSelected on active
+  // re-taps). Capture the "was already selected" state before _onTabTap mutates
+  // _index.
+  void _handleTabTap(int index) {
+    final reselected = index == _index;
+    _onTabTap(index);
+    if (reselected && index == _shortsIndex) _refreshShorts();
+  }
+
   void _refreshShorts() {
     if (_index != _shortsIndex) return;
     setState(() => _shortsRefreshTick++);
@@ -194,12 +203,25 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               : Scaffold(
                   backgroundColor: AppColors.background,
                   extendBody: true,
-                  body: IndexedStack(index: _index, children: tabs),
-                  bottomNavigationBar: _SoplayBottomNav(
-                    index: _index,
-                    shortsShowcaseKey: _shortsRefreshShowcaseKey,
-                    onTap: _onTabTap,
-                    onShortsDoubleTap: _refreshShorts,
+                  body: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: IndexedStack(index: _index, children: tabs),
+                      ),
+                      // iOS-26 floating liquid-glass capsule, inset 16 each side
+                      // and raised above the safe area. Content scrolls behind it
+                      // (extendBody) so it refracts/blurs the page.
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: MediaQuery.paddingOf(context).bottom + 12,
+                        child: _SoplayGlassCapsule(
+                          index: _index,
+                          shortsShowcaseKey: _shortsRefreshShowcaseKey,
+                          onTabSelected: _handleTabTap,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
         ),
@@ -208,19 +230,33 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   }
 }
 
-class _SoplayBottomNav extends StatelessWidget {
-  const _SoplayBottomNav({
+/// iOS-26 "Liquid Glass" FLOATING capsule — the MOBILE bottom nav.
+///
+/// Built on liquid_glass_widgets' [GlassTabBar.bottom]. Mounted only from the
+/// mobile Scaffold branch as a bottom-center overlay with `extendBody: true`, so
+/// the content scrolling behind it is refracted/blurred (native iOS-26 look).
+/// Desktop keeps [_SoplayFloatingNav]; this is never mounted on desktop, and the
+/// glass shaders are pre-warmed / wrapped mobile-only in main.dart.
+///
+/// The packaged bar exposes no per-tab GlobalKey or double-tap, so: the Shorts
+/// refresh Showcase highlights the whole capsule (Shorts is the central tab),
+/// and double-tap-to-refresh becomes re-tapping the already-active Shorts tab
+/// (see [_MainPageState._handleTabTap]).
+class _SoplayGlassCapsule extends StatelessWidget {
+  const _SoplayGlassCapsule({
     required this.index,
     required this.shortsShowcaseKey,
-    required this.onTap,
-    required this.onShortsDoubleTap,
+    required this.onTabSelected,
   });
 
   final int index;
   final GlobalKey shortsShowcaseKey;
-  final ValueChanged<int> onTap;
-  final VoidCallback onShortsDoubleTap;
+  final ValueChanged<int> onTabSelected;
 
+  static const double _barHeight = 62;
+
+  // The 5 tabs (order: Home, Search, Shorts, MyList, Profile). Also reused by
+  // the desktop _SoplayFloatingNav / _NavCircle.
   static const _items = [
     _NavItem(
       icon: CupertinoIcons.house,
@@ -251,127 +287,94 @@ class _SoplayBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    final bar = GlassTabBar.bottom(
+      tabs: [
+        for (final it in _items)
+          GlassTab(
+            label: it.labelKey.tr(),
+            icon: Icon(it.icon),
+            activeIcon: Icon(it.activeIcon),
+          ),
+      ],
+      selectedIndex: index,
+      onTabSelected: onTabSelected,
+      // Outer Positioned(left:16,right:16) owns the float inset; the bar expands
+      // to fill it (tabWidth null) and its own padding is zeroed.
+      tabWidth: null,
+      horizontalPadding: 0,
+      verticalPadding: 0,
+      barHeight: _barHeight,
+      barBorderRadius: _barHeight / 2, // full capsule
+      magnification: 1.15, // iOS-26 lens on the selected tab
+      indicatorPinchStrength: 0.4,
+      // Dark-readable moving indicator pill (default white ~10% is too faint).
+      indicatorColor: const Color(0x2EFFFFFF),
+      // Dark-readable bar glass: a bright tint (glassColor alpha IS the tint
+      // strength) + ungated frost so it reads clearly over the dark UI.
+      settings: const LiquidGlassSettings(
+        thickness: 24,
+        blur: 6,
+        chromaticAberration: 0.3,
+        refractiveIndex: 1.5,
+        saturation: 1.3,
+        lightIntensity: 0.8,
+        ambientStrength: 1,
+        glassColor: Color(0x40FFFFFF), // white ~25% base tint
+        whitenStrength: 0.12,
+        whitenGated: false, // even frost over dark content
+      ),
+      selectedIconColor: Colors.white,
+      unselectedIconColor: const Color(0xFF7A7A7A),
+      selectedLabelColor: Colors.white,
+      unselectedLabelColor: const Color(0xFF7A7A7A),
+      labelFontSize: 10.5,
+    );
 
-    return _LiquidGlassSurface(
-      height: 68 + bottomPad,
-      child: Padding(
-        padding: EdgeInsets.only(
-          top: 8,
-          bottom: bottomPad == 0 ? 8 : bottomPad,
-        ),
-        child: Row(
-          children: List.generate(
-            _items.length,
-            (i) => Expanded(
-              child: _BottomNavButton(
-                item: _items[i],
-                selected: index == i,
-                showcaseKey: i == _MainPageState._shortsIndex
-                    ? shortsShowcaseKey
-                    : null,
-                onTap: () => onTap(i),
-                onDoubleTap: i == _MainPageState._shortsIndex
-                    ? onShortsDoubleTap
-                    : null,
+    // The package drop shadow is light-mode only, so paint our own soft capsule
+    // shadow behind the glass for the "floating" look on the dark UI.
+    final shadowed = Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(_barHeight / 2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x66000000),
+                    blurRadius: 24,
+                    spreadRadius: -4,
+                    offset: Offset(0, 10),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-      ),
+        bar,
+      ],
     );
-  }
-}
 
-/// iOS-26 "liquid glass" shell for the MOBILE bottom nav.
-///
-/// Mobile-only by construction: it is only ever mounted from the mobile Scaffold
-/// branch (`bottomNavigationBar:` in [_MainPageState.build]), so the desktop
-/// [_SoplayFloatingNav] pill is never touched.
-///
-/// On Impeller — the default renderer on Android & iOS — it renders a real
-/// refractive glass lens ([LiquidGlassLens]) over the live content scrolling
-/// behind the bar (the Scaffold uses `extendBody: true`), giving the native
-/// iOS-26 glass look. On the rare surface without shader support (Skia), it
-/// falls back to the previous [BackdropFilter] frost, so nothing can render
-/// black, hitch on shader-compile, or otherwise break the page.
-class _LiquidGlassSurface extends StatelessWidget {
-  const _LiquidGlassSurface({required this.height, required this.child});
-
-  final double height;
-  final Widget child;
-
-  static const BorderRadius _radius =
-      BorderRadius.vertical(top: Radius.circular(22));
-
-  // The previous flat frost — the guaranteed-safe path on any GPU/Skia.
-  Widget _frostFallback() {
-    return ClipRRect(
-      borderRadius: _radius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-        child: Container(
-          height: height,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0E0E0E).withValues(alpha: 0.75),
-            borderRadius: _radius,
-            border: Border(
-              top: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
-                width: 0.5,
-              ),
-            ),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Real refractive glass only where the shader backend supports it.
-    if (!ImageFilter.isShaderFilterSupported) return _frostFallback();
-
-    // Outer ClipRRect keeps the current silhouette: rounded top, flush
-    // full-width bottom (the lens shape itself rounds all four corners).
-    return ClipRRect(
-      borderRadius: _radius,
-      child: LiquidGlassLens(
-        style: LiquidGlassStyle(
-          shape: const LiquidGlassShape.continuousRoundedRectangle(
-            cornerRadius: 22,
-            borderWidth: 0.8,
-            lightIntensity: 1.15,
-            lightDirection: 55,
-          ),
-          refraction: const LiquidGlassRefraction(
-            magnification: 1,
-            distortion: 0.18,
-            distortionWidth: 34,
-            chromaticAberration: 0,
-          ),
-          appearance: LiquidGlassAppearance(
-            saturation: 1.2,
-            blur: const LiquidGlassBlur(sigmaX: 8, sigmaY: 8),
-            // Dark translucent tint so the bar still reads on the dark UI while
-            // the refraction supplies the glass depth. Kept see-through (~0.42)
-            // so Home/Shorts content behind it is not newly occluded.
-            color: const Color(0xFF0B0B0B).withValues(alpha: 0.42),
-          ),
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          height: height,
-          child: child,
-        ),
-      ),
+    // No per-tab key on the packaged bar → the Showcase spotlights the whole
+    // capsule (Shorts is the visually central tab). Register/start/seen flow is
+    // unchanged.
+    return Showcase.withWidget(
+      key: shortsShowcaseKey,
+      tooltipPosition: TooltipPosition.top,
+      targetBorderRadius: BorderRadius.circular(_barHeight / 2),
+      targetPadding: const EdgeInsets.all(6),
+      targetTooltipGap: 14,
+      overlayColor: Colors.black,
+      overlayOpacity: 0.76,
+      blurValue: 1.5,
+      container: const _ShortsRefreshShowcaseCard(),
+      child: shadowed,
     );
   }
 }
 
 /// Sozo-Desktop style floating bottom-center rounded pill navigation.
-/// Desktop only — mobile keeps [_SoplayBottomNav]. Reuses the same 5 tabs.
+/// Desktop only — mobile uses [_SoplayGlassCapsule]. Reuses the same 5 tabs.
 class _SoplayFloatingNav extends StatelessWidget {
   const _SoplayFloatingNav({required this.index, required this.onTap});
 
@@ -401,9 +404,9 @@ class _SoplayFloatingNav extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (int i = 0; i < _SoplayBottomNav._items.length; i++)
+          for (int i = 0; i < _SoplayGlassCapsule._items.length; i++)
             _NavCircle(
-              item: _SoplayBottomNav._items[i],
+              item: _SoplayGlassCapsule._items[i],
               selected: index == i,
               onTap: () => onTap(i),
             ),
@@ -490,128 +493,6 @@ class _NavItem {
   final IconData icon;
   final IconData activeIcon;
   final String labelKey;
-}
-
-class _BottomNavButton extends StatefulWidget {
-  const _BottomNavButton({
-    required this.item,
-    required this.selected,
-    required this.showcaseKey,
-    required this.onTap,
-    required this.onDoubleTap,
-  });
-
-  final _NavItem item;
-  final bool selected;
-  final GlobalKey? showcaseKey;
-  final VoidCallback onTap;
-  final VoidCallback? onDoubleTap;
-
-  @override
-  State<_BottomNavButton> createState() => _BottomNavButtonState();
-}
-
-class _BottomNavButtonState extends State<_BottomNavButton> {
-  bool _pressed = false;
-
-  void _setPressed(bool value) {
-    if (_pressed == value) return;
-    setState(() => _pressed = value);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final color = widget.selected ? Colors.white : const Color(0xFF7A7A7A);
-
-    final button = Semantics(
-      button: true,
-      selected: widget.selected,
-      label: widget.item.labelKey.tr(),
-      onTap: widget.onTap,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => _setPressed(true),
-        onTapCancel: () => _setPressed(false),
-        onTapUp: (_) => _setPressed(false),
-        onTap: widget.onTap,
-        onDoubleTap: widget.selected ? widget.onDoubleTap : null,
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOut,
-          scale: _pressed ? 0.92 : 1,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 120),
-            opacity: _pressed ? 0.68 : 1,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AnimatedScale(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutBack,
-                  scale: widget.selected ? 1.1 : 1,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 160),
-                    child: Icon(
-                      widget.selected
-                          ? widget.item.activeIcon
-                          : widget.item.icon,
-                      key: ValueKey(
-                        '${widget.item.labelKey}-${widget.selected}',
-                      ),
-                      size: 24,
-                      color: color,
-                      shadows: widget.selected
-                          ? [
-                              Shadow(
-                                color: Colors.white.withValues(alpha: 0.28),
-                                blurRadius: 10,
-                              ),
-                            ]
-                          : null,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 5),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 160),
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 10.5,
-                    fontWeight: widget.selected
-                        ? FontWeight.w700
-                        : FontWeight.w500,
-                    height: 1,
-                  ),
-                  child: Text(
-                    widget.item.labelKey.tr(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final key = widget.showcaseKey;
-    if (key == null) return button;
-
-    return Showcase.withWidget(
-      key: key,
-      tooltipPosition: TooltipPosition.top,
-      targetBorderRadius: BorderRadius.circular(18),
-      targetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      targetTooltipGap: 14,
-      overlayColor: Colors.black,
-      overlayOpacity: 0.76,
-      blurValue: 1.5,
-      container: const _ShortsRefreshShowcaseCard(),
-      child: button,
-    );
-  }
 }
 
 class _ShortsRefreshShowcaseCard extends StatelessWidget {
@@ -701,7 +582,7 @@ class _ShortsRefreshShowcaseCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  'main.double_tap'.tr(),
+                  'main.tap_again'.tr(),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11.5,

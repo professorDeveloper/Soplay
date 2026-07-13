@@ -659,6 +659,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.2"
+  flutter_shaders:
+    dependency: transitive
+    description:
+      name: flutter_shaders
+      sha256: "34794acadd8275d971e02df03afee3dee0f98dbfb8c4837082ad0034f612a3e2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.3"
   flutter_svg:
     dependency: "direct main"
     description:
@@ -869,14 +877,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.0"
-  liquid_glass_easy:
+  liquid_glass_widgets:
     dependency: "direct main"
     description:
-      name: liquid_glass_easy
-      sha256: "02dc517af7fbe1432f34776d05e0474475fc80f1122f0d5df7cceededd3a40d5"
+      name: liquid_glass_widgets
+      sha256: "875a2591773db3d6efe7ca4d47150e52a95891c23cac58484259920ed80458a3"
       url: "https://pub.dev"
     source: hosted
-    version: "3.2.2"
+    version: "0.18.4"
   list_counter:
     dependency: transitive
     description:

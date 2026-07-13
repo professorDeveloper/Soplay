@@ -223,10 +223,11 @@ class _HomeContentBody extends StatelessWidget {
                       ),
                   SliverToBoxAdapter(
                     child: SizedBox(
-                      // Desktop: clear the floating pill nav (~66px + 18 gap).
+                      // Clear the floating nav capsule: desktop pill (~66+18) and
+                      // mobile glass capsule (62 bar + 12 gap + safe area).
                       height: isDesktopPlatform
                           ? 100
-                          : MediaQuery.paddingOf(context).bottom + 16,
+                          : MediaQuery.paddingOf(context).bottom + 88,
                     ),
                   ),
                 ],
