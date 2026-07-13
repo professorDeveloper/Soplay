@@ -617,8 +617,9 @@
   },
   "main": {
     "shorts_refresh_title": "Shorts refresh",
-    "shorts_refresh_body": "Double-click on the Shorts tab. The feed is refreshed and new videos are uploaded.",
-    "double_tap": "Double tap"
+    "shorts_refresh_body": "Tap the Shorts tab again. The feed refreshes and new videos load.",
+    "double_tap": "Double tap",
+    "tap_again": "Tap again"
   },
   "reports": {
     "title": "Report",

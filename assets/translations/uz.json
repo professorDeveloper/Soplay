@@ -617,8 +617,9 @@
   },
   "main": {
     "shorts_refresh_title": "Shortsni yangilash",
-    "shorts_refresh_body": "Shorts tabini ikki marta bosing. Tasma yangilanadi va yangi videolar yuklanadi.",
-    "double_tap": "Ikki marta bosing"
+    "shorts_refresh_body": "Shorts tabini yana bosing. Tasma yangilanadi va yangi videolar yuklanadi.",
+    "double_tap": "Ikki marta bosing",
+    "tap_again": "Yana bosing"
   },
   "reports": {
     "title": "Shikoyat",

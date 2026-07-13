@@ -13,6 +13,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/extensions/extension_bridge.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -34,6 +35,14 @@ void main() async {
   if (isDesktopPlatform) {
     MediaKit.ensureInitialized();
     await windowManager.ensureInitialized();
+  }
+  if (isMobilePlatform) {
+    // Pre-warm the liquid-glass fragment shaders (Impeller) so the glass bottom
+    // nav has no first-frame compile hitch. Guarded so a shader-load failure can
+    // never block startup; never runs on desktop.
+    try {
+      await LiquidGlassWidgets.initialize();
+    } catch (_) {}
   }
   try {
     await dotenv.load(fileName: '.env');
@@ -85,19 +94,22 @@ void main() async {
       overlays: SystemUiOverlay.values,
     ).catchError((Object _) {}),
   );
-  runApp(
-    EasyLocalization(
-      supportedLocales: const [
-        Locale('en'),
-        Locale('uz'),
-        Locale('ru'),
-      ],
-
-      path: 'assets/translations',
-      fallbackLocale: const Locale('en'),
-      child: const MyApp(),
-    ),
+  Widget root = EasyLocalization(
+    supportedLocales: const [
+      Locale('en'),
+      Locale('uz'),
+      Locale('ru'),
+    ],
+    path: 'assets/translations',
+    fallbackLocale: const Locale('en'),
+    child: const MyApp(),
   );
+  if (isMobilePlatform) {
+    // Adaptive glass quality (auto-degrades to a plain frosted tier on weak /
+    // non-Impeller GPUs) + app-wide glass theming hooks. Never runs on desktop.
+    root = LiquidGlassWidgets.wrap(child: root, adaptiveQuality: true);
+  }
+  runApp(root);
 }
 
 Future<void> _initHive() async {
