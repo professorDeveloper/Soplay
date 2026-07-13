@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
@@ -9,6 +10,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:soplay/core/deeplink/deeplink_opt_in.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/core/system/nav_prefs.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/app_updater/presentation/services/update_checker.dart';
@@ -50,6 +52,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     super.initState();
     _navController = getIt<NavController>();
     _hiveService = getIt<HiveService>();
+    // Reflect the persisted nav-style preference into the shared notifier the
+    // nav listens to (so it renders correctly on first frame).
+    NavPrefs.navStyle.value = _hiveService.navStyle;
     _navController.index.addListener(_onNavChange);
     WidgetsBinding.instance.addObserver(this);
     ShowcaseView.register(
@@ -205,20 +210,45 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                   extendBody: true,
                   body: Stack(
                     children: [
+                      // The tab body is OUTSIDE the nav-style listener so switching
+                      // the nav style never re-mounts the tabs (that remount was
+                      // re-triggering the Home "Join Telegram" sheet).
                       Positioned.fill(
                         child: IndexedStack(index: _index, children: tabs),
                       ),
-                      // iOS-26 floating liquid-glass capsule, inset 16 each side
-                      // and raised above the safe area. Content scrolls behind it
-                      // (extendBody) so it refracts/blurs the page.
                       Positioned(
-                        left: 16,
-                        right: 16,
-                        bottom: MediaQuery.paddingOf(context).bottom + 12,
-                        child: _SoplayGlassCapsule(
-                          index: _index,
-                          shortsShowcaseKey: _shortsRefreshShowcaseKey,
-                          onTabSelected: _handleTabTap,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: ValueListenableBuilder<String>(
+                          valueListenable: NavPrefs.navStyle,
+                          builder: (context, style, _) {
+                            // Classic: the original full-width frosted bar (keeps
+                            // the per-tab Showcase + real double-tap-to-refresh).
+                            if (style == NavPrefs.classic) {
+                              return _SoplayClassicBar(
+                                index: _index,
+                                shortsShowcaseKey: _shortsRefreshShowcaseKey,
+                                onTap: _onTabTap,
+                                onShortsDoubleTap: _refreshShorts,
+                              );
+                            }
+                            // Glass / Solid: a floating capsule inset 16 each side.
+                            return Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                16,
+                                0,
+                                16,
+                                MediaQuery.paddingOf(context).bottom + 12,
+                              ),
+                              child: _SoplayGlassCapsule(
+                                index: _index,
+                                glass: style == NavPrefs.glass,
+                                shortsShowcaseKey: _shortsRefreshShowcaseKey,
+                                onTabSelected: _handleTabTap,
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -245,15 +275,53 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 class _SoplayGlassCapsule extends StatelessWidget {
   const _SoplayGlassCapsule({
     required this.index,
+    required this.glass,
     required this.shortsShowcaseKey,
     required this.onTabSelected,
   });
 
   final int index;
+
+  /// When false, render a shader-free solid dark capsule (lighter for weak
+  /// devices / users who turned liquid glass off in Profile → Appearance).
+  final bool glass;
+
   final GlobalKey shortsShowcaseKey;
   final ValueChanged<int> onTabSelected;
 
   static const double _barHeight = 62;
+
+  // Refractive dark glass — matches the app's dark surfaces (dark backer pad),
+  // but with a brighter specular rim, thicker body and a touch of chromatic
+  // edge so it reads as a real, pretty piece of glass (not a flat frost).
+  static const _glassSettings = LiquidGlassSettings(
+    thickness: 26,
+    blur: 10,
+    chromaticAberration: 0.35,
+    refractiveIndex: 1.6,
+    saturation: 1.15,
+    lightIntensity: 1.15, // brighter top-edge specular highlight
+    ambientStrength: 1,
+    glowIntensity: 0.9, // luminous rim
+    glassColor: Color(0x1AFFFFFF), // white ~10% sheen
+    backerColor: Color(0xB81E1E1E), // dark pad, a touch lighter so glass reads
+    whitenStrength: 0.0,
+  );
+
+  // Solid (glass off): a near-opaque dark pad, no blur/refraction — the cheap,
+  // always-smooth path.
+  static const _solidSettings = LiquidGlassSettings(
+    thickness: 0,
+    blur: 0,
+    chromaticAberration: 0,
+    refractiveIndex: 1,
+    saturation: 1,
+    lightIntensity: 0,
+    ambientStrength: 0,
+    glassColor: Color(0x00000000),
+    backerColor: Color(0xF01A1A1A), // ~94% solid dark
+    whitenStrength: 0.0,
+  );
 
   // The 5 tabs (order: Home, Search, Shorts, MyList, Profile). Also reused by
   // the desktop _SoplayFloatingNav / _NavCircle.
@@ -305,24 +373,12 @@ class _SoplayGlassCapsule extends StatelessWidget {
       verticalPadding: 0,
       barHeight: _barHeight,
       barBorderRadius: _barHeight / 2, // full capsule
-      magnification: 1.15, // iOS-26 lens on the selected tab
-      indicatorPinchStrength: 0.4,
-      // Dark-readable moving indicator pill (default white ~10% is too faint).
-      indicatorColor: const Color(0x2EFFFFFF),
-      // Dark-readable bar glass: a bright tint (glassColor alpha IS the tint
-      // strength) + ungated frost so it reads clearly over the dark UI.
-      settings: const LiquidGlassSettings(
-        thickness: 24,
-        blur: 6,
-        chromaticAberration: 0.3,
-        refractiveIndex: 1.5,
-        saturation: 1.3,
-        lightIntensity: 0.8,
-        ambientStrength: 1,
-        glassColor: Color(0x40FFFFFF), // white ~25% base tint
-        whitenStrength: 0.12,
-        whitenGated: false, // even frost over dark content
-      ),
+      magnification: glass ? 1.2 : 1.0, // iOS-26 lens on the selected tab
+      indicatorPinchStrength: glass ? 0.45 : 0.0,
+      // Selected-tab pill: a soft light pill that stands out on the dark body.
+      indicatorColor: Color(glass ? 0x33FFFFFF : 0x24FFFFFF),
+      quality: glass ? null : GlassQuality.minimal,
+      settings: glass ? _glassSettings : _solidSettings,
       selectedIconColor: Colors.white,
       unselectedIconColor: const Color(0xFF7A7A7A),
       selectedLabelColor: Colors.white,
@@ -369,6 +425,192 @@ class _SoplayGlassCapsule extends StatelessWidget {
       blurValue: 1.5,
       container: const _ShortsRefreshShowcaseCard(),
       child: shadowed,
+    );
+  }
+}
+
+/// Classic full-width frosted bottom bar — the ORIGINAL mobile nav, offered as a
+/// style option (Profile → Appearance). Unlike the glass capsule it keeps the
+/// per-tab Showcase anchor and double-tap-to-refresh, since each tab is its own
+/// [_ClassicNavButton].
+class _SoplayClassicBar extends StatelessWidget {
+  const _SoplayClassicBar({
+    required this.index,
+    required this.shortsShowcaseKey,
+    required this.onTap,
+    required this.onShortsDoubleTap,
+  });
+
+  final int index;
+  final GlobalKey shortsShowcaseKey;
+  final ValueChanged<int> onTap;
+  final VoidCallback onShortsDoubleTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          height: 68 + bottomPad,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0E0E0E).withValues(alpha: 0.75),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withValues(alpha: 0.08),
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(
+              top: 8,
+              bottom: bottomPad == 0 ? 8 : bottomPad,
+            ),
+            child: Row(
+              children: List.generate(
+                _SoplayGlassCapsule._items.length,
+                (i) => Expanded(
+                  child: _ClassicNavButton(
+                    item: _SoplayGlassCapsule._items[i],
+                    selected: index == i,
+                    showcaseKey: i == _MainPageState._shortsIndex
+                        ? shortsShowcaseKey
+                        : null,
+                    onTap: () => onTap(i),
+                    onDoubleTap: i == _MainPageState._shortsIndex
+                        ? onShortsDoubleTap
+                        : null,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ClassicNavButton extends StatefulWidget {
+  const _ClassicNavButton({
+    required this.item,
+    required this.selected,
+    required this.showcaseKey,
+    required this.onTap,
+    required this.onDoubleTap,
+  });
+
+  final _NavItem item;
+  final bool selected;
+  final GlobalKey? showcaseKey;
+  final VoidCallback onTap;
+  final VoidCallback? onDoubleTap;
+
+  @override
+  State<_ClassicNavButton> createState() => _ClassicNavButtonState();
+}
+
+class _ClassicNavButtonState extends State<_ClassicNavButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.selected ? Colors.white : const Color(0xFF7A7A7A);
+
+    final button = Semantics(
+      button: true,
+      selected: widget.selected,
+      label: widget.item.labelKey.tr(),
+      onTap: widget.onTap,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _setPressed(true),
+        onTapCancel: () => _setPressed(false),
+        onTapUp: (_) => _setPressed(false),
+        onTap: widget.onTap,
+        onDoubleTap: widget.selected ? widget.onDoubleTap : null,
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          scale: _pressed ? 0.92 : 1,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 120),
+            opacity: _pressed ? 0.68 : 1,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedScale(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutBack,
+                  scale: widget.selected ? 1.1 : 1,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 160),
+                    child: Icon(
+                      widget.selected
+                          ? widget.item.activeIcon
+                          : widget.item.icon,
+                      key: ValueKey('${widget.item.labelKey}-${widget.selected}'),
+                      size: 24,
+                      color: color,
+                      shadows: widget.selected
+                          ? [
+                              Shadow(
+                                color: Colors.white.withValues(alpha: 0.28),
+                                blurRadius: 10,
+                              ),
+                            ]
+                          : null,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 160),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10.5,
+                    fontWeight:
+                        widget.selected ? FontWeight.w700 : FontWeight.w500,
+                    height: 1,
+                  ),
+                  child: Text(
+                    widget.item.labelKey.tr(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final key = widget.showcaseKey;
+    if (key == null) return button;
+
+    return Showcase.withWidget(
+      key: key,
+      tooltipPosition: TooltipPosition.top,
+      targetBorderRadius: BorderRadius.circular(18),
+      targetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      targetTooltipGap: 14,
+      overlayColor: Colors.black,
+      overlayOpacity: 0.76,
+      blurValue: 1.5,
+      container: const _ShortsRefreshShowcaseCard(),
+      child: button,
     );
   }
 }

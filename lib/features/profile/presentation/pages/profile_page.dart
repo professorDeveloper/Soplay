@@ -18,6 +18,7 @@ import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/desktop_window.dart';
+import 'package:soplay/core/system/nav_prefs.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_sources_page.dart';
@@ -259,12 +260,10 @@ class _ProfileViewState extends State<_ProfileView> {
                   child: _Reveal(order: 4, child: _SecuritySection()),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                if (isDesktopPlatform) ...[
-                  const SliverToBoxAdapter(
-                    child: _Reveal(order: 5, child: _AppearanceSection()),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                ],
+                const SliverToBoxAdapter(
+                  child: _Reveal(order: 5, child: _AppearanceSection()),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(
                   child: _Reveal(order: 6, child: _AboutSection()),
                 ),
@@ -1903,11 +1902,66 @@ class _AppearanceSection extends StatefulWidget {
 
 class _AppearanceSectionState extends State<_AppearanceSection> {
   late bool _native = getIt<HiveService>().useNativeTitleBar;
+  late String _navStyle = getIt<HiveService>().navStyle;
 
   Future<void> _toggle(bool value) async {
     setState(() => _native = value);
     await getIt<HiveService>().setUseNativeTitleBar(value);
     await DesktopWindow.setNativeTitleBar(value);
+  }
+
+  Future<void> _setNavStyle(String value) async {
+    if (value == _navStyle) return;
+    setState(() => _navStyle = value);
+    await getIt<HiveService>().setNavStyle(value);
+    // Push to the shared notifier so the floating nav rebuilds instantly.
+    NavPrefs.navStyle.value = value;
+  }
+
+  Widget _navSegment(String value, IconData icon, String labelKey) {
+    final selected = _navStyle == value;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _setNavStyle(value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          margin: const EdgeInsets.all(3),
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.16)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primary.withValues(alpha: 0.55)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(icon,
+                  size: 21,
+                  color:
+                      selected ? AppColors.primary : AppColors.textSecondary),
+              const SizedBox(height: 6),
+              Text(labelKey.tr(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: selected
+                          ? AppColors.textPrimary
+                          : AppColors.textSecondary,
+                      fontSize: 11.5,
+                      fontWeight:
+                          selected ? FontWeight.w700 : FontWeight.w500)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1921,20 +1975,57 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
           const SizedBox(height: 8),
           _SectionCard(
             children: [
-              SwitchListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                value: _native,
-                activeThumbColor: AppColors.primary,
-                secondary: const Icon(Icons.web_asset_rounded,
-                    color: AppColors.textSecondary),
-                title: Text('profile.native_window_bar'.tr(),
-                    style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 15)),
-                subtitle: Text('profile.native_window_bar_subtitle'.tr(),
-                    style: const TextStyle(
-                        color: AppColors.textHint, fontSize: 12)),
-                onChanged: _toggle,
-              ),
+              if (isDesktopPlatform)
+                SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  value: _native,
+                  activeThumbColor: AppColors.primary,
+                  secondary: const Icon(Icons.web_asset_rounded,
+                      color: AppColors.textSecondary),
+                  title: Text('profile.native_window_bar'.tr(),
+                      style: const TextStyle(
+                          color: AppColors.textPrimary, fontSize: 15)),
+                  subtitle: Text('profile.native_window_bar_subtitle'.tr(),
+                      style: const TextStyle(
+                          color: AppColors.textHint, fontSize: 12)),
+                  onChanged: _toggle,
+                ),
+              if (isMobilePlatform) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.dashboard_customize_rounded,
+                          size: 18, color: AppColors.textHint),
+                      const SizedBox(width: 8),
+                      Text('profile.nav_style'.tr(),
+                          style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        _navSegment('solid', Icons.crop_16_9_rounded,
+                            'profile.nav_style_solid'),
+                        _navSegment('glass', Icons.blur_on_rounded,
+                            'profile.nav_style_glass'),
+                        _navSegment('classic', Icons.view_day_rounded,
+                            'profile.nav_style_classic'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ],

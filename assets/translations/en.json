@@ -221,7 +221,13 @@
     "support_developer": "Support the Developer",
     "section_appearance": "APPEARANCE",
     "native_window_bar": "Native window bar",
-    "native_window_bar_subtitle": "Use Windows' standard title bar instead of the app's custom one."
+    "native_window_bar_subtitle": "Use Windows' standard title bar instead of the app's custom one.",
+    "liquid_glass_nav": "Liquid glass navigation",
+    "liquid_glass_nav_subtitle": "Frosted glass floating tab bar (iOS 26). Turn off for a plain solid bar.",
+    "nav_style": "Navigation bar",
+    "nav_style_glass": "Liquid glass",
+    "nav_style_solid": "Solid",
+    "nav_style_classic": "Classic"
   },
   "search": {
     "title": "Search",

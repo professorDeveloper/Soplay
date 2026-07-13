@@ -221,7 +221,13 @@
     "support_developer": "Dasturchini qo'llab-quvvatlash",
     "section_appearance": "KO'RINISH",
     "native_window_bar": "Tizim oyna paneli",
-    "native_window_bar_subtitle": "Ilovaning maxsus paneli o'rniga Windows'ning standart sarlavha panelidan foydalaning."
+    "native_window_bar_subtitle": "Ilovaning maxsus paneli o'rniga Windows'ning standart sarlavha panelidan foydalaning.",
+    "liquid_glass_nav": "Suyuq shisha navigatsiya",
+    "liquid_glass_nav_subtitle": "Muzli shisha suzuvchi tab-bar (iOS 26). Oddiy bar uchun o'chiring.",
+    "nav_style": "Navigatsiya paneli",
+    "nav_style_glass": "Suyuq shisha",
+    "nav_style_solid": "Oddiy",
+    "nav_style_classic": "Klassik"
   },
   "search": {
     "title": "Qidirish",

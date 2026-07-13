@@ -221,7 +221,13 @@
     "support_developer": "Поддержать разработчика",
     "section_appearance": "ВНЕШНИЙ ВИД",
     "native_window_bar": "Системная строка окна",
-    "native_window_bar_subtitle": "Использовать стандартную строку заголовка Windows вместо кастомной."
+    "native_window_bar_subtitle": "Использовать стандартную строку заголовка Windows вместо кастомной.",
+    "liquid_glass_nav": "Стеклянная навигация",
+    "liquid_glass_nav_subtitle": "Плавающая матовая стеклянная панель (iOS 26). Выключите для обычной панели.",
+    "nav_style": "Панель навигации",
+    "nav_style_glass": "Стеклянная",
+    "nav_style_solid": "Сплошная",
+    "nav_style_classic": "Классическая"
   },
   "search": {
     "title": "Поиск",
