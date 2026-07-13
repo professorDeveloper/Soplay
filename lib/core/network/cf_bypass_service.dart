@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import 'package:soplay/core/system/webview_env.dart';
+
 class CfBypassService {
   static const _pollInterval = Duration(milliseconds: 600);
   static const _defaultTimeout = Duration(seconds: 30);
@@ -33,6 +35,7 @@ class CfBypassService {
     Timer? watchdog;
 
     final headless = HeadlessInAppWebView(
+      webViewEnvironment: await WebViewEnv.ensure(),
       initialUrlRequest: URLRequest(url: WebUri(url)),
       initialSettings: InAppWebViewSettings(
         userAgent: userAgent,

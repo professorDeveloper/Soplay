@@ -444,6 +444,7 @@ class _MetaChip extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────
 
 const double _kDesktopBannerHeight = 450.0;
+const double _kDesktopBannerRadius = 18.0;
 
 class _DesktopBanner extends StatefulWidget {
   const _DesktopBanner({
@@ -504,20 +505,33 @@ class _DesktopBannerState extends State<_DesktopBanner> {
         children: [
           SizedBox(
             height: _kDesktopBannerHeight,
-            child: PageView.builder(
-              controller: _ctrl,
-              itemCount: widget.slides.length,
-              onPageChanged: (i) {
-                setState(() => _index = i);
-                widget.onPageShown(i);
-              },
-              itemBuilder: (_, i) => _DesktopSlide(
-                slide: widget.slides[i],
-                onBannerTap: widget.onBannerTap,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(_kDesktopBannerRadius),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 42,
+                    spreadRadius: -14,
+                    offset: const Offset(0, 20),
+                  ),
+                ],
+              ),
+              child: PageView.builder(
+                controller: _ctrl,
+                itemCount: widget.slides.length,
+                onPageChanged: (i) {
+                  setState(() => _index = i);
+                  widget.onPageShown(i);
+                },
+                itemBuilder: (_, i) => _DesktopSlide(
+                  slide: widget.slides[i],
+                  onBannerTap: widget.onBannerTap,
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(widget.slides.length, (i) {
@@ -627,7 +641,7 @@ class _DesktopSlideState extends State<_DesktopSlide>
     };
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(_kDesktopBannerRadius),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -690,18 +704,7 @@ class _DesktopSlideState extends State<_DesktopSlide>
               ),
             ),
           ),
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x00181818), Color(0x88181818)],
-                  stops: [0.5, 1.0],
-                ),
-              ),
-            ),
-          ),
+          const Positioned.fill(child: _EdgeBlend()),
           // Content.
           Positioned(
             left: 34,
@@ -843,6 +846,83 @@ class _DesktopSlideState extends State<_DesktopSlide>
         extra: DetailArgs(contentUrl: movie.url, preview: movie),
       );
     }
+  }
+}
+
+/// Dissolves the card's four edges into the page background instead of ending
+/// them on a hard rectangle — the bottom carries the most, so the hero reads as
+/// part of the feed rather than a poster pasted on top of it.
+class _EdgeBlend extends StatelessWidget {
+  const _EdgeBlend();
+
+  static const Color _bg = AppColors.background;
+  static const Color _clear = Color(0x00181818);
+
+  @override
+  Widget build(BuildContext context) {
+    return const IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Bottom: the card doesn't end, it dissolves into the feed.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [_bg, Color(0xCC181818), _clear],
+                stops: [0.0, 0.14, 0.5],
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 72,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerRight,
+                  end: Alignment.centerLeft,
+                  colors: [Color(0xCC181818), _clear],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 56,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Color(0xB3181818), _clear],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: 56,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x99181818), _clear],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
