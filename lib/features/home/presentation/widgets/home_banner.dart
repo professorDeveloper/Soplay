@@ -505,29 +505,19 @@ class _DesktopBannerState extends State<_DesktopBanner> {
         children: [
           SizedBox(
             height: _kDesktopBannerHeight,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(_kDesktopBannerRadius),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    blurRadius: 42,
-                    spreadRadius: -14,
-                    offset: const Offset(0, 20),
-                  ),
-                ],
-              ),
-              child: PageView.builder(
-                controller: _ctrl,
-                itemCount: widget.slides.length,
-                onPageChanged: (i) {
-                  setState(() => _index = i);
-                  widget.onPageShown(i);
-                },
-                itemBuilder: (_, i) => _DesktopSlide(
-                  slide: widget.slides[i],
-                  onBannerTap: widget.onBannerTap,
-                ),
+            // No drop shadow: the slide already dissolves its edges into the
+            // page background (see _EdgeBlend), so a shadow would fight that and
+            // make the hero read as a card floating above the feed.
+            child: PageView.builder(
+              controller: _ctrl,
+              itemCount: widget.slides.length,
+              onPageChanged: (i) {
+                setState(() => _index = i);
+                widget.onPageShown(i);
+              },
+              itemBuilder: (_, i) => _DesktopSlide(
+                slide: widget.slides[i],
+                onBannerTap: widget.onBannerTap,
               ),
             ),
           ),

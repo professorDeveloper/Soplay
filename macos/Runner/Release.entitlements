@@ -2,9 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<!--
+	  Distributed OUTSIDE the Mac App Store (ad-hoc signed, no paid Apple cert).
+	  App Sandbox is a Mac-App-Store requirement and actively breaks this app:
+	  it would block the on-device LocalHlsProxy (a local socket server) and
+	  file downloads. So it is intentionally OFF here — the app runs as a normal
+	  notarization-less desktop app. The network entitlements are kept for clarity
+	  even though a non-sandboxed ad-hoc build does not strictly enforce them.
+	-->
 	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
 	<true/>
 </dict>
 </plist>
