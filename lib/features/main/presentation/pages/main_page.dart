@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'package:soplay/core/deeplink/deeplink_opt_in.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -252,15 +253,68 @@ class _SoplayBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
+    return _LiquidGlassSurface(
+      height: 68 + bottomPad,
+      child: Padding(
+        padding: EdgeInsets.only(
+          top: 8,
+          bottom: bottomPad == 0 ? 8 : bottomPad,
+        ),
+        child: Row(
+          children: List.generate(
+            _items.length,
+            (i) => Expanded(
+              child: _BottomNavButton(
+                item: _items[i],
+                selected: index == i,
+                showcaseKey: i == _MainPageState._shortsIndex
+                    ? shortsShowcaseKey
+                    : null,
+                onTap: () => onTap(i),
+                onDoubleTap: i == _MainPageState._shortsIndex
+                    ? onShortsDoubleTap
+                    : null,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// iOS-26 "liquid glass" shell for the MOBILE bottom nav.
+///
+/// Mobile-only by construction: it is only ever mounted from the mobile Scaffold
+/// branch (`bottomNavigationBar:` in [_MainPageState.build]), so the desktop
+/// [_SoplayFloatingNav] pill is never touched.
+///
+/// On Impeller — the default renderer on Android & iOS — it renders a real
+/// refractive glass lens ([LiquidGlassLens]) over the live content scrolling
+/// behind the bar (the Scaffold uses `extendBody: true`), giving the native
+/// iOS-26 glass look. On the rare surface without shader support (Skia), it
+/// falls back to the previous [BackdropFilter] frost, so nothing can render
+/// black, hitch on shader-compile, or otherwise break the page.
+class _LiquidGlassSurface extends StatelessWidget {
+  const _LiquidGlassSurface({required this.height, required this.child});
+
+  final double height;
+  final Widget child;
+
+  static const BorderRadius _radius =
+      BorderRadius.vertical(top: Radius.circular(22));
+
+  // The previous flat frost — the guaranteed-safe path on any GPU/Skia.
+  Widget _frostFallback() {
     return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      borderRadius: _radius,
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
         child: Container(
-          height: 68 + bottomPad,
+          height: height,
           decoration: BoxDecoration(
             color: const Color(0xFF0E0E0E).withValues(alpha: 0.75),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            borderRadius: _radius,
             border: Border(
               top: BorderSide(
                 color: Colors.white.withValues(alpha: 0.08),
@@ -268,30 +322,48 @@ class _SoplayBottomNav extends StatelessWidget {
               ),
             ),
           ),
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: 8,
-              bottom: bottomPad == 0 ? 8 : bottomPad,
-            ),
-            child: Row(
-              children: List.generate(
-                _items.length,
-                (i) => Expanded(
-                  child: _BottomNavButton(
-                    item: _items[i],
-                    selected: index == i,
-                    showcaseKey: i == _MainPageState._shortsIndex
-                        ? shortsShowcaseKey
-                        : null,
-                    onTap: () => onTap(i),
-                    onDoubleTap: i == _MainPageState._shortsIndex
-                        ? onShortsDoubleTap
-                        : null,
-                  ),
-                ),
-              ),
-            ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Real refractive glass only where the shader backend supports it.
+    if (!ImageFilter.isShaderFilterSupported) return _frostFallback();
+
+    // Outer ClipRRect keeps the current silhouette: rounded top, flush
+    // full-width bottom (the lens shape itself rounds all four corners).
+    return ClipRRect(
+      borderRadius: _radius,
+      child: LiquidGlassLens(
+        style: LiquidGlassStyle(
+          shape: const LiquidGlassShape.continuousRoundedRectangle(
+            cornerRadius: 22,
+            borderWidth: 0.8,
+            lightIntensity: 1.15,
+            lightDirection: 55,
           ),
+          refraction: const LiquidGlassRefraction(
+            magnification: 1,
+            distortion: 0.18,
+            distortionWidth: 34,
+            chromaticAberration: 0,
+          ),
+          appearance: LiquidGlassAppearance(
+            saturation: 1.2,
+            blur: const LiquidGlassBlur(sigmaX: 8, sigmaY: 8),
+            // Dark translucent tint so the bar still reads on the dark UI while
+            // the refraction supplies the glass depth. Kept see-through (~0.42)
+            // so Home/Shorts content behind it is not newly occluded.
+            color: const Color(0xFF0B0B0B).withValues(alpha: 0.42),
+          ),
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          height: height,
+          child: child,
         ),
       ),
     );
