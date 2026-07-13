@@ -34,12 +34,14 @@ class WatchPartySocketClient {
     final socket = sio.io(
       '$origin/watch',
       sio.OptionBuilder()
-          // Polling first, then upgrade to websocket. A websocket-only client
-          // never connects when the WS upgrade is blocked (some mobile carriers
-          // / proxies in front of Cloudflare), which strands the whole party on
-          // a spinner. Polling always works, then engine.io upgrades to WS when
-          // it can — best of both.
-          .setTransports(<String>['polling', 'websocket'])
+          // Websocket only. The socket_io_client (Dart) long-polling transport
+          // does NOT reliably complete the `/watch` namespace handshake, and it
+          // fails silently — no `connect`, no `connect_error` — so a
+          // polling-first list stranded every party on "Connecting…" forever.
+          // nginx already proxies the WS upgrade for /socket.io/, so websocket
+          // works end-to-end; if it is ever genuinely blocked the client gets a
+          // connect_error and the UI shows the retry card instead of hanging.
+          .setTransports(<String>['websocket'])
           .setAuth(<String, dynamic>{
             'token': token,
             'photoURL': ?photoURL,
