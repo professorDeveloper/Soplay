@@ -171,16 +171,21 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           child: isDesktopPlatform
               ? Scaffold(
                   backgroundColor: AppColors.background,
-                  body: Row(
+                  body: Stack(
                     children: [
-                      _SoplaySideRail(index: _index, onTap: _onTabTap),
-                      const VerticalDivider(
-                        width: 1,
-                        thickness: 1,
-                        color: Color(0x14FFFFFF),
-                      ),
-                      Expanded(
+                      Positioned.fill(
                         child: IndexedStack(index: _index, children: tabs),
+                      ),
+                      // Sozo-Desktop: floating bottom-center rounded pill nav
+                      Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 18),
+                          child: _SoplayFloatingNav(
+                            index: _index,
+                            onTap: _onTabTap,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -293,76 +298,112 @@ class _SoplayBottomNav extends StatelessWidget {
   }
 }
 
-class _SoplaySideRail extends StatelessWidget {
-  const _SoplaySideRail({required this.index, required this.onTap});
+/// Sozo-Desktop style floating bottom-center rounded pill navigation.
+/// Desktop only — mobile keeps [_SoplayBottomNav]. Reuses the same 5 tabs.
+class _SoplayFloatingNav extends StatelessWidget {
+  const _SoplayFloatingNav({required this.index, required this.onTap});
 
   final int index;
   final ValueChanged<int> onTap;
 
   @override
   Widget build(BuildContext context) {
-    return NavigationRail(
-      backgroundColor: const Color(0xFF0E0E0E),
-      selectedIndex: index,
-      onDestinationSelected: onTap,
-      labelType: NavigationRailLabelType.all,
-      groupAlignment: -0.9,
-      minWidth: 78,
-      useIndicator: true,
-      indicatorColor: Colors.white.withValues(alpha: 0.12),
-      indicatorShape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(14)),
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: AppColors.navBackground,
+        borderRadius: BorderRadius.circular(9999),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 55,
+            offset: const Offset(0, 20),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.17),
+            blurRadius: 13,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
-      leading: const Padding(
-        padding: EdgeInsets.only(top: 8, bottom: 14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.play_circle_fill_rounded,
-                color: AppColors.primary, size: 28),
-            SizedBox(height: 5),
-            Text(
-              'SOZO',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.8,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < _SoplayBottomNav._items.length; i++)
+            _NavCircle(
+              item: _SoplayBottomNav._items[i],
+              selected: index == i,
+              onTap: () => onTap(i),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavCircle extends StatefulWidget {
+  const _NavCircle({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _NavItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_NavCircle> createState() => _NavCircleState();
+}
+
+class _NavCircleState extends State<_NavCircle> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.selected;
+    final color = active
+        ? AppColors.primary
+        : (_hover ? AppColors.textPrimary : AppColors.textSecondary);
+
+    return Tooltip(
+      message: widget.item.labelKey.tr(),
+      preferBelow: false,
+      verticalOffset: 34,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      textStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedScale(
+            scale: _hover ? 1.2 : 1.0,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            child: Container(
+              width: 50,
+              height: 50,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: active
+                    ? AppColors.primary.withValues(alpha: 0.14)
+                    : Colors.transparent,
+              ),
+              child: Icon(
+                active ? widget.item.activeIcon : widget.item.icon,
+                color: color,
+                size: 22,
               ),
             ),
-          ],
+          ),
         ),
       ),
-      selectedIconTheme: const IconThemeData(color: Colors.white, size: 26),
-      unselectedIconTheme:
-          const IconThemeData(color: Color(0xFF7A7A7A), size: 24),
-      selectedLabelTextStyle: const TextStyle(
-        color: Colors.white,
-        fontSize: 11.5,
-        fontWeight: FontWeight.w700,
-      ),
-      unselectedLabelTextStyle: const TextStyle(
-        color: Color(0xFF7A7A7A),
-        fontSize: 11,
-        fontWeight: FontWeight.w500,
-      ),
-      destinations: [
-        for (final item in _SoplayBottomNav._items)
-          NavigationRailDestination(
-            icon: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Icon(item.icon),
-            ),
-            selectedIcon: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Icon(item.activeIcon),
-            ),
-            label: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Text(item.labelKey.tr()),
-            ),
-          ),
-      ],
     );
   }
 }
