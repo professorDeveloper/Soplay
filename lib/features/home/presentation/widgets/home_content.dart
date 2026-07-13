@@ -223,7 +223,10 @@ class _HomeContentBody extends StatelessWidget {
                       ),
                   SliverToBoxAdapter(
                     child: SizedBox(
-                      height: MediaQuery.paddingOf(context).bottom + 16,
+                      // Desktop: clear the floating pill nav (~66px + 18 gap).
+                      height: isDesktopPlatform
+                          ? 100
+                          : MediaQuery.paddingOf(context).bottom + 16,
                     ),
                   ),
                 ],
@@ -270,7 +273,7 @@ class _GenreSection extends StatelessWidget {
             ),
           ),
           SizedBox(
-            height: 72,
+            height: isDesktopPlatform ? 90 : 72,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),

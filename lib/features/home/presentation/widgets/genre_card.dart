@@ -24,18 +24,19 @@ class GenreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final desktop = isDesktopPlatform;
     return HoverTap(
       onTap: () => context.push(
         '/view-all',
         extra: ViewAllEntity(type: 'genre', slug: genre.slug, name: _label),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: EdgeInsets.symmetric(horizontal: desktop ? 7 : 4),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(desktop ? 12 : 10),
           child: SizedBox(
-            width: 110,
-            height: 72,
+            width: desktop ? 190 : 110,
+            height: desktop ? 90 : 72,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -61,17 +62,17 @@ class GenreCard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  left: 8,
-                  right: 8,
-                  bottom: 7,
+                  left: desktop ? 12 : 8,
+                  right: desktop ? 12 : 8,
+                  bottom: desktop ? 10 : 7,
                   child: Text(
                     _label,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      fontSize: desktop ? 15 : 11,
+                      fontWeight: desktop ? FontWeight.w800 : FontWeight.w700,
                       height: 1.2,
                     ),
                   ),

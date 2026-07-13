@@ -9,13 +9,15 @@ class ShimmerWrapper extends StatelessWidget {
   const ShimmerWrapper({super.key, required this.child});
   final Widget child;
 
-  static const _base = Color(0xFF1E1E1E);
-  static const _highlight = Color(0xFF383838);
+  // Subtle sweep tuned for the dark surface — low contrast, slow period.
+  static const _base = Color(0xFF202020);
+  static const _highlight = Color(0xFF2B2B2B);
 
   @override
   Widget build(BuildContext context) => Shimmer.fromColors(
     baseColor: _base,
     highlightColor: _highlight,
+    period: const Duration(milliseconds: 1650),
     child: child,
   );
 }

@@ -1,10 +1,15 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/detail/domain/usecases/get_detail_usecase.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
@@ -40,7 +45,8 @@ class _HomeBannerState extends State<HomeBanner> {
   void initState() {
     super.initState();
     _ctrl = PageController();
-    _startTimer();
+    // Desktop uses its own Akuse-style carousel with its own controller/timer.
+    if (!isDesktopPlatform) _startTimer();
     _trackBannerView(0);
   }
 
@@ -89,6 +95,16 @@ class _HomeBannerState extends State<HomeBanner> {
           ? HomeBannerSkeleton(topPadding: widget.topPadding)
           : const SizedBox.shrink();
     }
+
+    if (isDesktopPlatform) {
+      return _DesktopBanner(
+        slides: widget.slides,
+        topPadding: widget.topPadding,
+        onBannerTap: _onBannerTap,
+        onPageShown: _trackBannerView,
+      );
+    }
+
     final height = (MediaQuery.of(context).size.height * 0.63).clamp(
       440.0,
       480.0,
@@ -415,6 +431,482 @@ class _MetaChip extends StatelessWidget {
           fontSize: 10.5,
           fontWeight: FontWeight.w700,
           height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Desktop banner — Sozo-Desktop / Akuse style: rounded 450px card, blurred
+// Ken Burns backdrop, crisp right poster, Play + More Info buttons, dot
+// indicators. Both movie and CMS-banner slides are supported.
+// ─────────────────────────────────────────────────────────────────────────
+
+const double _kDesktopBannerHeight = 450.0;
+
+class _DesktopBanner extends StatefulWidget {
+  const _DesktopBanner({
+    required this.slides,
+    required this.topPadding,
+    required this.onBannerTap,
+    required this.onPageShown,
+  });
+
+  final List<HeroSlide> slides;
+  final double topPadding;
+  final Future<void> Function(BannerItem item) onBannerTap;
+  final ValueChanged<int> onPageShown;
+
+  @override
+  State<_DesktopBanner> createState() => _DesktopBannerState();
+}
+
+class _DesktopBannerState extends State<_DesktopBanner> {
+  late final PageController _ctrl;
+  Timer? _timer;
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = PageController();
+    _startAutoPlay();
+  }
+
+  void _startAutoPlay() {
+    _timer?.cancel();
+    _timer = Timer(const Duration(milliseconds: 12500), () {
+      if (!mounted || !_ctrl.hasClients || widget.slides.length < 2) return;
+      final next = (_index + 1) % widget.slides.length;
+      _ctrl.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOut,
+      );
+      _startAutoPlay();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, widget.topPadding + 72, 24, 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: _kDesktopBannerHeight,
+            child: PageView.builder(
+              controller: _ctrl,
+              itemCount: widget.slides.length,
+              onPageChanged: (i) {
+                setState(() => _index = i);
+                widget.onPageShown(i);
+              },
+              itemBuilder: (_, i) => _DesktopSlide(
+                slide: widget.slides[i],
+                onBannerTap: widget.onBannerTap,
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(widget.slides.length, (i) {
+              final active = i == _index;
+              return GestureDetector(
+                onTap: () => _ctrl.animateToPage(
+                  i,
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeInOut,
+                ),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOut,
+                  width: active ? 22 : 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: active ? AppColors.textPrimary : AppColors.textHint,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DesktopSlide extends StatefulWidget {
+  const _DesktopSlide({required this.slide, required this.onBannerTap});
+
+  final HeroSlide slide;
+  final Future<void> Function(BannerItem item) onBannerTap;
+
+  @override
+  State<_DesktopSlide> createState() => _DesktopSlideState();
+}
+
+class _DesktopSlideState extends State<_DesktopSlide>
+    with TickerProviderStateMixin {
+  late final AnimationController _in;
+  late final AnimationController _kb;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _slideAnim;
+  late final Animation<double> _zoom;
+
+  // The home feed ships movies without a synopsis; VidAPI returns it from the
+  // detail endpoint, so fetch it lazily for the banner text.
+  String _desc = '';
+
+  Future<void> _fetchDesc(MovieEntity movie) async {
+    if (movie.url.isEmpty) return;
+    final result = await getIt<GetDetailUseCase>()(movie.url);
+    if (!mounted) return;
+    if (result case Success(:final value)) {
+      if (value.description.trim().isNotEmpty) {
+        setState(() => _desc = value.description);
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final slide = widget.slide;
+    if (slide is MovieHeroSlide) {
+      _desc = slide.movie.description.trim();
+      if (_desc.isEmpty) _fetchDesc(slide.movie);
+    }
+    _in = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _opacity = CurvedAnimation(parent: _in, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0.04, 0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _in, curve: Curves.easeOut));
+    _kb = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    );
+    _zoom = Tween<double>(begin: 1.05, end: 1.16)
+        .animate(CurvedAnimation(parent: _kb, curve: Curves.easeOut));
+    _kb.forward();
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (mounted) _in.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _in.dispose();
+    _kb.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final slide = widget.slide;
+    final isBanner = slide is BannerHeroSlide;
+    final backdrop = switch (slide) {
+      MovieHeroSlide(:final movie) => movie.thumbnail,
+      BannerHeroSlide(:final banner) => banner.imageUrl,
+    };
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Backdrop: blurred poster (movie) or crisp wide image (banner).
+          AnimatedBuilder(
+            animation: _zoom,
+            builder: (_, child) =>
+                Transform.scale(scale: _zoom.value, child: child),
+            child: isBanner
+                ? HomeNetworkImage(
+                    url: backdrop,
+                    borderRadius: BorderRadius.zero,
+                    placeholderIcon: Icons.movie_creation_outlined,
+                  )
+                : ImageFiltered(
+                    imageFilter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: HomeNetworkImage(
+                      url: backdrop,
+                      borderRadius: BorderRadius.zero,
+                      placeholderIcon: Icons.movie_creation_outlined,
+                    ),
+                  ),
+          ),
+          const Positioned.fill(child: ColoredBox(color: Color(0x40000000))),
+          // Crisp poster on the right (movie slides only).
+          if (!isBanner)
+            Positioned(
+              right: 40,
+              top: 34,
+              bottom: 34,
+              child: FadeTransition(
+                opacity: _opacity,
+                child: AspectRatio(
+                  aspectRatio: 2 / 3,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: HomeNetworkImage(
+                      url: backdrop,
+                      borderRadius: BorderRadius.zero,
+                      placeholderIcon: Icons.movie_creation_outlined,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          // Scrims for text legibility.
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Color(0xF2181818),
+                    Color(0xCC181818),
+                    Color(0x00181818),
+                  ],
+                  stops: [0.0, 0.42, 0.72],
+                ),
+              ),
+            ),
+          ),
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x00181818), Color(0x88181818)],
+                  stops: [0.5, 1.0],
+                ),
+              ),
+            ),
+          ),
+          // Content.
+          Positioned(
+            left: 34,
+            right: 34,
+            bottom: 30,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: FadeTransition(
+                  opacity: _opacity,
+                  child: SlideTransition(
+                    position: _slideAnim,
+                    child: _content(context, slide),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _content(BuildContext context, HeroSlide slide) {
+    switch (slide) {
+      case MovieHeroSlide(:final movie):
+        final meta = movieMetaLabels(movie);
+        final desc = _desc;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (meta.isNotEmpty)
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children:
+                    meta.take(4).map((m) => _MetaChip(label: m)).toList(),
+              ),
+            const SizedBox(height: 12),
+            Text(
+              movieTitle(movie),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 34,
+                fontWeight: FontWeight.w900,
+                height: 1.12,
+                letterSpacing: -0.5,
+                shadows: [
+                  Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
+                ],
+              ),
+            ),
+            if (desc.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                desc,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14.5,
+                  height: 1.5,
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                _BannerButton(
+                  label: 'Play',
+                  icon: Icons.play_arrow_rounded,
+                  primary: true,
+                  onTap: () => _openMovie(context, movie),
+                ),
+                const SizedBox(width: 10),
+                _BannerButton(
+                  label: 'More info',
+                  icon: Icons.info_outline_rounded,
+                  primary: false,
+                  onTap: () => _openMovie(context, movie),
+                ),
+              ],
+            ),
+          ],
+        );
+      case BannerHeroSlide(:final banner):
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              banner.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 34,
+                fontWeight: FontWeight.w900,
+                height: 1.12,
+                letterSpacing: -0.5,
+                shadows: [
+                  Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
+                ],
+              ),
+            ),
+            if (banner.subtitle != null && banner.subtitle!.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                banner.subtitle!,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14.5,
+                  height: 1.5,
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            _BannerButton(
+              label: 'More info',
+              icon: Icons.open_in_new_rounded,
+              primary: true,
+              onTap: () => widget.onBannerTap(banner),
+            ),
+          ],
+        );
+    }
+  }
+
+  void _openMovie(BuildContext context, MovieEntity movie) {
+    if (movie.url.isNotEmpty) {
+      context.push(
+        '/detail',
+        extra: DetailArgs(contentUrl: movie.url, preview: movie),
+      );
+    }
+  }
+}
+
+class _BannerButton extends StatefulWidget {
+  const _BannerButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    required this.primary,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool primary;
+
+  @override
+  State<_BannerButton> createState() => _BannerButtonState();
+}
+
+class _BannerButtonState extends State<_BannerButton> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = widget.primary;
+    final bg = primary
+        ? Colors.white
+        : Colors.white.withValues(alpha: _hover ? 0.28 : 0.18);
+    final fg = primary ? Colors.black : Colors.white;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _hover ? 1.05 : 1.0,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          child: Container(
+            height: 46,
+            padding: EdgeInsets.symmetric(horizontal: primary ? 24 : 20),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(widget.icon, color: fg, size: primary ? 24 : 20),
+                const SizedBox(width: 7),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
