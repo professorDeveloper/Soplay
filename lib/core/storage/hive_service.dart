@@ -225,6 +225,15 @@ class HiveService {
   Future<void> setUseNativeTitleBar(bool value) =>
       _settingsBox.put('use_native_title_bar', value);
 
+  // Mobile bottom-nav style: 'solid' | 'glass' | 'classic' (default 'solid').
+  String get navStyle {
+    final v = _settingsBox.get('nav_style', defaultValue: 'solid');
+    return v is String ? v : 'solid';
+  }
+
+  Future<void> setNavStyle(String value) =>
+      _settingsBox.put('nav_style', value);
+
 
   bool get hasSeenPrivateShowcase =>
       _settingsBox.get('private_showcase_seen', defaultValue: false) == true;
