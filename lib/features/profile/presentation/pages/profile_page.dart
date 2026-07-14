@@ -2257,7 +2257,7 @@ class _AboutSection extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _SocialIcon(
                 icon: Icons.telegram,

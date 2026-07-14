@@ -58,6 +58,9 @@ part 'player_page.history.dart';
 part 'player_page.pip.dart';
 part 'player_page.party.dart';
 
+/// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
+const int _kMaxLifetimeRetries = 4;
+
 class PlayerPage extends StatefulWidget {
   const PlayerPage({super.key, required this.args});
   final PlayerArgs args;
@@ -140,6 +143,14 @@ class _PlayerPageState extends State<PlayerPage>
   int _seekRippleSeconds = 0;
 
   int _retryAttempts = 0;
+
+  /// Hard ceiling on auto-retries for the current episode. [_retryAttempts] is
+  /// reset every time the controller reports `isInitialized`, so on a source that
+  /// initializes and *then* errors (common for CloudStream links that expire or
+  /// 403 mid-playback) it alone would let the retry loop run forever. This one is
+  /// only cleared on a genuine fresh start (new episode / quality switch).
+  int _lifetimeRetries = 0;
+
   bool _autoRetrying = false;
   final Stopwatch _playbackWatch = Stopwatch();
   bool _streakPingScheduled = false;

@@ -475,7 +475,14 @@ class MainActivity : FlutterFragmentActivity() {
                         withContext(Dispatchers.Main) { result.success(bytes) }
                     }
                 }
-                "close" -> { FramePreview.close(); result.success(true) }
+                // Off the platform thread like open/frame: close() can contend with a
+                // still-running open(), and blocking here would freeze the whole UI.
+                "close" -> {
+                    cloudstreamScope.launch {
+                        FramePreview.close()
+                        withContext(Dispatchers.Main) { result.success(true) }
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

@@ -105,6 +105,9 @@ extension _PlayerControls on _PlayerPageState {
     }
     _controller?.addListener(listener);
     Future.delayed(const Duration(seconds: 1), () {
+      // The user can pop the player within this second — _sliderDragValue is
+      // disposed by then, so touching it would throw.
+      if (!mounted) return;
       _controller?.removeListener(listener);
       if (_sliderDragValue.value != null &&
           _sliderDragValue.value == target.inMilliseconds.toDouble()) {

@@ -53,7 +53,10 @@ extension _PlayerMedia on _PlayerPageState {
     bool keepRetryCount = false,
   }) async {
     if (index < 0 || index >= widget.args.episodes.length) return;
-    if (!keepRetryCount) _retryAttempts = 0;
+    if (!keepRetryCount) {
+      _retryAttempts = 0;
+      _lifetimeRetries = 0;
+    }
     setState(() {
       _initializing = true;
       _stage = _LoadingStage.resolving;
@@ -166,6 +169,7 @@ extension _PlayerMedia on _PlayerPageState {
     final keepPosition = _controller?.value.position ?? Duration.zero;
     final idx = _videoSources.indexWhere((s) => s.quality == source.quality);
     _retryAttempts = 0;
+    _lifetimeRetries = 0;
     setState(() {
       _initializing = true;
       _stage = _LoadingStage.loading;
@@ -426,10 +430,13 @@ extension _PlayerMedia on _PlayerPageState {
         _isCodecError = true;
         msg =
             'This video format is not supported on your device. You can try playing it in your browser.';
-      } else if (_isRecoverableError(raw) && _retryAttempts < 2) {
+      } else if (_isRecoverableError(raw) &&
+          _retryAttempts < 2 &&
+          _lifetimeRetries < _kMaxLifetimeRetries) {
         _plog('recoverable error, retrying (attempt ${_retryAttempts + 1})',
             level: LogLevel.warn);
         _retryAttempts++;
+        _lifetimeRetries++;
         _autoRetrying = true;
         _autoRetry();
         return;
@@ -507,8 +514,12 @@ extension _PlayerMedia on _PlayerPageState {
       if (msg != null && msg != _lastError && mounted) {
         _lastError = msg;
         _plog('playback error: $msg', level: LogLevel.error);
-        if (!_autoRetrying && _retryAttempts < 2 && _isRecoverableError(msg)) {
+        if (!_autoRetrying &&
+            _retryAttempts < 2 &&
+            _lifetimeRetries < _kMaxLifetimeRetries &&
+            _isRecoverableError(msg)) {
           _retryAttempts++;
+          _lifetimeRetries++;
           _autoRetrying = true;
           _autoRetry();
           return;
