@@ -159,6 +159,8 @@ extension _PlayerGestures on _PlayerPageState {
     } else if (_dragSwipeType != null) {
       final type = _dragSwipeType;
       Future.delayed(const Duration(milliseconds: 600), () {
+        // Popping the player within this window disposes _swipeIndicator.
+        if (!mounted) return;
         if (_swipeIndicator.value?.type == type) {
           _swipeIndicator.value = null;
         }
