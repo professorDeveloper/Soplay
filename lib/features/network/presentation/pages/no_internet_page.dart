@@ -112,7 +112,7 @@ class _NoInternetPageState extends State<NoInternetPage> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => context.go('/downloads'),
+                          onPressed: () => context.push('/downloads'),
                           icon: const Icon(Icons.download_done_rounded),
                           label: Text('navigation.downloads'.tr()),
                           style: OutlinedButton.styleFrom(

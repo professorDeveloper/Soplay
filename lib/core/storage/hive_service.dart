@@ -98,6 +98,40 @@ class HiveService {
     await _settingsBox.put('favorite_providers', list);
   }
 
+  /// Providers included in cross-provider ("all sources") search. Kept small on
+  /// purpose so search never fans out to hundreds of providers.
+  List<String> getCrossSearchProviders() {
+    return (_settingsBox.get('cross_search_providers') as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        <String>[];
+  }
+
+  Future<void> setCrossSearchProviders(List<String> ids) async {
+    await _settingsBox.put('cross_search_providers', ids);
+  }
+
+  /// Followed serials (tracker), stored as a JSON list of maps.
+  List<Map<String, dynamic>> getFollowedRaw() {
+    final raw = _settingsBox.get('followed_titles');
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          return decoded
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      } catch (_) {}
+    }
+    return <Map<String, dynamic>>[];
+  }
+
+  Future<void> setFollowedRaw(List<Map<String, dynamic>> items) async {
+    await _settingsBox.put('followed_titles', jsonEncode(items));
+  }
+
   String getOpenSubtitlesKey() {
     return _settingsBox.get(AppConstants.openSubtitlesKeyKey, defaultValue: '');
   }

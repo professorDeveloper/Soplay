@@ -75,6 +75,8 @@ import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.da
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/search/data/datasources/search_data_source.dart';
 import 'package:soplay/features/search/data/repositories/search_repository_imp.dart';
+import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
+import 'package:soplay/features/tracker/data/follow_service.dart';
 import 'package:soplay/features/search/domain/repositories/search_repository.dart';
 import 'package:soplay/features/search/domain/usecases/genre_usecase.dart';
 import 'package:soplay/features/search/domain/usecases/search_usecase.dart';
@@ -221,6 +223,12 @@ Future<void> configureDependencies() async {
       hive: getIt<HiveService>(),
     ),
   );
+  getIt.registerLazySingleton<CrossSearchEngine>(
+    () => CrossSearchEngine(
+      jsRuntime: getIt<JsRuntimeService>(),
+      dataSource: getIt<SearchDataSource>(),
+    ),
+  );
   getIt.registerSingleton<WebViewStreamExtractor>(WebViewStreamExtractor());
   getIt.registerSingleton<DetailRepository>(
     DetailRepositoryImpl(
@@ -320,6 +328,13 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<GetEpisodesUseCase>(
     GetEpisodesUseCase(getIt<DetailRepository>()),
+  );
+  getIt.registerSingleton<FollowService>(
+    FollowService(
+      hive: getIt<HiveService>(),
+      getEpisodes: getIt<GetEpisodesUseCase>(),
+      notifications: getIt<NotificationService>(),
+    ),
   );
   getIt.registerSingleton<ResolveMediaUseCase>(
     ResolveMediaUseCase(getIt<DetailRepository>()),

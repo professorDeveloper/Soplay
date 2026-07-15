@@ -1795,6 +1795,17 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
               ),
               const Divider(color: AppColors.divider, height: 1),
               _Tile(
+                icon: Icons.notifications_active_outlined,
+                title: 'Following',
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textHint,
+                  size: 20,
+                ),
+                onTap: () => context.push('/following'),
+              ),
+              const Divider(color: AppColors.divider, height: 1),
+              _Tile(
                 icon: Icons.devices_rounded,
                 title: BridgeControl.canHost
                     ? 'profile.share_sources_desktop'.tr()

@@ -247,6 +247,152 @@ class RepoManager(private val context: Context, private val host: PluginHost) {
     }
 
     /**
+     * List every plugin advertised by a repo WITHOUT downloading anything, each
+     * flagged with whether it is currently installed. Lets the user pick only the
+     * plugins they want instead of installing the whole repo. Network — off-main.
+     */
+    fun listRepoPluginsJson(input: String): String {
+        val repoUrl = input.trim()
+        val info = fetchRepo(repoUrl)
+        val repoName = info.name ?: fallbackName(repoUrl)
+        val installed = HashSet<String>()
+        loadMeta().optJSONArray(repoUrl)?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val n = arr.optJSONObject(i)?.optString("internalName").orEmpty()
+                if (n.isNotEmpty()) installed.add(n)
+            }
+        }
+        val out = JSONArray()
+        val seen = HashSet<String>()
+        for (listUrl in info.pluginListUrls) {
+            val body = httpGet(listUrl) ?: continue
+            val plugins = try { JSONArray(body) } catch (_: Throwable) { continue }
+            for (i in 0 until plugins.length()) {
+                val p = plugins.optJSONObject(i) ?: continue
+                if (p.optString("url").isEmpty()) continue
+                val internalName =
+                    p.optString("internalName").ifEmpty { p.optString("name", "plugin$i") }
+                if (!seen.add(internalName)) continue
+                out.put(JSONObject().apply {
+                    put("internalName", internalName)
+                    put("name", p.optString("name").ifEmpty { internalName })
+                    put("version", if (p.has("version")) p.optInt("version") else 0)
+                    put("iconUrl", p.optString("iconUrl"))
+                    put("description", p.optString("description"))
+                    put("language", p.optString("language"))
+                    put("tvTypes", p.optJSONArray("tvTypes") ?: JSONArray())
+                    put("installed", installed.contains(internalName))
+                })
+            }
+        }
+        return JSONObject().apply {
+            put("repo", repoUrl)
+            put("name", repoName)
+            put("plugins", out)
+        }.toString()
+    }
+
+    /** Install a single plugin from a repo by its internalName. Saves the repo and
+     *  merges the plugin's providers into metadata. Network — call off-main. */
+    fun installPlugin(
+        input: String,
+        internalName: String,
+        progress: ((Int, Int) -> Unit)? = null,
+    ): JSONObject {
+        val repoUrl = input.trim()
+        val info = fetchRepo(repoUrl)
+        val repoName = info.name ?: fallbackName(repoUrl)
+        var ref: PluginRef? = null
+        for (listUrl in info.pluginListUrls) {
+            val body = httpGet(listUrl) ?: continue
+            val plugins = try { JSONArray(body) } catch (_: Throwable) { continue }
+            for (i in 0 until plugins.length()) {
+                val p = plugins.optJSONObject(i) ?: continue
+                val url = p.optString("url").ifEmpty { continue }
+                val nm = p.optString("internalName").ifEmpty { p.optString("name", "plugin$i") }
+                if (nm == internalName) {
+                    val version = if (p.has("version")) p.optInt("version") else 0
+                    ref = PluginRef(url, nm, version, p.optString("iconUrl").ifEmpty { null })
+                    break
+                }
+            }
+            if (ref != null) break
+        }
+        val r = ref
+            ?: return JSONObject().apply { put("pluginCount", 0); put("providers", JSONArray()) }
+
+        progress?.invoke(0, 1)
+        val file = downloadCs3(r.internalName, r.version, r.url)
+        val providers = JSONArray()
+        if (file != null) {
+            host.loadCs3(file, r.internalName, r.iconUrl, repoName).forEach { providers.put(it) }
+            val meta = loadMeta()
+            val existing = meta.optJSONArray(repoUrl) ?: JSONArray()
+            val merged = JSONArray()
+            for (i in 0 until existing.length()) {
+                val e = existing.optJSONObject(i) ?: continue
+                if (e.optString("internalName") != r.internalName) merged.put(e)
+            }
+            for (i in 0 until providers.length()) {
+                merged.put(JSONObject().apply {
+                    put("provider", providers.getString(i))
+                    if (r.iconUrl != null) put("icon", r.iconUrl)
+                    put("internalName", r.internalName)
+                    put("cs3Path", file.absolutePath)
+                })
+            }
+            meta.put(repoUrl, merged); saveMeta(meta)
+            val repos = savedRepos()
+            if (!repos.contains(repoUrl)) { repos.add(repoUrl); persist(repos) }
+            val names = loadNames(); names.put(repoUrl, repoName); saveNames(names)
+        }
+        progress?.invoke(1, 1)
+        Log.i(TAG, "installPlugin($internalName): providers=$providers")
+        return JSONObject().apply {
+            put("pluginCount", if (file != null) 1 else 0)
+            put("providers", providers)
+        }
+    }
+
+    /** Uninstall a single plugin (by internalName): drop its providers, delete the
+     *  cached .cs3, and prune metadata. Removes the repo entirely if it becomes
+     *  empty so it disappears from the installed-sources list. */
+    fun uninstallPlugin(input: String, internalName: String): JSONObject {
+        val repoUrl = input.trim()
+        val meta = loadMeta()
+        val entries = meta.optJSONArray(repoUrl) ?: JSONArray()
+        val remaining = JSONArray()
+        val removed = ArrayList<String>()
+        for (i in 0 until entries.length()) {
+            val e = entries.optJSONObject(i) ?: continue
+            if (e.optString("internalName") == internalName) {
+                e.optString("provider").takeIf { it.isNotEmpty() }?.let { removed.add(it) }
+            } else {
+                remaining.put(e)
+            }
+        }
+        if (removed.isNotEmpty()) host.removeProviders(removed)
+        try {
+            cs3Dir.listFiles()?.forEach { f -> if (f.name.startsWith("$internalName@")) f.delete() }
+        } catch (_: Throwable) {}
+
+        val repoEmpty = remaining.length() == 0
+        if (repoEmpty) {
+            meta.remove(repoUrl); saveMeta(meta)
+            val names = loadNames(); names.remove(repoUrl); saveNames(names)
+            val repos = savedRepos(); repos.remove(repoUrl); persist(repos)
+        } else {
+            meta.put(repoUrl, remaining); saveMeta(meta)
+        }
+        Log.i(TAG, "uninstallPlugin($internalName): removed=$removed repoEmpty=$repoEmpty")
+        return JSONObject().apply {
+            put("ok", true)
+            put("removed", JSONArray(removed))
+            put("repoEmpty", repoEmpty)
+        }
+    }
+
+    /**
      * Re-fetch every saved repo and re-download any plugin whose repo version is
      * newer than the installed one (parsed from the cached `@<version>.cs3` name).
      * Updates metadata + reloads the plugin. Returns the updated provider names.
