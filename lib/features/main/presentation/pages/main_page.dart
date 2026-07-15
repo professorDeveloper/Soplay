@@ -169,6 +169,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       const ProfilePage(),
     ];
 
+    // Hide the floating bottom nav while a keyboard is open (e.g. searching),
+    // otherwise it rides up and floats over the keyboard.
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         systemNavigationBarColor: Colors.transparent,
@@ -216,7 +220,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       Positioned.fill(
                         child: IndexedStack(index: _index, children: tabs),
                       ),
-                      Positioned(
+                      if (!keyboardOpen)
+                        Positioned(
                         left: 0,
                         right: 0,
                         bottom: 0,
