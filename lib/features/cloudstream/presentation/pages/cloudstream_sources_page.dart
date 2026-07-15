@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_plugins_page.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 
@@ -81,42 +82,23 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
     } catch (_) {}
   }
 
-  Future<void> _add() => _install(_controller.text.trim());
+  Future<void> _add() => _browse(_controller.text);
 
-  Future<void> _install(String input) async {
-    if (input.isEmpty || _busy) return;
+  /// Open the repo's plugin list so the user installs only the plugins they
+  /// want, instead of force-installing every provider in the repo.
+  Future<void> _browse(String input) async {
+    final url = input.trim();
+    if (url.isEmpty || _busy) return;
     FocusScope.of(context).unfocus();
-    setState(() {
-      _busy = true;
-      _statusError = false;
-      _status = 'Installing plugins… this can take a moment for large repos.';
-    });
-    try {
-      final res = await CloudStreamChannel.addRepo(input);
-      final count = res['pluginCount'] ?? 0;
-      final providers = (res['providers'] as List?)?.length ?? 0;
-      if (!mounted) return;
-      if (count > 0) {
-        _controller.clear();
-        _reloadProviders();
-      }
-      await _refresh();
-      if (!mounted) return;
-      setState(() {
-        _statusError = count == 0;
-        _status = count == 0
-            ? 'No plugins found at that URL.'
-            : 'Added $count plugin(s) · $providers provider(s).';
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _statusError = true;
-        _status = 'Error: $e';
-      });
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CloudStreamPluginsPage(repoUrl: url),
+      ),
+    );
+    if (!mounted) return;
+    _controller.clear();
+    await _refresh();
+    _reloadProviders();
   }
 
   Future<void> _remove(String url) async {
@@ -253,8 +235,9 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
-              'Add CloudStream repositories to install extra movie, series and '
-              'anime providers. They run on your device (Android only).',
+              'Add a CloudStream repo, then install only the plugins you want — '
+              'only those show up as providers. They run on your device '
+              '(Android only).',
               style: TextStyle(color: AppColors.textHint, fontSize: 12.5, height: 1.35),
             ),
           ),
@@ -303,14 +286,8 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
                 onPressed: _busy ? null : _add,
-                icon: _busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.add),
-                label: Text(_busy ? 'Installing…' : 'Add source'),
+                icon: const Icon(Icons.travel_explore),
+                label: const Text('Browse plugins'),
               ),
             ),
           ],
@@ -395,7 +372,7 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
         borderRadius: BorderRadius.circular(11),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: (_busy || installed) ? null : () => _install(url),
+          onTap: _busy ? null : () => _browse(url),
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(11),
@@ -498,6 +475,7 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
           icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
           onPressed: _busy ? null : () => _remove(url),
         ),
+        onTap: _busy ? null : () => _browse(url),
       ),
     );
   }

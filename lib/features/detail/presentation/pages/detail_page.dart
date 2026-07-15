@@ -24,6 +24,8 @@ import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite
 import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite_event.dart';
 import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite_state.dart';
 import 'package:soplay/features/history/data/history_service.dart';
+import 'package:soplay/features/tracker/data/follow_service.dart';
+import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
@@ -197,6 +199,7 @@ class _DetailViewState extends State<_DetailView>
   late final bool _hasShots;
   double _collapseRange = 1;
   bool _autoPlayTriggered = false;
+  bool _isFollowing = false;
 
   @override
   void initState() {
@@ -205,6 +208,7 @@ class _DetailViewState extends State<_DetailView>
         widget.detail.cast.isNotEmpty ||
         (widget.detail.director?.trim().isNotEmpty ?? false);
     _hasShots = widget.detail.screenshots.isNotEmpty;
+    _isFollowing = getIt<FollowService>().isFollowed(widget.detail.contentUrl);
     _tabs = [
       'Similar',
       if (_hasCast) 'Cast',
@@ -498,6 +502,32 @@ class _DetailViewState extends State<_DetailView>
       ),
     );
     _showSnack('app_lock.removed_from_private'.tr());
+  }
+
+  void _onFindOtherSources() {
+    context.push('/cross-search', extra: widget.detail.title);
+  }
+
+  Future<void> _toggleFollow() async {
+    final svc = getIt<FollowService>();
+    if (_isFollowing) {
+      await svc.unfollow(widget.detail.contentUrl);
+    } else {
+      final d = widget.detail;
+      await svc.follow(FollowedTitle(
+        contentUrl: d.contentUrl,
+        provider: d.provider,
+        title: d.title,
+        thumbnail: d.thumbnail ?? '',
+        year: d.year,
+        addedAt: DateTime.now().millisecondsSinceEpoch,
+      ));
+    }
+    if (!mounted) return;
+    setState(() => _isFollowing = !_isFollowing);
+    _showSnack(_isFollowing
+        ? 'Following — you\'ll be notified of new episodes'
+        : 'Unfollowed');
   }
 
   void _onShare() {
@@ -854,6 +884,10 @@ class _DetailViewState extends State<_DetailView>
                             onAddToList: _toggleMyList,
                             onMoveToPrivate: _onMoveToPrivate,
                             onPrivateActions: _showPrivateActions,
+                            onFindSources: _onFindOtherSources,
+                            showFollow: detail.isSerial,
+                            isFollowing: _isFollowing,
+                            onFollow: _toggleFollow,
                             onShare: _onShare,
                           ),
                         ),
@@ -916,6 +950,10 @@ class _AnimatedTopBar extends StatelessWidget {
     required this.onAddToList,
     required this.onMoveToPrivate,
     required this.onPrivateActions,
+    required this.onFindSources,
+    required this.showFollow,
+    required this.isFollowing,
+    required this.onFollow,
     required this.onShare,
   });
 
@@ -934,6 +972,10 @@ class _AnimatedTopBar extends StatelessWidget {
   final VoidCallback onAddToList;
   final VoidCallback onMoveToPrivate;
   final VoidCallback onPrivateActions;
+  final VoidCallback onFindSources;
+  final bool showFollow;
+  final bool isFollowing;
+  final VoidCallback onFollow;
   final VoidCallback onShare;
 
   @override
@@ -1039,6 +1081,21 @@ class _AnimatedTopBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
+                if (showFollow) ...[
+                  _CircleIconButton(
+                    icon: isFollowing
+                        ? Icons.notifications_active_rounded
+                        : Icons.notifications_none_rounded,
+                    iconColor: isFollowing ? AppColors.rating : Colors.white,
+                    onTap: onFollow,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                _CircleIconButton(
+                  icon: Icons.travel_explore_rounded,
+                  onTap: onFindSources,
+                ),
+                const SizedBox(width: 8),
                 _CircleIconButton(
                   icon: Icons.ios_share_rounded,
                   onTap: onShare,

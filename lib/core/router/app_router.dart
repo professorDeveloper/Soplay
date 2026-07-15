@@ -23,6 +23,8 @@ import 'package:soplay/features/manga/domain/entities/reader_args.dart';
 import 'package:soplay/features/manga/presentation/pages/reader_page.dart';
 import 'package:soplay/features/main/presentation/pages/main_page.dart';
 import 'package:soplay/features/network/presentation/pages/no_internet_page.dart';
+import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
+import 'package:soplay/features/tracker/presentation/pages/following_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:soplay/features/private_list/presentation/pages/private_list_page.dart';
 import 'package:soplay/features/splash/presentation/pages/splash_page.dart';
@@ -126,6 +128,15 @@ class AppRouter {
       GoRoute(
         path: '/no-internet',
         builder: (context, state) => const NoInternetPage(),
+      ),
+      GoRoute(
+        path: '/cross-search',
+        builder: (context, state) =>
+            CrossSearchPage(initialQuery: state.extra as String?),
+      ),
+      GoRoute(
+        path: '/following',
+        builder: (context, state) => const FollowingPage(),
       ),
       GoRoute(
         path: '/notifications',

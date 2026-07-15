@@ -257,6 +257,29 @@ class MainActivity : FlutterFragmentActivity() {
                         }.toString()
                     }
                 }
+                "listRepoPlugins" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    csAsync(result) { repoManager.listRepoPluginsJson(url) }
+                }
+                "installPlugin" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    val internalName = call.argument<String>("internalName").orEmpty()
+                    csAsync(result) {
+                        repoManager.installPlugin(url, internalName) { current, total ->
+                            runOnUiThread {
+                                cloudstreamChannel?.invokeMethod(
+                                    "installProgress",
+                                    mapOf("current" to current, "total" to total),
+                                )
+                            }
+                        }.toString()
+                    }
+                }
+                "uninstallPlugin" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    val internalName = call.argument<String>("internalName").orEmpty()
+                    csAsync(result) { repoManager.uninstallPlugin(url, internalName).toString() }
+                }
                 "checkUpdates" -> {
                     csAsync(result) {
                         repoManager.checkUpdates { current, total ->

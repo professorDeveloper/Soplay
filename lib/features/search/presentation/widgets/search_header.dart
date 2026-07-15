@@ -13,6 +13,7 @@ class SearchStickyHeader extends StatelessWidget {
     required this.focus,
     required this.hasActiveFilter,
     required this.onFilterTap,
+    required this.onMultiSearchTap,
     required this.onQueryChanged,
     required this.onClear,
   });
@@ -23,6 +24,7 @@ class SearchStickyHeader extends StatelessWidget {
   final FocusNode focus;
   final bool hasActiveFilter;
   final VoidCallback onFilterTap;
+  final VoidCallback onMultiSearchTap;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClear;
 
@@ -79,6 +81,12 @@ class SearchStickyHeader extends StatelessWidget {
                   onChanged: onQueryChanged,
                   onClear: onClear,
                 ),
+              ),
+              const SizedBox(width: 10),
+              _HeaderIconButton(
+                icon: Icons.travel_explore_rounded,
+                onTap: onMultiSearchTap,
+                tooltip: 'Search all sources',
               ),
               const SizedBox(width: 10),
               _FilterButton(active: hasActiveFilter, onTap: onFilterTap),
@@ -209,6 +217,44 @@ class _SearchFieldState extends State<_SearchField> {
         ),
       ),
     );
+  }
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            height: 46,
+            width: 46,
+            decoration: BoxDecoration(
+              color: AppColors.surface.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            child: Icon(icon, size: 20, color: AppColors.textSecondary),
+          ),
+        ),
+      ),
+    );
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
   }
 }
 
