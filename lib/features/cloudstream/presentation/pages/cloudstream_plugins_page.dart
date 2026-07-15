@@ -27,6 +27,9 @@ class CloudStreamPluginsPage extends StatefulWidget {
 class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
   bool _loading = true;
   bool _installingAll = false;
+  int _installAllDone = 0;
+  int _installAllTotal = 0;
+  String? _currentInstalling;
   String? _error;
   String _repoName = '';
   List<Map<String, dynamic>> _plugins = const [];
@@ -105,18 +108,47 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
     }
   }
 
+  /// Install every not-yet-installed plugin ONE BY ONE, flipping each row to
+  /// "installed" as it completes and naming the current one — so the user sees
+  /// exactly what's happening instead of a frozen-looking spinner.
   Future<void> _installAll() async {
     if (_installingAll) return;
-    setState(() => _installingAll = true);
-    try {
-      await CloudStreamChannel.addRepo(widget.repoUrl);
+    final pending =
+        _plugins.where((p) => p['installed'] != true).toList();
+    if (pending.isEmpty) return;
+    setState(() {
+      _installingAll = true;
+      _installAllTotal = pending.length;
+      _installAllDone = 0;
+      _currentInstalling = null;
+    });
+    for (final p in pending) {
       if (!mounted) return;
-      _reloadProviders();
-      await _load();
-    } catch (_) {
-      // ignore — _load already surfaces load errors
-    } finally {
-      if (mounted) setState(() => _installingAll = false);
+      final name = (p['internalName'] as String?) ?? '';
+      if (name.isEmpty) {
+        setState(() => _installAllDone++);
+        continue;
+      }
+      setState(() => _currentInstalling = (p['name'] as String?) ?? name);
+      try {
+        final res =
+            await CloudStreamChannel.installPlugin(widget.repoUrl, name);
+        if (!mounted) return;
+        if (((res['pluginCount'] as num?)?.toInt() ?? 0) > 0) {
+          setState(() => p['installed'] = true);
+          _reloadProviders();
+        }
+      } catch (_) {
+        // skip this plugin, keep going
+      }
+      if (!mounted) return;
+      setState(() => _installAllDone++);
+    }
+    if (mounted) {
+      setState(() {
+        _installingAll = false;
+        _currentInstalling = null;
+      });
     }
   }
 
@@ -235,6 +267,7 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
             ),
           ),
         ),
+        if (_installingAll) _installBanner(),
         Expanded(
           child: items.isEmpty
               ? const Center(
@@ -248,6 +281,54 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _installBanner() {
+    final total = _installAllTotal;
+    final done = _installAllDone;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Installing $done / $total'
+                  '${_currentInstalling != null ? ' · $_currentInstalling' : ''}',
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: AppColors.primary, fontSize: 12.5),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: total > 0 ? done / total : null,
+              minHeight: 4,
+              backgroundColor: Colors.white12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

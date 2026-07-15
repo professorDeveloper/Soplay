@@ -110,6 +110,7 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _searchField(),
           _sourcesBar(),
@@ -162,29 +163,39 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
   }
 
   Widget _sourcesBar() {
+    final label = _selectedIds.isEmpty
+        ? 'No sources selected — tap to choose'
+        : '${_selectedIds.length} source(s) selected — tap to change';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              _selectedIds.isEmpty
-                  ? 'No sources selected'
-                  : '${_selectedIds.length} source(s) selected',
-              style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: _openSetSheet,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                const Icon(Icons.tune, size: 16, color: AppColors.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 13),
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    size: 18, color: AppColors.textHint),
+              ],
             ),
           ),
-          OutlinedButton.icon(
-            onPressed: _openSetSheet,
-            icon: const Icon(Icons.tune, size: 16),
-            label: const Text('Sources'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textPrimary,
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -248,6 +259,8 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
               '${_controller.expectedLegs} sources · '
               '${_controller.totalItems} results'
               '${pending > 0 ? ' · searching…' : ''}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                   color: AppColors.textSecondary, fontSize: 12.5),
             ),
