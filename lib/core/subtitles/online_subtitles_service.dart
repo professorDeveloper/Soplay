@@ -105,6 +105,23 @@ class OnlineSubtitlesService {
       ));
     }
     out.sort((a, b) => b.downloadCount.compareTo(a.downloadCount));
+    return _dedupe(out);
+  }
+
+  /// Wyzie mirrors the same file across sources, so the list showed byte
+  /// identical rows. Key on the download URL first, then on the human identity
+  /// (file name + language + format) for mirrors that differ only by host.
+  static List<OnlineSubtitle> _dedupe(List<OnlineSubtitle> input) {
+    final seen = <String>{};
+    final out = <OnlineSubtitle>[];
+    for (final s in input) {
+      final identity = s.fileName.isEmpty && s.display.isEmpty
+          ? s.url
+          : '${s.fileName}|${s.display}|${s.language}|${s.format}'
+              '|${s.hearingImpaired}|${s.downloadCount}';
+      if (!seen.add(s.url) || !seen.add(identity)) continue;
+      out.add(s);
+    }
     return out;
   }
 }

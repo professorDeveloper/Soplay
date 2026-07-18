@@ -23,6 +23,7 @@ import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:soplay/core/subtitles/online_subtitles_service.dart';
+import 'package:soplay/core/subtitles/subtitle_parser.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
@@ -105,8 +106,16 @@ class _PlayerPageState extends State<PlayerPage>
 
   List<SubtitleEntity> _subtitles = const [];
   int _activeSubtitleIndex = -1;
-  ClosedCaptionFile? _captionFile;
+
+  /// Cues for the active track, already sorted by start time — see
+  /// [_PlayerSubtitles._loadSubtitle]. Null means "no track loaded".
+  List<Caption>? _captionFile;
   final ValueNotifier<int> _subtitleOffsetMs = ValueNotifier<int>(0);
+
+  /// Frame-rate conversion factor for the active subtitle. A 25fps subtitle
+  /// played over 23.976fps content drifts ~4.3%, which a constant offset cannot
+  /// correct; the lookup divides by this. 1.0 means no conversion.
+  final ValueNotifier<double> _subtitleRate = ValueNotifier<double>(1.0);
   SubtitleStyle _subtitleStyle = SubtitleStyle.defaults();
 
   String? _thumbnailsKey;
@@ -186,6 +195,7 @@ class _PlayerPageState extends State<PlayerPage>
       widget.args.episodes.isEmpty ? 0 : widget.args.episodes.length - 1,
     );
     _currentLang = widget.args.initialLang ?? _hive.getPreferredMediaLang();
+    _restoreSubtitleSync();
     _controlsAnimation = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 220),
@@ -260,6 +270,7 @@ class _PlayerPageState extends State<PlayerPage>
     _swipeIndicator.dispose();
     _sliderDragValue.dispose();
     _subtitleOffsetMs.dispose();
+    _subtitleRate.dispose();
     final c = _controller;
     if (c != null) {
       c.removeListener(_onMajorChange);

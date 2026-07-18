@@ -346,4 +346,35 @@ class HiveService {
       style.toJsonString(),
     );
   }
+
+  /// Subtitle sync is tuned per title+episode: a shift that fixes episode 1 is
+  /// usually wrong for episode 2, and it used to live in a bare ValueNotifier
+  /// that reset to zero every time the player opened.
+  int getSubtitleOffsetMs(String key) {
+    final raw = _settingsBox.get('sub_offset::$key');
+    return raw is int ? raw : 0;
+  }
+
+  Future<void> saveSubtitleOffsetMs(String key, int ms) async {
+    if (ms == 0) {
+      await _settingsBox.delete('sub_offset::$key');
+      return;
+    }
+    await _settingsBox.put('sub_offset::$key', ms);
+  }
+
+  /// Frame-rate conversion factor for the active subtitle (1.0 = off).
+  double getSubtitleRate(String key) {
+    final raw = _settingsBox.get('sub_rate::$key');
+    if (raw is num && raw > 0) return raw.toDouble();
+    return 1.0;
+  }
+
+  Future<void> saveSubtitleRate(String key, double rate) async {
+    if ((rate - 1.0).abs() < 0.00001) {
+      await _settingsBox.delete('sub_rate::$key');
+      return;
+    }
+    await _settingsBox.put('sub_rate::$key', rate);
+  }
 }
