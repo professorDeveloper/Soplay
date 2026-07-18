@@ -11,6 +11,7 @@ import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
 import 'package:soplay/features/trivia/presentation/bloc/cast/cast_bloc.dart';
 import 'package:soplay/features/trivia/presentation/bloc/cast/cast_event.dart';
 import 'package:soplay/features/trivia/presentation/bloc/cast/cast_state.dart';
+import 'package:soplay/features/trivia/presentation/widgets/buff_empty_panel.dart';
 import 'package:soplay/features/trivia/presentation/widgets/popular_cast_grid.dart';
 
 /// Fan-Test entry surface: a pinned glass search bar over a "Popular now" grid
@@ -139,6 +140,17 @@ class _Body extends StatelessWidget {
         );
 
       case CastStatus.popular:
+        // Zero approved clips means zero playable actors. Saying so beats a
+        // blank page under the glass header, and there is nothing to retry.
+        if (state.popular.isEmpty) {
+          return _CenteredNotice(
+            topPadding: topPadding,
+            icon: CupertinoIcons.film,
+            title: 'trivia.no_actors_yet'.tr(),
+            subtitle: 'trivia.no_actors_yet_body'.tr(),
+            onRetry: () => context.read<CastBloc>().add(const CastStarted()),
+          );
+        }
         return PopularCastGrid(
           people: state.popular,
           onTapPerson: onTapPerson,
@@ -316,6 +328,10 @@ class _ContextCaption extends StatelessWidget {
   }
 }
 
+/// Positions the shared [BuffEmptyPanel] under the pinned glass header. The
+/// panel itself (radius 24 / blur 20 / icon circle 64) now lives in
+/// `buff_empty_panel.dart` so the hub and the game screen speak with the same
+/// voice.
 class _CenteredNotice extends StatelessWidget {
   const _CenteredNotice({
     required this.topPadding,
@@ -338,109 +354,14 @@ class _CenteredNotice extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(24, topPadding + 24, 24, bottomSafe + 64),
       child: Center(
         child: SingleChildScrollView(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 28,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.09),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _IconCircle(icon: icon),
-                    const SizedBox(height: 18),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
-                      ),
-                    ),
-                    if (subtitle != null && subtitle!.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        subtitle!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                    if (onRetry != null) ...[
-                      const SizedBox(height: 22),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 46,
-                        child: ElevatedButton(
-                          onPressed: onRetry,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Text(
-                            'general.retry'.tr(),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+          child: BuffEmptyPanel(
+            icon: icon,
+            title: title,
+            body: subtitle,
+            onAction: onRetry,
           ),
         ),
       ),
-    );
-  }
-}
-
-/// The 64px accent disc from the shipped empty-state panel — the one place the
-/// brand colour is allowed as a soft radial, on glass.
-class _IconCircle extends StatelessWidget {
-  const _IconCircle({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [
-            AppColors.primary.withValues(alpha: 0.22),
-            AppColors.primary.withValues(alpha: 0.06),
-          ],
-        ),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.22)),
-      ),
-      child: Icon(icon, color: AppColors.primaryLight, size: 30),
     );
   }
 }

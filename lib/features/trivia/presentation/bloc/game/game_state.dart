@@ -11,12 +11,24 @@ import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart
 /// - [error]    the round failed to build or finalize
 enum GamePhase { loading, playing, revealed, finished, error }
 
+/// Why a round failed, so the UI can pick localized copy instead of echoing the
+/// server's own sentence.
+/// - [generic]        anything else; [GameState.message] may carry detail
+/// - [notEnoughClips] the actor has too few approved clips (server 409, or a
+///   round that came back with an empty clip list)
+enum GameErrorReason { generic, notEnoughClips }
+
 const Object _unset = Object();
 
 /// Per-clip answer window used only until a round payload supplies its own
 /// `answerWindowMs`. The real window is server-owned (the score bonus divisor
 /// lives there), so it must never be hardcoded to a new value client-side.
-const int kFallbackAnswerWindowMs = 15000;
+///
+/// Mirrors the server's ANSWER_WINDOW_MS default. It was 15000 while the server
+/// shipped 10000, so any round that omitted the field gave the player a 15s
+/// countdown the server scored as a 10s one — the last 5s silently scoring zero.
+/// A fallback that disagrees with the server is worse than no fallback.
+const int kFallbackAnswerWindowMs = 10000;
 
 class GameState extends Equatable {
   const GameState({
@@ -34,6 +46,7 @@ class GameState extends Equatable {
     this.actor,
     this.challengeCode,
     this.message,
+    this.reason = GameErrorReason.generic,
   });
 
   final GamePhase phase;
@@ -69,6 +82,9 @@ class GameState extends Equatable {
   final String? challengeCode;
   final String? message;
 
+  /// Only meaningful while [phase] is [GamePhase.error].
+  final GameErrorReason reason;
+
   /// The clip currently in play, or null if the index is out of range.
   TriviaClipEntity? get currentClip =>
       (index >= 0 && index < clips.length) ? clips[index] : null;
@@ -92,6 +108,7 @@ class GameState extends Equatable {
     Object? actor = _unset,
     Object? challengeCode = _unset,
     Object? message = _unset,
+    GameErrorReason? reason,
   }) {
     return GameState(
       phase: phase ?? this.phase,
@@ -112,6 +129,7 @@ class GameState extends Equatable {
           ? this.challengeCode
           : challengeCode as String?,
       message: message == _unset ? this.message : message as String?,
+      reason: reason ?? this.reason,
     );
   }
 
@@ -131,5 +149,6 @@ class GameState extends Equatable {
         actor,
         challengeCode,
         message,
+        reason,
       ];
 }

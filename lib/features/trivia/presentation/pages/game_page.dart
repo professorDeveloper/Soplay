@@ -16,6 +16,7 @@ import 'package:soplay/features/trivia/presentation/bloc/game/game_bloc.dart';
 import 'package:soplay/features/trivia/presentation/bloc/game/game_event.dart';
 import 'package:soplay/features/trivia/presentation/bloc/game/game_state.dart';
 import 'package:soplay/features/trivia/presentation/trivia_args.dart';
+import 'package:soplay/features/trivia/presentation/widgets/buff_empty_panel.dart';
 import 'package:soplay/features/trivia/presentation/widgets/countdown_ring.dart';
 import 'package:soplay/features/trivia/presentation/widgets/option_chip.dart';
 import 'package:soplay/features/trivia/presentation/widgets/progress_dots.dart';
@@ -132,7 +133,13 @@ class _GameViewState extends State<_GameView> {
         !_navigated) {
       _navigated = true;
       _advanceTimer?.cancel();
-      context.pushReplacement('/trivia/result', extra: state.result);
+      // The actor rides along so the result screen can enrich the share card
+      // and point "play again" back at the same actor — without it every
+      // rematch started an actor-less round.
+      context.pushReplacement(
+        '/trivia/result',
+        extra: ResultArgs(result: state.result!, actor: state.actor),
+      );
     }
   }
 
@@ -221,6 +228,7 @@ class _GameViewState extends State<_GameView> {
         return const _LoadingView();
       case GamePhase.error:
         return _ErrorView(
+          reason: state.reason,
           message: state.message,
           onBack: () => context.pop(),
         );
@@ -666,54 +674,41 @@ class _LoadingView extends StatelessWidget {
   }
 }
 
+/// The round could not be built or finalized. A 409 (and a round that came back
+/// with no clips) is a content state, not a fault, so it gets its own localized
+/// copy instead of echoing the server's English sentence into an Uzbek UI.
+/// The button pops back to whoever pushed the game — normally the actor page.
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onBack});
+  const _ErrorView({
+    required this.reason,
+    required this.message,
+    required this.onBack,
+  });
 
+  final GameErrorReason reason;
   final String? message;
   final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
+    final notReady = reason == GameErrorReason.notEnoughClips;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(CupertinoIcons.exclamationmark_triangle,
-                color: AppColors.textHint, size: 44),
-            const SizedBox(height: 14),
-            Text(
-              message?.isNotEmpty == true
-                  ? message!
-                  : 'trivia.round_failed'.tr(),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: ElevatedButton(
-                onPressed: onBack,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(
-                  'trivia.go_back'.tr(),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-          ],
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: BuffEmptyPanel(
+            icon: notReady
+                ? CupertinoIcons.film
+                : CupertinoIcons.exclamationmark_triangle,
+            title: notReady
+                ? 'trivia.actor_not_ready'.tr()
+                : 'trivia.round_failed'.tr(),
+            body: notReady
+                ? 'trivia.actor_not_ready_body'.tr()
+                : (message?.isNotEmpty == true ? message : null),
+            actionLabel: 'trivia.go_back'.tr(),
+            onAction: onBack,
+          ),
         ),
       ),
     );

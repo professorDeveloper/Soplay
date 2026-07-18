@@ -95,7 +95,11 @@ class ShareCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _MiniStat(
-                  value: '${result.correctCount}/10',
+                  // Rounds are not always 10 clips long — the denominator is
+                  // the round's own length, or hidden when the server omits it.
+                  value: result.hasTotal
+                      ? '${result.correctCount}/${result.totalClips}'
+                      : '${result.correctCount}',
                   label: 'trivia.correct'.tr(),
                 ),
                 Container(

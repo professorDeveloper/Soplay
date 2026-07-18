@@ -162,7 +162,9 @@ class _ChallengeCard extends StatelessWidget {
                 _ScoreToBeat(score: _scoreToBeat),
                 const SizedBox(height: 14),
                 Text(
-                  'trivia.same_ten_clips'.tr(),
+                  // Not always 10 clips: a round is as long as the actor's
+                  // approved clips allow.
+                  'trivia.same_clips_head_to_head'.tr(),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.textSecondary,
