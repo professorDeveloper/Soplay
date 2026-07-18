@@ -182,7 +182,7 @@ class _ActorHeroPageState extends State<ActorHeroPage> {
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                       child: _TopFansSection(onTap: _openTopFans),
                     ),
                   ),
@@ -193,8 +193,14 @@ class _ActorHeroPageState extends State<ActorHeroPage> {
                     ),
                   ),
                   if (_error != null && _profile == null)
-                    SliverToBoxAdapter(child: _InlineError(message: _error!)),
-                  const SliverToBoxAdapter(child: SizedBox(height: 140)),
+                    SliverToBoxAdapter(
+                      child: _InlineError(message: _error!, onRetry: _load),
+                    ),
+                  // Exactly the sticky bar's own height (+ a 12 breathing gap),
+                  // derived from its geometry constants — never a magic number.
+                  SliverToBoxAdapter(
+                    child: SizedBox(height: _actionBarHeight(context) + 12),
+                  ),
                 ],
               ),
             ),
@@ -215,9 +221,20 @@ class _ActorHeroPageState extends State<ActorHeroPage> {
 // Backdrop
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Mirrors the shipped detail hero (`DetailHeroBackground`): sharp artwork, a
+/// top black gradient so the back button stays legible, and a tall bottom scrim
+/// that dissolves into the page colour. No blur wash — the app never blurs a
+/// hero backdrop, and doing so is what made this screen read as a different
+/// product.
 class _Backdrop extends StatelessWidget {
   const _Backdrop({required this.url});
   final String url;
+
+  static const double _height = 460;
+
+  /// Tall enough to cover the name / subtitle / chip block (which starts around
+  /// y = 250) while leaving the artwork readable behind the profile circle.
+  static const double _scrimHeight = 300;
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +242,7 @@ class _Backdrop extends StatelessWidget {
       top: 0,
       left: 0,
       right: 0,
-      height: 460,
+      height: _height,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -233,26 +250,42 @@ class _Backdrop extends StatelessWidget {
             CachedNetworkImage(
               imageUrl: url,
               fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+              placeholder: (_, _) =>
+                  const ColoredBox(color: AppColors.surfaceVariant),
               errorWidget: (_, _, _) =>
                   const ColoredBox(color: AppColors.surfaceVariant),
             )
           else
             const ColoredBox(color: AppColors.surfaceVariant),
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-            child: const ColoredBox(color: Color(0x33000000)),
-          ),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x66000000),
-                  Color(0x00181818),
-                  AppColors.background,
-                ],
-                stops: [0.0, 0.45, 1.0],
+                end: Alignment(0, 0.4),
+                colors: [Color(0xCC000000), Color(0x00000000)],
+              ),
+            ),
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SizedBox(
+              height: _scrimHeight,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      AppColors.background,
+                      Color(0xEE181818),
+                      Color(0x00181818),
+                    ],
+                    stops: [0.0, 0.5, 1.0],
+                  ),
+                ),
               ),
             ),
           ),
@@ -292,7 +325,10 @@ class _HeroHead extends StatelessWidget {
     final subtitle = birthplace.isNotEmpty ? birthplace : knownFor;
 
     return Padding(
-      padding: EdgeInsets.only(top: topSafe + 78, left: 24, right: 24),
+      // The back button sits at topSafe + 8 and is 38 high, so topSafe + 62
+      // leaves an 16px gap under it without stranding the profile circle in the
+      // middle of an empty backdrop.
+      padding: EdgeInsets.only(top: topSafe + 62, left: 24, right: 24),
       child: Column(
         children: [
           SizedBox(
@@ -342,7 +378,7 @@ class _HeroHead extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           _TitlesChip(count: titleCount, loading: loading),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
         ],
       ),
     );
@@ -361,7 +397,7 @@ class _TitlesChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.border, width: 0.6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -430,6 +466,22 @@ String? _currentUserId() {
 // Filmography rail
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Filmography rail geometry. The rail height is fixed and the poster is
+// `Expanded`, exactly like the home rails: when the system font scale grows, the
+// text block takes what it needs and the poster gives up the difference, so the
+// rail cannot overflow at any textScale. (The old code pinned the poster with
+// AspectRatio(2/3) inside a 196 box — 174 + 7 + 14.65 + 12.89 = 208.5 at scale
+// 1.0 and 211.3 at the owner's scale 1.1, which is the reported 15px overflow.)
+const double _kFilmCardWidth = 116;
+const double _kFilmRailHeight = 208;
+const double _kFilmPosterGap = 7;
+
+/// Poster height at textScale 1.0:
+/// 208 - (7 + 12.5*1.25 + 11*1.3) = 208 - 36.925 = 171.075 -> ratio 116/171.1 =
+/// 0.678, inside the app's emergent 0.68-0.70 poster band. The skeleton uses the
+/// same number so loading and loaded states do not jump.
+const double _kFilmPosterHeight = 171;
+
 class _FilmographySection extends StatelessWidget {
   const _FilmographySection({required this.loading, required this.items});
 
@@ -443,28 +495,32 @@ class _FilmographySection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+          padding: const EdgeInsets.fromLTRB(13, 18, 16, 14),
           child: Text(
             'trivia.filmography'.tr(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.textPrimary,
-              fontSize: 16,
+              fontSize: 17,
               fontWeight: FontWeight.w800,
+              height: 1.1,
             ),
           ),
         ),
         SizedBox(
-          height: 196,
+          height: _kFilmRailHeight,
           child: loading
               ? _railSkeleton()
               : ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
                   itemBuilder: (_, i) => _PosterCard(item: items[i]),
                 ),
         ),
+        const SizedBox(height: 4),
       ],
     );
   }
@@ -474,9 +530,24 @@ class _FilmographySection extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: 5,
-      separatorBuilder: (_, _) => const SizedBox(width: 12),
+      separatorBuilder: (_, _) => const SizedBox(width: 8),
+      // Mirrors the real card's structure (poster / title / year) rather than
+      // being one tall block: 171 + 7 + 12 + 4 + 10 = 204 <= 208.
       itemBuilder: (_, _) => const ShimmerWrapper(
-        child: HomeSkeletonBox(width: 116, height: 196, radius: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            HomeSkeletonBox(
+              width: _kFilmCardWidth,
+              height: _kFilmPosterHeight,
+              radius: 10,
+            ),
+            SizedBox(height: _kFilmPosterGap),
+            HomeSkeletonBox(width: 92, height: 12, radius: 4),
+            SizedBox(height: 4),
+            HomeSkeletonBox(width: 44, height: 10, radius: 4),
+          ],
+        ),
       ),
     );
   }
@@ -489,36 +560,30 @@ class _PosterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 116,
+      width: _kFilmCardWidth,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: AspectRatio(
-              aspectRatio: 2 / 3,
-              child: ColoredBox(
-                color: AppColors.surfaceVariant,
-                child: item.poster.isEmpty
-                    ? const Center(
-                        child: Icon(CupertinoIcons.film,
-                            color: AppColors.textHint, size: 26),
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: item.poster,
-                        fit: BoxFit.cover,
-                        placeholder: (_, _) => const ShimmerWrapper(
-                          child: ColoredBox(color: Colors.white),
-                        ),
-                        errorWidget: (_, _, _) => const Center(
-                          child: Icon(CupertinoIcons.film,
-                              color: AppColors.textHint, size: 26),
-                        ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: item.poster.isEmpty
+                  ? const HomeImagePlaceholder(icon: Icons.movie_outlined)
+                  : CachedNetworkImage(
+                      imageUrl: item.poster,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      placeholder: (_, _) => const HomeImagePlaceholder(
+                        icon: Icons.movie_outlined,
                       ),
-              ),
+                      errorWidget: (_, _, _) => const HomeImagePlaceholder(
+                        icon: Icons.movie_outlined,
+                      ),
+                    ),
             ),
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: _kFilmPosterGap),
           Text(
             item.title,
             maxLines: 1,
@@ -526,17 +591,22 @@ class _PosterCard extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 12.5,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+              height: 1.25,
             ),
           ),
-          if (item.year.isNotEmpty)
-            Text(
-              item.year,
-              style: const TextStyle(
-                color: AppColors.textHint,
-                fontSize: 11,
-              ),
+          // Always rendered, even when the year is missing, so every poster in
+          // the rail resolves to the same height.
+          Text(
+            item.year.isEmpty ? ' ' : item.year,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textHint,
+              fontSize: 11,
+              height: 1.3,
             ),
+          ),
         ],
       ),
     );
@@ -575,6 +645,18 @@ class _FloatingBack extends StatelessWidget {
   }
 }
 
+// Sticky action-bar geometry. The scroll view's bottom spacer is derived from
+// these constants so the last row of content clears the bar by exactly one gap
+// — replacing the old hardcoded 140, which left a visible void.
+const double _kActionButtonHeight = 46;
+const double _kActionBarVPadding = 14;
+
+/// 14 + 46 + 14 + safe-area = 74 + safe-area.
+double _actionBarHeight(BuildContext context) =>
+    _kActionBarVPadding * 2 +
+    _kActionButtonHeight +
+    MediaQuery.paddingOf(context).bottom;
+
 class _StickyBar extends StatelessWidget {
   const _StickyBar({
     required this.onStart,
@@ -594,7 +676,12 @@ class _StickyBar extends StatelessWidget {
       right: 0,
       bottom: 0,
       child: Container(
-        padding: EdgeInsets.fromLTRB(16, 14, 16, 14 + bottomSafe),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          _kActionBarVPadding,
+          16,
+          _kActionBarVPadding + bottomSafe,
+        ),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -636,23 +723,27 @@ class _PrimaryButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 54,
+        height: _kActionButtonHeight,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: AppColors.primary,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(CupertinoIcons.play_fill, color: Colors.white, size: 18),
             const SizedBox(width: 8),
-            Text(
-              'trivia.start_fan_test'.tr(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15.5,
-                fontWeight: FontWeight.w800,
+            Flexible(
+              child: Text(
+                'trivia.start_fan_test'.tr(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ],
@@ -672,12 +763,12 @@ class _SecondaryButton extends StatelessWidget {
     return GestureDetector(
       onTap: busy ? null : onTap,
       child: Container(
-        height: 54,
+        height: _kActionButtonHeight,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AppColors.border),
+          color: AppColors.primary.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
         ),
         child: busy
             ? const SizedBox(
@@ -685,14 +776,14 @@ class _SecondaryButton extends StatelessWidget {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.textSecondary,
+                  color: AppColors.primary,
                 ),
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(CupertinoIcons.person_2_fill,
-                      color: AppColors.textPrimary, size: 16),
+                      color: AppColors.primary, size: 16),
                   const SizedBox(width: 7),
                   Flexible(
                     child: Text(
@@ -700,9 +791,9 @@ class _SecondaryButton extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -714,17 +805,58 @@ class _SecondaryButton extends StatelessWidget {
 }
 
 class _InlineError extends StatelessWidget {
-  const _InlineError({required this.message});
+  const _InlineError({required this.message, required this.onRetry});
   final String message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border, width: 0.6),
+        ),
+        child: Column(
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 14),
+            GestureDetector(
+              onTap: onRetry,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Text(
+                  'general.retry'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

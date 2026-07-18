@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
 import 'package:soplay/features/trivia/domain/entities/leaderboard_entry_entity.dart';
 import 'package:soplay/features/trivia/presentation/bloc/cast/cast_bloc.dart';
@@ -15,9 +17,10 @@ import 'package:soplay/features/trivia/presentation/bloc/hub/trivia_hub_event.da
 import 'package:soplay/features/trivia/presentation/bloc/hub/trivia_hub_state.dart';
 import 'package:soplay/features/trivia/presentation/widgets/cast_card.dart';
 
-/// The Buff bottom-nav tab: a fan checker. Leads with actor selection (the
-/// Fan Test entry + a "Popular now" cast rail from [CastBloc]) and closes with
-/// the current user's daily-rank teaser (loaded by [TriviaHubBloc]).
+/// The Buff bottom-nav tab: a fan checker. Leads with the Fan Test entry (which
+/// borrows real faces from [CastBloc] so the card carries artwork), continues
+/// with the "Popular now" people rail, and closes with a single card that pairs
+/// the user's daily rank with the leaderboard entry point.
 class BuffHubPage extends StatelessWidget {
   const BuffHubPage({super.key});
 
@@ -42,6 +45,7 @@ class _HubView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Floating nav capsule clearance — same budget as home / My List.
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -54,20 +58,20 @@ class _HubView extends StatelessWidget {
         },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.only(bottom: bottomInset + 110),
+          padding: EdgeInsets.only(bottom: bottomInset + 90),
           children: [
-            const _Hero(),
+            const _Masthead(),
             const SizedBox(height: 18),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _FanTestCard(onTap: () => _openCastPicker(context)),
+              child: _FanTestHero(onTap: () => _openCastPicker(context)),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 6),
             const _PopularCastRail(),
-            const SizedBox(height: 26),
+            const SizedBox(height: 22),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
-              child: _RankSection(),
+              child: _RankCard(),
             ),
           ],
         ),
@@ -80,8 +84,9 @@ class _HubView extends StatelessWidget {
 /// their films.
 void _openCastPicker(BuildContext context) => context.push('/trivia/cast');
 
-class _Hero extends StatelessWidget {
-  const _Hero();
+/// Page-title slot (one per screen): wordmark + tagline.
+class _Masthead extends StatelessWidget {
+  const _Masthead();
 
   @override
   Widget build(BuildContext context) {
@@ -96,16 +101,20 @@ class _Hero extends StatelessWidget {
               const Icon(
                 CupertinoIcons.film_fill,
                 color: AppColors.primary,
-                size: 22,
+                size: 24,
               ),
               const SizedBox(width: 10),
-              Text(
-                'navigation.buff'.tr(),
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
+              Flexible(
+                child: Text(
+                  'navigation.buff'.tr(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
                 ),
               ),
             ],
@@ -126,42 +135,28 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// The single entry point into a round — Buff is fan-test only.
-class _FanTestCard extends StatelessWidget {
-  const _FanTestCard({required this.onTap});
+/// The single entry point into a round — Buff is fan-test only. The face stack
+/// on the right is pulled from the already-loaded popular cast so the card is
+/// carried by real artwork rather than a bare border.
+class _FanTestHero extends StatelessWidget {
+  const _FanTestHero({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border, width: 0.6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  CupertinoIcons.heart_fill,
-                  color: AppColors.primaryLight,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,33 +164,145 @@ class _FanTestCard extends StatelessWidget {
                   children: [
                     Text(
                       'trivia.fan_test_title'.tr(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Text(
                       'trivia.fan_test_subtitle'.tr(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.textSecondary,
-                        fontSize: 13,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w500,
+                        height: 1.3,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
-                CupertinoIcons.chevron_right,
-                color: AppColors.textSecondary,
-                size: 18,
-              ),
+              const SizedBox(width: 12),
+              const _FaceStack(),
             ],
           ),
-        ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton(
+              onPressed: onTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                minimumSize: Size.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(CupertinoIcons.play_arrow_solid, size: 20),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'trivia.start_fan_test'.tr(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+/// Four overlapping faces from the popular cast. Falls back to a neutral icon
+/// tile when the list is empty so the hero row keeps its shape.
+class _FaceStack extends StatelessWidget {
+  const _FaceStack();
+
+  static const double _face = 36; // photo diameter
+  static const double _ring = 2; // separator ring around each face
+  static const double _step = 26; // horizontal advance per face
+  static const int _max = 4;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<CastBloc, CastState>(
+      buildWhen: (a, b) => a.status != b.status || a.popular != b.popular,
+      builder: (context, state) {
+        final loading = state.status == CastStatus.initial ||
+            state.status == CastStatus.loadingPopular;
+        final people = state.popular.take(_max).toList();
+
+        if (people.isEmpty && !loading) {
+          return Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              CupertinoIcons.heart_fill,
+              color: AppColors.primaryLight,
+              size: 24,
+            ),
+          );
+        }
+
+        final count = people.isEmpty ? _max : people.length;
+        const outer = _face + _ring * 2;
+        final width = outer + _step * (count - 1);
+
+        return SizedBox(
+          width: width,
+          height: outer,
+          child: Stack(
+            children: [
+              for (var i = count - 1; i >= 0; i--)
+                Positioned(
+                  left: i * _step,
+                  child: Container(
+                    padding: const EdgeInsets.all(_ring),
+                    decoration: const BoxDecoration(
+                      color: AppColors.surface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: people.isEmpty
+                        ? const ShimmerWrapper(
+                            child: _ShimmerCircle(size: _face),
+                          )
+                        : _PersonAvatar(
+                            url: people[i].profileUrl,
+                            name: people[i].name,
+                            size: _face,
+                            initialSize: 14,
+                          ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -205,8 +312,12 @@ class _FanTestCard extends StatelessWidget {
 class _PopularCastRail extends StatelessWidget {
   const _PopularCastRail();
 
-  static const double _railHeight = 118;
-  static const double _itemWidth = 78;
+  // Height budget @ textScale 1.1 (the owner's device):
+  //   avatar 72 + gap 8 + name (12.1 * 1.3 * 2 = 31.46) + gap 2
+  //   + known-for (11 * 1.25 = 13.75) = 127.21  ->  148 leaves 20.79 (14%).
+  // Still clears at textScale 1.5 (143.65), so no hazard stripes.
+  static const double _railHeight = 148;
+  static const double _itemWidth = 82;
 
   @override
   Widget build(BuildContext context) {
@@ -220,62 +331,30 @@ class _PopularCastRail extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 8, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'trivia.popular_now'.tr().toUpperCase(),
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => _openCastPicker(context),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.primaryLight,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(0, 32),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'general.see_all'.tr(),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            _SectionHeader(
+              title: 'trivia.popular_now'.tr(),
+              onTap: () => _openCastPicker(context),
             ),
             SizedBox(
               height: _railHeight,
               child: loading
-                  ? ListView.separated(
+                  ? ListView.builder(
                       scrollDirection: Axis.horizontal,
                       physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       itemCount: 6,
-                      separatorBuilder: (_, _) => const SizedBox(width: 14),
-                      itemBuilder: (_, _) => const SizedBox(
+                      itemBuilder: (_, _) => const _RailSlot(
                         width: _itemWidth,
-                        child: CastCardSkeleton(),
+                        child: _RailSkeleton(),
                       ),
                     )
-                  : ListView.separated(
+                  : ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       itemCount: state.popular.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 14),
-                      itemBuilder: (_, i) => _RailPerson(
-                        person: state.popular[i],
+                      itemBuilder: (_, i) => _RailSlot(
                         width: _itemWidth,
+                        child: _RailPerson(person: state.popular[i]),
                       ),
                     ),
             ),
@@ -286,175 +365,433 @@ class _PopularCastRail extends StatelessWidget {
   }
 }
 
-class _RailPerson extends StatelessWidget {
-  const _RailPerson({required this.person, required this.width});
+/// Fixed-width rail cell. The 5px side margins give a 10px inter-item gap and,
+/// with the list's 12px padding, a symmetric 17px gutter on BOTH ends — the
+/// missing end padding is what let the last name run off the screen edge.
+class _RailSlot extends StatelessWidget {
+  const _RailSlot({required this.width, required this.child});
 
-  final CastPersonEntity person;
   final double width;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      margin: const EdgeInsets.symmetric(horizontal: 5),
+      child: child,
+    );
+  }
+}
+
+class _RailPerson extends StatelessWidget {
+  const _RailPerson({required this.person});
+
+  final CastPersonEntity person;
+
+  @override
+  Widget build(BuildContext context) {
+    final knownFor = person.knownFor
+        .where((e) => e.trim().isNotEmpty)
+        .take(1)
+        .join(' · ');
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => context.push('/trivia/actor', extra: person),
-      child: SizedBox(
-        width: width,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: width,
-              height: width,
-              child: CastAvatar(url: person.profileUrl, name: person.name),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Hero(
+            tag: CastCard.heroTag(person),
+            child: _PersonAvatar(
+              url: person.profileUrl,
+              name: person.name,
+              size: 72,
+              initialSize: 22,
             ),
-            const SizedBox(height: 9),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            person.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+            ),
+          ),
+          if (knownFor.isNotEmpty) ...[
+            const SizedBox(height: 2),
             Text(
-              person.name,
-              maxLines: 2,
+              knownFor,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 12,
+                color: AppColors.textHint,
+                fontSize: 10,
                 fontWeight: FontWeight.w600,
-                height: 1.1,
+                height: 1.25,
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Mirrors [_RailPerson]'s structure: 72 + 8 + 11 + 4 + 10 = 105 <= 142.
+class _RailSkeleton extends StatelessWidget {
+  const _RailSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ShimmerWrapper(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ShimmerCircle(size: 72),
+          SizedBox(height: 8),
+          HomeSkeletonBox(width: 56, height: 11, radius: 4),
+          SizedBox(height: 4),
+          HomeSkeletonBox(width: 36, height: 10, radius: 4),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShimmerCircle extends StatelessWidget {
+  const _ShimmerCircle({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: const DecoratedBox(
+        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+      ),
+    );
+  }
+}
+
+/// Circular person avatar with the app's neutral grey ring. A missing photo
+/// falls back to initials on [AppColors.surfaceVariant] — the same treatment
+/// the shipped Detail cast rail uses, so it reads as deliberate.
+class _PersonAvatar extends StatelessWidget {
+  const _PersonAvatar({
+    required this.url,
+    required this.name,
+    required this.size,
+    required this.initialSize,
+    this.ringColor,
+    this.ringWidth = 1.5,
+  });
+
+  final String url;
+  final String name;
+  final double size;
+  final double initialSize;
+  final Color? ringColor;
+  final double ringWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: ringColor ?? AppColors.border,
+          width: ringWidth,
+        ),
+      ),
+      child: url.trim().isEmpty
+          ? _initials()
+          : CachedNetworkImage(
+              imageUrl: url,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              fadeInDuration: const Duration(milliseconds: 140),
+              placeholder: (_, _) =>
+                  const ShimmerWrapper(child: ColoredBox(color: Colors.white)),
+              errorWidget: (_, _, _) => _initials(),
+            ),
+    );
+  }
+
+  Widget _initials() {
+    return ColoredBox(
+      color: AppColors.surfaceVariant,
+      child: Center(
+        child: Text(
+          _initialsOf(name),
+          maxLines: 1,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w800,
+            fontSize: initialSize,
+            height: 1,
+          ),
         ),
       ),
     );
   }
 }
 
-class _RankSection extends StatelessWidget {
-  const _RankSection();
+/// Two initials for a two-word name, else the first character, else "?".
+String _initialsOf(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty);
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) return parts.first[0].toUpperCase();
+  return (parts.first[0] + parts.last[0]).toUpperCase();
+}
+
+/// Canonical section header: sentence case, 17/w800, whole row tappable,
+/// trailing chevron (no "See all" text button).
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.onTap});
+
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(13, 18, 16, 14),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: const BorderRadius.only(
+            topRight: Radius.circular(8),
+            bottomRight: Radius.circular(8),
+          ),
+          onTap: onTap,
+          child: Row(
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textHint,
+                size: 22,
+              ),
+              const SizedBox(width: 4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Daily rank and the leaderboard entry point, merged into one card — two thin
+/// stacked rectangles were the "unfinished form" complaint.
+class _RankCard extends StatelessWidget {
+  const _RankCard();
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<TriviaHubBloc, TriviaHubState>(
+      buildWhen: (a, b) =>
+          a.status != b.status || a.myDailyRank != b.myDailyRank,
       builder: (context, state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _RankChip(
-              rank: state.myDailyRank,
-              loading: state.status == TriviaHubStatus.loading,
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => context.push('/trivia/leaderboard'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: AppColors.border),
-                  foregroundColor: AppColors.textPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
+        final rank = state.myDailyRank;
+        final loading = state.status == TriviaHubStatus.loading;
+        return Material(
+          color: AppColors.surface,
+          clipBehavior: Clip.antiAlias,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: () => context.push('/trivia/leaderboard'),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border, width: 0.6),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                    child: _RankRow(rank: rank, loading: loading),
                   ),
-                ),
-                icon: const Icon(CupertinoIcons.chart_bar_alt_fill, size: 18),
-                label: Text(
-                  'trivia.view_leaderboards'.tr(),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                  Container(height: 0.6, color: AppColors.border),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          CupertinoIcons.chart_bar_alt_fill,
+                          color: AppColors.textSecondary,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'trivia.view_leaderboards'.tr(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.textHint,
+                          size: 22,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
-          ],
+          ),
         );
       },
     );
   }
 }
 
-class _RankChip extends StatelessWidget {
-  const _RankChip({required this.rank, required this.loading});
+class _RankRow extends StatelessWidget {
+  const _RankRow({required this.rank, required this.loading});
 
   final LeaderboardEntryEntity? rank;
   final bool loading;
 
   @override
   Widget build(BuildContext context) {
-    final ranked = rank != null;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: ranked
-                  ? AppColors.primary.withValues(alpha: 0.16)
-                  : AppColors.surfaceVariant,
-              shape: BoxShape.circle,
-            ),
-            child: loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.primary,
+    final entry = rank;
+    final ranked = entry != null;
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 52,
+          height: 52,
+          child: loading
+              ? const ShimmerWrapper(child: _ShimmerCircle(size: 52))
+              : ranked
+                  ? _PersonAvatar(
+                      url: entry.avatar,
+                      name: entry.username,
+                      size: 52,
+                      initialSize: 18,
+                      ringColor: AppColors.primary,
+                      ringWidth: 2,
+                    )
+                  : Container(
+                      decoration: const BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.game_controller_solid,
+                        color: AppColors.textHint,
+                        size: 22,
+                      ),
                     ),
-                  )
-                : Icon(
-                    ranked
-                        ? CupertinoIcons.rosette
-                        : CupertinoIcons.game_controller_solid,
-                    color: ranked ? AppColors.primaryLight : AppColors.textHint,
-                    size: 22,
-                  ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'trivia.my_daily_rank'.tr(),
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'trivia.my_daily_rank'.tr(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
                 ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                ranked
+                    ? 'trivia.rank_value'.tr(args: ['${entry.rank}'])
+                    : 'trivia.unranked'.tr(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                ),
+              ),
+              if (ranked) ...[
                 const SizedBox(height: 3),
                 Text(
-                  ranked
-                      ? 'trivia.rank_value'.tr(args: ['${rank!.rank}'])
-                      : 'trivia.unranked'.tr(),
+                  'trivia.correct_of'.tr(args: ['${entry.correctCount}']),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    color: AppColors.textHint,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
                   ),
                 ),
               ],
-            ),
+            ],
           ),
-          if (ranked)
-            Text(
-              'trivia.points_value'.tr(args: ['${rank!.score}']),
-              style: const TextStyle(
-                color: AppColors.primaryLight,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
+        ),
+        if (ranked) ...[
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.4),
               ),
             ),
+            child: Text(
+              'trivia.points_value'.tr(args: ['${entry.score}']),
+              maxLines: 1,
+              style: const TextStyle(
+                color: AppColors.primaryLight,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                height: 1.1,
+              ),
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 }

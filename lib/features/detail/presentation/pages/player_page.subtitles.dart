@@ -191,8 +191,13 @@ extension _PlayerSubtitles on _PlayerPageState {
 
   int? _currentEpisodeNumber() {
     if (!widget.args.isSerial) return null;
-    final m = RegExp(r'(\d+)').firstMatch(_episodeTitle());
-    return m != null ? int.tryParse(m.group(1)!) : null;
+    // Read the episode number from the entity — parsing the '<title> · <label>'
+    // string picked up a digit in the TITLE (e.g. '3 Body Problem') instead of
+    // the episode, querying the wrong episode's subtitles.
+    if (_episodeIndex < 0 || _episodeIndex >= widget.args.episodes.length) {
+      return null;
+    }
+    return widget.args.episodes[_episodeIndex].episode;
   }
 
   String _wyzieKey() {

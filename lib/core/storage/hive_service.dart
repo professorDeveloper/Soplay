@@ -171,13 +171,29 @@ class HiveService {
     await _settingsBox.put(AppConstants.preferredMediaLangKey, lang);
   }
 
+  /// In-memory mirror of [AppConstants.telegramPromoSeenKey].
+  ///
+  /// [setTelegramPromoSeen] is called fire-and-forget from the promo sheet, so
+  /// between the call and the Hive flush a second synchronous read would still
+  /// see `false` and let another sheet through. Writing the mirror before the
+  /// `await` closes that window.
+  bool? _telegramPromoSeen;
+
   bool get hasTelegramPromoSeen {
-    return _settingsBox.get(AppConstants.telegramPromoSeenKey, defaultValue: false) == true;
+    return _telegramPromoSeen ??=
+        _settingsBox.get(
+              AppConstants.telegramPromoSeenKey,
+              defaultValue: false,
+            ) ==
+            true;
   }
 
-  Future<void> markTelegramPromoSeen() async {
-    await _settingsBox.put(AppConstants.telegramPromoSeenKey, true);
+  Future<void> setTelegramPromoSeen(bool value) async {
+    _telegramPromoSeen = value; // visible to the very next synchronous read
+    await _settingsBox.put(AppConstants.telegramPromoSeenKey, value);
   }
+
+  Future<void> markTelegramPromoSeen() => setTelegramPromoSeen(true);
 
   bool get isAmoledMode {
     return _settingsBox.get(AppConstants.amoledModeKey, defaultValue: false) == true;
@@ -267,6 +283,17 @@ class HiveService {
 
   Future<void> setNavStyle(String value) =>
       _settingsBox.put('nav_style', value);
+
+  // Bottom-nav tab set + order (list of TabId.name). Absent ⇒ current shipped
+  // 5 tabs ⇒ existing users see an identical bar (back-compat).
+  List<String> get tabOrder {
+    final v = _settingsBox.get('tab_order');
+    if (v is List) return v.map((e) => e.toString()).toList();
+    return const ['home', 'search', 'shorts', 'myList', 'profile'];
+  }
+
+  Future<void> setTabOrder(List<String> ids) =>
+      _settingsBox.put('tab_order', ids);
 
 
   bool get hasSeenPrivateShowcase =>

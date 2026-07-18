@@ -130,6 +130,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(current.copyWith(verifying: true, clearError: true));
     }
     final result = await verifyOtpUseCase(email: event.email, code: event.code);
+    // Re-read state after the await — a concurrent resend may have replaced the
+    // pending state (cooldown/justResent) while verify was in flight.
+    final pending = state;
     switch (result) {
       case Success(:final value):
         emit(AuthLoaded(token: value));
@@ -137,8 +140,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         unawaited(notificationService.setup());
       case Failure(:final error):
         final msg = _friendlyError(error);
-        if (current is AuthOtpPending) {
-          emit(current.copyWith(verifying: false, error: msg));
+        if (pending is AuthOtpPending) {
+          emit(pending.copyWith(verifying: false, error: msg));
         } else {
           emit(AuthError(message: msg));
         }
@@ -155,11 +158,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(current.copyWith(resending: true, clearError: true));
     }
     final result = await resendOtpUseCase(event.email);
+    // Re-read state after the await — a concurrent verify may have updated it.
+    final pending = state;
     switch (result) {
       case Success():
-        if (current is AuthOtpPending) {
+        if (pending is AuthOtpPending) {
           emit(
-            current.copyWith(
+            pending.copyWith(
               resending: false,
               justResent: true,
               cooldownUntil: DateTime.now().add(_resendCooldown),
@@ -176,8 +181,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         }
       case Failure(:final error):
         final msg = _friendlyError(error);
-        if (current is AuthOtpPending) {
-          emit(current.copyWith(resending: false, error: msg));
+        if (pending is AuthOtpPending) {
+          emit(pending.copyWith(resending: false, error: msg));
         } else {
           emit(AuthError(message: msg));
         }
@@ -207,6 +212,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await authRepository.getProfile();
     switch (result) {
       case Success(:final value):
+        // Auth may have been cleared (logout) while getProfile was in flight —
+        // don't re-emit a signed-in state with a blank token.
+        if (hiveService.getToken()?.isNotEmpty != true) {
+          emit(AuthInitial());
+          return;
+        }
         emit(
           AuthLoaded(
             token: AuthToken(

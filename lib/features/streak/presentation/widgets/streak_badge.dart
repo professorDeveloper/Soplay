@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
@@ -19,8 +20,6 @@ class _StreakBadgeState extends State<StreakBadge>
   final HiveService _hive = getIt<HiveService>();
   late final AnimationController _pulse;
   Timer? _refreshTimer;
-
-  static const int _profileTabIndex = 4;
 
   @override
   void initState() {
@@ -80,7 +79,7 @@ class _StreakBadgeState extends State<StreakBadge>
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
-        onTap: () => getIt<NavController>().goTo(_profileTabIndex),
+        onTap: () => getIt<NavController>().goToId(TabId.profile),
         child: Padding(
           padding: const EdgeInsets.all(4),
           child: AnimatedBuilder(

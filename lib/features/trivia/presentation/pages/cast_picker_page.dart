@@ -38,9 +38,13 @@ class _CastPickerView extends StatefulWidget {
 class _CastPickerViewState extends State<_CastPickerView> {
   final TextEditingController _controller = TextEditingController();
 
-  /// Search field (48) + gap (10) + caption, plus the header's own 10/12
-  /// vertical padding. Excludes the top safe area, which is added separately.
-  static const double _headerHeight = 98;
+  /// Real content height of [_GlassHeader], excluding the top safe area which
+  /// is added separately. Re-derived after the anime toggle was removed and
+  /// again after the field/caption were brought onto the shipped scale:
+  ///   top pad 12 + field 46 + gap 12 + caption (15 × 1.1 line height) + bottom
+  ///   pad 12 = 100.15 at the owner's textScale 1.1 (98.5 at scale 1.0).
+  /// 102 leaves ~2px so the first grid row never tucks under the blur.
+  static const double _headerHeight = 102;
 
   @override
   void dispose() {
@@ -94,7 +98,14 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final padding = EdgeInsets.fromLTRB(16, topPadding, 16, 28);
+    // 12px gutter — the app's 3-column grid gutter. This is a pushed route,
+    // not a tab root, so it clears the safe area only (no floating nav pill).
+    final padding = EdgeInsets.fromLTRB(
+      12,
+      topPadding,
+      12,
+      MediaQuery.paddingOf(context).bottom + 24,
+    );
     final searching = state.isSearchActive;
 
     switch (state.status) {
@@ -162,7 +173,7 @@ class _GlassHeader extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
           child: Container(
-            padding: EdgeInsets.fromLTRB(16, topSafe + 10, 16, 12),
+            padding: EdgeInsets.fromLTRB(16, topSafe + 12, 16, 12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -183,7 +194,7 @@ class _GlassHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _SearchField(controller: controller),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 const _ContextCaption(),
               ],
             ),
@@ -204,12 +215,14 @@ class _SearchField extends StatelessWidget {
       buildWhen: (a, b) => a.query.isEmpty != b.query.isEmpty,
       builder: (context, state) {
         final hasText = state.query.isNotEmpty;
+        // Matches the shipped search field (`search_header.dart`): 46 high,
+        // radius 14, translucent surface, hairline white border.
         return Container(
-          height: 48,
+          height: 46,
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+            color: AppColors.surface.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           child: Row(
             children: [
@@ -285,13 +298,17 @@ class _ContextCaption extends StatelessWidget {
         } else {
           text = 'trivia.searching'.tr();
         }
+        // Sub-section header scale (15 / w800 / textPrimary) — sentence case,
+        // no letterSpacing, per the shipped section-header idiom.
         return Text(
-          text.toUpperCase(),
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 11,
+            color: AppColors.textPrimary,
+            fontSize: 15,
             fontWeight: FontWeight.w800,
-            letterSpacing: 1.2,
+            height: 1.1,
           ),
         );
       },
@@ -316,45 +333,114 @@ class _CenteredNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomSafe = MediaQuery.paddingOf(context).bottom;
     return Padding(
-      padding: EdgeInsets.only(top: topPadding + 40, left: 32, right: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, color: AppColors.textHint, size: 46),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+      padding: EdgeInsets.fromLTRB(24, topPadding + 24, 24, bottomSafe + 64),
+      child: Center(
+        child: SingleChildScrollView(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 28,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.09),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _IconCircle(icon: icon),
+                    const SizedBox(height: 18),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      ),
+                    ),
+                    if (subtitle != null && subtitle!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        subtitle!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                    if (onRetry != null) ...[
+                      const SizedBox(height: 22),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 46,
+                        child: ElevatedButton(
+                          onPressed: onRetry,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(
+                            'general.retry'.tr(),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
-          if (subtitle != null && subtitle!.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              subtitle!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-              ),
-            ),
-          ],
-          if (onRetry != null) ...[
-            const SizedBox(height: 20),
-            TextButton(
-              onPressed: onRetry,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primaryLight,
-              ),
-              child: Text('general.retry'.tr()),
-            ),
-          ],
-        ],
+        ),
       ),
+    );
+  }
+}
+
+/// The 64px accent disc from the shipped empty-state panel — the one place the
+/// brand colour is allowed as a soft radial, on glass.
+class _IconCircle extends StatelessWidget {
+  const _IconCircle({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            AppColors.primary.withValues(alpha: 0.22),
+            AppColors.primary.withValues(alpha: 0.06),
+          ],
+        ),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.22)),
+      ),
+      child: Icon(icon, color: AppColors.primaryLight, size: 30),
     );
   }
 }

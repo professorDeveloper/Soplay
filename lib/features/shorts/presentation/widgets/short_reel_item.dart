@@ -332,7 +332,9 @@ class _ShortReelItemState extends State<ShortReelItem>
         Positioned(
           left: 14,
           right: 14,
-          bottom: bottom + 12,
+          // Clear the floating bottom nav bar so the "Watch full" pill + seek
+          // bar aren't hidden behind it (Shorts is a tab; the nav overlays it).
+          bottom: bottom + 88,
           child: _buildBottomSection(),
         ),
         if (_showHeart)

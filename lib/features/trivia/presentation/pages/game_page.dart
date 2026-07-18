@@ -10,6 +10,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
+import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/trivia/domain/entities/trivia_option_entity.dart';
 import 'package:soplay/features/trivia/presentation/bloc/game/game_bloc.dart';
 import 'package:soplay/features/trivia/presentation/bloc/game/game_event.dart';
@@ -149,6 +150,10 @@ class _GameViewState extends State<_GameView> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: AppColors.border.withValues(alpha: 0.6)),
+        ),
         title: Text(
           'trivia.forfeit_title'.tr(),
           style: const TextStyle(
@@ -243,9 +248,13 @@ class _GameViewState extends State<_GameView> {
                         currentIndex: state.index,
                       ),
                     ),
+                    // The window is whatever the round payload declares
+                    // (server-owned — 10s today, 15s on the legacy fallback).
+                    // `ceil` mirrors GameBloc._secondsFor so the arc starts at
+                    // exactly 1.0 on the first tick.
                     CountdownRing(
                       secondsRemaining: state.timeRemaining,
-                      totalSeconds: (state.deadlineMs / 1000).round(),
+                      totalSeconds: (state.deadlineMs / 1000).ceil(),
                     ),
                   ],
                 ),
@@ -411,13 +420,16 @@ class _RevealPanel extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
+                // Surface card scale: radius 12. The border keeps its semantic
+                // colour (green/red) because it is the correctness signal.
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: (reveal.correct
                           ? AppColors.success
                           : AppColors.primary)
                       .withValues(alpha: 0.5),
+                  width: 1.2,
                 ),
               ),
               child: Column(
@@ -437,15 +449,16 @@ class _RevealPanel extends StatelessWidget {
                               (reveal.correct
                                       ? 'trivia.correct'
                                       : 'trivia.the_answer')
-                                  .tr()
-                                  .toUpperCase(),
+                                  .tr(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: reveal.correct
                                     ? AppColors.success
                                     : AppColors.primaryLight,
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w800,
-                                letterSpacing: 1,
+                                height: 1.2,
                               ),
                             ),
                             const SizedBox(height: 3),
@@ -473,10 +486,25 @@ class _RevealPanel extends StatelessWidget {
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    child: FilledButton.icon(
+                    height: 46,
+                    child: ElevatedButton.icon(
                       onPressed: onWatchFull,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                       icon: const Icon(CupertinoIcons.play_fill, size: 16),
-                      label: Text('trivia.watch_full'.tr()),
+                      label: Text(
+                        'trivia.watch_full'.tr(),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -493,23 +521,23 @@ class _Poster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 54 × 78 → 0.692, inside the app's emergent 0.68–0.70 poster band, at the
+    // artwork-card radius of 10.
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: SizedBox(
         width: 54,
         height: 78,
         child: url.isEmpty
-            ? const ColoredBox(
-                color: AppColors.surfaceVariant,
-                child: Icon(Icons.movie_rounded, color: Colors.white38),
-              )
+            ? const HomeImagePlaceholder(icon: Icons.movie_outlined)
             : Image.network(
                 url,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const ColoredBox(
-                  color: AppColors.surfaceVariant,
-                  child: Icon(Icons.movie_rounded, color: Colors.white38),
-                ),
+                errorBuilder: (_, _, _) =>
+                    const HomeImagePlaceholder(icon: Icons.movie_outlined),
+                loadingBuilder: (_, child, chunk) => chunk == null
+                    ? child
+                    : const HomeImagePlaceholder(icon: Icons.movie_outlined),
               ),
       ),
     );
@@ -663,9 +691,27 @@ class _ErrorView extends StatelessWidget {
               style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 20),
-            FilledButton(
-              onPressed: onBack,
-              child: Text('trivia.go_back'.tr()),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                onPressed: onBack,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  'trivia.go_back'.tr(),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
             ),
           ],
         ),

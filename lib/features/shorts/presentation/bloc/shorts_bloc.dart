@@ -95,7 +95,15 @@ class ShortsBloc extends Bloc<ShortsEvent, ShortsState> {
         ));
         if (value.items.isNotEmpty) add(ShortsViewed(value.items.first.id));
       case Failure<ShortsFeedResult>(:final error):
-        emit(ShortsError(_message(error)));
+        // A transient refresh failure must not discard an already-loaded feed
+        // (and playback position). Only show the full-screen error on the
+        // initial load, where there is nothing to preserve.
+        final current = state;
+        if (current is ShortsLoaded && current.items.isNotEmpty) {
+          emit(_notice(current.copyWith(refreshing: false), _message(error)));
+        } else {
+          emit(ShortsError(_message(error)));
+        }
     }
   }
 
@@ -186,7 +194,18 @@ class ShortsBloc extends Bloc<ShortsEvent, ShortsState> {
           loadingLikeIds: idle,
         ));
       case Failure<ShortLikeResult?>():
-        emit(after.copyWith(items: current.items, loadingLikeIds: idle));
+        // Revert ONLY this item (by id) within the latest state — overwriting
+        // with the pre-optimistic `current.items` would drop pages appended and
+        // other likes made while this request was in flight.
+        final i = after.items.indexWhere((e) => e.id == event.id);
+        if (i < 0) {
+          emit(after.copyWith(loadingLikeIds: idle));
+          return;
+        }
+        emit(after.copyWith(
+          items: _replace(after.items, i, item),
+          loadingLikeIds: idle,
+        ));
     }
   }
 

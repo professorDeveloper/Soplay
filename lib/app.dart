@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
@@ -108,7 +109,7 @@ class _MyAppState extends State<MyApp> {
       case 'admin_direct':
         router.push('/notifications');
       case 'streak_risk':
-        getIt<NavController>().goTo(4);
+        getIt<NavController>().goToId(TabId.profile);
       default:
         router.push('/notifications');
     }

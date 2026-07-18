@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
@@ -261,7 +262,7 @@ class _ProfileViewState extends State<_ProfileView> {
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(
-                  child: _Reveal(order: 5, child: _AppearanceSection()),
+                  child: _Reveal(order: 5, child: _AppearanceEntry()),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(
@@ -1905,7 +1906,11 @@ class _SecuritySectionState extends State<_SecuritySection> {
 }
 
 class _AppearanceSection extends StatefulWidget {
-  const _AppearanceSection();
+  const _AppearanceSection({this.showLabel = true});
+
+  /// When false (the standalone Navigation-bar page), the "APPEARANCE" label
+  /// and the redundant inner "Navigation bar" header are hidden.
+  final bool showLabel;
 
   @override
   State<_AppearanceSection> createState() => _AppearanceSectionState();
@@ -1929,52 +1934,77 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
     NavPrefs.navStyle.value = value;
   }
 
-  // A tiny visual mock of each nav style: solid/glass = a floating pill,
-  // classic = a full-width bar. Three dots stand in for the tabs.
+  // A tiny realistic mock of each nav style: solid/glass = a floating pill,
+  // classic = a full-width bar — with mini tab icons (the first = selected,
+  // in a little pill, like the real bar) instead of plain dots.
   Widget _navPreview(String value, Color accent) {
-    final dots = Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: List.generate(
-        3,
-        (_) => Container(
-          width: 3.5,
-          height: 3.5,
-          decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
-        ),
-      ),
+    const icons = [
+      Icons.home_rounded,
+      Icons.search_rounded,
+      Icons.play_arrow_rounded,
+      Icons.person_rounded,
+    ];
+    final muted = accent.withValues(alpha: 0.4);
+    Widget miniIcon(int i) {
+      if (i == 0) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 2.5, vertical: 1),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.22),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Icon(icons[i], size: 9, color: accent),
+        );
+      }
+      return Icon(icons[i], size: 9, color: muted);
+    }
+
+    final row = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < icons.length; i++)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 1.5),
+            child: miniIcon(i),
+          ),
+      ],
     );
+
     if (value == 'classic') {
       return Container(
         width: double.infinity,
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.16),
+          color: accent.withValues(alpha: 0.10),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+          border: Border(
+            top: BorderSide(color: accent.withValues(alpha: 0.4), width: 0.6),
+          ),
         ),
-        child: dots,
+        child: row,
       );
     }
+    // solid / glass: floating rounded pill
     return Container(
-      width: 50,
       alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(999),
         gradient: value == 'glass'
             ? LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  accent.withValues(alpha: 0.30),
-                  accent.withValues(alpha: 0.08),
+                  accent.withValues(alpha: 0.26),
+                  accent.withValues(alpha: 0.06),
                 ],
               )
             : null,
-        color: value == 'solid' ? accent.withValues(alpha: 0.20) : null,
+        color: value == 'solid' ? accent.withValues(alpha: 0.16) : null,
         border: Border.all(color: accent.withValues(alpha: 0.45), width: 0.8),
       ),
-      child: dots,
+      child: row,
     );
   }
 
@@ -2003,7 +2033,7 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
           ),
           child: Column(
             children: [
-              SizedBox(height: 20, child: Center(child: _navPreview(value, accent))),
+              SizedBox(height: 24, child: Center(child: _navPreview(value, accent))),
               const SizedBox(height: 7),
               Text(labelKey.tr(),
                   maxLines: 1,
@@ -2029,8 +2059,10 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel('profile.section_appearance'.tr()),
-          const SizedBox(height: 8),
+          if (widget.showLabel) ...[
+            _SectionLabel('profile.section_appearance'.tr()),
+            const SizedBox(height: 8),
+          ],
           _SectionCard(
             children: [
               if (isDesktopPlatform)
@@ -2049,6 +2081,7 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                   onChanged: _toggle,
                 ),
               if (isMobilePlatform) ...[
+                if (widget.showLabel)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
                   child: Row(
@@ -2080,8 +2113,77 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                     ),
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Material(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(14),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      leading: const Icon(Icons.view_week_rounded,
+                          color: AppColors.textSecondary),
+                      title: Text('nav_customize.entry_title'.tr(),
+                          style: const TextStyle(
+                              color: AppColors.textPrimary, fontSize: 15)),
+                      subtitle: Text('nav_customize.entry_subtitle'.tr(),
+                          style: const TextStyle(
+                              color: AppColors.textHint, fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right,
+                          color: AppColors.textHint),
+                      onTap: () => showTabCustomizer(context),
+                    ),
+                  ),
+                ),
               ],
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Standalone Navigation-bar settings page (tab-bar style + tab customizer),
+/// opened from the Profile "Navigation bar" tile.
+class NavbarPage extends StatelessWidget {
+  const NavbarPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        title: Text('profile.nav_style'.tr(),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+      ),
+      body: const SingleChildScrollView(
+        padding: EdgeInsets.only(top: 12, bottom: 40),
+        child: _AppearanceSection(showLabel: false),
+      ),
+    );
+  }
+}
+
+/// Compact Profile entry (matches the security tiles) → opens [AppearancePage].
+class _AppearanceEntry extends StatelessWidget {
+  const _AppearanceEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: _SectionCard(
+        children: [
+          _Tile(
+            icon: Icons.view_week_rounded,
+            title: 'profile.nav_style'.tr(),
+            trailing: const Icon(Icons.chevron_right_rounded,
+                color: AppColors.textHint, size: 20),
+            onTap: () => context.push('/navbar'),
           ),
         ],
       ),
