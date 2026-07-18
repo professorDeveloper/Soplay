@@ -10,6 +10,7 @@ class TriviaRoundModel extends TriviaRoundEntity {
     required super.index,
     super.actor,
     super.challengeCode,
+    super.answerWindowMs,
   });
 
   factory TriviaRoundModel.fromJson(Map<String, dynamic> json) {
@@ -33,6 +34,7 @@ class TriviaRoundModel extends TriviaRoundEntity {
       index: _int(json['index'] ?? json['currentIndex']),
       actor: actor,
       challengeCode: _strOrNull(json['challengeCode'] ?? json['code']),
+      answerWindowMs: _intOrNull(json['answerWindowMs']),
     );
   }
 
@@ -47,5 +49,11 @@ class TriviaRoundModel extends TriviaRoundEntity {
   static int _int(dynamic v) {
     if (v is num) return v.toInt();
     return int.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
+  static int? _intOrNull(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString());
   }
 }

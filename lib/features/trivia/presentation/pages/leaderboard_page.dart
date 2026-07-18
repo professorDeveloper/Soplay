@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/widgets/app_tab_bar.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/trivia/domain/entities/leaderboard_entry_entity.dart';
 import 'package:soplay/features/trivia/presentation/bloc/leaderboard/leaderboard_bloc.dart';
@@ -104,49 +105,15 @@ class _ScopeTabs extends StatelessWidget {
     return BlocBuilder<LeaderboardBloc, LeaderboardState>(
       buildWhen: (a, b) => a.scope != b.scope,
       builder: (context, state) {
-        return SizedBox(
-          height: 44,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _scopes.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
-            itemBuilder: (_, i) {
-              final (value, key) = _scopes[i];
-              final selected = state.scope == value;
-              return GestureDetector(
-                onTap: () => context
-                    .read<LeaderboardBloc>()
-                    .add(LeaderboardScopeChanged(value)),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  decoration: BoxDecoration(
-                    gradient: selected
-                        ? const LinearGradient(
-                            colors: [AppColors.primary, AppColors.primaryDark],
-                          )
-                        : null,
-                    color: selected ? null : AppColors.surface,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: selected ? Colors.transparent : AppColors.border,
-                    ),
-                  ),
-                  child: Text(
-                    key.tr(),
-                    style: TextStyle(
-                      color:
-                          selected ? Colors.white : AppColors.textSecondary,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
+        // clamp() guards indexWhere returning -1 for an unknown scope.
+        return AppTabBar(
+          labels: _scopes.map((s) => s.$2.tr()).toList(),
+          selectedIndex: _scopes
+              .indexWhere((s) => s.$1 == state.scope)
+              .clamp(0, _scopes.length - 1),
+          onChanged: (i) => context
+              .read<LeaderboardBloc>()
+              .add(LeaderboardScopeChanged(_scopes[i].$1)),
         );
       },
     );

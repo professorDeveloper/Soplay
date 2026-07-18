@@ -13,13 +13,11 @@ import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart
 class ShareCard extends StatelessWidget {
   const ShareCard({
     super.key,
-    required this.mode,
     required this.result,
     this.actor,
     this.actorImage,
   });
 
-  final String mode;
   final TriviaResultEntity result;
   final ActorRefEntity? actor;
   final ImageProvider? actorImage;
@@ -27,122 +25,114 @@ class ShareCard extends StatelessWidget {
   static const double width = 380;
   static const double height = 520;
 
-  bool get _isFanTest => mode == 'fan_test';
-
   @override
   Widget build(BuildContext context) {
-    final headline = _isFanTest
-        ? '${result.fandomPercent.round()}%'
-        : '${result.score}';
-    final headlineLabel = _isFanTest
-        ? 'trivia.fandom'.tr()
-        : 'trivia.score'.tr();
+    // Every Buff round is a fan test, so the card always leads with fandom %.
+    final headline = '${result.fandomPercent.round()}%';
+    final headlineLabel = 'trivia.fandom'.tr();
 
     return Container(
       width: width,
       height: height,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF2A0A0C), AppColors.background],
+          colors: [
+            Color.alphaBlend(
+              AppColors.primaryDark.withValues(alpha: 0.25),
+              AppColors.background,
+            ),
+            AppColors.background,
+          ],
         ),
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -60,
-            right: -40,
-            child: _Glow(color: AppColors.primary.withValues(alpha: 0.35)),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.movie_filter_rounded,
-                        color: AppColors.primary, size: 22),
-                    const SizedBox(width: 8),
-                    Text(
-                      'KINO BILLAR',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                _Avatar(actor: actor, image: actorImage),
-                const SizedBox(height: 20),
+                const Icon(Icons.movie_filter_rounded,
+                    color: AppColors.primary, size: 22),
+                const SizedBox(width: 8),
                 Text(
-                  headline,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 72,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  headlineLabel.toUpperCase(),
+                  'BUFF',
                   style: TextStyle(
-                    color: AppColors.primaryLight,
-                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _MiniStat(
-                      value: '${result.correctCount}/10',
-                      label: 'trivia.correct'.tr(),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 32,
-                      margin: const EdgeInsets.symmetric(horizontal: 22),
-                      color: Colors.white.withValues(alpha: 0.14),
-                    ),
-                    _MiniStat(
-                      value: '#${result.rank}',
-                      label: 'trivia.rank'.tr(),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                if (actor != null)
-                  Text(
-                    actor!.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                const SizedBox(height: 6),
-                Text(
-                  'trivia.share_tagline'.tr(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 12,
+                    letterSpacing: 1,
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            const Spacer(),
+            _Avatar(actor: actor, image: actorImage),
+            const SizedBox(height: 20),
+            Text(
+              headline,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 72,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              headlineLabel.toUpperCase(),
+              style: TextStyle(
+                color: AppColors.primaryLight,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _MiniStat(
+                  value: '${result.correctCount}/10',
+                  label: 'trivia.correct'.tr(),
+                ),
+                Container(
+                  width: 1,
+                  height: 32,
+                  margin: const EdgeInsets.symmetric(horizontal: 22),
+                  color: Colors.white.withValues(alpha: 0.14),
+                ),
+                _MiniStat(
+                  value: '#${result.rank}',
+                  label: 'trivia.rank'.tr(),
+                ),
+              ],
+            ),
+            const Spacer(),
+            if (actor != null)
+              Text(
+                actor!.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            const SizedBox(height: 6),
+            Text(
+              'trivia.share_tagline'.tr(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -163,13 +153,6 @@ class _Avatar extends StatelessWidget {
         shape: BoxShape.circle,
         color: AppColors.surface,
         border: Border.all(color: AppColors.primary, width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.4),
-            blurRadius: 24,
-            spreadRadius: 2,
-          ),
-        ],
         image: image == null
             ? null
             : DecorationImage(image: image!, fit: BoxFit.cover),
@@ -211,24 +194,6 @@ class _MiniStat extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _Glow extends StatelessWidget {
-  const _Glow({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      height: 200,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: color, blurRadius: 90, spreadRadius: 40)],
-      ),
     );
   }
 }

@@ -13,9 +13,9 @@ import 'package:soplay/features/trivia/presentation/bloc/cast/cast_event.dart';
 import 'package:soplay/features/trivia/presentation/bloc/cast/cast_state.dart';
 import 'package:soplay/features/trivia/presentation/widgets/popular_cast_grid.dart';
 
-/// Fan-Test entry surface: a pinned glass search bar (person/character toggle)
-/// over a "Popular now" grid that becomes debounced as-you-type results. Tapping
-/// a card flies its photo into the Actor Hero screen.
+/// Fan-Test entry surface: a pinned glass search bar over a "Popular now" grid
+/// that becomes debounced as-you-type results. Tapping a card flies its photo
+/// into the Actor Hero screen. Only live actors (kind 'person') are surfaced.
 class CastPickerPage extends StatelessWidget {
   const CastPickerPage({super.key});
 
@@ -38,7 +38,9 @@ class _CastPickerView extends StatefulWidget {
 class _CastPickerViewState extends State<_CastPickerView> {
   final TextEditingController _controller = TextEditingController();
 
-  static const double _headerHeight = 150;
+  /// Search field (48) + gap (10) + caption, plus the header's own 10/12
+  /// vertical padding. Excludes the top safe area, which is added separately.
+  static const double _headerHeight = 98;
 
   @override
   void dispose() {
@@ -143,7 +145,7 @@ class _Body extends StatelessWidget {
   }
 }
 
-/// The pinned, frosted search + toggle header floating over the grid.
+/// The pinned, frosted search header floating over the grid.
 class _GlassHeader extends StatelessWidget {
   const _GlassHeader({required this.topSafe, required this.controller});
 
@@ -181,8 +183,6 @@ class _GlassHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _SearchField(controller: controller),
-                const SizedBox(height: 12),
-                const _KindToggle(),
                 const SizedBox(height: 10),
                 const _ContextCaption(),
               ],
@@ -264,102 +264,6 @@ class _SearchField extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _KindToggle extends StatelessWidget {
-  const _KindToggle();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<CastBloc, CastState>(
-      buildWhen: (a, b) => a.kind != b.kind,
-      builder: (context, state) {
-        return Container(
-          height: 40,
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              _Segment(
-                label: 'trivia.movies'.tr(),
-                icon: CupertinoIcons.film,
-                selected: state.kind == 'person',
-                onTap: () =>
-                    context.read<CastBloc>().add(const CastKindChanged('person')),
-              ),
-              _Segment(
-                label: 'trivia.anime'.tr(),
-                icon: CupertinoIcons.sparkles,
-                selected: state.kind == 'character',
-                onTap: () => context
-                    .read<CastBloc>()
-                    .add(const CastKindChanged('character')),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _Segment extends StatelessWidget {
-  const _Segment({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          decoration: BoxDecoration(
-            gradient: selected
-                ? const LinearGradient(
-                    colors: [AppColors.primary, AppColors.primaryDark],
-                  )
-                : null,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 15,
-                color: selected ? Colors.white : AppColors.textSecondary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: selected ? Colors.white : AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

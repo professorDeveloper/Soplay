@@ -24,24 +24,16 @@ class ProgressDots extends StatelessWidget {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeOut,
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          height: 6,
-          width: isCurrent ? 22 : 6,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          height: 8,
+          width: isCurrent ? 22 : 8,
           decoration: BoxDecoration(
             color: isCurrent
                 ? AppColors.primary
                 : isDone
-                    ? Colors.white.withValues(alpha: 0.85)
-                    : Colors.white.withValues(alpha: 0.22),
-            borderRadius: BorderRadius.circular(3),
-            boxShadow: isCurrent
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.5),
-                      blurRadius: 8,
-                    ),
-                  ]
-                : null,
+                    ? AppColors.textPrimary
+                    : AppColors.textHint,
+            borderRadius: BorderRadius.circular(99),
           ),
         );
       }),

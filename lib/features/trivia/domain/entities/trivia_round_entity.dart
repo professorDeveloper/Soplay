@@ -12,6 +12,7 @@ class TriviaRoundEntity extends Equatable {
     required this.index,
     this.actor,
     this.challengeCode,
+    this.answerWindowMs,
   });
 
   final String roundId;
@@ -21,6 +22,13 @@ class TriviaRoundEntity extends Equatable {
   final ActorRefEntity? actor;
   final String? challengeCode;
 
+  /// Per-clip answer window the server wants enforced, in ms. Null when the
+  /// server does not send it — the client then falls back to its own default.
+  /// Never hardcode the new value client-side: the score bonus divisor lives
+  /// on the server, so a client/server mismatch inflates every score.
+  final int? answerWindowMs;
+
   @override
-  List<Object?> get props => [roundId, mode, clips, index, actor, challengeCode];
+  List<Object?> get props =>
+      [roundId, mode, clips, index, actor, challengeCode, answerWindowMs];
 }

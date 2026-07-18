@@ -13,6 +13,11 @@ enum GamePhase { loading, playing, revealed, finished, error }
 
 const Object _unset = Object();
 
+/// Per-clip answer window used only until a round payload supplies its own
+/// `answerWindowMs`. The real window is server-owned (the score bonus divisor
+/// lives there), so it must never be hardcoded to a new value client-side.
+const int kFallbackAnswerWindowMs = 15000;
+
 class GameState extends Equatable {
   const GameState({
     this.phase = GamePhase.loading,
@@ -21,7 +26,7 @@ class GameState extends Equatable {
     this.clips = const <TriviaClipEntity>[],
     this.index = 0,
     this.timeRemaining = 0,
-    this.deadlineMs = 15000,
+    this.deadlineMs = kFallbackAnswerWindowMs,
     this.score = 0,
     this.selectedOptionId,
     this.reveal,

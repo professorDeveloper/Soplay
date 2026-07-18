@@ -3,10 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
-/// A circular 15s countdown ring with the seconds-remaining badge in its
-/// centre. The arc drains smoothly between the bloc's 1-second ticks (an
-/// implicit tween bridges each tick) and the whole ring flips to brand-red when
-/// under 4 seconds remain.
+/// A circular countdown ring with the seconds-remaining badge in its centre.
+/// The window length comes from [totalSeconds] — never assumed — so the ring
+/// follows whatever answer window the round payload declares. The arc drains
+/// smoothly between the bloc's 1-second ticks (an implicit tween bridges each
+/// tick) and the whole ring flips to brand-red when under 4 seconds remain.
 class CountdownRing extends StatelessWidget {
   const CountdownRing({
     super.key,
@@ -46,7 +47,7 @@ class CountdownRing extends StatelessWidget {
                 style: TextStyle(
                   color: color,
                   fontSize: size * 0.34,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
@@ -75,7 +76,7 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..color = Colors.white.withValues(alpha: 0.14);
+      ..color = AppColors.border;
     canvas.drawCircle(center, radius, track);
 
     if (progress <= 0) return;
@@ -84,11 +85,7 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..shader = SweepGradient(
-        colors: [color.withValues(alpha: 0.55), color],
-        startAngle: 0,
-        endAngle: math.pi * 2,
-      ).createShader(rect);
+      ..color = color;
 
     // Start at 12 o'clock, drain clockwise as time runs out.
     canvas.drawArc(rect, -math.pi / 2, math.pi * 2 * progress, false, arc);

@@ -13,7 +13,8 @@ import 'package:soplay/features/trivia/domain/usecases/submit_answer_usecase.dar
 import 'game_event.dart';
 import 'game_state.dart';
 
-/// Owns one trivia round and the per-clip 15s countdown. Enacts the client half
+/// Owns one trivia round and the per-clip countdown (length comes from the
+/// round's `answerWindowMs`, server-owned). Enacts the client half
 /// of the anti-cheat contract:
 ///   ClipShown     → start-clip (server stamps serverShownAt) + start countdown
 ///   OptionSelected→ submit-answer (server clamps elapsed, returns the reveal)
@@ -46,9 +47,6 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   final SubmitAnswerUseCase _submitAnswer;
   final CompleteRoundUseCase _completeRound;
 
-  static const int _deadlineMs = 15000;
-  static const int _deadlineSeconds = 15;
-
   Timer? _timer;
   DateTime? _clipShownAt;
   bool _submitting = false;
@@ -80,14 +78,17 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   }
 
   void _emitRound(TriviaRoundEntity round, Emitter<GameState> emit) {
+    // The countdown length comes from the round itself so a server-side change
+    // takes effect without shipping a new build.
+    final deadlineMs = round.answerWindowMs ?? kFallbackAnswerWindowMs;
     emit(GameState(
       phase: GamePhase.playing,
       roundId: round.roundId,
       mode: round.mode,
       clips: round.clips,
       index: round.index, // resume position for a partially-played round
-      timeRemaining: _deadlineSeconds,
-      deadlineMs: _deadlineMs,
+      timeRemaining: _secondsFor(deadlineMs),
+      deadlineMs: deadlineMs,
       score: 0,
       actor: round.actor,
       challengeCode: round.challengeCode,
@@ -106,7 +107,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     emit(s.copyWith(
       phase: GamePhase.playing,
       index: event.clipIndex,
-      timeRemaining: _deadlineSeconds,
+      timeRemaining: _secondsFor(s.deadlineMs),
       selectedOptionId: null,
       reveal: null,
       message: null,
@@ -133,11 +134,11 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     _cancelTimer();
 
     final elapsedMs = _clipShownAt == null
-        ? _deadlineMs
+        ? s.deadlineMs
         : DateTime.now()
             .difference(_clipShownAt!)
             .inMilliseconds
-            .clamp(0, _deadlineMs)
+            .clamp(0, s.deadlineMs)
             .toInt();
 
     // Optimistically lock the chosen chip while the submit is in flight.
@@ -204,6 +205,9 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         emit(state.copyWith(phase: GamePhase.error, message: _message(error)));
     }
   }
+
+  /// Whole seconds shown on the ring, rounded up so a 10s window starts at 10.
+  int _secondsFor(int deadlineMs) => (deadlineMs / 1000).ceil();
 
   void _startTimer() {
     _cancelTimer();

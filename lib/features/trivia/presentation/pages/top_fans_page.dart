@@ -130,33 +130,43 @@ class _ActorMiniHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Older fan-stat documents carry no name/profile, so the identity block is
+    // dropped entirely rather than rendered as blank space; the meta line still
+    // stands on its own.
+    final hasName = fanStat.name.trim().isNotEmpty;
+    final hasPhoto = fanStat.profileUrl.trim().isNotEmpty;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
-          _Avatar(url: fanStat.profileUrl, name: fanStat.name, size: 52),
-          const SizedBox(width: 14),
+          if (hasPhoto || hasName) ...[
+            _Avatar(url: fanStat.profileUrl, name: fanStat.name, size: 52),
+            const SizedBox(width: 14),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  fanStat.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                if (hasName) ...[
+                  Text(
+                    fanStat.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
+                  const SizedBox(height: 4),
+                ],
                 Text(
                   'trivia.fans_meta'.tr(namedArgs: {
                     'rounds': '${fanStat.roundsPlayed}',
