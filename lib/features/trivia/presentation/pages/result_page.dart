@@ -15,25 +15,23 @@ import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart
 import 'package:soplay/features/trivia/presentation/trivia_args.dart';
 import 'package:soplay/features/trivia/presentation/widgets/share_card.dart';
 
-/// Round-result screen. Klip Top leads with the score; Fan Test leads with the
-/// circular fandom-% gauge. Both offer play-again, leaderboard, and two share
-/// paths — a text challenge and a rasterized [ShareCard] (RepaintBoundary →
-/// toImage → share_plus).
+/// Round-result screen. Every Buff round is a fan test, so the page always
+/// leads with the circular fandom-% gauge and offers play-again, leaderboard,
+/// and two share paths — a text challenge and a rasterized [ShareCard]
+/// (RepaintBoundary → toImage → share_plus).
 ///
-/// The route (`/trivia/result`) only carries a [TriviaResultEntity]; [mode] and
-/// [actor] are optional so a richer caller (e.g. the game finishing a fan-test
-/// round) can enrich the layout and share card, but the page degrades
-/// gracefully to a brand-only card when they are absent.
+/// The route (`/trivia/result`) only carries a [TriviaResultEntity]; [actor] is
+/// optional so a richer caller (e.g. the game finishing a round) can enrich the
+/// share card and keep the replay pointed at the same actor, but the page
+/// degrades gracefully to a brand-only card when it is absent.
 class ResultPage extends StatefulWidget {
   const ResultPage({
     super.key,
     required this.result,
-    this.mode,
     this.actor,
   });
 
   final TriviaResultEntity result;
-  final String? mode;
   final ActorRefEntity? actor;
 
   @override
@@ -43,8 +41,6 @@ class ResultPage extends StatefulWidget {
 class _ResultPageState extends State<ResultPage> {
   final GlobalKey _cardKey = GlobalKey();
   bool _sharing = false;
-
-  bool get _isFanTest => widget.mode != 'klip_top';
 
   @override
   void didChangeDependencies() {
@@ -68,7 +64,7 @@ class _ResultPageState extends State<ResultPage> {
       if (bytes == null) return;
       final dir = await getTemporaryDirectory();
       final file = File(
-        '${dir.path}/kino_billar_${DateTime.now().millisecondsSinceEpoch}.png',
+        '${dir.path}/buff_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(bytes.buffer.asUint8List());
       await Share.shareXFiles(
@@ -82,10 +78,12 @@ class _ResultPageState extends State<ResultPage> {
     }
   }
 
+  /// Replays the same actor so the rematch still counts towards that actor's
+  /// fan stat; without [actor] the game falls back to picking one itself.
   void _playAgain() {
     context.pushReplacement(
       '/trivia/game',
-      extra: GameArgs(mode: widget.mode ?? 'klip_top', actorRef: widget.actor),
+      extra: GameArgs(actorRef: widget.actor),
     );
   }
 
@@ -117,22 +115,18 @@ class _ResultPageState extends State<ResultPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    (_isFanTest ? 'trivia.fan_test_done' : 'trivia.round_done')
-                        .tr(),
+                    'trivia.fan_test_done'.tr(),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 26,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 24),
-                  if (_isFanTest)
-                    _FandomGauge(percent: r.fandomPercent)
-                  else
-                    _ScoreHero(score: r.score),
+                  _FandomGauge(percent: r.fandomPercent),
                   const SizedBox(height: 28),
-                  _StatRow(result: r, isFanTest: _isFanTest),
+                  _StatRow(result: r),
                   const SizedBox(height: 32),
                   _actions(),
                 ],
@@ -148,7 +142,6 @@ class _ResultPageState extends State<ResultPage> {
               child: RepaintBoundary(
                 key: _cardKey,
                 child: ShareCard(
-                  mode: widget.mode ?? 'fan_test',
                   result: r,
                   actor: widget.actor,
                   actorImage: widget.actor != null &&
@@ -167,22 +160,10 @@ class _ResultPageState extends State<ResultPage> {
   Widget _actions() {
     return Column(
       children: [
-        SizedBox(
-          height: 52,
-          child: FilledButton.icon(
-            onPressed: _playAgain,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            icon: const Icon(CupertinoIcons.refresh, size: 18),
-            label: Text(
-              'trivia.play_again'.tr(),
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-            ),
-          ),
+        FilledButton.icon(
+          onPressed: _playAgain,
+          icon: const Icon(CupertinoIcons.refresh, size: 18),
+          label: Text('trivia.play_again'.tr()),
         ),
         const SizedBox(height: 12),
         Row(
@@ -210,44 +191,6 @@ class _ResultPageState extends State<ResultPage> {
           label: 'trivia.share_result'.tr(),
           onTap: _shareCard,
           busy: _sharing,
-        ),
-      ],
-    );
-  }
-}
-
-class _ScoreHero extends StatelessWidget {
-  const _ScoreHero({required this.score});
-
-  final int score;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          'trivia.score'.tr().toUpperCase(),
-          style: TextStyle(
-            color: AppColors.primaryLight,
-            fontSize: 13,
-            letterSpacing: 2,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0, end: 1),
-          duration: const Duration(milliseconds: 900),
-          curve: Curves.easeOutCubic,
-          builder: (_, t, _) => Text(
-            '${(score * t).round()}',
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 68,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
         ),
       ],
     );
@@ -282,7 +225,7 @@ class _FandomGauge extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 46,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
@@ -290,7 +233,7 @@ class _FandomGauge extends StatelessWidget {
                       style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
-                        letterSpacing: 2,
+                        letterSpacing: 1,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -321,7 +264,7 @@ class _GaugePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..color = Colors.white.withValues(alpha: 0.08);
+      ..color = AppColors.surfaceVariant;
     canvas.drawCircle(center, radius, track);
 
     if (progress <= 0) return;
@@ -329,9 +272,7 @@ class _GaugePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..shader = const SweepGradient(
-        colors: [AppColors.primary, AppColors.primaryLight, AppColors.primary],
-      ).createShader(rect);
+      ..color = AppColors.primary;
     canvas.drawArc(rect, -math.pi / 2, math.pi * 2 * progress, false, arc);
   }
 
@@ -340,10 +281,9 @@ class _GaugePainter extends CustomPainter {
 }
 
 class _StatRow extends StatelessWidget {
-  const _StatRow({required this.result, required this.isFanTest});
+  const _StatRow({required this.result});
 
   final TriviaResultEntity result;
-  final bool isFanTest;
 
   @override
   Widget build(BuildContext context) {
@@ -359,11 +299,9 @@ class _StatRow extends StatelessWidget {
         icon: CupertinoIcons.rosette,
       ),
       _StatTile(
-        value: isFanTest ? '${result.score}' : '${result.fandomPercent.round()}%',
-        label: isFanTest ? 'trivia.score'.tr() : 'trivia.fandom'.tr(),
-        icon: isFanTest
-            ? CupertinoIcons.bolt_fill
-            : CupertinoIcons.heart_fill,
+        value: '${result.score}',
+        label: 'trivia.score'.tr(),
+        icon: CupertinoIcons.bolt_fill,
       ),
     ];
     return Row(
@@ -409,7 +347,7 @@ class _StatTile extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 18,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 2),

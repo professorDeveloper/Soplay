@@ -23,7 +23,6 @@ import 'package:soplay/features/trivia/domain/usecases/get_actor_profile_usecase
 import 'package:soplay/features/trivia/presentation/bloc/topfans/top_fans_bloc.dart';
 import 'package:soplay/features/trivia/presentation/bloc/topfans/top_fans_event.dart';
 import 'package:soplay/features/trivia/presentation/bloc/topfans/top_fans_state.dart';
-import 'package:soplay/features/trivia/presentation/pages/top_fans_page.dart';
 import 'package:soplay/features/trivia/presentation/trivia_args.dart';
 import 'package:soplay/features/trivia/presentation/widgets/cast_card.dart';
 import 'package:soplay/features/trivia/presentation/widgets/top_fans_strip.dart';
@@ -41,6 +40,12 @@ class ActorHeroPage extends StatefulWidget {
 }
 
 class _ActorHeroPageState extends State<ActorHeroPage> {
+  /// Held on the state (not created inline in `BlocProvider(create:)`) so the
+  /// strip can be refetched after a round: the game route replaces itself with
+  /// the result route, so this Element survives and would otherwise keep
+  /// showing the pre-round standings.
+  late final TopFansBloc _topFansBloc;
+
   ActorProfileEntity? _profile;
   bool _loading = true;
   String? _error;
@@ -51,7 +56,19 @@ class _ActorHeroPageState extends State<ActorHeroPage> {
   @override
   void initState() {
     super.initState();
+    _topFansBloc = getIt<TopFansBloc>();
+    _requestTopFans();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _topFansBloc.close();
+    super.dispose();
+  }
+
+  void _requestTopFans() {
+    _topFansBloc.add(TopFansRequested(actorId: _person.id, kind: _person.kind));
   }
 
   Future<void> _load() async {
@@ -89,12 +106,11 @@ class _ActorHeroPageState extends State<ActorHeroPage> {
   int get _titleCount =>
       _profile?.filmography.length ?? _person.knownFor.length;
 
-  void _startFanTest() {
+  Future<void> _startFanTest() async {
     HapticFeedback.mediumImpact();
-    openGame(
+    await openGame(
       context,
       GameArgs(
-        mode: 'fan_test',
         actorRef: ActorRefEntity(
           id: _person.id,
           kind: _person.kind,
@@ -103,6 +119,8 @@ class _ActorHeroPageState extends State<ActorHeroPage> {
         ),
       ),
     );
+    // The round just scored: pull the standings the server rewrote.
+    if (mounted) _requestTopFans();
   }
 
   Future<void> _challengeFriend() async {
@@ -110,7 +128,7 @@ class _ActorHeroPageState extends State<ActorHeroPage> {
     HapticFeedback.lightImpact();
     setState(() => _creatingChallenge = true);
     final result = await getIt<CreateChallengeUseCase>()(
-      mode: 'fan_test',
+      mode: kFanTestMode,
       actorId: _person.id,
       kind: _person.kind,
     );
@@ -133,11 +151,9 @@ class _ActorHeroPageState extends State<ActorHeroPage> {
   }
 
   void _openTopFans() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            TopFansPage(actorId: _person.id, kind: _person.kind),
-      ),
+    openTopFans(
+      context,
+      TopFansArgs(actorId: _person.id, kind: _person.kind),
     );
   }
 
@@ -145,9 +161,8 @@ class _ActorHeroPageState extends State<ActorHeroPage> {
   Widget build(BuildContext context) {
     final topSafe = MediaQuery.paddingOf(context).top;
 
-    return BlocProvider<TopFansBloc>(
-      create: (_) => getIt<TopFansBloc>()
-        ..add(TopFansRequested(actorId: _person.id, kind: _person.kind)),
+    return BlocProvider<TopFansBloc>.value(
+      value: _topFansBloc,
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: Stack(
@@ -299,7 +314,7 @@ class _HeroHead extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 24,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               letterSpacing: -0.4,
               shadows: [
                 Shadow(color: Colors.black54, blurRadius: 12, offset: Offset(0, 2)),
@@ -580,12 +595,15 @@ class _StickyBar extends StatelessWidget {
       bottom: 0,
       child: Container(
         padding: EdgeInsets.fromLTRB(16, 14, 16, 14 + bottomSafe),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0x00181818), AppColors.background],
-            stops: [0.0, 0.35],
+            colors: [
+              AppColors.background.withValues(alpha: 0),
+              AppColors.background,
+            ],
+            stops: const [0.0, 0.35],
           ),
         ),
         child: Row(
@@ -621,17 +639,8 @@ class _PrimaryButton extends StatelessWidget {
         height: 54,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.primaryLight, AppColors.primary],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.4),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -667,7 +676,7 @@ class _SecondaryButton extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(color: AppColors.border),
         ),
         child: busy

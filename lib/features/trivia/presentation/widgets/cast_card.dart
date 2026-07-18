@@ -94,15 +94,6 @@ class CastAvatar extends StatelessWidget {
                     AppColors.primary.withValues(alpha: 0.15),
                   ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(
-                alpha: highlightRing ? 0.35 : 0.12,
-              ),
-              blurRadius: 14,
-              spreadRadius: 0.5,
-            ),
-          ],
         ),
         child: ClipOval(
           child: ColoredBox(

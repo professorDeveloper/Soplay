@@ -20,9 +20,10 @@ import 'package:soplay/features/trivia/presentation/widgets/option_chip.dart';
 import 'package:soplay/features/trivia/presentation/widgets/progress_dots.dart';
 
 /// Full-screen trivia gameplay. Owns a [GameBloc] (which owns the round + the
-/// 15s countdown) and a reused shorts-style [PlayerController] so each clip
-/// plays as smoothly as the shorts feed. Timer + player are always disposed on
-/// pop, and back is guarded behind a forfeit confirm — no leaked timers / ANR.
+/// countdown, whose window comes from the round payload) and a reused
+/// shorts-style [PlayerController] so each clip plays as smoothly as the shorts
+/// feed. Timer + player are always disposed on pop, and back is guarded behind
+/// a forfeit confirm — no leaked timers / ANR.
 class GamePage extends StatefulWidget {
   const GamePage({super.key, required this.args});
 
@@ -410,8 +411,8 @@ class _RevealPanel extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.surface.withValues(alpha: 0.96),
-                borderRadius: BorderRadius.circular(20),
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: (reveal.correct
                           ? AppColors.success
@@ -474,21 +475,8 @@ class _RevealPanel extends StatelessWidget {
                     width: double.infinity,
                     child: FilledButton.icon(
                       onPressed: onWatchFull,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                       icon: const Icon(CupertinoIcons.play_fill, size: 16),
-                      label: Text(
-                        'trivia.watch_full'.tr(),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
+                      label: Text('trivia.watch_full'.tr()),
                     ),
                   ),
                 ],
@@ -555,7 +543,7 @@ class _PointsBadge extends StatelessWidget {
           style: TextStyle(
             color: color,
             fontSize: 18,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),
@@ -677,7 +665,6 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: 20),
             FilledButton(
               onPressed: onBack,
-              style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
               child: Text('trivia.go_back'.tr()),
             ),
           ],

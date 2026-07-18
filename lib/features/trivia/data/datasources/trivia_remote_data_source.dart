@@ -13,16 +13,30 @@ class TriviaRemoteDataSource {
 
   final Dio dio;
 
+  /// Buff is a fan checker over live actors only. The backend still accepts the
+  /// retired 'klip_top' mode and the 'character' kind, but the app never sends
+  /// them — [mode] and [kind] are accepted for signature compatibility and
+  /// deliberately not forwarded.
+  static const String _mode = 'fan_test';
+  static const String _kind = 'person';
+
   // --- Rounds & gameplay -----------------------------------------------------
 
   Future<TriviaRoundModel> createRound({
     required String mode,
     int? actorId,
     String? kind,
+    String? actorName,
+    String? actorProfile,
   }) async {
-    final body = <String, dynamic>{'mode': mode};
+    final body = <String, dynamic>{'mode': _mode, 'kind': _kind};
     if (actorId != null) body['actorId'] = actorId;
-    if (kind != null && kind.isNotEmpty) body['kind'] = kind;
+    // The server only stores these on insert — omitting them leaves the Top
+    // Fans header with a blank name/avatar forever.
+    if (actorName != null && actorName.isNotEmpty) body['actorName'] = actorName;
+    if (actorProfile != null && actorProfile.isNotEmpty) {
+      body['actorProfile'] = actorProfile;
+    }
 
     final response = await dio.post('/trivia/rounds', data: body);
     return _round(response.data);

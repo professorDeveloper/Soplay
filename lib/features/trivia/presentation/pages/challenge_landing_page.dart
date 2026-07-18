@@ -43,14 +43,9 @@ class _ChallengeLandingView extends StatelessWidget {
         listenWhen: (a, b) =>
             b.status == ChallengeStatus.joined && b.round != null,
         listener: (context, state) {
-          final challenge = state.challenge;
           openGame(
             context,
-            GameArgs(
-              mode: challenge?.mode ?? 'fan_test',
-              challengeCode: code,
-              presetRound: state.round,
-            ),
+            GameArgs(challengeCode: code, presetRound: state.round),
           );
         },
         builder: (context, state) {
@@ -148,7 +143,7 @@ class _ChallengeCard extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 22,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     letterSpacing: -0.3,
                   ),
                 ),
@@ -214,13 +209,16 @@ class _Backdrop extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 34, sigmaY: 34),
             child: const ColoredBox(color: Color(0x66000000)),
           ),
-          const DecoratedBox(
+          DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xAA181818), AppColors.background],
-                stops: [0.0, 0.8],
+                colors: [
+                  AppColors.background.withValues(alpha: 0.67),
+                  AppColors.background,
+                ],
+                stops: const [0.0, 0.8],
               ),
             ),
           ),
@@ -238,18 +236,9 @@ class _SwordsBadge extends StatelessWidget {
     return Container(
       width: 88,
       height: 88,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [AppColors.primaryLight, AppColors.primaryDark],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.45),
-            blurRadius: 26,
-            spreadRadius: 1,
-          ),
-        ],
+        color: AppColors.primary,
       ),
       child: const Icon(CupertinoIcons.bolt_fill, color: Colors.white, size: 40),
     );
@@ -286,7 +275,7 @@ class _ScoreToBeat extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.rating,
               fontSize: 40,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               height: 1,
             ),
           ),
@@ -380,17 +369,8 @@ class _PlayButton extends StatelessWidget {
         height: 56,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.primaryLight, AppColors.primary],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.4),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(4),
         ),
         child: joining
             ? const SizedBox(

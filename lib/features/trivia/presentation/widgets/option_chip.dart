@@ -36,17 +36,8 @@ class OptionChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: palette.fill,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: palette.border, width: 1.4),
-        boxShadow: palette.glow == null
-            ? null
-            : [
-                BoxShadow(
-                  color: palette.glow!,
-                  blurRadius: 18,
-                  spreadRadius: 1,
-                ),
-              ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -78,7 +69,7 @@ class OptionChip extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(10),
           onTap: _tappable ? onTap : null,
           child: chip,
         ),
@@ -94,7 +85,6 @@ class OptionChip extends StatelessWidget {
           border: AppColors.success,
           text: Colors.white,
           icon: Icons.check_rounded,
-          glow: AppColors.success.withValues(alpha: 0.35),
         );
       case OptionChipStatus.wrong:
         return _ChipPalette(
@@ -102,14 +92,12 @@ class OptionChip extends StatelessWidget {
           border: AppColors.primaryLight,
           text: Colors.white,
           icon: Icons.close_rounded,
-          glow: AppColors.primary.withValues(alpha: 0.3),
         );
       case OptionChipStatus.selected:
         return _ChipPalette(
           fill: AppColors.primary.withValues(alpha: 0.18),
           border: AppColors.primaryLight,
           text: Colors.white,
-          glow: AppColors.primary.withValues(alpha: 0.22),
         );
       case OptionChipStatus.idle:
       case OptionChipStatus.dimmed:
@@ -128,12 +116,10 @@ class _ChipPalette {
     required this.border,
     required this.text,
     this.icon,
-    this.glow,
   });
 
   final Color fill;
   final Color border;
   final Color text;
   final IconData? icon;
-  final Color? glow;
 }

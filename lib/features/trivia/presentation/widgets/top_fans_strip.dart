@@ -5,11 +5,12 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 import 'package:soplay/features/trivia/domain/entities/top_fan_entity.dart';
 
-/// Medal accent colors for ranks 1..3.
+/// Medal accent colors for ranks 1..3. Semantic, not decorative — they come
+/// from the shared medal tokens so the board and this strip cannot drift apart.
 const List<Color> kMedalColors = [
-  Color(0xFFFFD700), // gold
-  Color(0xFFC9CBD1), // silver
-  Color(0xFFCD7F32), // bronze
+  AppColors.medalGold,
+  AppColors.medalSilver,
+  AppColors.medalBronze,
 ];
 
 /// Compact "Top Fans" preview strip for the Actor Hero: top-3 avatars with
@@ -39,8 +40,8 @@ class TopFansStrip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
         decoration: BoxDecoration(
-          color: AppColors.surface.withValues(alpha: 0.85),
-          borderRadius: BorderRadius.circular(18),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.border, width: 1),
         ),
         child: Row(
@@ -187,10 +188,8 @@ class _MyRankChip extends StatelessWidget {
       margin: const EdgeInsets.only(right: 4),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
-        ),
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         'trivia.you_rank'.tr(namedArgs: {'rank': '$rank'}),
