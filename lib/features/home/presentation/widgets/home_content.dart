@@ -20,7 +20,6 @@ import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/home/presentation/widgets/home_banner.dart';
 import 'package:soplay/features/home/presentation/widgets/home_history_section.dart';
 import 'package:soplay/features/home/presentation/widgets/home_movie_section.dart';
-import 'package:soplay/features/home/presentation/widgets/home_top_bar.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 
 import '../bloc/home/home_state.dart';
@@ -38,9 +37,17 @@ bool _isMyListSection(HomeSectionEntity section) {
 }
 
 class HomeContent extends StatefulWidget {
-  const HomeContent({super.key, required this.state});
+  const HomeContent({
+    super.key,
+    required this.state,
+    required this.blurProgress,
+  });
 
   final HomeLoaded state;
+
+  /// Owned by HomePage (which mounts the top bar once, outside the bloc
+  /// builder); we only publish our scroll progress into it.
+  final ValueNotifier<double> blurProgress;
 
   @override
   State<HomeContent> createState() => _HomeContentState();
@@ -50,8 +57,6 @@ class _HomeContentState extends State<HomeContent> {
   late final ScrollController _scrollController;
   final HistoryService _historyService = getIt<HistoryService>();
   List<HistoryItem> _historyItems = const [];
-
-  final _blurProgress = ValueNotifier<double>(0);
 
   @override
   void initState() {
@@ -71,8 +76,8 @@ class _HomeContentState extends State<HomeContent> {
   void _handleScroll() {
     if (!_scrollController.hasClients) return;
     final next = ((_scrollController.offset - 250) / 150).clamp(0.0, 1.0);
-    if ((next - _blurProgress.value).abs() < 0.02) return;
-    _blurProgress.value = next;
+    if ((next - widget.blurProgress.value).abs() < 0.02) return;
+    widget.blurProgress.value = next;
   }
 
   @override
@@ -81,7 +86,6 @@ class _HomeContentState extends State<HomeContent> {
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();
-    _blurProgress.dispose();
     super.dispose();
   }
 
@@ -96,7 +100,6 @@ class _HomeContentState extends State<HomeContent> {
         state: widget.state,
         topPad: topPad,
         scrollController: _scrollController,
-        blurProgress: _blurProgress,
         historyItems: _historyItems,
         onRefresh: () async {
           context.read<HomeBloc>().add(HomeLoad(silent: true));
@@ -118,7 +121,6 @@ class _HomeContentBody extends StatelessWidget {
     required this.state,
     required this.topPad,
     required this.scrollController,
-    required this.blurProgress,
     required this.historyItems,
     required this.onRefresh,
   });
@@ -126,7 +128,6 @@ class _HomeContentBody extends StatelessWidget {
   final HomeLoaded state;
   final double topPad;
   final ScrollController scrollController;
-  final ValueNotifier<double> blurProgress;
   final List<HistoryItem> historyItems;
   final Future<void> Function() onRefresh;
 
@@ -139,106 +140,94 @@ class _HomeContentBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        RefreshIndicator(
-          color: AppColors.primary,
-          backgroundColor: AppColors.surface,
-          edgeOffset: topPad + 10,
-          displacement: topPad + 10,
-          strokeWidth: 2.6,
-          onRefresh: onRefresh,
-          child: BlocBuilder<BannersBloc, BannersState>(
-            builder: (context, bannersState) {
-              final slides = _composeSlides(bannersState.items);
-              final showHero = slides.isNotEmpty || bannersState.loading;
+    // No top bar here — HomePage mounts it once above this subtree.
+    return RefreshIndicator(
+      color: AppColors.primary,
+      backgroundColor: AppColors.surface,
+      edgeOffset: topPad + 10,
+      displacement: topPad + 10,
+      strokeWidth: 2.6,
+      onRefresh: onRefresh,
+      child: BlocBuilder<BannersBloc, BannersState>(
+        builder: (context, bannersState) {
+          final slides = _composeSlides(bannersState.items);
+          final showHero = slides.isNotEmpty || bannersState.loading;
 
-              final sectionSlivers = <Widget>[
-                for (final section in state.homeData.sections)
-                  if (section.items.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: RepaintBoundary(
-                        child: MovieSection(
-                          title: section.label,
-                          movies: section.items,
-                          type: section.viewAll.type,
-                          slug: section.viewAll.slug,
-                          onSeeAll: _isMyListSection(section)
-                              ? () => getIt<NavController>().goToId(TabId.myList)
-                              : null,
-                        ),
-                      ),
-                    ),
-              ];
-              // Sponsor/CMS banner strip mid-feed (home_middle placement). It
-              // self-collapses when the placement has no active banners, and its
-              // view/click tracking is guest-safe (no auth required).
-              if (sectionSlivers.isNotEmpty) {
-                final mid = (sectionSlivers.length / 2)
-                    .ceil()
-                    .clamp(1, sectionSlivers.length);
-                sectionSlivers.insert(
-                  mid,
-                  const SliverToBoxAdapter(
-                    child: BannersCarousel(
-                      placement: BannerPlacement.homeMiddle,
+          final sectionSlivers = <Widget>[
+            for (final section in state.homeData.sections)
+              if (section.items.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: RepaintBoundary(
+                    child: MovieSection(
+                      title: section.label,
+                      movies: section.items,
+                      type: section.viewAll.type,
+                      slug: section.viewAll.slug,
+                      onSeeAll: _isMyListSection(section)
+                          ? () => getIt<NavController>().goToId(TabId.myList)
+                          : null,
                     ),
                   ),
-                );
-              }
+                ),
+          ];
+          // Sponsor/CMS banner strip mid-feed (home_middle placement). It
+          // self-collapses when the placement has no active banners, and its
+          // view/click tracking is guest-safe (no auth required).
+          if (sectionSlivers.isNotEmpty) {
+            final mid = (sectionSlivers.length / 2)
+                .ceil()
+                .clamp(1, sectionSlivers.length);
+            sectionSlivers.insert(
+              mid,
+              const SliverToBoxAdapter(
+                child: BannersCarousel(
+                  placement: BannerPlacement.homeMiddle,
+                ),
+              ),
+            );
+          }
 
-              return CustomScrollView(
-                controller: scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  if (showHero)
-                    SliverToBoxAdapter(
-                      child: HomeBanner(
-                        slides: slides,
-                        topPadding: topPad,
-                        showSkeleton: state.homeData.banner.isEmpty &&
-                            bannersState.loading,
-                      ),
-                    ),
-                  if (historyItems.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: RepaintBoundary(
-                        child: HistorySection(items: historyItems),
-                      ),
-                    ),
-                  if (state.genres.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: RepaintBoundary(
-                        child: _GenreSection(genres: state.genres),
-                      ),
-                    ),
-                  if (state.collectionLoading)
-                    const SliverToBoxAdapter(child: CollectionLoadingRow()),
-                  ...sectionSlivers,
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      // Clear the floating nav capsule: desktop pill (~66+18) and
-                      // mobile glass capsule (62 bar + 12 gap + safe area).
-                      height: isDesktopPlatform
-                          ? 100
-                          : MediaQuery.paddingOf(context).bottom + 88,
-                    ),
+          return CustomScrollView(
+            controller: scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              if (showHero)
+                SliverToBoxAdapter(
+                  child: HomeBanner(
+                    slides: slides,
+                    topPadding: topPad,
+                    showSkeleton:
+                        state.homeData.banner.isEmpty && bannersState.loading,
                   ),
-                ],
-              );
-            },
-          ),
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: ValueListenableBuilder<double>(
-            valueListenable: blurProgress,
-            builder: (_, progress, _) => HomeTopBar(blurProgress: progress),
-          ),
-        ),
-      ],
+                ),
+              if (historyItems.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: RepaintBoundary(
+                    child: HistorySection(items: historyItems),
+                  ),
+                ),
+              if (state.genres.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: RepaintBoundary(
+                    child: _GenreSection(genres: state.genres),
+                  ),
+                ),
+              if (state.collectionLoading)
+                const SliverToBoxAdapter(child: CollectionLoadingRow()),
+              ...sectionSlivers,
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  // Clear the floating nav capsule: desktop pill (~66+18) and
+                  // mobile glass capsule (62 bar + 12 gap + safe area).
+                  height: isDesktopPlatform
+                      ? 100
+                      : MediaQuery.paddingOf(context).bottom + 88,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
