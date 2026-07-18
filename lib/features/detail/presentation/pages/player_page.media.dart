@@ -65,6 +65,10 @@ extension _PlayerMedia on _PlayerPageState {
       _episodeIndex = index;
       _panel = _SidePanel.none;
     });
+    // Sync is per-episode: a shift/rate tuned for the previous episode is wrong
+    // here, so drop it and load whatever was saved for this one (0 / 1.0 when
+    // nothing was).
+    _restoreSubtitleSync();
     await _disposeController();
     await Future<void>.delayed(const Duration(milliseconds: 200));
     if (!mounted) return;
@@ -122,7 +126,7 @@ extension _PlayerMedia on _PlayerPageState {
         if (subs.isNotEmpty) {
           final defaultIdx = subs.indexWhere((s) => s.isDefault);
           if (defaultIdx >= 0) {
-            _loadSubtitle(defaultIdx);
+            unawaited(_loadSubtitle(defaultIdx));
           }
         }
       case Failure(:final error):
