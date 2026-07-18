@@ -5,6 +5,7 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/features/trivia/domain/entities/reveal_result_entity.dart';
 import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
 import 'package:soplay/features/trivia/domain/entities/trivia_round_entity.dart';
+import 'package:soplay/features/trivia/domain/trivia_failure.dart';
 import 'package:soplay/features/trivia/domain/usecases/complete_round_usecase.dart';
 import 'package:soplay/features/trivia/domain/usecases/create_round_usecase.dart';
 import 'package:soplay/features/trivia/domain/usecases/start_clip_usecase.dart';
@@ -73,11 +74,25 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       case Success<TriviaRoundEntity>(:final value):
         _emitRound(value, emit);
       case Failure<TriviaRoundEntity>(:final error):
-        emit(state.copyWith(phase: GamePhase.error, message: _message(error)));
+        emit(_errorFor(error));
     }
   }
 
   void _emitRound(TriviaRoundEntity round, Emitter<GameState> emit) {
+    // A round with no clips is unplayable: ClipShown would bail on the range
+    // check, so the timer never starts, no player is ever created and the
+    // playing view spins forever behind a forfeit-guarded back button. Fail to
+    // the error phase instead — with today's zero approved clips this is the
+    // path most likely to be hit.
+    if (round.clips.isEmpty) {
+      emit(state.copyWith(
+        phase: GamePhase.error,
+        reason: GameErrorReason.notEnoughClips,
+        message: null,
+      ));
+      return;
+    }
+
     // The countdown length comes from the round itself so a server-side change
     // takes effect without shipping a new build.
     final deadlineMs = round.answerWindowMs ?? kFallbackAnswerWindowMs;
@@ -202,8 +217,25 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       case Success<TriviaResultEntity>(:final value):
         emit(state.copyWith(phase: GamePhase.finished, result: value));
       case Failure<TriviaResultEntity>(:final error):
-        emit(state.copyWith(phase: GamePhase.error, message: _message(error)));
+        emit(_errorFor(error));
     }
+  }
+
+  /// Classifies a failure so the UI can pick localized copy: a 409 means the
+  /// actor has too few approved clips, which is a content state, not a fault.
+  GameState _errorFor(Object error) {
+    if (error is TriviaFailure && error.isNotEnoughClips) {
+      return state.copyWith(
+        phase: GamePhase.error,
+        reason: GameErrorReason.notEnoughClips,
+        message: null,
+      );
+    }
+    return state.copyWith(
+      phase: GamePhase.error,
+      reason: GameErrorReason.generic,
+      message: _message(error),
+    );
   }
 
   /// Whole seconds shown on the ring, rounded up so a 10s window starts at 10.

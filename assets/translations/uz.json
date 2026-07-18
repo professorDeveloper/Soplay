@@ -769,9 +769,19 @@
     "challenge_text": "Kinoni yaxshiroq bilaman deb o'ylaysizmi? Sozo'dagi Buffda meni chorlang!",
     "share_tagline": "Sozo'da Buff o'ynang",
     "challenge_from": "{name}dan chorlov",
-    "same_ten_clips": "O'sha 10 ta klip, yuzma-yuz",
+    "same_clips_head_to_head": "O'sha kliplar, yuzma-yuz",
     "score_to_beat": "Yengib o'tish kerak bo'lgan ball",
     "play_challenge": "Chorlovni qabul qilish",
-    "challenge_not_found": "Chorlov topilmadi"
+    "challenge_not_found": "Chorlov topilmadi",
+    "no_actors_yet": "Hozircha aktyorlar yo'q",
+    "no_actors_yet_body": "Buff to'ldirilmoqda. Kliplar birma-bir ko'rib chiqilmoqda — aktyorlar kliplari tasdiqlanishi bilan shu yerda paydo bo'ladi.",
+    "actor_not_ready": "Bu aktyor hali tayyor emas",
+    "actor_not_ready_body": "Raund uchun tasdiqlangan kliplar hali yetarli emas. Boshqa aktyorni tanlab ko'ring.",
+    "round_short_note": "Bu raundda {count} ta klip bo'ldi — bu aktyorning hozirgacha tasdiqlangan barcha kliplari.",
+    "todays_top": "Bugungi eng yaxshilar",
+    "how_it_works": "Buff qanday ishlaydi",
+    "how_step_1": "Aktyorni tanlang",
+    "how_step_2": "Qisqa klipni ko'ring",
+    "how_step_3": "Filmni toping"
   }
 }

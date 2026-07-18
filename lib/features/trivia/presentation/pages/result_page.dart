@@ -24,6 +24,11 @@ import 'package:soplay/features/trivia/presentation/widgets/share_card.dart';
 /// optional so a richer caller (e.g. the game finishing a round) can enrich the
 /// share card and keep the replay pointed at the same actor, but the page
 /// degrades gracefully to a brand-only card when it is absent.
+/// The round length the server aims for when an actor has enough approved
+/// clips. Anything shorter is explained to the player rather than left to look
+/// like a bug.
+const int kFullRoundClips = 10;
+
 class ResultPage extends StatefulWidget {
   const ResultPage({
     super.key,
@@ -127,6 +132,20 @@ class _ResultPageState extends State<ResultPage> {
                   _FandomGauge(percent: r.fandomPercent),
                   const SizedBox(height: 28),
                   _StatRow(result: r),
+                  if (r.hasTotal && r.totalClips < kFullRoundClips) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      'trivia.round_short_note'.tr(
+                        namedArgs: {'count': '${r.totalClips}'},
+                      ),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 32),
                   _actions(),
                 ],
@@ -289,7 +308,11 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final tiles = <Widget>[
       _StatTile(
-        value: '${result.correctCount}/10',
+        // The round is as long as the actor's approved clips allow, so the
+        // denominator comes from the payload — never a hardcoded 10.
+        value: result.hasTotal
+            ? '${result.correctCount}/${result.totalClips}'
+            : '${result.correctCount}',
         label: 'trivia.correct'.tr(),
         icon: CupertinoIcons.checkmark_seal_fill,
       ),

@@ -769,9 +769,19 @@
     "challenge_text": "Think you know movies better? Challenge me on Buff in Sozo!",
     "share_tagline": "Play Buff on Sozo",
     "challenge_from": "Challenge from {name}",
-    "same_ten_clips": "The same 10 clips, head to head",
+    "same_clips_head_to_head": "The same clips, head to head",
     "score_to_beat": "Score to beat",
     "play_challenge": "Play challenge",
-    "challenge_not_found": "Challenge not found"
+    "challenge_not_found": "Challenge not found",
+    "no_actors_yet": "No actors yet",
+    "no_actors_yet_body": "Buff is being stocked. Clips are reviewed one by one — actors appear here as soon as their clips are approved.",
+    "actor_not_ready": "This actor isn't ready yet",
+    "actor_not_ready_body": "There aren't enough approved clips for a round yet. Try another actor.",
+    "round_short_note": "This round had {count} clips — every approved clip for this actor so far.",
+    "todays_top": "Today's top",
+    "how_it_works": "How Buff works",
+    "how_step_1": "Pick an actor",
+    "how_step_2": "Watch a short clip",
+    "how_step_3": "Name the film"
   }
 }

@@ -15,6 +15,9 @@ import 'package:soplay/features/trivia/presentation/bloc/cast/cast_state.dart';
 import 'package:soplay/features/trivia/presentation/bloc/hub/trivia_hub_bloc.dart';
 import 'package:soplay/features/trivia/presentation/bloc/hub/trivia_hub_event.dart';
 import 'package:soplay/features/trivia/presentation/bloc/hub/trivia_hub_state.dart';
+import 'package:soplay/features/trivia/presentation/pages/top_fans_page.dart'
+    show RankBadge;
+import 'package:soplay/features/trivia/presentation/widgets/buff_empty_panel.dart';
 import 'package:soplay/features/trivia/presentation/widgets/cast_card.dart';
 
 /// The Buff bottom-nav tab: a fan checker. Leads with the Fan Test entry (which
@@ -68,6 +71,7 @@ class _HubView extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             const _PopularCastRail(),
+            const _TodaysTopSection(),
             const SizedBox(height: 22),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
@@ -138,6 +142,10 @@ class _Masthead extends StatelessWidget {
 /// The single entry point into a round — Buff is fan-test only. The face stack
 /// on the right is pulled from the already-loaded popular cast so the card is
 /// carried by real artwork rather than a bare border.
+///
+/// The whole card reads [CastBloc]: when the popular list has loaded and come
+/// back empty there is no actor to test on, so the button is disabled rather
+/// than sending the player into a picker that is guaranteed blank.
 class _FanTestHero extends StatelessWidget {
   const _FanTestHero({required this.onTap});
 
@@ -145,6 +153,28 @@ class _FanTestHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return BlocBuilder<CastBloc, CastState>(
+      buildWhen: (a, b) => a.status != b.status || a.popular != b.popular,
+      builder: (context, state) {
+        final loading = state.status == CastStatus.initial ||
+            state.status == CastStatus.loadingPopular;
+        // While loading, keep the button live: disabling then re-enabling it
+        // reads as a glitch, and the picker loads its own list anyway.
+        final enabled = loading || state.popular.isNotEmpty;
+        return _heroCard(
+          people: state.popular,
+          loading: loading,
+          enabled: enabled,
+        );
+      },
+    );
+  }
+
+  Widget _heroCard({
+    required List<CastPersonEntity> people,
+    required bool loading,
+    required bool enabled,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -189,7 +219,7 @@ class _FanTestHero extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const _FaceStack(),
+              _FaceStack(people: people, loading: loading),
             ],
           ),
           const SizedBox(height: 16),
@@ -197,10 +227,12 @@ class _FanTestHero extends StatelessWidget {
             width: double.infinity,
             height: 46,
             child: ElevatedButton(
-              onPressed: onTap,
+              onPressed: enabled ? onTap : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: AppColors.surfaceVariant,
+                disabledForegroundColor: AppColors.textHint,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 minimumSize: Size.zero,
@@ -235,9 +267,13 @@ class _FanTestHero extends StatelessWidget {
 }
 
 /// Four overlapping faces from the popular cast. Falls back to a neutral icon
-/// tile when the list is empty so the hero row keeps its shape.
+/// tile when the list is empty so the hero row keeps its shape. The state is
+/// handed down by [_FanTestHero], which already watches [CastBloc].
 class _FaceStack extends StatelessWidget {
-  const _FaceStack();
+  const _FaceStack({required this.people, required this.loading});
+
+  final List<CastPersonEntity> people;
+  final bool loading;
 
   static const double _face = 36; // photo diameter
   static const double _ring = 2; // separator ring around each face
@@ -246,69 +282,66 @@ class _FaceStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<CastBloc, CastState>(
-      buildWhen: (a, b) => a.status != b.status || a.popular != b.popular,
-      builder: (context, state) {
-        final loading = state.status == CastStatus.initial ||
-            state.status == CastStatus.loadingPopular;
-        final people = state.popular.take(_max).toList();
+    final faces = people.take(_max).toList();
 
-        if (people.isEmpty && !loading) {
-          return Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              CupertinoIcons.heart_fill,
-              color: AppColors.primaryLight,
-              size: 24,
-            ),
-          );
-        }
+    if (faces.isEmpty && !loading) {
+      return Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(
+          CupertinoIcons.heart_fill,
+          color: AppColors.primaryLight,
+          size: 24,
+        ),
+      );
+    }
 
-        final count = people.isEmpty ? _max : people.length;
-        const outer = _face + _ring * 2;
-        final width = outer + _step * (count - 1);
+    final count = faces.isEmpty ? _max : faces.length;
+    const outer = _face + _ring * 2;
+    final width = outer + _step * (count - 1);
 
-        return SizedBox(
-          width: width,
-          height: outer,
-          child: Stack(
-            children: [
-              for (var i = count - 1; i >= 0; i--)
-                Positioned(
-                  left: i * _step,
-                  child: Container(
-                    padding: const EdgeInsets.all(_ring),
-                    decoration: const BoxDecoration(
-                      color: AppColors.surface,
-                      shape: BoxShape.circle,
-                    ),
-                    child: people.isEmpty
-                        ? const ShimmerWrapper(
-                            child: _ShimmerCircle(size: _face),
-                          )
-                        : _PersonAvatar(
-                            url: people[i].profileUrl,
-                            name: people[i].name,
-                            size: _face,
-                            initialSize: 14,
-                          ),
-                  ),
+    return SizedBox(
+      width: width,
+      height: outer,
+      child: Stack(
+        children: [
+          for (var i = count - 1; i >= 0; i--)
+            Positioned(
+              left: i * _step,
+              child: Container(
+                padding: const EdgeInsets.all(_ring),
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  shape: BoxShape.circle,
                 ),
-            ],
-          ),
-        );
-      },
+                child: faces.isEmpty
+                    ? const ShimmerWrapper(
+                        child: _ShimmerCircle(size: _face),
+                      )
+                    : _PersonAvatar(
+                        url: faces[i].profileUrl,
+                        name: faces[i].name,
+                        size: _face,
+                        initialSize: 14,
+                      ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
 
 /// "Popular now" actors, straight from [CastBloc] — tapping one skips the
 /// picker and opens the actor hero.
+///
+/// Silently vanishing on an empty list was hiding two very different things: a
+/// failed load and a genuinely empty catalogue. Both now say what happened, and
+/// only the failure offers a retry.
 class _PopularCastRail extends StatelessWidget {
   const _PopularCastRail();
 
@@ -326,7 +359,30 @@ class _PopularCastRail extends StatelessWidget {
       builder: (context, state) {
         final loading = state.status == CastStatus.initial ||
             state.status == CastStatus.loadingPopular;
-        if (!loading && state.popular.isEmpty) return const SizedBox.shrink();
+
+        if (!loading && state.status == CastStatus.error) {
+          return _RailNotice(
+            child: BuffEmptyPanel(
+              icon: CupertinoIcons.wifi_slash,
+              title: 'trivia.something_wrong'.tr(),
+              body: state.message,
+              onAction: () =>
+                  context.read<CastBloc>().add(const CastStarted()),
+            ),
+          );
+        }
+
+        if (!loading && state.popular.isEmpty) {
+          // Nothing failed — there simply are no actors with enough approved
+          // clips yet, so there is nothing to retry into.
+          return _RailNotice(
+            child: BuffEmptyPanel(
+              icon: CupertinoIcons.film,
+              title: 'trivia.no_actors_yet'.tr(),
+              body: 'trivia.no_actors_yet_body'.tr(),
+            ),
+          );
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,6 +417,22 @@ class _PopularCastRail extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Gutter for a panel standing in for the rail: the hero above it already sits
+/// at 16, and the 16 top gap replaces the section header's leading space.
+class _RailNotice extends StatelessWidget {
+  const _RailNotice({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: child,
     );
   }
 }
@@ -610,6 +682,270 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+/// Today's leading players. The data is already in hand — the hub's daily
+/// leaderboard request used to be parsed for the user's own row and discarded —
+/// so this costs no extra call and closes most of the hub's empty lower half.
+///
+/// With nobody on the board it steps aside for [_HowItWorksCard]: a header
+/// pointing at an empty list would be worse than the dead space it replaced.
+class _TodaysTopSection extends StatelessWidget {
+  const _TodaysTopSection();
+
+  /// Rows shown here; the header leads to the full board.
+  static const int _rows = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<TriviaHubBloc, TriviaHubState>(
+      buildWhen: (a, b) => a.status != b.status || a.dailyTop != b.dailyTop,
+      builder: (context, state) {
+        final loading = state.status == TriviaHubStatus.initial ||
+            state.status == TriviaHubStatus.loading;
+        if (loading) return const _TodaysTopSkeleton(rows: _rows);
+
+        final entries = state.dailyTop.take(_rows).toList();
+        if (entries.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.fromLTRB(16, 22, 16, 0),
+            child: _HowItWorksCard(),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionHeader(
+              title: 'trivia.todays_top'.tr(),
+              onTap: () => context.push('/trivia/leaderboard'),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border, width: 0.6),
+                ),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < entries.length; i++) ...[
+                      if (i != 0)
+                        Container(height: 0.6, color: AppColors.border),
+                      _TopRow(entry: entries[i]),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// One row of today's board — same anatomy as the leaderboard's own rows
+/// (rank badge, 42px avatar, name over correct-count, score in rating gold).
+class _TopRow extends StatelessWidget {
+  const _TopRow({required this.entry});
+
+  final LeaderboardEntryEntity entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          RankBadge(rank: entry.rank),
+          const SizedBox(width: 12),
+          _PersonAvatar(
+            url: entry.avatar,
+            name: entry.username,
+            size: 42,
+            initialSize: 15,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  entry.username,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'trivia.correct_of'.tr(
+                    namedArgs: {'count': '${entry.correctCount}'},
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '${entry.score}',
+            maxLines: 1,
+            style: const TextStyle(
+              color: AppColors.rating,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Mirrors the loaded section (header + one bordered card of rows) so the hub
+/// does not jump when the board arrives.
+class _TodaysTopSkeleton extends StatelessWidget {
+  const _TodaysTopSkeleton({required this.rows});
+
+  final int rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 26, 16, 0),
+      child: ShimmerWrapper(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const HomeSkeletonBox(width: 128, height: 17, radius: 4),
+            const SizedBox(height: 16),
+            for (var i = 0; i < rows; i++) ...[
+              if (i != 0) const SizedBox(height: 10),
+              const HomeSkeletonBox(
+                width: double.infinity,
+                height: 52,
+                radius: 12,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Launch-day filler that needs no data: what Buff actually asks of the player,
+/// in three steps. Shown only while today's board is empty — once people are
+/// playing, the board earns the space instead.
+class _HowItWorksCard extends StatelessWidget {
+  const _HowItWorksCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border, width: 0.6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'trivia.how_it_works'.tr(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _HowStep(
+                  icon: CupertinoIcons.person_crop_circle,
+                  label: 'trivia.how_step_1'.tr(),
+                ),
+              ),
+              Expanded(
+                child: _HowStep(
+                  icon: CupertinoIcons.play_rectangle_fill,
+                  label: 'trivia.how_step_2'.tr(),
+                ),
+              ),
+              Expanded(
+                child: _HowStep(
+                  icon: CupertinoIcons.checkmark_seal_fill,
+                  label: 'trivia.how_step_3'.tr(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HowStep extends StatelessWidget {
+  const _HowStep({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    // No fixed height anywhere in this strip, so a larger system font scale
+    // grows the card instead of overflowing it.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceVariant,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: AppColors.primaryLight, size: 18),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Daily rank and the leaderboard entry point, merged into one card — two thin
 /// stacked rectangles were the "unfinished form" complaint.
 class _RankCard extends StatelessWidget {
@@ -754,7 +1090,12 @@ class _RankRow extends StatelessWidget {
               if (ranked) ...[
                 const SizedBox(height: 3),
                 Text(
-                  'trivia.correct_of'.tr(args: ['${entry.correctCount}']),
+                  // `correct_of` is "{count} correct" — a NAMED placeholder,
+                  // which `args:` does not substitute (it printed the literal
+                  // "{count} correct" here).
+                  'trivia.correct_of'.tr(
+                    namedArgs: {'count': '${entry.correctCount}'},
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

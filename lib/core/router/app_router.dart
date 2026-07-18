@@ -223,8 +223,16 @@ class AppRouter {
       ),
       GoRoute(
         path: '/trivia/result',
-        builder: (context, state) =>
-            ResultPage(result: state.extra as TriviaResultEntity),
+        builder: (context, state) {
+          // `extra` carries the actor alongside the result; a bare result is
+          // still accepted (legacy pushes) and degrades to a brand-only share
+          // card with an actor-less replay.
+          final extra = state.extra;
+          if (extra is ResultArgs) {
+            return ResultPage(result: extra.result, actor: extra.actor);
+          }
+          return ResultPage(result: extra as TriviaResultEntity);
+        },
       ),
       GoRoute(
         path: '/trivia/leaderboard',

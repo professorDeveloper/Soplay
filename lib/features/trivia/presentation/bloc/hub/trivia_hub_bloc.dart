@@ -30,13 +30,18 @@ class TriviaHubBloc extends Bloc<TriviaHubEvent, TriviaHubState> {
         emit(state.copyWith(
           status: TriviaHubStatus.loaded,
           myDailyRank: _mine(value),
+          // The same response already carries the whole board; keeping its head
+          // costs nothing and gives the hub a section that is true even at zero
+          // content ("nobody has played today").
+          dailyTop: value.where((e) => !e.isMe).take(8).toList(),
         ));
       case Failure<List<LeaderboardEntryEntity>>(:final error):
-        // The rank teaser is non-critical: keep the mode cards on screen and
-        // surface the failure quietly instead of showing a full-screen error.
+        // The rank teaser is non-critical: keep the rest of the hub on screen
+        // and surface the failure quietly instead of showing a full-screen error.
         emit(state.copyWith(
           status: TriviaHubStatus.loaded,
           myDailyRank: null,
+          dailyTop: const [],
           message: _message(error),
         ));
     }

@@ -10,6 +10,7 @@ import 'package:soplay/features/trivia/domain/entities/reveal_result_entity.dart
 import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
 import 'package:soplay/features/trivia/domain/entities/trivia_round_entity.dart';
 import 'package:soplay/features/trivia/domain/repositories/trivia_repository.dart';
+import 'package:soplay/features/trivia/domain/trivia_failure.dart';
 
 class TriviaRepositoryImpl implements TriviaRepository {
   const TriviaRepositoryImpl(this.dataSource);
@@ -27,7 +28,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
         await dataSource.createRound(mode: mode, actorId: actorId, kind: kind),
       );
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -42,7 +43,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
       await dataSource.startClip(roundId: roundId, clipIndex: clipIndex);
       return Success<void>(null);
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -65,7 +66,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
         ),
       );
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -76,7 +77,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
     try {
       return Success(await dataSource.completeRound(roundId));
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -87,7 +88,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
     try {
       return Success(await dataSource.resumeRound(roundId));
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -101,7 +102,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
     try {
       return Success(await dataSource.searchCast(query: query, kind: kind));
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -114,7 +115,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
     try {
       return Success(await dataSource.getPopularCast(kind: kind));
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -128,7 +129,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
     try {
       return Success(await dataSource.getActorProfile(id: id, kind: kind));
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -145,7 +146,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
         await dataSource.getLeaderboard(scope: scope, mode: mode, actorId: actorId),
       );
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -159,7 +160,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
     try {
       return Success(await dataSource.getTopFans(actorId: actorId, kind: kind));
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -182,7 +183,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
         ),
       );
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -193,7 +194,7 @@ class TriviaRepositoryImpl implements TriviaRepository {
     try {
       return Success(await dataSource.getChallenge(code));
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
@@ -204,11 +205,19 @@ class TriviaRepositoryImpl implements TriviaRepository {
     try {
       return Success(await dataSource.joinChallenge(code));
     } on DioException catch (e) {
-      return Failure(Exception(_messageFrom(e)));
+      return Failure(_failureFrom(e));
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
   }
+
+  /// Keeps the status alongside the message so the presentation layer can tell
+  /// "this actor has too few approved clips" (409) from a real server fault and
+  /// render its own localized copy instead of echoing the server's English.
+  TriviaFailure _failureFrom(DioException e) => TriviaFailure(
+        status: e.response?.statusCode,
+        message: _messageFrom(e),
+      );
 
   String _messageFrom(DioException e) {
     final data = e.response?.data;

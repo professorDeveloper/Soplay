@@ -6,6 +6,7 @@ class TriviaResultModel extends TriviaResultEntity {
     required super.fandomPercent,
     required super.rank,
     required super.correctCount,
+    required super.totalClips,
   });
 
   factory TriviaResultModel.fromJson(Map<String, dynamic> json) {
@@ -14,6 +15,9 @@ class TriviaResultModel extends TriviaResultEntity {
       fandomPercent: _double(json['fandomPercent']),
       rank: _int(json['rank']),
       correctCount: _int(json['correctCount']),
+      // Absent on a legacy payload → 0, which the UI reads as "hide the
+      // denominator". Defaulting to correctCount would claim a perfect round.
+      totalClips: _int(json['totalClips'] ?? json['clipCount']),
     );
   }
 
