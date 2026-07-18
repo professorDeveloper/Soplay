@@ -8,6 +8,11 @@ import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
 /// as-you-type results grid. The profile photo carries a shared [Hero] tag so it
 /// flies into the Actor Hero screen on tap. When [highlight] is non-empty the
 /// matched substring of the name is bolded.
+///
+/// Layout follows the shipped people-grid idiom (detail → Cast): a fixed 64px
+/// avatar, an 8px gap, a two-line name and a one-line sub-label. The avatar is a
+/// fixed size — never an `AspectRatio` — so a wider tile does not inflate the
+/// circle, which is what made the old grid read as "huge circles".
 class CastCard extends StatelessWidget {
   const CastCard({
     super.key,
@@ -19,6 +24,9 @@ class CastCard extends StatelessWidget {
   final CastPersonEntity person;
   final VoidCallback onTap;
   final String highlight;
+
+  /// Avatar diameter in the grid — matches `detail_cast_tab.dart`'s 64.
+  static const double avatarSize = 64;
 
   /// Stable Hero tag shared with [ActorHeroPage]'s profile photo.
   static String heroTag(CastPersonEntity p) => 'trivia-cast-${p.kind}-${p.id}';
@@ -38,9 +46,13 @@ class CastCard extends StatelessWidget {
         children: [
           Hero(
             tag: heroTag(person),
-            child: CastAvatar(url: person.profileUrl, name: person.name),
+            child: CastAvatar(
+              url: person.profileUrl,
+              name: person.name,
+              size: avatarSize,
+            ),
           ),
-          const SizedBox(height: 9),
+          const SizedBox(height: 8),
           _HighlightedName(name: person.name, query: highlight),
           if (knownFor.isNotEmpty) ...[
             const SizedBox(height: 2),
@@ -51,8 +63,9 @@ class CastCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.textHint,
-                fontSize: 11,
-                height: 1.1,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
               ),
             ),
           ],
@@ -62,51 +75,53 @@ class CastCard extends StatelessWidget {
   }
 }
 
-/// Circular avatar with a subtle red ring + shimmer placeholder. Reused by the
-/// cast grid and the top-fans strip.
+/// Circular avatar with the app's neutral grey ring + initials placeholder.
+/// Reused by the cast grid, the actor hero and the top-fans strip.
+///
+/// [size] pins the diameter (the shipped idiom — 58 in rails, 64 in grids).
+/// When omitted the avatar falls back to filling its parent squarely, which the
+/// hero header relies on.
 class CastAvatar extends StatelessWidget {
   const CastAvatar({
     super.key,
     required this.url,
     required this.name,
     this.highlightRing = false,
+    this.size,
   });
 
   final String url;
   final String name;
+
+  /// Selected / medal state — a solid brand ring, matching the top-fans medal
+  /// precedent. Never a gradient.
   final bool highlightRing;
+
+  final double? size;
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1,
-      child: Container(
-        padding: const EdgeInsets.all(2.5),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: highlightRing
-                ? const [AppColors.primaryLight, AppColors.primary]
-                : [
-                    AppColors.primary.withValues(alpha: 0.55),
-                    AppColors.primary.withValues(alpha: 0.15),
-                  ],
-          ),
-        ),
-        child: ClipOval(
-          child: ColoredBox(
-            color: AppColors.surfaceVariant,
-            child: _image(),
-          ),
+    final avatar = Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.surfaceVariant,
+        border: Border.all(
+          color: highlightRing ? AppColors.primary : AppColors.border,
+          width: highlightRing ? 2 : 1.2,
         ),
       ),
+      clipBehavior: Clip.antiAlias,
+      child: _image(),
     );
+
+    if (size != null) return avatar;
+    return AspectRatio(aspectRatio: 1, child: avatar);
   }
 
   Widget _image() {
-    if (url.trim().isEmpty) return _fallback();
+    if (url.trim().isEmpty) return _Initials(name: name);
     return CachedNetworkImage(
       imageUrl: url,
       fit: BoxFit.cover,
@@ -115,30 +130,51 @@ class CastAvatar extends StatelessWidget {
       fadeInDuration: const Duration(milliseconds: 140),
       placeholder: (_, _) =>
           const ShimmerWrapper(child: ColoredBox(color: Colors.white)),
-      errorWidget: (_, _, _) => _fallback(),
+      errorWidget: (_, _, _) => _Initials(name: name),
+    );
+  }
+}
+
+/// Initials on a flat `surfaceVariant` disc — the shipped placeholder
+/// (`detail_cast.dart`). Two-word names yield two initials, so far fewer tiles
+/// collapse to a lone letter. The glyph is sized off the real diameter (~0.31×,
+/// i.e. 18 at 58 and 20 at 64) instead of a `FittedBox`, which is what made the
+/// old 100px circles look like broken art next to real photos.
+class _Initials extends StatelessWidget {
+  const _Initials({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final side = constraints.biggest.shortestSide;
+        final fontSize = (side.isFinite ? side * 0.31 : 20.0).clamp(12.0, 22.0);
+        return Container(
+          color: AppColors.surfaceVariant,
+          alignment: Alignment.center,
+          child: Text(
+            _initials(name),
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w800,
+              fontSize: fontSize,
+              height: 1,
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _fallback() {
-    final initial = name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase();
-    return Container(
-      color: AppColors.surfaceVariant,
-      alignment: Alignment.center,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Text(
-            initial,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w800,
-              fontSize: 34,
-            ),
-          ),
-        ),
-      ),
-    );
+  String _initials(String value) {
+    final parts = value.trim().split(RegExp(r'\s+'));
+    if (parts.length > 1 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    final trimmed = value.trim();
+    return trimmed.isNotEmpty ? trimmed[0].toUpperCase() : '?';
   }
 }
 
@@ -153,28 +189,19 @@ class _HighlightedName extends StatelessWidget {
   Widget build(BuildContext context) {
     const base = TextStyle(
       color: AppColors.textPrimary,
-      fontSize: 13,
-      fontWeight: FontWeight.w600,
-      height: 1.1,
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      height: 1.2,
     );
 
     final q = query.trim().toLowerCase();
-    if (q.isEmpty) {
-      return Text(
-        name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: base,
-      );
-    }
-
     final lower = name.toLowerCase();
-    final start = lower.indexOf(q);
+    final start = q.isEmpty ? -1 : lower.indexOf(q);
+
     if (start < 0) {
       return Text(
         name,
-        maxLines: 1,
+        maxLines: 2,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
         style: base,
@@ -183,7 +210,7 @@ class _HighlightedName extends StatelessWidget {
     final end = start + q.length;
 
     return RichText(
-      maxLines: 1,
+      maxLines: 2,
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
       text: TextSpan(
@@ -194,7 +221,7 @@ class _HighlightedName extends StatelessWidget {
             text: name.substring(start, end),
             style: const TextStyle(
               color: AppColors.primaryLight,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
             ),
           ),
           TextSpan(text: name.substring(end)),
@@ -204,7 +231,8 @@ class _HighlightedName extends StatelessWidget {
   }
 }
 
-/// Shimmer skeleton mirroring a [CastCard] for the loading grids.
+/// Shimmer skeleton mirroring a [CastCard] for the loading grids — same fixed
+/// 64 avatar, same gaps, so the grid does not jump when real data lands.
 class CastCardSkeleton extends StatelessWidget {
   const CastCardSkeleton({super.key});
 
@@ -214,8 +242,9 @@ class CastCardSkeleton extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AspectRatio(
-            aspectRatio: 1,
+          SizedBox(
+            width: CastCard.avatarSize,
+            height: CastCard.avatarSize,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -223,10 +252,10 @@ class CastCardSkeleton extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(height: 11),
-          HomeSkeletonBox(width: 64, height: 11, radius: 4),
+          SizedBox(height: 8),
+          HomeSkeletonBox(width: 76, height: 11, radius: 4),
           SizedBox(height: 5),
-          HomeSkeletonBox(width: 40, height: 9, radius: 4),
+          HomeSkeletonBox(width: 46, height: 9, radius: 4),
         ],
       ),
     );

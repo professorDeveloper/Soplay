@@ -55,7 +55,14 @@ class ViewAllBloc extends Bloc<ViewAllEvent, ViewAllState> {
         totalPages: data.totalPages,
       ));
     } else {
-      emit(ViewAllError(mesage: result.getErrorOrNull()!.toString()));
+      // A failed *pagination* append must not wipe the already-loaded grid and
+      // scroll position — just clear the bottom spinner and keep what we have.
+      emit(ViewAllLoaded(
+        items: current.items,
+        currentPage: current.currentPage,
+        totalPages: current.totalPages,
+        isLoadingMore: false,
+      ));
     }
   }
 }

@@ -11,7 +11,7 @@ class PopularCastGrid extends StatelessWidget {
     required this.people,
     required this.onTapPerson,
     this.highlight = '',
-    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 24),
+    this.padding = kCastGridPadding,
     this.controller,
   });
 
@@ -46,8 +46,8 @@ class PopularCastGrid extends StatelessWidget {
 class CastGridSkeleton extends StatelessWidget {
   const CastGridSkeleton({
     super.key,
-    this.itemCount = 9,
-    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 24),
+    this.itemCount = 12,
+    this.padding = kCastGridPadding,
   });
 
   final int itemCount;
@@ -65,10 +65,27 @@ class CastGridSkeleton extends StatelessWidget {
   }
 }
 
+/// 12px gutter — the app's 3-column grid gutter (view-all, search, detail cast).
+const EdgeInsets kCastGridPadding = EdgeInsets.fromLTRB(12, 8, 12, 24);
+
+/// Tuned against the shipped people grid (`detail_cast_tab.dart`: 3 cols,
+/// cross 8, main 14) rather than the old sparse 14/22/0.68.
+///
+/// On a 360-wide device: usable = 360 − 24 = 336, tile w = (336 − 16)/3 =
+/// 106.67, tile h = 106.67 / 0.80 = 133.33, row pitch = 147.33 (was 169.06 —
+/// 13% denser, and the avatar no longer scales with the tile).
+///
+/// Content at the owner's textScale 1.1: avatar 64 + gap 8 + name (2 × 12 ×
+/// 1.1 × 1.2 = 31.68) + gap 2 + sub-label (10 × 1.1 × 1.2 = 13.2) = 118.88,
+/// leaving 14.45 slack (10.8%) — above the 10% floor. At scale 1.0 the content
+/// is 114.8, slack 18.53 (13.9%).
+///
+/// The ratio is 0.80 rather than 0.92 because the name wraps to two lines (a
+/// one-line name at this tile width truncates people like "Victoria Pedretti").
 const SliverGridDelegateWithFixedCrossAxisCount _delegate =
     SliverGridDelegateWithFixedCrossAxisCount(
   crossAxisCount: 3,
-  mainAxisSpacing: 22,
-  crossAxisSpacing: 14,
-  childAspectRatio: 0.68,
+  mainAxisSpacing: 14,
+  crossAxisSpacing: 8,
+  childAspectRatio: 0.80,
 );

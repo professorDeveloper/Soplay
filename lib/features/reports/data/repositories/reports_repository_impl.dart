@@ -15,8 +15,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
       return const Success(null);
     } on DioException catch (e) {
       final code = e.response?.statusCode;
+      final data = e.response?.data;
       final serverMessage =
-          (e.response?.data as Map<String, dynamic>?)?['message'] as String?;
+          (data is Map ? data['message'] : null)?.toString();
       switch (code) {
         case 400:
           return Failure(

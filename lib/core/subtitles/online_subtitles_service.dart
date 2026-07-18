@@ -63,7 +63,9 @@ class OnlineSubtitlesService {
     if (imdb == null) return const [];
 
     var results = await _wyzie(wyzieKey, imdb,
-        season: isSerial ? (season ?? 1) : null,
+        // Don't fabricate season 1 when the caller has no season — that returns
+        // season-1 subtitles for season 2+ episodes. Omit it instead.
+        season: isSerial ? season : null,
         episode: isSerial ? episode : null);
     if (results.isEmpty && isSerial) {
       results = await _wyzie(wyzieKey, imdb);

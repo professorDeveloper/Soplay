@@ -120,6 +120,7 @@ Future<void> _initHive() async {
     await Hive.initFlutter();
   }
   await Future.wait([
+
     Hive.openBox(AppConstants.authBox),
     Hive.openBox(AppConstants.settingsBox),
     Hive.openBox(AppConstants.historyBox),

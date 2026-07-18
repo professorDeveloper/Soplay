@@ -313,9 +313,17 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
             separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (_, i) {
               final m = r.items[i];
+              // Open the detail with the SOURCE this result came from — not the
+              // app's "current" provider. Server legs are collapsed under the
+              // synthetic __server__ ref, so use the item's own backend provider
+              // there; channel/js legs carry the real id on the section ref.
+              final prov = r.provider.kind == ProviderKind.server
+                  ? (m.provider.isNotEmpty ? m.provider : null)
+                  : r.provider.id;
               return _MovieCard(
                 movie: m,
                 alsoOn: _controller.crossSourceCount(m.title, m.year),
+                provider: prov,
               );
             },
           ),
@@ -369,10 +377,11 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
 }
 
 class _MovieCard extends StatelessWidget {
-  const _MovieCard({required this.movie, required this.alsoOn});
+  const _MovieCard({required this.movie, required this.alsoOn, this.provider});
 
   final MovieEntity movie;
   final int alsoOn;
+  final String? provider;
 
   @override
   Widget build(BuildContext context) {
@@ -381,7 +390,8 @@ class _MovieCard extends StatelessWidget {
       onTap: () {
         if (movie.url.isEmpty) return;
         context.push('/detail',
-            extra: DetailArgs(contentUrl: movie.url, preview: movie));
+            extra: DetailArgs(
+                contentUrl: movie.url, preview: movie, provider: provider));
       },
       child: SizedBox(
         width: 116,

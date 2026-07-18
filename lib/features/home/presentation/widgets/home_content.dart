@@ -2,12 +2,14 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
+import 'package:soplay/features/banners/presentation/widgets/banners_carousel.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -57,36 +59,7 @@ class _HomeContentState extends State<HomeContent> {
     _scrollController = ScrollController()..addListener(_handleScroll);
     _historyService.revision.addListener(_loadHistory);
     _loadHistory();
-    _maybeShowTelegramPromo();
-  }
-
-  void _maybeShowTelegramPromo() {
-    final hive = getIt<HiveService>();
-    if (hive.hasTelegramPromoSeen) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      showAdaptiveModal<void>(
-        context: context,
-        backgroundColor: AppColors.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (ctx) => _TelegramPromoSheet(
-          onJoin: () {
-            Navigator.of(ctx).pop();
-            launchUrl(
-              Uri.parse('https://t.me/sozoApp'),
-              mode: LaunchMode.externalApplication,
-            );
-          },
-          onDismiss: (dontShowAgain) {
-            if (dontShowAgain) hive.markTelegramPromoSeen();
-            Navigator.of(ctx).pop();
-          },
-          onDontShowAgain: hive.markTelegramPromoSeen,
-        ),
-      );
-    });
+    TelegramPromo.maybeShow(context);
   }
 
   void _loadHistory() {
@@ -179,6 +152,41 @@ class _HomeContentBody extends StatelessWidget {
             builder: (context, bannersState) {
               final slides = _composeSlides(bannersState.items);
               final showHero = slides.isNotEmpty || bannersState.loading;
+
+              final sectionSlivers = <Widget>[
+                for (final section in state.homeData.sections)
+                  if (section.items.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: RepaintBoundary(
+                        child: MovieSection(
+                          title: section.label,
+                          movies: section.items,
+                          type: section.viewAll.type,
+                          slug: section.viewAll.slug,
+                          onSeeAll: _isMyListSection(section)
+                              ? () => getIt<NavController>().goToId(TabId.myList)
+                              : null,
+                        ),
+                      ),
+                    ),
+              ];
+              // Sponsor/CMS banner strip mid-feed (home_middle placement). It
+              // self-collapses when the placement has no active banners, and its
+              // view/click tracking is guest-safe (no auth required).
+              if (sectionSlivers.isNotEmpty) {
+                final mid = (sectionSlivers.length / 2)
+                    .ceil()
+                    .clamp(1, sectionSlivers.length);
+                sectionSlivers.insert(
+                  mid,
+                  const SliverToBoxAdapter(
+                    child: BannersCarousel(
+                      placement: BannerPlacement.homeMiddle,
+                    ),
+                  ),
+                );
+              }
+
               return CustomScrollView(
                 controller: scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -206,21 +214,7 @@ class _HomeContentBody extends StatelessWidget {
                     ),
                   if (state.collectionLoading)
                     const SliverToBoxAdapter(child: CollectionLoadingRow()),
-                  for (final section in state.homeData.sections)
-                    if (section.items.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: RepaintBoundary(
-                          child: MovieSection(
-                            title: section.label,
-                            movies: section.items,
-                            type: section.viewAll.type,
-                            slug: section.viewAll.slug,
-                            onSeeAll: _isMyListSection(section)
-                                ? () => getIt<NavController>().goTo(3)
-                                : null,
-                          ),
-                        ),
-                      ),
+                  ...sectionSlivers,
                   SliverToBoxAdapter(
                     child: SizedBox(
                       // Clear the floating nav capsule: desktop pill (~66+18) and
@@ -288,6 +282,87 @@ class _GenreSection extends StatelessWidget {
   }
 }
 
+/// One-shot gate for the "Join our Telegram" sheet.
+///
+/// WHY THIS EXISTS (the "two sheets at once" bug):
+/// the sheet used to be pushed straight from `_HomeContentState.initState`,
+/// which tied the decision to the lifetime of a WIDGET instead of to the app
+/// session. [HomeContent] is destroyed and rebuilt on every
+/// `HomeLoading`/`HomeError` -> `HomeLoaded` transition of the app-level
+/// `HomeBloc` (see `home_page.dart`), and a modal route is NOT torn down when
+/// the widget that pushed it is disposed — so a second mount pushed a second
+/// sheet on top of the first one, which was still sitting on the Navigator.
+///
+/// These statics live for the whole isolate, so the gate survives any rebuild,
+/// remount, tab reorder or nav-style change. [_claimed] is taken BEFORE the
+/// post-frame gap, so two mounts inside the SAME frame can never both get past
+/// it.
+class TelegramPromo {
+  TelegramPromo._();
+
+  static const String _channelUrl = 'https://t.me/sozoApp';
+
+  /// The promo has already been shown (or deliberately skipped) this launch.
+  static bool _claimed = false;
+
+  /// A promo sheet is on the Navigator right now.
+  static bool _open = false;
+
+  /// Show the promo at most once per app launch, and never while one is open.
+  static void maybeShow(BuildContext context) {
+    if (_claimed || _open) return;
+
+    final hive = getIt<HiveService>();
+    if (hive.hasTelegramPromoSeen) {
+      _claimed = true;
+      return;
+    }
+
+    // Claim the slot synchronously: a second HomeContent mounting later in this
+    // same frame hits this guard before we ever reach the frame callback.
+    _claimed = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // The mount that claimed the slot is already gone (a bloc state flip tore
+      // it down mid-frame). Release the claim so the next mount can show it —
+      // still exactly one sheet, just one frame later.
+      if (!context.mounted) {
+        _claimed = false;
+        return;
+      }
+      // Re-read: the persisted flag may have landed during the frame gap.
+      if (hive.hasTelegramPromoSeen || _open) return;
+
+      _open = true;
+      showAdaptiveModal<void>(
+        context: context,
+        backgroundColor: AppColors.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => _TelegramPromoSheet(
+          onJoin: () {
+            Navigator.of(ctx).pop();
+            launchUrl(
+              Uri.parse(_channelUrl),
+              mode: LaunchMode.externalApplication,
+            );
+          },
+          onDismiss: (dontShowAgain) {
+            if (dontShowAgain) hive.markTelegramPromoSeen();
+            Navigator.of(ctx).pop();
+          },
+          // Persist on every toggle (including untick) so the checkbox still
+          // works when the sheet is closed by a swipe or a barrier tap, which
+          // never routes through onDismiss.
+          onDontShowAgain: hive.setTelegramPromoSeen,
+        ),
+        // Covers every close path: button, swipe, barrier tap, system back.
+      ).whenComplete(() => _open = false);
+    });
+  }
+}
+
 class _TelegramPromoSheet extends StatefulWidget {
   const _TelegramPromoSheet({
     required this.onJoin,
@@ -297,7 +372,7 @@ class _TelegramPromoSheet extends StatefulWidget {
 
   final VoidCallback onJoin;
   final void Function(bool dontShowAgain) onDismiss;
-  final VoidCallback onDontShowAgain;
+  final void Function(bool dontShowAgain) onDontShowAgain;
 
   @override
   State<_TelegramPromoSheet> createState() => _TelegramPromoSheetState();
@@ -375,7 +450,7 @@ class _TelegramPromoSheetState extends State<_TelegramPromoSheet> {
           GestureDetector(
             onTap: () {
               setState(() => _dontShow = !_dontShow);
-              if (_dontShow) widget.onDontShowAgain();
+              widget.onDontShowAgain(_dontShow);
             },
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

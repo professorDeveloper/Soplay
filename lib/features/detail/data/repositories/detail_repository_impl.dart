@@ -287,9 +287,14 @@ class DetailRepositoryImpl implements DetailRepository {
   }
 
   String _messageFrom(DioException e) {
-    return (e.response?.data as Map<String, dynamic>?)?['message']
-            as String? ??
-        e.message ??
-        'Xatolik yuz berdi';
+    // e.response?.data is dynamic and is a raw String for non-JSON error bodies
+    // (502/503 HTML, Cloudflare challenge, plain text). A forced `as Map` would
+    // throw a TypeError from inside the catch clause — which the sibling
+    // `catch (e)` cannot catch — hanging the screen on its loading state.
+    final data = e.response?.data;
+    final msg = data is Map ? data['message'] : null;
+    return (msg is String && msg.isNotEmpty)
+        ? msg
+        : (e.message ?? 'Xatolik yuz berdi');
   }
 }

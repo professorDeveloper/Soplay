@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
@@ -68,7 +69,7 @@ class HomeTopBar extends StatelessWidget {
           ),
           _TopBarIcon(
             icon: Icons.search_rounded,
-            onTap: () => getIt<NavController>().goTo(1),
+            onTap: () => getIt<NavController>().goToId(TabId.search),
           ),
           _DownloadIndicator(),
           const _NotificationsIndicator(),

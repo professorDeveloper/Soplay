@@ -228,6 +228,7 @@ class _ReaderPageState extends State<ReaderPage> {
   void _toggleOverlay() => setState(() => _showOverlay = !_showOverlay);
 
   void _goToPage(int page) {
+    if (_pageCount == 0) return; // clamp(0, -1) throws ArgumentError (Home/End key while loading)
     final clamped = page.clamp(0, _pageCount - 1);
     if (_mode == 'horizontal') {
       _pageController?.animateToPage(

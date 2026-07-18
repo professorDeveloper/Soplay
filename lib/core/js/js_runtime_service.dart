@@ -26,6 +26,10 @@ class JsRuntimeService {
   String? _activeExtractor;
   int? _activeVersion;
 
+  // Serializes the extractor-swap + JS call critical section: every provider
+  // shares one webview and a single mutable globalThis.Provider.
+  Future<void> _jsGate = Future<void>.value();
+
   static const String _runtimeName = '__runtime__';
   static const String _bootstrapHtml = '''
 <!doctype html>
@@ -113,6 +117,15 @@ class JsRuntimeService {
         args: [ref, {'lang': lang ?? 'sub'}],
       );
 
+  // Runs [action] after any in-flight locked section completes, so only one
+  // holds the shared `Provider` at a time. A failing action never poisons the
+  // gate for the next caller.
+  Future<T> _locked<T>(Future<T> Function() action) {
+    final run = _jsGate.then((_) => action());
+    _jsGate = run.then((_) {}, onError: (_) {});
+    return run;
+  }
+
   Future<Map<String, dynamic>?> _callObject(
     String provider,
     String fn, {
@@ -142,22 +155,27 @@ class JsRuntimeService {
     JsLog.req(tag, '$fn(${_summarizeArgs(args)})');
     try {
       await ensureReady();
-      await _ensureExtractor(extractor.name, extractor.version);
-
-      final result = await _controller!.callAsyncJavaScript(
-        functionBody: r'''
-          const __fn = (typeof Provider !== 'undefined') ? Provider[fnName] : null;
-          if (typeof __fn !== 'function') {
-            throw new Error('Provider.' + fnName + ' is not implemented');
-          }
-          const __r = await __fn.apply(Provider, fnArgs);
-          return __r === undefined ? null : __r;
-        ''',
-        arguments: {
-          'fnName': fn,
-          'fnArgs': args,
-        },
-      );
+      // Serialize extractor-swap + call: concurrent cross-search legs share one
+      // webview and one globalThis.Provider, so without this a second leg could
+      // swap Provider between this leg's setup and its call — returning one
+      // provider's results under another's name.
+      final result = await _locked(() async {
+        await _ensureExtractor(extractor.name, extractor.version);
+        return _controller!.callAsyncJavaScript(
+          functionBody: r'''
+            const __fn = (typeof Provider !== 'undefined') ? Provider[fnName] : null;
+            if (typeof __fn !== 'function') {
+              throw new Error('Provider.' + fnName + ' is not implemented');
+            }
+            const __r = await __fn.apply(Provider, fnArgs);
+            return __r === undefined ? null : __r;
+          ''',
+          arguments: {
+            'fnName': fn,
+            'fnArgs': args,
+          },
+        );
+      });
 
       if (result == null) {
         JsLog.err(tag, '$fn returned null result');

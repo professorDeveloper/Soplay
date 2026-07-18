@@ -11,6 +11,8 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/banners/domain/entities/banner_item.dart';
+import 'package:soplay/features/banners/presentation/widgets/banners_carousel.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
@@ -779,6 +781,15 @@ class _DetailViewState extends State<_DetailView>
                   detail: detail,
                   onPrimaryAction: _onPrimaryAction,
                   playButtonKey: _bodyPlayKey,
+                ),
+              ),
+              // Sponsor/CMS banner (detail_top placement). Opt-in: self-collapses
+              // to nothing unless an admin creates a detail_top banner. Guest-safe.
+              const SliverToBoxAdapter(
+                child: BannersCarousel(
+                  placement: BannerPlacement.detailTop,
+                  height: 130,
+                  padding: EdgeInsets.fromLTRB(0, 2, 0, 10),
                 ),
               ),
               SliverPersistentHeader(

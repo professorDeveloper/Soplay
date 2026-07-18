@@ -184,10 +184,17 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
           final map = Map<String, List<CommentEntity>>.from(
             state.repliesByParent,
           );
-          final existing = map[event.parentId] ?? const <CommentEntity>[];
-          map[event.parentId!] = [...existing, value];
           final expanded = Set<String>.from(state.expandedIds)
             ..add(event.parentId!);
+          // Only insert optimistically when this parent's replies were already
+          // fetched. Seeding the map with just the new reply would permanently
+          // block loading the existing replies (the toggle only fetches when
+          // the entry is null) — so fetch the full list instead.
+          if (map.containsKey(event.parentId)) {
+            map[event.parentId!] = [...map[event.parentId]!, value];
+          } else {
+            add(CommentsLoadReplies(event.parentId!));
+          }
           emit(state.copyWith(
             submitting: false,
             items: updatedItems,
@@ -234,14 +241,17 @@ class CommentsBloc extends Bloc<CommentsEvent, CommentsState> {
       emit(state.copyWith(error: 'comments.please_sign_in'.tr()));
       return;
     }
+    final before = state;
     final optimistic = _optimisticLike(state, event.id);
     if (optimistic != null) emit(optimistic);
     final result = await repository.toggleLike(event.id);
     switch (result) {
       case Success(:final value):
-        emit(_applyLike(state, event.id, value.liked, value.likeCount));
+        emit(_applyLike(before, event.id, value.liked, value.likeCount));
       case Failure(:final error):
-        emit(state.copyWith(error: _msg(error)));
+        // Revert the optimistic like — otherwise the heart stays filled with a
+        // wrong count and the next tap toggles from a bad baseline.
+        emit(before.copyWith(error: _msg(error)));
     }
   }
 

@@ -17,17 +17,13 @@ import 'package:soplay/features/app_updater/presentation/services/update_checker
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_state.dart';
-import 'package:soplay/features/home/presentation/pages/home_page.dart';
-import 'package:soplay/features/my_list/presentation/pages/my_list_page.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
-import 'package:soplay/features/search/presentation/pages/search_page.dart';
-import 'package:soplay/features/shorts/presentation/pages/shorts_page.dart';
 import 'package:showcaseview/showcaseview.dart';
 
+import '../../../../core/navigation/app_tab.dart';
 import '../../../../core/navigation/nav_controller.dart';
-import '../../../profile/presentation/pages/profile_page.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -37,15 +33,20 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
-  static const int _shortsIndex = 2;
-
   final GlobalKey _shortsRefreshShowcaseKey = GlobalKey();
   int _index = 0;
   int _shortsRefreshTick = 0;
+  List<TabId> _visibleTabs = const [];
   late final NavController _navController;
   late final HiveService _hiveService;
   String? _lastProviderId;
   bool _shortsShowcaseStarted = false;
+
+  int get _shortsIndex => _visibleTabs.indexOf(TabId.shorts); // -1 if hidden
+  int get _homeIndex {
+    final i = _visibleTabs.indexOf(TabId.home);
+    return i < 0 ? 0 : i;
+  }
 
   @override
   void initState() {
@@ -55,6 +56,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     // Reflect the persisted nav-style preference into the shared notifier the
     // nav listens to (so it renders correctly on first frame).
     NavPrefs.navStyle.value = _hiveService.navStyle;
+    _visibleTabs = sanitizeTabOrder(_hiveService.tabOrder);
+    NavPrefs.tabOrder.value = _hiveService.tabOrder;
+    NavPrefs.tabOrder.addListener(_onTabSetChange);
+    _navController.tabIndexResolver = (id) => _visibleTabs.indexOf(id);
     _navController.index.addListener(_onNavChange);
     WidgetsBinding.instance.addObserver(this);
     ShowcaseView.register(
@@ -86,10 +91,26 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     _maybeShowShortsRefreshTip();
   }
 
+  // The user changed the tab set in Settings → Appearance. Keep the SAME tab
+  // selected if it survived; otherwise fall back to Home.
+  void _onTabSetChange() {
+    final currentId = (_index >= 0 && _index < _visibleTabs.length)
+        ? _visibleTabs[_index]
+        : TabId.home;
+    final next = sanitizeTabOrder(NavPrefs.tabOrder.value);
+    setState(() {
+      _visibleTabs = next;
+      final keep = next.indexOf(currentId);
+      _index = keep >= 0 ? keep : _homeIndex;
+    });
+    _navController.goTo(_index);
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _navController.index.removeListener(_onNavChange);
+    NavPrefs.tabOrder.removeListener(_onTabSetChange);
     ShowcaseView.get().unregister();
     super.dispose();
   }
@@ -99,7 +120,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     final newId = state.currentProviderId;
     if (_lastProviderId == null) {
       _lastProviderId = newId;
-      if (context.read<HomeBloc>().state is! HomeLoaded) {
+      // HomePage.initState already fires a (non-silent) HomeLoad the moment the
+      // shell mounts. Kicking a second one here while that is still in flight
+      // runs BOTH handlers concurrently (bloc's default transformer), and the
+      // late completion re-emits HomeLoaded/HomeError — churning HomeContent
+      // through extra mounts. Only load if nothing is in flight or landed.
+      final homeState = context.read<HomeBloc>().state;
+      if (homeState is! HomeLoaded && homeState is! HomeLoading) {
         context.read<HomeBloc>().add(HomeLoad(silent: true));
       }
       return;
@@ -123,16 +150,19 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void _handleTabTap(int index) {
     final reselected = index == _index;
     _onTabTap(index);
-    if (reselected && index == _shortsIndex) _refreshShorts();
+    if (reselected && _shortsIndex >= 0 && index == _shortsIndex) {
+      _refreshShorts();
+    }
   }
 
   void _refreshShorts() {
-    if (_index != _shortsIndex) return;
+    if (_shortsIndex < 0 || _index != _shortsIndex) return;
     setState(() => _shortsRefreshTick++);
   }
 
   void _maybeShowShortsRefreshTip() {
-    if (_index != _shortsIndex ||
+    if (_shortsIndex < 0 ||
+        _index != _shortsIndex ||
         _shortsShowcaseStarted ||
         _hiveService.hasSeenShortsRefreshShowcase) {
       return;
@@ -142,7 +172,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       if (!mounted) return;
       Future<void>.delayed(const Duration(milliseconds: 420), () {
         if (!mounted) return;
-        if (_index != _shortsIndex) {
+        if (_shortsIndex < 0 || _index != _shortsIndex) {
           _shortsShowcaseStarted = false;
           return;
         }
@@ -158,15 +188,19 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final defs = [for (final id in _visibleTabs) kTabRegistry[id]!];
     final tabs = <Widget>[
-      const HomePage(),
-      const SearchPage(),
-      ShortsPage(
-        active: _index == _shortsIndex,
-        refreshTick: _shortsRefreshTick,
-      ),
-      const MyListPage(),
-      const ProfilePage(),
+      for (var i = 0; i < defs.length; i++)
+        KeyedSubtree(
+          // Stable per-tab key so reordering the bar MOVES a page (keeping its
+          // State) instead of rebuilding it at a new index — which was
+          // re-mounting Home and re-firing its "Join Telegram" sheet.
+          key: ValueKey(defs[i].id),
+          child: defs[i].builder(TabBuildContext(
+            isActive: _index == i,
+            shortsRefreshTick: _shortsRefreshTick,
+          )),
+        ),
     ];
 
     // Hide the floating bottom nav while a keyboard is open (e.g. searching),
@@ -181,11 +215,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       child: BlocListener<ProviderBloc, ProviderState>(
         listener: _onProviderStateChange,
         child: PopScope(
-          canPop: _index == 0,
+          canPop: _index == _homeIndex,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
-            setState(() => _index = 0);
-            _navController.goTo(0);
+            setState(() => _index = _homeIndex);
+            _navController.goTo(_homeIndex);
           },
           child: isDesktopPlatform
               ? Scaffold(
@@ -203,6 +237,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                           child: _SoplayFloatingNav(
                             index: _index,
                             onTap: _onTabTap,
+                            items: defs,
                           ),
                         ),
                       ),
@@ -233,6 +268,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                             if (style == NavPrefs.classic) {
                               return _SoplayClassicBar(
                                 index: _index,
+                                items: defs,
                                 shortsShowcaseKey: _shortsRefreshShowcaseKey,
                                 onTap: _onTabTap,
                                 onShortsDoubleTap: _refreshShorts,
@@ -248,6 +284,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                               ),
                               child: _SoplayGlassCapsule(
                                 index: _index,
+                                items: defs,
                                 glass: style == NavPrefs.glass,
                                 shortsShowcaseKey: _shortsRefreshShowcaseKey,
                                 onTabSelected: _handleTabTap,
@@ -280,12 +317,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 class _SoplayGlassCapsule extends StatelessWidget {
   const _SoplayGlassCapsule({
     required this.index,
+    required this.items,
     required this.glass,
     required this.shortsShowcaseKey,
     required this.onTabSelected,
   });
 
   final int index;
+  final List<AppTabDef> items;
 
   /// When false, render a shader-free solid dark capsule (lighter for weak
   /// devices / users who turned liquid glass off in Profile → Appearance).
@@ -300,16 +339,16 @@ class _SoplayGlassCapsule extends StatelessWidget {
   // but with a brighter specular rim, thicker body and a touch of chromatic
   // edge so it reads as a real, pretty piece of glass (not a flat frost).
   static const _glassSettings = LiquidGlassSettings(
-    thickness: 26,
-    blur: 10,
-    chromaticAberration: 0.35,
-    refractiveIndex: 1.6,
-    saturation: 1.15,
-    lightIntensity: 1.15, // brighter top-edge specular highlight
+    thickness: 20,
+    blur: 5, // less haze behind the bar → cleaner, not muddy
+    chromaticAberration: 0.18, // subtle edge tint, not a rainbow smear
+    refractiveIndex: 1.5,
+    saturation: 1.08,
+    lightIntensity: 1.25, // crisp top-edge specular highlight
     ambientStrength: 1,
-    glowIntensity: 0.9, // luminous rim
-    glassColor: Color(0x1AFFFFFF), // white ~10% sheen
-    backerColor: Color(0xB81E1E1E), // dark pad, a touch lighter so glass reads
+    glowIntensity: 0.7, // gentle luminous rim
+    glassColor: Color(0x12FFFFFF), // faint white sheen
+    backerColor: Color(0xE61A1A1A), // near-solid dark pad → premium, not hazy
     whitenStrength: 0.0,
   );
 
@@ -328,41 +367,11 @@ class _SoplayGlassCapsule extends StatelessWidget {
     whitenStrength: 0.0,
   );
 
-  // The 5 tabs (order: Home, Search, Shorts, MyList, Profile). Also reused by
-  // the desktop _SoplayFloatingNav / _NavCircle.
-  static const _items = [
-    _NavItem(
-      icon: CupertinoIcons.house,
-      activeIcon: CupertinoIcons.house_fill,
-      labelKey: 'navigation.home',
-    ),
-    _NavItem(
-      icon: CupertinoIcons.search,
-      activeIcon: CupertinoIcons.search,
-      labelKey: 'navigation.search',
-    ),
-    _NavItem(
-      icon: CupertinoIcons.play_rectangle,
-      activeIcon: CupertinoIcons.play_rectangle_fill,
-      labelKey: 'navigation.shorts',
-    ),
-    _NavItem(
-      icon: CupertinoIcons.bookmark,
-      activeIcon: CupertinoIcons.bookmark_fill,
-      labelKey: 'navigation.my_list',
-    ),
-    _NavItem(
-      icon: CupertinoIcons.person,
-      activeIcon: CupertinoIcons.person_fill,
-      labelKey: 'navigation.profile',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final bar = GlassTabBar.bottom(
       tabs: [
-        for (final it in _items)
+        for (final it in items)
           GlassTab(
             label: it.labelKey.tr(),
             icon: Icon(it.icon),
@@ -378,10 +387,10 @@ class _SoplayGlassCapsule extends StatelessWidget {
       verticalPadding: 0,
       barHeight: _barHeight,
       barBorderRadius: _barHeight / 2, // full capsule
-      magnification: glass ? 1.2 : 1.0, // iOS-26 lens on the selected tab
-      indicatorPinchStrength: glass ? 0.45 : 0.0,
-      // Selected-tab pill: a soft light pill that stands out on the dark body.
-      indicatorColor: Color(glass ? 0x33FFFFFF : 0x24FFFFFF),
+      magnification: glass ? 1.12 : 1.0, // subtle iOS-26 lens on the selected tab
+      indicatorPinchStrength: glass ? 0.3 : 0.0,
+      // Selected-tab pill: a soft, restrained light pill on the dark body.
+      indicatorColor: Color(glass ? 0x22FFFFFF : 0x18FFFFFF),
       quality: glass ? null : GlassQuality.minimal,
       settings: glass ? _glassSettings : _solidSettings,
       selectedIconColor: Colors.white,
@@ -441,12 +450,14 @@ class _SoplayGlassCapsule extends StatelessWidget {
 class _SoplayClassicBar extends StatelessWidget {
   const _SoplayClassicBar({
     required this.index,
+    required this.items,
     required this.shortsShowcaseKey,
     required this.onTap,
     required this.onShortsDoubleTap,
   });
 
   final int index;
+  final List<AppTabDef> items;
   final GlobalKey shortsShowcaseKey;
   final ValueChanged<int> onTap;
   final VoidCallback onShortsDoubleTap;
@@ -480,16 +491,16 @@ class _SoplayClassicBar extends StatelessWidget {
             ),
             child: Row(
               children: List.generate(
-                _SoplayGlassCapsule._items.length,
+                items.length,
                 (i) => Expanded(
                   child: _ClassicNavButton(
-                    item: _SoplayGlassCapsule._items[i],
+                    item: items[i],
                     selected: index == i,
-                    showcaseKey: i == _MainPageState._shortsIndex
+                    showcaseKey: items[i].id == TabId.shorts
                         ? shortsShowcaseKey
                         : null,
                     onTap: () => onTap(i),
-                    onDoubleTap: i == _MainPageState._shortsIndex
+                    onDoubleTap: items[i].id == TabId.shorts
                         ? onShortsDoubleTap
                         : null,
                   ),
@@ -512,7 +523,7 @@ class _ClassicNavButton extends StatefulWidget {
     required this.onDoubleTap,
   });
 
-  final _NavItem item;
+  final AppTabDef item;
   final bool selected;
   final GlobalKey? showcaseKey;
   final VoidCallback onTap;
@@ -625,10 +636,12 @@ class _ClassicNavButtonState extends State<_ClassicNavButton> {
 /// Sozo-Desktop style floating bottom-center rounded pill navigation.
 /// Desktop only — mobile uses [_SoplayGlassCapsule]. Reuses the same 5 tabs.
 class _SoplayFloatingNav extends StatelessWidget {
-  const _SoplayFloatingNav({required this.index, required this.onTap});
+  const _SoplayFloatingNav(
+      {required this.index, required this.onTap, required this.items});
 
   final int index;
   final ValueChanged<int> onTap;
+  final List<AppTabDef> items;
 
   @override
   Widget build(BuildContext context) {
@@ -653,9 +666,9 @@ class _SoplayFloatingNav extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (int i = 0; i < _SoplayGlassCapsule._items.length; i++)
+          for (int i = 0; i < items.length; i++)
             _NavCircle(
-              item: _SoplayGlassCapsule._items[i],
+              item: items[i],
               selected: index == i,
               onTap: () => onTap(i),
             ),
@@ -672,7 +685,7 @@ class _NavCircle extends StatefulWidget {
     required this.onTap,
   });
 
-  final _NavItem item;
+  final AppTabDef item;
   final bool selected;
   final VoidCallback onTap;
 
@@ -730,18 +743,6 @@ class _NavCircleState extends State<_NavCircle> {
       ),
     );
   }
-}
-
-class _NavItem {
-  const _NavItem({
-    required this.icon,
-    required this.activeIcon,
-    required this.labelKey,
-  });
-
-  final IconData icon;
-  final IconData activeIcon;
-  final String labelKey;
 }
 
 class _ShortsRefreshShowcaseCard extends StatelessWidget {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
@@ -46,8 +47,6 @@ class _MyListView extends StatefulWidget {
 
 class _MyListViewState extends State<_MyListView>
     with AutomaticKeepAliveClientMixin {
-  static const _tabIndex = 3;
-
   final _scrollController = ScrollController();
   final _headerBlur = ValueNotifier<double>(0.0);
   late final NavController _navController;
@@ -81,10 +80,12 @@ class _MyListViewState extends State<_MyListView>
   }
 
   void _onNavChange() {
-    if (_navController.index.value != _tabIndex) return;
+    if (!_navController.isActive(TabId.myList)) return;
     final bloc = context.read<MyListBloc>();
     if (bloc.state is MyListLoading) return;
-    bloc.add(const MyListLoad());
+    // Revisiting the tab must keep the loaded grid visible (Refresh) instead of
+    // flashing the skeleton and re-fetching from scratch (Load) every time.
+    bloc.add(const MyListRefresh());
   }
 
   void _onFavoritesChanged() {

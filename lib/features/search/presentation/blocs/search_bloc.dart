@@ -33,6 +33,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
   }
 
   Future<void> _onLoad(SearchLoad event, Emitter<SearchState> emit) async {
+    ++_execToken; // invalidate any in-flight text search (box cleared → genres)
     emit(const SearchGenresLoading());
     final result = await _genreUseCase();
     if (result.isSuccess) {
@@ -76,12 +77,17 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     final current = state;
     if (current is! SearchLoaded || current.isLoadingMore || !current.hasMore) return;
 
-    emit(current.copyWith(isLoadingMore: true));
+    final loading = current.copyWith(isLoadingMore: true);
+    emit(loading);
     final nextPage = current.page + 1;
 
     final Result<dynamic> result = current.query.isNotEmpty
         ? await _searchUseCase(current.query, page: nextPage)
         : await _genreUseCase.callByGenre(current.genre, page: nextPage);
+
+    // A newer search/genre may have replaced the state while paging was in
+    // flight — discard this stale page instead of clobbering current results.
+    if (state != loading) return;
 
     if (result.isSuccess) {
       final data = result.getOrNull()!;
@@ -104,6 +110,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
   }
 
   Future<void> _onByGenre(SearchByGenre event, Emitter<SearchState> emit) async {
+    ++_execToken; // invalidate any in-flight text search (genre filter applied)
     emit(const SearchLoading());
     final result = await _genreUseCase.callByGenre(event.genre);
     if (result.isSuccess) {

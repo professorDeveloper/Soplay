@@ -162,7 +162,12 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
   }
 
   Future<void> _closeParty() async {
-    await _service.closeParty();
+    // closeParty already tears down the local session in its finally (socket
+    // disconnect + state reset). If the DELETE throws, still pop — otherwise the
+    // host is stranded on a perpetual "Connecting…" view.
+    try {
+      await _service.closeParty();
+    } catch (_) {}
     if (!mounted) return;
     context.pop();
   }
