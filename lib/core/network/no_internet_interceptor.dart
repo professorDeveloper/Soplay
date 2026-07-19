@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/router/app_router.dart';
 
 class NoInternetInterceptor extends Interceptor {
@@ -65,12 +66,41 @@ class NoInternetInterceptor extends Interceptor {
     return probe;
   }
 
+  /// Hosts the probe will accept as proof of connectivity, most meaningful
+  /// first. Our own API leads deliberately: if it resolves, the app can work,
+  /// which is the only question this probe actually needs to answer.
+  ///
+  /// The previous implementation asked for `one.one.one.one` alone. That is
+  /// Cloudflare's resolver hostname, and it is routinely blocked or throttled
+  /// by ISPs in the regions this app serves — so a perfectly healthy connection
+  /// was reported as offline whenever that single lookup failed, which is why
+  /// the failure came and went instead of being consistent.
+  static List<String> get _probeHosts {
+    final api = Uri.tryParse(AppConstants.baseUrl)?.host;
+    return <String>[
+      if (api != null && api.isNotEmpty) api,
+      'cloudflare.com',
+      'google.com',
+    ];
+  }
+
+  static const _probeTimeout = Duration(seconds: 5);
+
   Future<bool> _runProbe() async {
-    bool online;
+    // Any single success proves connectivity, so race them and take the first
+    // host that answers rather than paying the timeout for each in turn. A TV
+    // on Wi-Fi resolves noticeably slower than a phone, hence 5s over 3s.
+    bool online = false;
     try {
-      final result = await InternetAddress.lookup('one.one.one.one')
-          .timeout(const Duration(seconds: 3));
-      online = result.isNotEmpty && result.first.rawAddress.isNotEmpty;
+      final lookups = _probeHosts.map(
+        (host) => InternetAddress.lookup(host).then(
+          (r) => r.isNotEmpty && r.first.rawAddress.isNotEmpty,
+        ),
+      );
+      final results = await Future.wait(
+        lookups.map((f) => f.catchError((Object _) => false)),
+      ).timeout(_probeTimeout, onTimeout: () => const <bool>[]);
+      online = results.any((ok) => ok);
     } catch (_) {
       online = false;
     }

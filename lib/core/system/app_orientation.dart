@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 
 class AppOrientation {
   AppOrientation._();
@@ -9,6 +10,10 @@ class AppOrientation {
 
   static Future<void> set(List<DeviceOrientation> orientations) async {
     if (!Platform.isAndroid && !Platform.isIOS) return;
+    // A television is fixed landscape and cannot be rotated. Applying the app's
+    // portrait lock there letterboxes the whole UI into a phone-shaped column
+    // in the middle of the screen, so TV keeps the system orientation.
+    if (isTvPlatform) return;
     if (Platform.isIOS) {
       try {
         await _channel.invokeMethod<void>('set', {
