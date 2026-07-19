@@ -15,12 +15,23 @@ extension _PlayerControls on _PlayerPageState {
 
   void _scheduleHide() {
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(seconds: 4), () {
+    // A remote takes longer to aim than a finger, so TV gets a longer grace
+    // period before the overlay disappears out from under the cursor.
+    _hideTimer = Timer(Duration(seconds: isTvPlatform ? 7 : 4), () {
       if (!mounted) return;
       final c = _controller;
       if (c != null && c.value.isPlaying && _panel == _SidePanel.none) {
+        // Never hide the overlay while a D-pad scrub is still pending — the
+        // thumb the viewer is aiming with would vanish.
+        if (isTvPlatform && _sliderDragValue.value != null) {
+          _scheduleHide();
+          return;
+        }
         setState(() => _controlsVisible = false);
         _controlsAnimation.reverse();
+        // ExcludeFocus is about to drop whatever was focused; take focus back
+        // to the root so key events keep reaching _onTvPlayerKey.
+        _tvHandOffFocusToRoot();
       }
     });
   }
@@ -117,6 +128,17 @@ extension _PlayerControls on _PlayerPageState {
   }
 
   void _exit() {
+    if (isTvPlatform && !_tvPopAllowed) {
+      // The TV PopScope blocks pops so BACK can be interpreted; unlatch it for
+      // one frame so this deliberate exit gets through. Routing every existing
+      // caller (back button, error overlay, Escape) through here means none of
+      // them need to know about the guard.
+      setState(() => _tvPopAllowed = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _exit();
+      });
+      return;
+    }
     if (context.canPop()) {
       context.pop();
     } else {
@@ -125,6 +147,23 @@ extension _PlayerControls on _PlayerPageState {
   }
 
   void _openPanel(_SidePanel panel) {
+    if (isTvPlatform) {
+      // Start a long episode list near the episode being watched. The rows are
+      // built lazily, so autofocus alone cannot reach item 80 of 120 — the
+      // offset is an estimate that puts the active row on screen, and D-pad
+      // traversal (with Flutter's built-in ensureVisible) corrects from there.
+      final previous = _tvPanelScroll;
+      _tvPanelScroll = ScrollController(
+        initialScrollOffset: panel == _SidePanel.episodes
+            ? (_episodeIndex - 2).clamp(0, 1 << 20) * _kTvEpisodeRowEstimate
+            : 0,
+      );
+      if (previous != null) {
+        // Switching panels rebuilds the list this frame; the old controller is
+        // still attached until then.
+        WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+      }
+    }
     setState(() {
       _panel = panel;
       _controlsVisible = true;
@@ -210,6 +249,9 @@ extension _PlayerControls on _PlayerPageState {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: _retry,
+                  // Without this the error screen opens with nothing focused,
+                  // so the remote has no landing spot and reads as frozen.
+                  autofocus: isTvPlatform,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.black,
@@ -632,7 +674,7 @@ extension _PlayerControls on _PlayerPageState {
     final hasLangSwitcher = _availableLangsForCurrentEpisode().length > 1;
     final isBuffering = c != null && c.value.isBuffering;
 
-    return FadeTransition(
+    final overlay = FadeTransition(
       opacity: _controlsAnimation,
       child: IgnorePointer(
         ignoring: !_controlsVisible,
@@ -687,7 +729,36 @@ extension _PlayerControls on _PlayerPageState {
                         ),
                         const SizedBox(width: 8),
                       ],
-                      if (!isDesktopPlatform) ...[
+                      // TV drops three phone-only affordances outright rather
+                      // than adapting them: orientation lock is meaningless on
+                      // a fixed landscape panel, PiP semantics differ on
+                      // leanback, and the touch lock swaps in an overlay whose
+                      // only escape is a non-focusable tap target — on a remote
+                      // that is an unrecoverable state.
+                      if (isTvPlatform) ...[
+                        _IconButton(
+                          icon: Icons.subtitles_outlined,
+                          onTap: _openSubtitleSheet,
+                        ),
+                        const SizedBox(width: 8),
+                        _IconButton(
+                          icon: Icons.settings_outlined,
+                          onTap: _openSettingsSheet,
+                        ),
+                        if (hasEpisodes || hasQualities) ...[
+                          const SizedBox(width: 8),
+                          _IconButton(
+                            icon: hasEpisodes
+                                ? Icons.video_library_rounded
+                                : Icons.high_quality_rounded,
+                            onTap: () => _openPanel(
+                              hasEpisodes
+                                  ? _SidePanel.episodes
+                                  : _SidePanel.quality,
+                            ),
+                          ),
+                        ],
+                      ] else if (!isDesktopPlatform) ...[
                         _IconButton(
                           icon: _isPortrait
                               ? Icons.screen_lock_landscape_rounded
@@ -756,6 +827,11 @@ extension _PlayerControls on _PlayerPageState {
         ),
       ),
     );
+
+    if (!isTvPlatform) return overlay;
+    // IgnorePointer stops taps but leaves every button focusable, so on a
+    // D-pad an invisible control would still take focus and fire on OK.
+    return ExcludeFocus(excluding: !_controlsVisible, child: overlay);
   }
 
   Widget _buildCenterPlayCluster(PlayerController c) {
@@ -779,6 +855,9 @@ extension _PlayerControls on _PlayerPageState {
                   : Icons.play_arrow_rounded,
               onTap: _togglePlay,
               large: true,
+              // Named so the remote can be parked here whenever the overlay
+              // reappears; null off TV, i.e. the node is never even created.
+              focusNode: isTvPlatform ? _tvPlayFocus : null,
             ),
           ),
           const SizedBox(width: 28),
@@ -1036,7 +1115,14 @@ extension _PlayerControls on _PlayerPageState {
                                 ),
                               ),
                               Expanded(
-                                child: SliderTheme(
+                                child: isTvPlatform
+                                    ? _TvSeekBar(
+                                        focusNode: _tvSeekFocus,
+                                        positionMs: sliderVal.clamp(0.0, maxMs),
+                                        durationMs: maxMs,
+                                        scrubbing: dragVal != null,
+                                      )
+                                    : SliderTheme(
                                   data: SliderTheme.of(context).copyWith(
                                     trackHeight: 3,
                                     thumbShape: const RoundSliderThumbShape(

@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import 'package:soplay/core/tv/tv_focusable.dart';
+
 import 'platform_utils.dart';
 
 export 'platform_utils.dart';
@@ -77,6 +79,25 @@ class _HoverTapState extends State<HoverTap> {
 
   @override
   Widget build(BuildContext context) {
+    // Android TV. Off desktop this widget resolves to a bare GestureDetector,
+    // which CANNOT take focus — so on a television every card wrapped in a
+    // HoverTap (posters, history rows, genre tiles, ...) was unreachable by the
+    // D-pad: the remote could move around the nav rail but never into the
+    // content. TvFocusable is the same tap handling plus a focus node, a ring
+    // and scroll-into-view.
+    //
+    // Placed BEFORE the desktop branch and gated on isTvPlatform, which is
+    // false on every phone, tablet and desktop — those keep the exact two paths
+    // below, unchanged.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: widget.onTap,
+        onLongPressed: widget.onLongPress,
+        behavior: widget.behavior,
+        scale: widget.scale,
+        child: widget.child,
+      );
+    }
     final gesture = GestureDetector(
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,

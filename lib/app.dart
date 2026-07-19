@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/presentation/bloc/view_all/view_all_bloc.dart';
@@ -142,6 +143,13 @@ class _MyAppState extends State<MyApp> {
         // unchanged.
         builder: (context, child) {
           final app = child ?? const SizedBox.shrink();
+          // Android TV: Flutter's default shortcut map activates the focused
+          // widget on enter/space, but a remote's OK button arrives as
+          // DPAD_CENTER (LogicalKeyboardKey.select) and a game controller's as
+          // gameButtonA. Without these two bindings the D-pad can move focus
+          // but can never press anything. Additive + TV-gated: phone and
+          // desktop fall through to the paths below unchanged.
+          if (isTvPlatform) return TvShortcuts(child: app);
           if (!isDesktopPlatform) return app;
           final shell = Column(
             children: [

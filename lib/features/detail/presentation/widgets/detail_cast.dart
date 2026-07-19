@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/cast_entity.dart';
 import 'package:soplay/features/detail/presentation/pages/actor_page.dart';
 
@@ -77,43 +78,58 @@ class _CastCard extends StatelessWidget {
 
   final CastEntity cast;
 
+  void _open(BuildContext context) {
+    if (cast.name.trim().isEmpty) return;
+    context.push(
+      '/actor',
+      extra: ActorArgs(
+        name: cast.name.trim(),
+        image: cast.image,
+        id: cast.id,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        if (cast.name.trim().isEmpty) return;
-        context.push(
-          '/actor',
-          extra: ActorArgs(
-            name: cast.name.trim(),
-            image: cast.image,
-            id: cast.id,
-          ),
-        );
-      },
-      child: Container(
-        width: 72,
-        margin: const EdgeInsets.symmetric(horizontal: 5),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _CastAvatar(name: cast.name, imageUrl: cast.image),
-            const SizedBox(height: 7),
-            Text(
-              cast.name.trim().isNotEmpty ? cast.name : '—',
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                height: 1.3,
-              ),
+    final content = Container(
+      width: 72,
+      margin: const EdgeInsets.symmetric(horizontal: 5),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _CastAvatar(name: cast.name, imageUrl: cast.image),
+          const SizedBox(height: 7),
+          Text(
+            cast.name.trim().isNotEmpty ? cast.name : '—',
+            maxLines: 2,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              height: 1.3,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+
+    // Android TV: a bare GestureDetector cannot hold focus, so on a television
+    // the whole cast rail was unreachable by the D-pad. Off TV this branch is
+    // skipped and the tree below is exactly what it always was.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: () => _open(context),
+        borderRadius: 12,
+        child: content,
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => _open(context),
+      child: content,
     );
   }
 }

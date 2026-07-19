@@ -73,6 +73,39 @@ jobs:
           path: dist/*.apk
           if-no-files-found: error
 
+      # Android TV sideload set. This is NOT a separate build and there is no
+      # Gradle flavour: the single APK now declares LEANBACK_LAUNCHER and
+      # touchscreen-optional, so the same binary IS the TV binary. This artifact
+      # only isolates the two ABIs Android TV devices actually ship — arm64-v8a
+      # (Shield / Chromecast with Google TV / Google TV Streamer / most smart
+      # TVs) and armeabi-v7a (older, cheaper boxes) — so there is one obvious
+      # file to sideload instead of three.
+      #
+      # Filenames are deliberately left UNRENAMED. Copying an APK to
+      # "app-tv-release.apk" would assert a build that does not exist, and the
+      # first diff of the two files would be indistinguishable from a bug.
+      #
+      # Runs AFTER the upload above on purpose: if an ABI ever disappears from
+      # Flutter's output, sozo-android is already safely uploaded.
+      - name: Collect Android TV sideload set (same APKs, TV-capable ABIs)
+        run: |
+          set -euo pipefail
+          mkdir -p dist-tv
+          for abi in arm64-v8a armeabi-v7a; do
+            src="build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            if [ -f "${src}" ]; then
+              cp "${src}" dist-tv/
+            else
+              echo "::warning title=TV ABI missing::${src} was not produced by --split-per-abi"
+            fi
+          done
+          ls -lh dist-tv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sozo-androidtv
+          path: dist-tv/*.apk
+          if-no-files-found: error
+
   # ---------------------------------------------------------------- Windows ----
   windows:
     runs-on: windows-latest
@@ -276,6 +309,11 @@ jobs:
 
           # macOS is ad-hoc signed (no Apple cert), so first open needs one step.
           HEAD="${HEAD}$(printf '\n\n🍎 macOS: agar "damaged/ochilmadi" chiqsa, Applications ga qo'"'"'ying va Terminal da: xattr -dr com.apple.quarantine /Applications/Sozo.app (yo'"'"'riqnoma DMG ichida).')"
+
+          # Android TV is the SAME APK (the manifest carries LEANBACK_LAUNCHER),
+          # so say it in plain terms — otherwise people hunt the run artifacts
+          # for a separate "TV build" that was never produced.
+          HEAD="${HEAD}$(printf '\n\n📺 Android TV: alohida build yo'"'"'q — bir xil APK. TV ga app-arm64-v8a-release.apk ni sideload qiling (eski/arzon boks bo'"'"'lsa armeabi-v7a).')"
 
           # Files too big for the bot are only listed (the run artifacts have them).
           BIG=""

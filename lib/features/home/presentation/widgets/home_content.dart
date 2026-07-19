@@ -7,6 +7,7 @@ import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
 import 'package:soplay/features/banners/presentation/widgets/banners_carousel.dart';
@@ -370,8 +371,39 @@ class _TelegramPromoSheet extends StatefulWidget {
 class _TelegramPromoSheetState extends State<_TelegramPromoSheet> {
   bool _dontShow = false;
 
+  void _toggleDontShow() {
+    setState(() => _dontShow = !_dontShow);
+    widget.onDontShowAgain(_dontShow);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final dontShowRow = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: _dontShow ? const Color(0xFF2AABEE) : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: _dontShow ? const Color(0xFF2AABEE) : AppColors.textHint,
+              width: 1.5,
+            ),
+          ),
+          child: _dontShow
+              ? const Icon(Icons.check_rounded, color: Colors.white, size: 12)
+              : null,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'home.dont_show_again'.tr(),
+          style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+        ),
+      ],
+    );
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),
       child: Column(
@@ -436,48 +468,19 @@ class _TelegramPromoSheetState extends State<_TelegramPromoSheet> {
             ),
           ),
           const SizedBox(height: 14),
-          GestureDetector(
-            onTap: () {
-              setState(() => _dontShow = !_dontShow);
-              widget.onDontShowAgain(_dontShow);
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: _dontShow
-                        ? const Color(0xFF2AABEE)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: _dontShow
-                          ? const Color(0xFF2AABEE)
-                          : AppColors.textHint,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: _dontShow
-                      ? const Icon(
-                          Icons.check_rounded,
-                          color: Colors.white,
-                          size: 12,
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'home.dont_show_again'.tr(),
-                  style: const TextStyle(
-                    color: AppColors.textHint,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // Android TV: the Join button is an ElevatedButton and focusable for
+          // free, but this opt-out sat on a bare GestureDetector, so a remote
+          // could never tick it. Off TV the GestureDetector below is the
+          // original one.
+          if (isTvPlatform)
+            TvFocusable(
+              onPressed: _toggleDontShow,
+              borderRadius: 8,
+              scale: 1.0,
+              child: dontShowRow,
+            )
+          else
+            GestureDetector(onTap: _toggleDontShow, child: dontShowRow),
         ],
       ),
     );

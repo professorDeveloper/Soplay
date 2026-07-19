@@ -128,6 +128,22 @@ const List<TabId> kDefaultTabs = [
   TabId.profile,
 ];
 
+/// Fixed tab set for Android TV. The customizer is drag-reorder driven and has
+/// no D-pad equivalent, so TV never reads/writes the persisted Hive order — it
+/// mounts THIS list verbatim. Deliberately NOT fed through [sanitizeTabOrder]:
+/// that function is mobile's Hive back-compat contract and must keep behaving
+/// exactly as it does today.
+///
+/// Dropped vs [kDefaultTabs]: `shorts` (a swipe-only PageView with no D-pad
+/// page-change affordance). Not opted in: `following`, `history`, `buff`,
+/// `downloads` (offline caching has weak value on a mains-powered TV).
+const List<TabId> kTvTabs = [
+  TabId.home,
+  TabId.search,
+  TabId.myList,
+  TabId.profile,
+];
+
 const int kMinTabs = 4;
 const int kMaxTabs = 6;
 

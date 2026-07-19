@@ -11,6 +11,7 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/widgets/banners_carousel.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
@@ -1270,6 +1271,44 @@ class _BackOnlyBar extends StatelessWidget {
   }
 }
 
+/// The back affordance on the detail error screen. On Android TV this is the
+/// only way off a failed page other than the system BACK key, so it must be a
+/// focus stop; a bare GestureDetector could never be reached by the D-pad.
+class _ErrorBackButton extends StatelessWidget {
+  const _ErrorBackButton({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.surfaceVariant,
+      ),
+      child: const Icon(
+        Icons.arrow_back_ios_new_rounded,
+        color: AppColors.textPrimary,
+        size: 17,
+      ),
+    );
+
+    // Off TV this returns exactly the GestureDetector that was here before.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: onBack,
+        borderRadius: 19,
+        autofocus: true,
+        child: button,
+      );
+    }
+
+    return GestureDetector(onTap: onBack, child: button);
+  }
+}
+
 class _ErrorView extends StatelessWidget {
   const _ErrorView({
     required this.message,
@@ -1294,22 +1333,7 @@ class _ErrorView extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Padding(
               padding: const EdgeInsets.only(left: 8),
-              child: GestureDetector(
-                onTap: onBack,
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.surfaceVariant,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: AppColors.textPrimary,
-                    size: 17,
-                  ),
-                ),
-              ),
+              child: _ErrorBackButton(onBack: onBack),
             ),
           ),
           const Spacer(),

@@ -9,6 +9,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/usecases/get_detail_usecase.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
@@ -178,17 +179,31 @@ class _MovieSlide extends StatelessWidget {
 
   final MovieEntity movie;
 
+  void _open(BuildContext context) {
+    if (movie.url.isNotEmpty) {
+      context.push(
+        '/detail',
+        extra: DetailArgs(contentUrl: movie.url, preview: movie),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Android TV: the hero is the first thing on Home and the D-pad's natural
+    // landing spot, but a bare GestureDetector cannot hold focus. No scale — a
+    // full-bleed slide has nowhere to grow into. Off TV: unchanged.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: () => _open(context),
+        borderRadius: 0,
+        scale: 1.0,
+        child: _MovieSlideContent(movie: movie),
+      );
+    }
+
     return GestureDetector(
-      onTap: () {
-        if (movie.url.isNotEmpty) {
-          context.push(
-            '/detail',
-            extra: DetailArgs(contentUrl: movie.url, preview: movie),
-          );
-        }
-      },
+      onTap: () => _open(context),
       child: _MovieSlideContent(movie: movie),
     );
   }
@@ -228,28 +243,38 @@ class _BannerSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          CachedNetworkImage(
-            imageUrl: banner.imageUrl,
-            fit: BoxFit.cover,
-            errorWidget: (_, _, _) => const ColoredBox(
-              color: AppColors.surfaceVariant,
-            ),
+    final content = Stack(
+      fit: StackFit.expand,
+      children: [
+        CachedNetworkImage(
+          imageUrl: banner.imageUrl,
+          fit: BoxFit.cover,
+          errorWidget: (_, _, _) => const ColoredBox(
+            color: AppColors.surfaceVariant,
           ),
-          const _SlideOverlays(),
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: 34,
-            child: _BannerInfo(banner: banner),
-          ),
-        ],
-      ),
+        ),
+        const _SlideOverlays(),
+        Positioned(
+          left: 20,
+          right: 20,
+          bottom: 34,
+          child: _BannerInfo(banner: banner),
+        ),
+      ],
     );
+
+    // Same reasoning as _MovieSlide: the promo slide shares the hero pager and
+    // must be a D-pad stop on TV. Off TV: unchanged.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: onTap,
+        borderRadius: 0,
+        scale: 1.0,
+        child: content,
+      );
+    }
+
+    return GestureDetector(onTap: onTap, child: content);
   }
 }
 
