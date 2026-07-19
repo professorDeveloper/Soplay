@@ -57,9 +57,11 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
     super.dispose();
   }
 
+  /// Offline this yields only the on-device plugins: fanning out to server
+  /// providers with the API down would just add a row of failed legs.
   List<ProviderEntity> _allProviders() {
     final state = context.read<ProviderBloc>().state;
-    return state is ProviderLoaded ? state.providers : const [];
+    return state is ProviderLoaded ? state.usableProviders : const [];
   }
 
   Set<String> _initialSelection(List<ProviderEntity> providers) {

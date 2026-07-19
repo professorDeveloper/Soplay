@@ -1057,6 +1057,13 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                   ),
                 ),
               ),
+              if (state is ProviderLoaded && state.offline)
+                _ProvidersOfflineBanner(
+                  usableCount: state.usableProviders.length,
+                  cachedAt: state.cachedAt,
+                  onRetry: () =>
+                      context.read<ProviderBloc>().add(const ProviderLoad()),
+                ),
               if (state is ProviderLoaded)
                 Align(
                   alignment: Alignment.centerLeft,
@@ -1082,6 +1089,10 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                           bottomPad: bottomPad,
                           favorites: favorites,
                           onToggleFavorite: _toggleFavorite,
+                          unavailableIds: {
+                            for (final p in state.providers)
+                              if (!state.isUsable(p)) p.id,
+                          },
                         ),
                   ProviderError() => _ProvidersError(
                     onRetry: () =>
@@ -1305,6 +1316,7 @@ class _ProvidersList extends StatefulWidget {
     required this.bottomPad,
     required this.favorites,
     required this.onToggleFavorite,
+    this.unavailableIds = const {},
   });
 
   final List<ProviderEntity> providers;
@@ -1312,6 +1324,10 @@ class _ProvidersList extends StatefulWidget {
   final double bottomPad;
   final Set<String> favorites;
   final ValueChanged<String> onToggleFavorite;
+
+  /// Providers that exist in the list but cannot serve content right now
+  /// (server-backed entries while the backend is unreachable).
+  final Set<String> unavailableIds;
 
   @override
   State<_ProvidersList> createState() => _ProvidersListState();
@@ -1346,14 +1362,29 @@ class _ProvidersListState extends State<_ProvidersList> {
       itemBuilder: (context, i) {
         final provider = widget.providers[i];
         final selected = provider.id == widget.currentProviderId;
+        final unavailable = widget.unavailableIds.contains(provider.id);
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: _ProviderListTile(
             provider: provider,
             selected: selected,
             isFavorite: widget.favorites.contains(provider.id),
+            unavailable: unavailable,
             onToggleFavorite: () => widget.onToggleFavorite(provider.id),
             onTap: () {
+              // Refuse the selection outright rather than letting it fail
+              // three screens later inside a home or detail request.
+              if (unavailable) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('profile.provider_needs_server'.tr()),
+                    backgroundColor: AppColors.surface,
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+                return;
+              }
               context.read<ProviderBloc>().add(ProviderSelect(provider.id));
               Navigator.of(context).pop();
             },
@@ -1412,11 +1443,13 @@ class _ProviderListTile extends StatelessWidget {
     required this.isFavorite,
     required this.onToggleFavorite,
     required this.onTap,
+    this.unavailable = false,
   });
 
   final ProviderEntity provider;
   final bool selected;
   final bool isFavorite;
+  final bool unavailable;
   final VoidCallback onToggleFavorite;
   final VoidCallback onTap;
 
@@ -1440,6 +1473,13 @@ class _ProviderListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Opacity(
+      opacity: unavailable ? 0.45 : 1,
+      child: _tile(context),
+    );
+  }
+
+  Widget _tile(BuildContext context) {
     return Material(
       color: selected
           ? AppColors.primary.withValues(alpha: 0.10)
@@ -1490,7 +1530,10 @@ class _ProviderListTile extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          _ProviderModeBadge(mode: provider.mode),
+                          if (unavailable)
+                            const _ServerDownBadge()
+                          else
+                            _ProviderModeBadge(mode: provider.mode),
                           if (provider.requiresCfBypass) ...[
                             const SizedBox(width: 4),
                             const _CfBypassBadge(),
@@ -1560,6 +1603,127 @@ class _ProviderListTile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Replaces the mode badge on a server-backed provider while the API is down,
+/// so the reason it is greyed out is readable at a glance.
+class _ServerDownBadge extends StatelessWidget {
+  const _ServerDownBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    const color = AppColors.error;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 9, color: color),
+          const SizedBox(width: 3),
+          Text(
+            'profile.offline_badge'.tr(),
+            style: const TextStyle(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Explains the outage in place, above a list that is still partly usable.
+class _ProvidersOfflineBanner extends StatelessWidget {
+  const _ProvidersOfflineBanner({
+    required this.usableCount,
+    required this.cachedAt,
+    required this.onRetry,
+  });
+
+  final int usableCount;
+  final DateTime? cachedAt;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border, width: 0.6),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.cloud_off_rounded,
+              color: AppColors.textSecondary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'profile.offline_title'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  usableCount > 0
+                      ? 'profile.offline_local_available'
+                          .tr(args: ['$usableCount'])
+                      : 'profile.offline_no_local'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+                if (cachedAt != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'profile.offline_cached_at'.tr(args: [_stamp(cachedAt!)]),
+                    style: const TextStyle(
+                      color: AppColors.textHint,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+            ),
+            child: Text('general.retry'.tr()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _stamp(DateTime at) {
+    final l = at.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(l.day)}.${two(l.month)} ${two(l.hour)}:${two(l.minute)}';
   }
 }
 
@@ -1669,30 +1833,96 @@ class _ProvidersLoading extends StatelessWidget {
   }
 }
 
+/// Reached only when the backend is unreachable, there is no cached list *and*
+/// no plugin is installed — i.e. there is genuinely no working path left. The
+/// copy therefore points at installing plugins, which needs no server.
 class _ProvidersError extends StatelessWidget {
   const _ProvidersError({required this.onRetry});
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: AppColors.textHint,
-            size: 36,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+      child: Center(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.06),
+                    ),
+                    child: const Icon(
+                      Icons.cloud_off_rounded,
+                      color: AppColors.textSecondary,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'profile.offline_title'.tr(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'profile.offline_no_local'.tr(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    height: 46,
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: onRetry,
+                      child: Text('general.retry'.tr()),
+                    ),
+                  ),
+                  if (CloudStreamChannel.isSupported) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 46,
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const CloudStreamSourcesPage(),
+                          ),
+                        ),
+                        child: Text('profile.offline_install_plugins'.tr()),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            'profile.providers_error'.tr(),
-            style: const TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 14),
-          OutlinedButton(
-              onPressed: onRetry, child: Text('general.retry'.tr())),
-        ],
+        ),
       ),
     );
   }

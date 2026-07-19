@@ -195,9 +195,16 @@ class _ProviderSwitcher extends StatelessWidget {
     );
   }
 
+  /// Offline, a favourited server provider is dropped rather than offered —
+  /// picking it from the quick switcher would break the home screen. If that
+  /// leaves nothing, the caller falls through to the full picker, which
+  /// explains the outage.
   List<ProviderEntity> _resolveFavorites(ProviderLoaded state) {
     final favIds = getIt<HiveService>().getFavoriteProviders();
-    final byId = {for (final p in state.providers) p.id: p};
+    final byId = {
+      for (final p in state.providers)
+        if (state.isUsable(p)) p.id: p,
+    };
     return [
       for (final id in favIds)
         if (byId[id] != null) byId[id]!,

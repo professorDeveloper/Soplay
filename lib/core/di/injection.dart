@@ -270,7 +270,7 @@ Future<void> configureDependencies() async {
     CommentsRepositoryImpl(getIt<CommentsDataSource>()),
   );
   getIt.registerSingleton<ProviderRepository>(
-    ProviderRepositoryImpl(getIt<ProviderDataSource>()),
+    ProviderRepositoryImpl(getIt<ProviderDataSource>(), getIt<HiveService>()),
   );
   getIt.registerSingleton<ShortsRepository>(
     ShortsRepositoryImpl(getIt<ShortsRemoteDataSource>()),

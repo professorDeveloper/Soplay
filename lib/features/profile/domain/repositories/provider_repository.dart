@@ -1,6 +1,8 @@
 import 'package:soplay/core/error/result.dart';
-import '../entities/provider_entity.dart';
+import '../entities/providers_snapshot.dart';
 
 abstract class ProviderRepository {
-  Future<Result<List<ProviderEntity>>> getProviders();
+  /// Fetches the provider list, falling back to the Hive cache when the
+  /// backend is unreachable. Only fails when there is no cache either.
+  Future<Result<ProvidersSnapshot>> getProviders();
 }
