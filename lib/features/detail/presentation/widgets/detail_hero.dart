@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 
 class DetailHeroBackground extends StatelessWidget {
   const DetailHeroBackground({
@@ -161,19 +162,28 @@ class _TopBarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            width: 38,
-            height: 38,
-            color: Colors.black.withValues(alpha: 0.38),
-            child: Icon(icon, color: Colors.white, size: 18),
-          ),
+    final button = ClipOval(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          width: 38,
+          height: 38,
+          color: Colors.black.withValues(alpha: 0.38),
+          child: Icon(icon, color: Colors.white, size: 18),
         ),
       ),
     );
+
+    // Android TV: back and bookmark are the detail page's only chrome; on a
+    // bare GestureDetector the D-pad could never reach either. Off TV: unchanged.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: onTap,
+        borderRadius: 19,
+        child: button,
+      );
+    }
+
+    return GestureDetector(onTap: onTap, child: button);
   }
 }

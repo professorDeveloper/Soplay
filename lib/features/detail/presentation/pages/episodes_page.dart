@@ -8,6 +8,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -799,22 +800,32 @@ class _DownloadControl extends StatelessWidget {
     }
 
     final failed = status == DownloadStatus.failed;
-    return GestureDetector(
-      onTap: onDownload,
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceVariant,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          failed ? Icons.refresh_rounded : Icons.download_outlined,
-          color: failed ? AppColors.primary : AppColors.textSecondary,
-          size: 18,
-        ),
+    final button = Container(
+      width: 34,
+      height: 34,
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceVariant,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        failed ? Icons.refresh_rounded : Icons.download_outlined,
+        color: failed ? AppColors.primary : AppColors.textSecondary,
+        size: 18,
       ),
     );
+
+    // Android TV: the episode row itself is an InkWell (focusable for free),
+    // but this download control sat on a bare GestureDetector, so a remote
+    // could play an episode and never download one. Off TV: unchanged.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: onDownload,
+        borderRadius: 17,
+        child: button,
+      );
+    }
+
+    return GestureDetector(onTap: onDownload, child: button);
   }
 }
 

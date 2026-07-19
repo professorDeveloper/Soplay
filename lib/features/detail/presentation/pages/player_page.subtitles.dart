@@ -677,29 +677,34 @@ extension _PlayerSubtitles on _PlayerPageState {
                         btn('+0.5', 500),
                       ],
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: SliderTheme(
-                        data: SliderTheme.of(ctx).copyWith(
-                          activeTrackColor: AppColors.primary,
-                          inactiveTrackColor: Colors.white12,
-                          thumbColor: AppColors.primary,
-                          overlayColor:
-                              AppColors.primary.withValues(alpha: 0.15),
-                          trackHeight: 3,
-                        ),
-                        child: Slider(
-                          min: -10000,
-                          max: 10000,
-                          divisions: 400,
-                          value: _subtitleOffsetMs.value
-                              .toDouble()
-                              .clamp(-10000, 10000),
-                          label: _fmtSubtitleOffset(_subtitleOffsetMs.value),
-                          onChanged: (v) => setOffset(v.round()),
+                    // The ±0.1/±0.5 buttons above already cover this on a
+                    // remote, and a focused Material slider would trap the
+                    // D-pad (it binds up/down as well as left/right), so TV
+                    // drops the slider rather than adapting it.
+                    if (!isTvPlatform)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: SliderTheme(
+                          data: SliderTheme.of(ctx).copyWith(
+                            activeTrackColor: AppColors.primary,
+                            inactiveTrackColor: Colors.white12,
+                            thumbColor: AppColors.primary,
+                            overlayColor:
+                                AppColors.primary.withValues(alpha: 0.15),
+                            trackHeight: 3,
+                          ),
+                          child: Slider(
+                            min: -10000,
+                            max: 10000,
+                            divisions: 400,
+                            value: _subtitleOffsetMs.value
+                                .toDouble()
+                                .clamp(-10000, 10000),
+                            label: _fmtSubtitleOffset(_subtitleOffsetMs.value),
+                            onChanged: (v) => setOffset(v.round()),
+                          ),
                         ),
                       ),
-                    ),
                     const SizedBox(height: 6),
                     const Divider(color: Colors.white12, height: 1),
                     Padding(
@@ -844,7 +849,32 @@ extension _PlayerSubtitles on _PlayerPageState {
                             ),
                           ),
                           Expanded(
-                            child: SliderTheme(
+                            child: isTvPlatform
+                                ? _TvStepper(
+                                    display:
+                                        '${_subtitleStyle.fontSize.round()}',
+                                    onDecrease: _subtitleStyle.fontSize > 12
+                                        ? () => apply(
+                                              _subtitleStyle.copyWith(
+                                                fontSize: (_subtitleStyle
+                                                            .fontSize -
+                                                        2)
+                                                    .clamp(12, 32),
+                                              ),
+                                            )
+                                        : null,
+                                    onIncrease: _subtitleStyle.fontSize < 32
+                                        ? () => apply(
+                                              _subtitleStyle.copyWith(
+                                                fontSize: (_subtitleStyle
+                                                            .fontSize +
+                                                        2)
+                                                    .clamp(12, 32),
+                                              ),
+                                            )
+                                        : null,
+                                  )
+                                : SliderTheme(
                               data: SliderTheme.of(ctx).copyWith(
                                 activeTrackColor: AppColors.primary,
                                 inactiveTrackColor: Colors.white12,
@@ -911,7 +941,30 @@ extension _PlayerSubtitles on _PlayerPageState {
                     _SheetSectionLabel('player.background'.tr()),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SliderTheme(
+                      child: isTvPlatform
+                          ? _TvStepper(
+                              display:
+                                  '${(_subtitleStyle.bgOpacity * 100).round()}%',
+                              onDecrease: _subtitleStyle.bgOpacity > 0
+                                  ? () => apply(
+                                        _subtitleStyle.copyWith(
+                                          bgOpacity:
+                                              (_subtitleStyle.bgOpacity - 0.1)
+                                                  .clamp(0.0, 1.0),
+                                        ),
+                                      )
+                                  : null,
+                              onIncrease: _subtitleStyle.bgOpacity < 1
+                                  ? () => apply(
+                                        _subtitleStyle.copyWith(
+                                          bgOpacity:
+                                              (_subtitleStyle.bgOpacity + 0.1)
+                                                  .clamp(0.0, 1.0),
+                                        ),
+                                      )
+                                  : null,
+                            )
+                          : SliderTheme(
                         data: SliderTheme.of(ctx).copyWith(
                           activeTrackColor: AppColors.primary,
                           inactiveTrackColor: Colors.white12,

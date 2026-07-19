@@ -344,6 +344,7 @@ extension _PlayerPanels on _PlayerPageState {
               Expanded(
                 child: isQuality
                     ? ListView.separated(
+                        controller: _tvPanelScroll,
                         itemCount: _videoSources.length,
                         separatorBuilder: (_, _) => Divider(
                           color: Colors.white.withValues(alpha: 0.06),
@@ -359,6 +360,9 @@ extension _PlayerPanels on _PlayerPageState {
                         },
                       )
                     : ListView.separated(
+                        // Non-null only on TV (see _openPanel), where it opens
+                        // the list near the episode being watched.
+                        controller: _tvPanelScroll,
                         itemCount: widget.args.episodes.length,
                         separatorBuilder: (_, _) => Divider(
                           color: Colors.white.withValues(alpha: 0.06),

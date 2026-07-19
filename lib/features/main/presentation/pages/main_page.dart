@@ -42,6 +42,23 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   String? _lastProviderId;
   bool _shortsShowcaseStarted = false;
 
+  // ---- Android TV shell state (unused on phone/desktop) ----
+  /// Scope owning the rail's buttons. `requestFocus()` on it restores the rail
+  /// item the D-pad last sat on, which is how BACK returns from the content.
+  final FocusScopeNode _tvRailScope = FocusScopeNode(debugLabel: 'tvRail');
+
+  /// One scope per tab so switching away and back restores the exact widget the
+  /// D-pad was on, instead of dumping focus at the top of the page.
+  final Map<TabId, FocusScopeNode> _tvTabScopes = {};
+
+  /// True while focus sits inside the tab body rather than on the rail. Drives
+  /// [PopScope.canPop] so BACK means "leave the content" before it means "go
+  /// Home", and only then "exit the app".
+  bool _tvContentFocused = false;
+
+  FocusScopeNode _tvScopeFor(TabId id) => _tvTabScopes.putIfAbsent(
+      id, () => FocusScopeNode(debugLabel: 'tvTab.${id.name}'));
+
   int get _shortsIndex => _visibleTabs.indexOf(TabId.shorts); // -1 if hidden
   int get _homeIndex {
     final i = _visibleTabs.indexOf(TabId.home);
@@ -56,7 +73,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     // Reflect the persisted nav-style preference into the shared notifier the
     // nav listens to (so it renders correctly on first frame).
     NavPrefs.navStyle.value = _hiveService.navStyle;
-    _visibleTabs = sanitizeTabOrder(_hiveService.tabOrder);
+    // TV runs a fixed tab set — the customizer is drag-driven and hidden there,
+    // and the persisted mobile order is left completely untouched (never read,
+    // never written) so a user's phone bar survives round-tripping.
+    _visibleTabs =
+        isTvPlatform ? List.of(kTvTabs) : sanitizeTabOrder(_hiveService.tabOrder);
     NavPrefs.tabOrder.value = _hiveService.tabOrder;
     NavPrefs.tabOrder.addListener(_onTabSetChange);
     _navController.tabIndexResolver = (id) => _visibleTabs.indexOf(id);
@@ -73,7 +94,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       if (!mounted) return;
       if (!isDesktopPlatform) {
         getIt<UpdateChecker>().run(context);
-        DeeplinkOptIn.maybePrompt(context);
+        // The deeplink opt-in walks the user into the Android "open by default"
+        // settings screen, which does not exist on leanback — skip on TV.
+        if (!isTvPlatform) DeeplinkOptIn.maybePrompt(context);
       }
     });
   }
@@ -94,6 +117,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   // The user changed the tab set in Settings → Appearance. Keep the SAME tab
   // selected if it survived; otherwise fall back to Home.
   void _onTabSetChange() {
+    // TV's tab set is fixed; ignore customizer writes that reach us anyway.
+    if (isTvPlatform) return;
     final currentId = (_index >= 0 && _index < _visibleTabs.length)
         ? _visibleTabs[_index]
         : TabId.home;
@@ -112,6 +137,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     _navController.index.removeListener(_onNavChange);
     NavPrefs.tabOrder.removeListener(_onTabSetChange);
     ShowcaseView.get().unregister();
+    _tvRailScope.dispose();
+    for (final n in _tvTabScopes.values) {
+      n.dispose();
+    }
     super.dispose();
   }
 
@@ -186,6 +215,84 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     unawaited(_hiveService.markShortsRefreshShowcaseSeen());
   }
 
+  // ---------------------------------------------------------------- TV shell
+
+  /// TV only. Gives every tab its own [FocusScope] and makes the inactive ones
+  /// unfocusable.
+  ///
+  /// The `ExcludeFocus` is not optional: [IndexedStack] lays its hidden children
+  /// out at full size and only skips PAINTING them, so their focus nodes stay
+  /// registered at real screen coordinates. Without this the D-pad walks
+  /// straight into an invisible tab and OK fires an unseen action.
+  Widget _tvWrapTab(Widget page, TabId id, bool active) {
+    if (!isTvPlatform) return page;
+    return FocusScope(
+      node: _tvScopeFor(id),
+      child: ExcludeFocus(excluding: !active, child: page),
+    );
+  }
+
+  /// Rail → content. Prefers the widget this tab was last on; falls back to the
+  /// first focusable one.
+  void _tvEnterContent() {
+    if (_index < 0 || _index >= _visibleTabs.length) return;
+    final scope = _tvScopeFor(_visibleTabs[_index]);
+    final last = scope.focusedChild;
+    if (last != null && last.canRequestFocus) {
+      last.requestFocus();
+      return;
+    }
+    scope.requestFocus();
+    scope.nextFocus();
+  }
+
+  /// Focus-follows-selection on the rail: arrowing up/down switches the tab
+  /// live. Cheap because [IndexedStack] keeps every tab mounted — this only
+  /// changes which one is painted.
+  void _tvFocusTab(int index) {
+    if (index == _index) return;
+    _onTabTap(index);
+  }
+
+  Widget _buildTvShell(List<Widget> tabs, List<AppTabDef> defs) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          // Content is inset by the rail's COLLAPSED width. The rail expands
+          // over the top of it (see below), so gaining focus never reflows the
+          // page underneath.
+          Positioned.fill(
+            left: _TvNavRail.collapsedWidth,
+            child: Focus(
+              // Not focusable itself — it exists purely to observe whether
+              // focus is anywhere inside the tab body, which BACK keys off.
+              canRequestFocus: false,
+              skipTraversal: true,
+              onFocusChange: (inside) {
+                if (_tvContentFocused == inside) return;
+                setState(() => _tvContentFocused = inside);
+              },
+              child: IndexedStack(index: _index, children: tabs),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: _TvNavRail(
+              index: _index,
+              items: defs,
+              scope: _tvRailScope,
+              onFocusItem: _tvFocusTab,
+              onEnterContent: _tvEnterContent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final defs = [for (final id in _visibleTabs) kTabRegistry[id]!];
@@ -196,10 +303,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           // State) instead of rebuilding it at a new index — which was
           // re-mounting Home and re-firing its "Join Telegram" sheet.
           key: ValueKey(defs[i].id),
-          child: defs[i].builder(TabBuildContext(
-            isActive: _index == i,
-            shortsRefreshTick: _shortsRefreshTick,
-          )),
+          // No-op off TV: returns the page widget unchanged.
+          child: _tvWrapTab(
+            defs[i].builder(TabBuildContext(
+              isActive: _index == i,
+              shortsRefreshTick: _shortsRefreshTick,
+            )),
+            defs[i].id,
+            _index == i,
+          ),
         ),
     ];
 
@@ -215,13 +327,25 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       child: BlocListener<ProviderBloc, ProviderState>(
         listener: _onProviderStateChange,
         child: PopScope(
-          canPop: _index == _homeIndex,
+          // TV adds one step in front of the existing rule: BACK first leaves
+          // the content for the rail, THEN goes Home, THEN exits. Phone and
+          // desktop keep `_index == _homeIndex` exactly as before.
+          canPop: isTvPlatform
+              ? (!_tvContentFocused && _index == _homeIndex)
+              : _index == _homeIndex,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
+            if (isTvPlatform && _tvContentFocused) {
+              // Restores the rail's last-focused button (the active tab).
+              _tvRailScope.requestFocus();
+              return;
+            }
             setState(() => _index = _homeIndex);
             _navController.goTo(_homeIndex);
           },
-          child: isDesktopPlatform
+          child: isTvPlatform
+              ? _buildTvShell(tabs, defs)
+              : isDesktopPlatform
               ? Scaffold(
                   backgroundColor: AppColors.background,
                   body: Stack(
@@ -738,6 +862,200 @@ class _NavCircleState extends State<_NavCircle> {
                 size: 22,
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Android-TV navigation rail — the THIRD shell, mounted only when
+/// [isTvPlatform]. The bottom pill (mobile glass capsule, desktop floating pill)
+/// is a touch idiom; a 10-foot D-pad UI wants a vertical rail on the leading
+/// edge, so this is a genuine third arm rather than a reuse of either.
+///
+/// It lives in a Stack ABOVE the content and animates 92 → 232 wide while it
+/// holds focus, so showing the labels never reflows the page underneath.
+///
+/// Interaction model: focus-follows-selection (arrowing the rail switches the
+/// tab live), OK or arrow-right hands focus to the tab body, BACK brings it back
+/// (see [_MainPageState._buildTvShell] and the PopScope above it).
+class _TvNavRail extends StatefulWidget {
+  const _TvNavRail({
+    required this.index,
+    required this.items,
+    required this.scope,
+    required this.onFocusItem,
+    required this.onEnterContent,
+  });
+
+  final int index;
+  final List<AppTabDef> items;
+  final FocusScopeNode scope;
+  final ValueChanged<int> onFocusItem;
+  final VoidCallback onEnterContent;
+
+  static const double collapsedWidth = 92;
+  static const double expandedWidth = 232;
+
+  @override
+  State<_TvNavRail> createState() => _TvNavRailState();
+}
+
+class _TvNavRailState extends State<_TvNavRail> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusScope(
+      node: widget.scope,
+      onFocusChange: (hasFocus) {
+        if (_expanded == hasFocus) return;
+        setState(() => _expanded = hasFocus);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        width: _expanded
+            ? _TvNavRail.expandedWidth
+            : _TvNavRail.collapsedWidth,
+        decoration: BoxDecoration(
+          color: AppColors.navBackground,
+          border: const Border(
+            right: BorderSide(color: AppColors.border, width: 0.6),
+          ),
+          boxShadow: _expanded
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 36,
+                    offset: const Offset(10, 0),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < widget.items.length; i++)
+              _TvRailButton(
+                item: widget.items[i],
+                selected: widget.index == i,
+                expanded: _expanded,
+                // Initial focus for the whole app lands on the active tab.
+                autofocus: widget.index == i,
+                onFocused: () => widget.onFocusItem(i),
+                onActivate: widget.onEnterContent,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TvRailButton extends StatefulWidget {
+  const _TvRailButton({
+    required this.item,
+    required this.selected,
+    required this.expanded,
+    required this.autofocus,
+    required this.onFocused,
+    required this.onActivate,
+  });
+
+  final AppTabDef item;
+  final bool selected;
+  final bool expanded;
+  final bool autofocus;
+  final VoidCallback onFocused;
+  final VoidCallback onActivate;
+
+  @override
+  State<_TvRailButton> createState() => _TvRailButtonState();
+}
+
+class _TvRailButtonState extends State<_TvRailButton> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.selected || _focused;
+    final color = active ? AppColors.textPrimary : AppColors.textSecondary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      child: InkWell(
+        // InkWell is already focusable and already answers ActivateIntent, so
+        // the remote's OK button works through it once app.dart binds
+        // select/gameButtonA to that intent.
+        autofocus: widget.autofocus,
+        onTap: widget.onActivate,
+        onFocusChange: (v) {
+          setState(() => _focused = v);
+          if (v) widget.onFocused();
+        },
+        borderRadius: BorderRadius.circular(12),
+        // The focus ring below is the affordance; suppress the default wash.
+        focusColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
+          height: 54,
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          decoration: BoxDecoration(
+            color: _focused ? AppColors.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _focused ? AppColors.border : Colors.transparent,
+              width: 0.6,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Brand accent as a 3px bar on the active tab — never a fill.
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                curve: Curves.easeOut,
+                width: 3,
+                height: widget.selected ? 20 : 0,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 11),
+              Icon(
+                widget.selected ? widget.item.activeIcon : widget.item.icon,
+                size: 24,
+                color: color,
+              ),
+              if (widget.expanded)
+                // Expanded (not a fixed width) so the label can never overflow
+                // mid-animation while the rail is still growing.
+                Expanded(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: widget.expanded ? 1 : 0,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: Text(
+                        widget.item.labelKey.tr(),
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 14,
+                          fontWeight:
+                              widget.selected ? FontWeight.w800 : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

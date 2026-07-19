@@ -32,6 +32,10 @@ import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Resolve Android TV before any isMobilePlatform branch below: a television
+  // must not take the phone's liquid-glass path. No-op off Android, and any
+  // failure leaves the flag false, i.e. exactly today's phone behaviour.
+  await initTvPlatform();
   if (isDesktopPlatform) {
     MediaKit.ensureInitialized();
     await windowManager.ensureInitialized();

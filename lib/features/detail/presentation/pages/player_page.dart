@@ -58,6 +58,7 @@ part 'player_page.gestures.dart';
 part 'player_page.history.dart';
 part 'player_page.pip.dart';
 part 'player_page.party.dart';
+part 'player_page.tv.dart';
 
 /// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
 const int _kMaxLifetimeRetries = 4;
@@ -186,6 +187,36 @@ class _PlayerPageState extends State<PlayerPage>
   // install view in place of the generic error overlay.
   PartyResolveCapability? _pluginRequired;
 
+  // --- Android TV / D-pad (see player_page.tv.dart). Dart extensions cannot
+  // declare instance fields, so the remote's focus and step-seek state lives
+  // here. All of it is inert unless isTvPlatform is true.
+  //
+  // _tvRootFocus is an ancestor of every control, so it sees each key before
+  // the app-level directional-traversal shortcut and decides, per keystroke,
+  // whether the D-pad drives playback or moves focus. It is a *scope* on
+  // purpose: when a focused control is unmounted (controls auto-hide, the
+  // buffering spinner replaces the play cluster) focus falls back to the
+  // nearest enclosing scope. If that were the route's scope instead of this
+  // node, it would no longer be in the key-event chain and the remote would go
+  // dead until the next tap.
+  final FocusScopeNode _tvRootFocus = FocusScopeNode(debugLabel: 'tvPlayerRoot');
+  final FocusNode _tvPlayFocus = FocusNode(debugLabel: 'tvPlayerPlay');
+  final FocusNode _tvSeekFocus = FocusNode(debugLabel: 'tvPlayerSeek');
+
+  /// Debounce that turns a burst of left/right presses into a single seek.
+  Timer? _tvSeekCommit;
+  DateTime? _tvSeekLastStep;
+  int _tvSeekRepeats = 0;
+
+  /// Side-panel scroll controller, recreated per open so the episode list can
+  /// start near the episode being watched instead of at the top.
+  ScrollController? _tvPanelScroll;
+
+  /// Latched by [_exit] on TV so the intercepting [PopScope] lets the very next
+  /// pop through. Without it the deliberate exit would be swallowed by the same
+  /// guard that protects against accidental BACK.
+  bool _tvPopAllowed = false;
+
   @override
   void initState() {
     super.initState();
@@ -217,6 +248,11 @@ class _PlayerPageState extends State<PlayerPage>
         'serial': widget.args.isSerial.toString(),
       });
     unawaited(PlayerLog.instance.init());
+    if (isTvPlatform) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _tvRootFocus.requestFocus();
+      });
+    }
     _partyInit();
     _startup();
   }
@@ -263,6 +299,11 @@ class _PlayerPageState extends State<PlayerPage>
     _hideTimer?.cancel();
     _historyTimer?.cancel();
     _seekRippleTimer?.cancel();
+    _tvSeekCommit?.cancel();
+    _tvRootFocus.dispose();
+    _tvPlayFocus.dispose();
+    _tvSeekFocus.dispose();
+    _tvPanelScroll?.dispose();
     _controlsAnimation.dispose();
     _seekRippleController.dispose();
     _scrub.dispose();
@@ -288,11 +329,22 @@ class _PlayerPageState extends State<PlayerPage>
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (_, _) => _restoreSystemUi(),
+      // BACK is the *only* dismiss affordance on a remote, so on TV the player
+      // intercepts it and unwinds one layer at a time (panel -> pending scrub ->
+      // controls -> exit) rather than dumping the viewer out mid-episode.
+      // _exit() latches _tvPopAllowed when the exit is genuinely intended.
+      // Phone and desktop keep the unconditional pop they ship today.
+      canPop: !isTvPlatform || _tvPopAllowed,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || !isTvPlatform) {
+          _restoreSystemUi();
+          return;
+        }
+        _onTvBack();
+      },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.light,
-        child: _wrapDesktopShortcuts(
+        child: _wrapPlayerShortcuts(
           Scaffold(
           backgroundColor: Colors.black,
           body: LayoutBuilder(
@@ -334,7 +386,20 @@ class _PlayerPageState extends State<PlayerPage>
     );
   }
 
-  Widget _wrapDesktopShortcuts(Widget child) {
+  Widget _wrapPlayerShortcuts(Widget child) {
+    if (isTvPlatform) {
+      // Separate handler, not a widened gate: the desktop map consumes all four
+      // arrows unconditionally, which on a remote would make directional focus
+      // traversal impossible. See player_page.tv.dart.
+      // Focus is claimed from initState rather than via autofocus: the error
+      // overlay's retry button also autofocuses, and two autofocus requests
+      // resolved in one frame within the same scope trip a debug assertion.
+      return FocusScope(
+        node: _tvRootFocus,
+        onKeyEvent: _onTvPlayerKey,
+        child: child,
+      );
+    }
     if (!isDesktopPlatform) return child;
     return Focus(autofocus: true, onKeyEvent: _onPlayerKey, child: child);
   }

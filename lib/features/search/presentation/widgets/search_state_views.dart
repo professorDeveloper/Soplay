@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
@@ -295,6 +296,23 @@ class _SearchErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final retryChip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        'general.retry'.tr(),
+        style: const TextStyle(
+          color: AppColors.primary,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+
     return Padding(
       padding: EdgeInsets.only(top: topPad),
       child: Center(
@@ -318,30 +336,18 @@ class _SearchErrorView extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
-              GestureDetector(
-                onTap: onRetry,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Text(
-                    'general.retry'.tr(),
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
+              // Android TV: Retry is the only control on this screen; on a bare
+              // GestureDetector a network blip left the remote with no way out.
+              // Off TV the else branch is the original GestureDetector.
+              if (isTvPlatform)
+                TvFocusable(
+                  onPressed: onRetry,
+                  borderRadius: 10,
+                  autofocus: true,
+                  child: retryChip,
+                )
+              else
+                GestureDetector(onTap: onRetry, child: retryChip),
             ],
           ),
         ),

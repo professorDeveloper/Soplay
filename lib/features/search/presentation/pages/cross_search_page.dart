@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
@@ -387,9 +388,13 @@ class _MovieCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    // Android TV: these cards are every result of a cross-provider search, so a
+    // bare GestureDetector made the whole results grid unreachable by the D-pad.
+    // Off TV TvFocusable collapses to exactly the GestureDetector that was here
+    // — same onTap, same explicit HitTestBehavior.opaque, nothing else added.
+    return TvFocusable(
       behavior: HitTestBehavior.opaque,
-      onTap: () {
+      onPressed: () {
         if (movie.url.isEmpty) return;
         context.push('/detail',
             extra: DetailArgs(

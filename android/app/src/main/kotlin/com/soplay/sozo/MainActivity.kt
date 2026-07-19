@@ -4,11 +4,13 @@ import android.Manifest
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
+import android.app.UiModeManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.media.AudioManager
 import android.graphics.drawable.Icon
@@ -38,6 +40,7 @@ import kotlinx.coroutines.withContext
 class MainActivity : FlutterFragmentActivity() {
 
     private val channelName = "soplay/pip"
+    private val platformChannelName = "soplay/platform"
     private val downloadChannelName = "soplay/downloads"
     private val systemControlsChannelName = "soplay/system_controls"
     private val deeplinkSettingsChannelName = "soplay/deeplink_settings"
@@ -45,6 +48,7 @@ class MainActivity : FlutterFragmentActivity() {
     private val actionExtraId = "action_id"
 
     private var methodChannel: MethodChannel? = null
+    private var platformChannel: MethodChannel? = null
     private var downloadChannel: MethodChannel? = null
     private var systemControlsChannel: MethodChannel? = null
     private var deeplinkSettingsChannel: MethodChannel? = null
@@ -109,6 +113,17 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                     result.success(true)
                 }
+                else -> result.notImplemented()
+            }
+        }
+
+        platformChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            platformChannelName
+        )
+        platformChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isTv" -> result.success(isLeanbackDevice())
                 else -> result.notImplemented()
             }
         }
@@ -513,6 +528,21 @@ class MainActivity : FlutterFragmentActivity() {
         setupBridgeChannel(flutterEngine)
         // Restart the bridge if the user had "share sources to desktop" on.
         if (bridgePrefs().getBoolean("enabled", false)) startBridgeServer()
+    }
+
+    /** True on Android TV / Google TV / Fire TV, false on phones and tablets.
+     *
+     *  All three checks are OR'd on purpose: Fire TV has historically not
+     *  reported UI_MODE_TYPE_TELEVISION, and some cheap TV boxes ship without
+     *  FEATURE_LEANBACK while still declaring the leanback software feature.
+     *  Anything that throws falls through to false, i.e. the phone path. */
+    private fun isLeanbackDevice(): Boolean = try {
+        val uiMode = getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+        uiMode?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+            packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+            packageManager.hasSystemFeature("android.software.leanback")
+    } catch (_: Throwable) {
+        false
     }
 
     private fun bridgePrefs() = getSharedPreferences("sozo_bridge", Context.MODE_PRIVATE)
