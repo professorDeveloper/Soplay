@@ -40,6 +40,16 @@ class ProviderEntity {
     this.extractor,
   });
 
+  /// Whether this provider can serve content with the backend unreachable.
+  ///
+  /// Only the on-device plugin hosts qualify: CloudStream (`cs:`), Aniyomi
+  /// (`an:`) and Manga (`mn:`) resolve entirely through their platform
+  /// channels. Everything else needs the API — server providers obviously, but
+  /// also JS `hybrid`/`client` providers, because [ExtractorRunner] fetches
+  /// `/extractors/runtime` from our backend before it can run any extractor.
+  bool get isServerIndependent =>
+      id.startsWith('cs:') || id.startsWith('an:') || id.startsWith('mn:');
+
   bool get scopesResolveMedia =>
       extractor != null &&
       (extractor!.scope == 'all' || extractor!.scope == 'resolveMedia');

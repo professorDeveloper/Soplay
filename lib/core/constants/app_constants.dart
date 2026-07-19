@@ -39,6 +39,9 @@ class AppConstants {
   static const String themeModeKey = 'theme_mode';
   static const String languageKey = 'language';
   static const String currentProviderKey = 'current_provider';
+  static const String preOutageProviderKey = 'pre_outage_provider';
+  static const String cachedProvidersKey = 'cached_providers';
+  static const String cachedProvidersAtKey = 'cached_providers_at';
   static const String shortsRefreshShowcaseSeenKey =
       'shorts_refresh_showcase_seen';
   static const String aniListTokenKey = 'anilist_token';

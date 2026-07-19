@@ -79,6 +79,56 @@ class HiveService {
     await _settingsBox.put(AppConstants.currentProviderKey, providerId);
   }
 
+  /// The provider the user was on before an outage forced a temporary switch
+  /// to an on-device plugin. Restored as soon as the backend answers again, so
+  /// an outage never permanently rewrites their choice.
+  String getPreOutageProvider() {
+    return _settingsBox.get(AppConstants.preOutageProviderKey, defaultValue: '');
+  }
+
+  Future<void> savePreOutageProvider(String providerId) async {
+    await _settingsBox.put(AppConstants.preOutageProviderKey, providerId);
+  }
+
+  Future<void> clearPreOutageProvider() async {
+    await _settingsBox.delete(AppConstants.preOutageProviderKey);
+  }
+
+  /// Last provider list the backend served, kept so the picker still has
+  /// something to show while `/contents/providers` is unreachable.
+  List<Map<String, dynamic>> getCachedProviders() {
+    final raw = _settingsBox.get(AppConstants.cachedProvidersKey);
+    if (raw is! String || raw.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// When [getCachedProviders] was written, so the UI can say how stale it is.
+  DateTime? getCachedProvidersAt() {
+    final raw = _settingsBox.get(AppConstants.cachedProvidersAtKey);
+    if (raw is! int) return null;
+    return DateTime.fromMillisecondsSinceEpoch(raw);
+  }
+
+  Future<void> saveCachedProviders(List<Map<String, dynamic>> providers) async {
+    await _settingsBox.put(
+      AppConstants.cachedProvidersKey,
+      jsonEncode(providers),
+    );
+    await _settingsBox.put(
+      AppConstants.cachedProvidersAtKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
   List<String> getFavoriteProviders() {
     return (_settingsBox.get('favorite_providers') as List?)
             ?.map((e) => e.toString())
