@@ -54,6 +54,27 @@ jobs:
           cache: true
       - name: Create .env (declared as a pubspec asset — the build fails without it)
         run: printf '%s' "${{ secrets.DOTENV }}" > .env
+      # Restore the release signing key. android/app/key.properties is
+      # gitignored, so without this the build falls through to
+      # signingConfigs.getByName("debug") — and a CI runner generates a FRESH
+      # debug keystore per run. Every delivered APK then carried a different
+      # signature, so users hit "package conflicts with an existing package"
+      # and could never update; they had to uninstall first. The secrets hold
+      # the real upload keystore, whose SHA-256 matches what is already
+      # installed on devices, so updates now apply in place.
+      - name: Restore Android signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_B64}" ] || [ -z "${KEY_PROPERTIES}" ]; then
+            echo "::error title=Signing secrets missing::ANDROID_KEYSTORE_B64 / ANDROID_KEY_PROPERTIES are not set. Refusing to ship a debug-signed APK that users cannot update to."
+            exit 1
+          fi
+          printf '%s' "${KEYSTORE_B64}" | base64 -d > android/app/upload-keystore.jks
+          printf '%s' "${KEY_PROPERTIES}" > android/app/key.properties
+          echo "keystore restored ($(stat -c%s android/app/upload-keystore.jks) bytes)"
       - run: flutter --version
       - run: flutter pub get
       # Split per ABI: release keeps R8/minify disabled (extensions break under
@@ -61,6 +82,20 @@ jobs:
       # 50 MB Telegram Bot API document limit.
       - name: Build release APKs
         run: flutter build apk --release --split-per-abi
+      # Fail loudly rather than shipping an APK nobody can update to. A
+      # debug-signed build is the exact failure this pipeline had before, and it
+      # is invisible until a user tries to install over an existing copy.
+      - name: Verify APK signature
+        run: |
+          set -euo pipefail
+          APKSIGNER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -name apksigner | sort | tail -1)"
+          APK="$(ls build/app/outputs/flutter-apk/app-*-release.apk | head -1)"
+          CERT="$("$APKSIGNER" verify --print-certs "$APK")"
+          echo "$CERT" | grep -E 'certificate DN|SHA-256 digest'
+          if echo "$CERT" | grep -q 'CN=Android Debug'; then
+            echo "::error title=Debug-signed APK::Built with the debug keystore. Users could not update to this build."
+            exit 1
+          fi
       - name: Collect APKs
         run: |
           set -euo pipefail

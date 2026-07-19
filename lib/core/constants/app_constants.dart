@@ -39,6 +39,13 @@ class AppConstants {
   static const String themeModeKey = 'theme_mode';
   static const String languageKey = 'language';
   static const String currentProviderKey = 'current_provider';
+
+  /// Provider used until the real list arrives and ProviderBloc persists a
+  /// choice. Without it a fresh install races: HomeBloc reads the current
+  /// provider before the list has loaded, sends an empty id, and every content
+  /// request comes back 400 `Unknown provider ""` — so a brand-new user sees a
+  /// broken home screen. Must stay a valid server provider id.
+  static const String defaultProviderId = 'vidapi';
   static const String preOutageProviderKey = 'pre_outage_provider';
   static const String cachedProvidersKey = 'cached_providers';
   static const String cachedProvidersAtKey = 'cached_providers_at';

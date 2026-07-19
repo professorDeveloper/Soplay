@@ -72,7 +72,14 @@ class HiveService {
       _authBox.delete(AppConstants.malTokenKey);
 
   String getCurrentProvider() {
-    return _settingsBox.get(AppConstants.currentProviderKey, defaultValue: '');
+    final saved = _settingsBox.get(
+      AppConstants.currentProviderKey,
+      defaultValue: '',
+    ) as String;
+    // Never hand out an empty id: the home, search and detail repositories send
+    // whatever this returns straight to the API, and an empty provider is a 400.
+    // ProviderBloc overwrites this with the real choice once the list loads.
+    return saved.isEmpty ? AppConstants.defaultProviderId : saved;
   }
 
   Future<void> saveCurrentProvider(String providerId) async {
