@@ -835,14 +835,15 @@ extension _PlayerControls on _PlayerPageState {
   }
 
   Widget _buildCenterPlayCluster(PlayerController c) {
+    final step = _seekSeconds;
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           _CenterIconButton(
-            icon: Icons.replay_10_rounded,
+            icon: _rewindIconFor(step),
             onTap: () {
-              _seekRelative(const Duration(seconds: -10));
+              _seekRelative(Duration(seconds: -step));
               _showSeekRipple(-1);
             },
           ),
@@ -862,9 +863,9 @@ extension _PlayerControls on _PlayerPageState {
           ),
           const SizedBox(width: 28),
           _CenterIconButton(
-            icon: Icons.forward_10_rounded,
+            icon: _forwardIconFor(step),
             onTap: () {
-              _seekRelative(const Duration(seconds: 10));
+              _seekRelative(Duration(seconds: step));
               _showSeekRipple(1);
             },
           ),
@@ -909,9 +910,9 @@ extension _PlayerControls on _PlayerPageState {
                 const SizedBox(width: 4),
               ],
               _IconButton(
-                icon: Icons.replay_10_rounded,
+                icon: _rewindIconFor(_seekSeconds),
                 onTap: () {
-                  _seekRelative(const Duration(seconds: -10));
+                  _seekRelative(-_seekStep);
                   _showSeekRipple(-1);
                 },
               ),
@@ -927,9 +928,9 @@ extension _PlayerControls on _PlayerPageState {
               ),
               const SizedBox(width: 6),
               _IconButton(
-                icon: Icons.forward_10_rounded,
+                icon: _forwardIconFor(_seekSeconds),
                 onTap: () {
-                  _seekRelative(const Duration(seconds: 10));
+                  _seekRelative(_seekStep);
                   _showSeekRipple(1);
                 },
               ),

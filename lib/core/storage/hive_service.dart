@@ -228,6 +228,145 @@ class HiveService {
     await _settingsBox.put(AppConstants.preferredMediaLangKey, lang);
   }
 
+  /// Playback engine chosen in Settings → Player. Distinct from
+  /// [getPreferredMediaLang], which picks a different *stream* (sub vs dub);
+  /// this picks the *decoder* that plays whatever stream was chosen.
+  String getPlayerEngine() {
+    return _settingsBox.get(
+      AppConstants.playerEngineKey,
+      defaultValue: AppConstants.defaultPlayerEngine,
+    );
+  }
+
+  Future<void> savePlayerEngine(String engineId) async {
+    await _settingsBox.put(AppConstants.playerEngineKey, engineId);
+  }
+
+  /// Whether playback should stop and ask which engine to use.
+  ///
+  /// Defaults to false: the picker is a deliberate opt-in, so an install that
+  /// never touches Settings → Player behaves exactly as it did before.
+  bool get askEngineOnPlay {
+    return _settingsBox.get(
+          AppConstants.askEngineOnPlayKey,
+          defaultValue: false,
+        ) ==
+        true;
+  }
+
+  Future<void> setAskEngineOnPlay(bool value) async {
+    await _settingsBox.put(AppConstants.askEngineOnPlayKey, value);
+  }
+
+  // --- Playback defaults -----------------------------------------------
+  //
+  // Every default below seeds a control that already existed inside the
+  // player. Reads are clamped to the same ranges the in-player controls
+  // enforce, so a hand-edited or corrupted box can never push the player into
+  // a state its own UI could not produce.
+
+  double getDefaultPlaybackSpeed() {
+    final raw = _settingsBox.get(
+      AppConstants.defaultPlaybackSpeedKey,
+      defaultValue: 1.0,
+    );
+    final v = raw is num ? raw.toDouble() : 1.0;
+    return v.clamp(0.25, 4.0);
+  }
+
+  Future<void> saveDefaultPlaybackSpeed(double speed) async {
+    await _settingsBox.put(AppConstants.defaultPlaybackSpeedKey, speed);
+  }
+
+  /// Stored as the enum's stable name (`contain` / `cover` / `fill`), never its
+  /// index — reordering the enum must not silently repoint existing installs.
+  String getDefaultPlayerFit() {
+    return _settingsBox.get(
+      AppConstants.defaultPlayerFitKey,
+      defaultValue: 'contain',
+    );
+  }
+
+  Future<void> saveDefaultPlayerFit(String fit) async {
+    await _settingsBox.put(AppConstants.defaultPlayerFitKey, fit);
+  }
+
+  /// Defaults to true — auto-advance is what the player has always done, and
+  /// this key exists only so it can be turned *off*.
+  bool get autoPlayNextEpisode {
+    return _settingsBox.get(
+          AppConstants.autoPlayNextEpisodeKey,
+          defaultValue: true,
+        ) ==
+        true;
+  }
+
+  Future<void> setAutoPlayNextEpisode(bool value) async {
+    await _settingsBox.put(AppConstants.autoPlayNextEpisodeKey, value);
+  }
+
+  int getDoubleTapSeekSeconds() {
+    final raw = _settingsBox.get(
+      AppConstants.doubleTapSeekSecondsKey,
+      defaultValue: 10,
+    );
+    final v = raw is num ? raw.toInt() : 10;
+    return v.clamp(5, 60);
+  }
+
+  Future<void> saveDoubleTapSeekSeconds(int seconds) async {
+    await _settingsBox.put(AppConstants.doubleTapSeekSecondsKey, seconds);
+  }
+
+  double getLongPressBoost() {
+    final raw = _settingsBox.get(
+      AppConstants.longPressBoostKey,
+      defaultValue: 2.0,
+    );
+    final v = raw is num ? raw.toDouble() : 2.0;
+    return v.clamp(1.25, 4.0);
+  }
+
+  Future<void> saveLongPressBoost(double rate) async {
+    await _settingsBox.put(AppConstants.longPressBoostKey, rate);
+  }
+
+  bool get brightnessGestureEnabled {
+    return _settingsBox.get(
+          AppConstants.brightnessGestureKey,
+          defaultValue: true,
+        ) ==
+        true;
+  }
+
+  Future<void> setBrightnessGestureEnabled(bool value) async {
+    await _settingsBox.put(AppConstants.brightnessGestureKey, value);
+  }
+
+  bool get volumeGestureEnabled {
+    return _settingsBox.get(
+          AppConstants.volumeGestureKey,
+          defaultValue: true,
+        ) ==
+        true;
+  }
+
+  Future<void> setVolumeGestureEnabled(bool value) async {
+    await _settingsBox.put(AppConstants.volumeGestureKey, value);
+  }
+
+  bool get keepScreenOn {
+    return _settingsBox.get(
+          AppConstants.keepScreenOnKey,
+          defaultValue: true,
+        ) ==
+        true;
+  }
+
+  Future<void> setKeepScreenOn(bool value) async {
+    await _settingsBox.put(AppConstants.keepScreenOnKey, value);
+  }
+
   /// In-memory mirror of [AppConstants.telegramPromoSeenKey].
   ///
   /// [setTelegramPromoSeen] is called fire-and-forget from the promo sheet, so

@@ -1,3 +1,4 @@
+// ignore_for_file: invalid_use_of_protected_member
 part of 'player_page.dart';
 
 extension _PlayerPanels on _PlayerPageState {
@@ -168,12 +169,47 @@ extension _PlayerPanels on _PlayerPageState {
                     _openSubtitleAppearanceSheet();
                   },
                 ),
+              // Audio tracks are a media_kit capability: video_player exposes no
+              // track-selection API at all. Under the default engine the tile
+              // stays disabled and says why, rather than opening an empty sheet.
               if (!hasLangs)
+                Builder(
+                  builder: (_) {
+                    final c = _controller;
+                    final supported = c?.supportsAudioTracks ?? false;
+                    final tracks = c?.audioTracks ?? const <PlayerAudioTrack>[];
+                    if (!supported) {
+                      return _SettingsTile(
+                        icon: Icons.audiotrack_outlined,
+                        label: 'player.audio_track'.tr(),
+                        value: 'player.audio_track_engine_only'.tr(),
+                        onTap: null,
+                      );
+                    }
+                    return _SettingsTile(
+                      icon: Icons.audiotrack_outlined,
+                      label: 'player.audio_track'.tr(),
+                      value: tracks.length < 2
+                          ? 'player.audio_track_single'.tr()
+                          : _activeAudioTrackLabel(),
+                      onTap: tracks.length < 2
+                          ? null
+                          : () {
+                              Navigator.of(sheetContext).pop();
+                              _openAudioTrackSheet();
+                            },
+                    );
+                  },
+                ),
+              if (ExternalPlayer.isSupported && _videoUrl != null)
                 _SettingsTile(
-                  icon: Icons.audiotrack_outlined,
-                  label: 'player.audio_track'.tr(),
-                  value: 'profile.coming_soon'.tr(),
-                  onTap: null,
+                  icon: Icons.open_in_new_rounded,
+                  label: 'player.external_player'.tr(),
+                  value: '',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _handOffToExternalPlayer();
+                  },
                 ),
               if (widget.args.showDownloadAction &&
                   widget.args.provider != 'uzmovi')
@@ -201,6 +237,147 @@ extension _PlayerPanels on _PlayerPageState {
         ),
       ),
     );
+  }
+
+  /// [PlayerAudioTrack.label] already resolves language codes to native names,
+  /// but it cannot translate its own positional fallback — core has no
+  /// business reaching for the locale. So do that one case here.
+  String _audioTrackLabel(PlayerAudioTrack t) {
+    if (t.hasMetadata) return t.label;
+    return 'player.audio_track_numbered'
+        .tr(args: <String>[t.ordinal.toString()]);
+  }
+
+  String _activeAudioTrackLabel() {
+    final c = _controller;
+    if (c == null) return '—';
+    final active = c.activeAudioTrackId;
+    for (final t in c.audioTracks) {
+      if (t.id == active) return _audioTrackLabel(t);
+    }
+    return '—';
+  }
+
+  /// Audio-track picker. media_kit only — the caller already guarantees
+  /// [PlayerController.supportsAudioTracks], so there is no empty state here.
+  void _openAudioTrackSheet() {
+    final c = _controller;
+    if (c == null || !c.supportsAudioTracks) return;
+    final tracks = c.audioTracks;
+    if (tracks.length < 2) return;
+    showAdaptiveModal<void>(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.audiotrack_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'player.audio_track'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: Colors.white12, height: 1),
+              for (final t in tracks)
+                _OptionTile(
+                  label: _audioTrackLabel(t),
+                  selected: t.id == c.activeAudioTrackId,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _switchAudioTrack(t.id);
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _switchAudioTrack(String id) async {
+    final c = _controller;
+    if (c == null) return;
+    await c.setAudioTrack(id);
+    if (mounted) setState(() {});
+  }
+
+  /// Hands the current stream to VLC / MX Player.
+  ///
+  /// Warns first when the stream is header-gated: an intent carries no
+  /// Referer/Origin, so those sources 403 in the external app and present as a
+  /// black screen. Better to say so than to launch into one.
+  Future<void> _handOffToExternalPlayer() async {
+    final url = _videoUrl;
+    if (url == null || url.isEmpty) return;
+    final headers = _headers;
+    if (!ExternalPlayer.canHandOff(url, headers)) {
+      final proceed = await showAdaptiveDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: Text(
+            'player.external_player'.tr(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: Text(
+            'player.external_player_gated'.tr(),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text('general.cancel'.tr()),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text('player.external_player_try'.tr()),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true) return;
+    }
+    await _controller?.pause();
+    final ok = await ExternalPlayer.open(
+      url: url,
+      title: widget.args.title,
+      headers: headers,
+    );
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('player.external_player_none'.tr())),
+      );
+    }
   }
 
   void _openSpeedSheet() {
