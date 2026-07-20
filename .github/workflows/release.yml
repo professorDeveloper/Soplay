@@ -96,6 +96,34 @@ jobs:
             echo "::error title=Debug-signed APK::Built with the debug keystore. Users could not update to this build."
             exit 1
           fi
+      # Prints the versionCode/versionName baked into every APK, and fails if the
+      # ABIs disagree.
+      #
+      # Flutter's --split-per-abi rewrites versionCode per ABI as
+      # `abi * 1000 + versionCode` (arm32=1, arm64=2, x86_64=4). That is for the
+      # Play Store; here it silently broke the in-app updater, because the
+      # backend stores ONE number to compare against. android/app/build.gradle.kts
+      # overrides it back — this step is what proves the override still works
+      # after a Flutter upgrade, instead of us finding out from users.
+      - name: Report and verify versionCode
+        run: |
+          set -euo pipefail
+          AAPT="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -name aapt2 | sort | tail -1)"
+          CODES=""
+          for APK in build/app/outputs/flutter-apk/app-*-release.apk; do
+            LINE="$("$AAPT" dump badging "$APK" | head -1)"
+            CODE="$(echo "$LINE" | grep -oE "versionCode='[0-9]+'" | grep -oE '[0-9]+')"
+            NAME="$(echo "$LINE" | grep -oE "versionName='[^']*'" | cut -d"'" -f2)"
+            echo "$(basename "$APK"): versionCode=$CODE versionName=$NAME"
+            echo "- \`$(basename "$APK")\` → versionCode **$CODE**, versionName **$NAME**" >> "$GITHUB_STEP_SUMMARY"
+            CODES="$CODES $CODE"
+          done
+          UNIQUE="$(echo $CODES | tr ' ' '\n' | sort -u | wc -l)"
+          if [ "$UNIQUE" -ne 1 ]; then
+            echo "::error title=versionCode mismatch::APKs disagree on versionCode ($CODES). The per-ABI offset override in android/app/build.gradle.kts is not applying — the in-app updater will loop for some users."
+            exit 1
+          fi
+          echo "::notice title=versionCode::$(echo $CODES | cut -d' ' -f1) (identical across all ABIs)"
       - name: Collect APKs
         run: |
           set -euo pipefail
