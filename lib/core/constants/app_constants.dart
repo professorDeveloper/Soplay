@@ -62,6 +62,10 @@ class AppConstants {
   static const String deeplinkOptInKey = 'deeplink_opt_in';
   static const String openSubtitlesKeyKey = 'opensubtitles_api_key';
 
+  /// Opt-in for adult manga sources. Absent ⇒ off, so a fresh install never
+  /// surfaces an 18+ source until the user asks for it.
+  static const String showNsfwMangaSourcesKey = 'show_nsfw_manga_sources';
+
   static const String appLockEnabledKey = 'app_lock_enabled';
   static const String appLockPinLengthKey = 'app_lock_pin_length';
   static const String appLockBiometricKey = 'app_lock_biometric';

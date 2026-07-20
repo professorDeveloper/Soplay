@@ -172,6 +172,13 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
 
   Future<void> _appendMangaProviders(List<ProviderEntity> into) async {
     if (!MangaChannel.isSupported) return;
+    // Adult manga sources are opt-in. Dropping them here rather than in the
+    // picker's own filter is deliberate: everything downstream — the picker,
+    // ProviderManager, and _resolveAndPersistProvider — works off this list, so
+    // a hidden source is also one the resolver will not keep selected. Turning
+    // the setting off therefore retires a dangling 18+ selection on the next
+    // load instead of leaving it live but invisible.
+    final allowNsfw = hiveService.showNsfwMangaSources;
     try {
       final list = await MangaChannel.ensureLoaded();
       for (final e in list) {
@@ -179,6 +186,7 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         final m = Map<String, dynamic>.from(e);
         final id = (m['id'] as String?)?.trim() ?? '';
         if (id.isEmpty) continue;
+        if (m['nsfw'] == true && !allowNsfw) continue;
         into.add(ProviderModel(
           id: id,
           name: (m['name'] as String?) ?? id,

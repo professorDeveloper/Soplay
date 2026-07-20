@@ -365,6 +365,22 @@ class HiveService {
   Future<void> setPrivateAlwaysAsk(bool value) async =>
       _settingsBox.put('private_always_ask', value);
 
+  /// Whether adult manga sources are shown. Off unless the user opts in, and
+  /// read by both the manga sources list and [ProviderBloc] — the picker builds
+  /// its manga entries from the same plugin list, so a source hidden in one
+  /// place has to be hidden in the other or the opt-out means nothing.
+  bool get showNsfwMangaSources {
+    return _settingsBox.get(
+          AppConstants.showNsfwMangaSourcesKey,
+          defaultValue: false,
+        ) ==
+        true;
+  }
+
+  Future<void> setShowNsfwMangaSources(bool enabled) async {
+    await _settingsBox.put(AppConstants.showNsfwMangaSourcesKey, enabled);
+  }
+
   String getReaderMode(String contentUrl) {
     return _settingsBox.get('reader_mode::$contentUrl', defaultValue: 'vertical');
   }

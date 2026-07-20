@@ -536,6 +536,8 @@
     "installed_sources": "O'RNATILGAN MANBALAR",
     "source_settings": "MANBA SOZLAMALARI",
     "no_sources": "Hozircha manba yo'q",
+    "show_nsfw": "Kattalar uchun manbalar",
+    "show_nsfw_hint": "18+ deb belgilangan manbalarni ro'yxatda va provayder tanlashda ko'rsatish. Odatda o'chirilgan.",
     "show": "Ko'rsatish",
     "hide": "Yashirish",
     "installed": "O'rnatilgan",
