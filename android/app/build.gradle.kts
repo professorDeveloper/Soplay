@@ -42,6 +42,34 @@ android {
         versionName = flutter.versionName
     }
 
+    // Undo Flutter's per-ABI versionCode offset.
+    //
+    // With --split-per-abi, FlutterPlugin.kt rewrites each output as
+    // `abiVersionCode * 1000 + versionCode` (arm32=1, arm64=2, x86_64=4). So a
+    // pubspec of `+14` shipped three APKs numbered 1014 / 2014 / 4014. That
+    // exists for the Play Store, which rejects variants sharing a versionCode.
+    //
+    // We deliver over Telegram, not the Play Store, and the offset actively
+    // breaks us: the backend update check stores ONE number and compares it to
+    // whatever the installed APK reports. With per-ABI numbers, a v7a user
+    // (1014) is forever "behind" an arm64 number (2014), so they are told to
+    // update, install the same build again, and are told to update again.
+    //
+    // Forcing every output back to the pubspec value means the number a user
+    // reports is exactly the number set in pubspec.yaml and typed into the
+    // admin panel — identical across ABIs, and monotonic across releases.
+    // Must use the same legacy API and type Flutter writes through
+    // (ApkVariantOutput.versionCodeOverride) — the modern androidComponents
+    // API does NOT win against it. Our callback registers after the Flutter
+    // plugin's, so it runs last and its value is the one that ships.
+    applicationVariants.all {
+        outputs.all {
+            @Suppress("DEPRECATION")
+            (this as com.android.build.gradle.api.ApkVariantOutput).versionCodeOverride =
+                flutter.versionCode
+        }
+    }
+
     // 2. Raqamli imzo sozlamalarini yaratish (faqat key.properties mavjud bo'lsa).
     // Debug build'da bu fayl bo'lmaydi — shuning uchun release imzosi shartli.
     if (keystorePropertiesFile.exists()) {
