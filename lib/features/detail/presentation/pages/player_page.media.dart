@@ -374,6 +374,26 @@ extension _PlayerMedia on _PlayerPageState {
         'duration': _isLive ? 'live' : dur.toString(),
       });
       _plog('initialized — ${_isLive ? 'LIVE stream' : 'duration $dur'}');
+
+      // Engine = External player. Sozo still does the hard part — extraction,
+      // header-gated proxying, picking the quality — and then hands the
+      // resolved URL to VLC / MX Player. Bail out before autoplay rather than
+      // starting playback and immediately pausing it, so there is no burst of
+      // audio and no wasted bandwidth. Resume position is NOT carried across:
+      // the intent has no standard extra for it, so the external app starts
+      // from zero.
+      if (ExternalPlayer.isSupported &&
+          resolvePlayerEngine() == PlayerEngine.external) {
+        _plog('external engine — handing off to a third-party player');
+        setState(() {
+          _initializing = false;
+          _errorMessage = null;
+          _isCodecError = false;
+        });
+        await _handOffToExternalPlayer();
+        return;
+      }
+
       if (_canGeneratePreview && !_isLive) {
         FramePreviewService.open(
           _videoUrl!,
@@ -570,7 +590,11 @@ extension _PlayerMedia on _PlayerPageState {
         // Guests in a party never self-advance — they wait for the host's
         // next party:content. The host auto-advances and emits it.
         final guestInParty = _inParty && !_isPartyHost;
+        // Auto-advance is opt-out, not opt-in: it is what the player has
+        // always done. Turning it off leaves the episode parked on its last
+        // frame, which is also what makes the history entry below correct.
         if (!guestInParty &&
+            _hive.autoPlayNextEpisode &&
             widget.args.isSerial &&
             _episodeIndex + 1 < widget.args.episodes.length) {
           _saveHistoryForNextEpisode();

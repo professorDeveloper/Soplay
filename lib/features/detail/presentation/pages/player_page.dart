@@ -12,7 +12,9 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/diagnostics/log_viewer_sheet.dart';
 import 'package:soplay/core/diagnostics/player_log.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/player/external_player.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
+import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/system/desktop_window.dart';
@@ -29,6 +31,7 @@ import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
 import 'package:soplay/core/preview/frame_preview_service.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/streak/presentation/dialogs/streak_milestone_dialog.dart';
@@ -78,6 +81,19 @@ class _PlayerPageState extends State<PlayerPage>
   final HistoryService _history = getIt<HistoryService>();
   final DownloadService _downloads = getIt<DownloadService>();
   final Floating _floating = Floating();
+
+  // Playback preferences, snapshotted in initState. Settings → Player is not
+  // reachable while the player is open, so re-reading Hive would only cost —
+  // and _onPanUpdate runs on every drag frame, where a per-frame box lookup is
+  // exactly the kind of thing that shows up as jank.
+  late final int _seekSeconds;
+  late final double _longPressBoost;
+  late final bool _brightnessGestureEnabled;
+  late final bool _volumeGestureEnabled;
+
+  /// How far one double-tap / seek-button / arrow-key press jumps.
+  Duration get _seekStep => Duration(seconds: _seekSeconds);
+
   bool _isPip = false;
   bool _resumeAfterPause = false;
   bool _lastPipPlaying = false;
@@ -124,6 +140,8 @@ class _PlayerPageState extends State<PlayerPage>
   ThumbnailsEntity? _storyboard;
   final ValueNotifier<double?> _sliderDragValue = ValueNotifier<double?>(null);
 
+  /// Seeded from Settings → Player in [initState]; still freely changed
+  /// mid-playback from the speed sheet, which does not write the default back.
   double _playbackSpeed = 1.0;
   _PlayerFit _fit = _PlayerFit.contain;
   bool _isPortrait = false;
@@ -221,6 +239,12 @@ class _PlayerPageState extends State<PlayerPage>
   void initState() {
     super.initState();
     _subtitleStyle = _hive.getSubtitleStyle();
+    _playbackSpeed = _hive.getDefaultPlaybackSpeed();
+    _fit = _playerFitFromId(_hive.getDefaultPlayerFit());
+    _seekSeconds = _hive.getDoubleTapSeekSeconds();
+    _longPressBoost = _hive.getLongPressBoost();
+    _brightnessGestureEnabled = _hive.brightnessGestureEnabled;
+    _volumeGestureEnabled = _hive.volumeGestureEnabled;
     _episodeIndex = widget.args.initialEpisodeIndex.clamp(
       0,
       widget.args.episodes.isEmpty ? 0 : widget.args.episodes.length - 1,
@@ -440,12 +464,12 @@ class _PlayerPageState extends State<PlayerPage>
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowLeft) {
-      _seekRelative(const Duration(seconds: -10));
+      _seekRelative(-_seekStep);
       _showSeekRipple(-1);
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowRight) {
-      _seekRelative(const Duration(seconds: 10));
+      _seekRelative(_seekStep);
       _showSeekRipple(1);
       return KeyEventResult.handled;
     }

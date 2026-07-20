@@ -17,6 +17,7 @@ import 'package:soplay/core/bridge/bridge_control.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
+import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/nav_prefs.dart';
@@ -266,7 +267,11 @@ class _ProfileViewState extends State<_ProfileView> {
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(
-                  child: _Reveal(order: 6, child: _AboutSection()),
+                  child: _Reveal(order: 6, child: _PlayerEntry()),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                const SliverToBoxAdapter(
+                  child: _Reveal(order: 7, child: _AboutSection()),
                 ),
                 SliverToBoxAdapter(
                   child: SizedBox(
@@ -2414,6 +2419,35 @@ class _AppearanceEntry extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right_rounded,
                 color: AppColors.textHint, size: 20),
             onTap: () => context.push('/navbar'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact Profile entry → [PlayerSettingsPage].
+///
+/// Unconditional, unlike the engine picker it replaced: that was Android-only
+/// because every other platform is pinned to one backend, but the page now
+/// also owns playback defaults and subtitle appearance, which apply
+/// everywhere. The engine block inside is still gated on
+/// [canChoosePlayerEngine].
+class _PlayerEntry extends StatelessWidget {
+  const _PlayerEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: _SectionCard(
+        children: [
+          _Tile(
+            icon: Icons.play_circle_outline_rounded,
+            title: 'profile.section_player'.tr(),
+            trailing: const Icon(Icons.chevron_right_rounded,
+                color: AppColors.textHint, size: 20),
+            onTap: () => context.push('/player-settings'),
           ),
         ],
       ),

@@ -103,5 +103,13 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="tg" />
         </intent>
+        <!-- External playback handoff (Settings → Player → External player).
+             Without this, Android 11+ package visibility hides every installed
+             video app, resolveActivity() returns null and the chooser never
+             appears — the feature would silently do nothing. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="video/*" />
+        </intent>
     </queries>
 </manifest>
