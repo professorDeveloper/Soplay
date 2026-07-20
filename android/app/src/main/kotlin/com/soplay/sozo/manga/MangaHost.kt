@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.source.model.SMangaImpl
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.Dispatchers
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -109,11 +110,33 @@ class MangaHost(private val context: Context) {
 
     // --- runtime: load source + convert to soplay JSON ---
 
+    /**
+     * Downloads the extension apk if it isn't cached, and returns it.
+     *
+     * Two things here are load-bearing:
+     *
+     * 1. **The cache key includes the apk's filename**, which upstream versions
+     *    (`tachiyomi-all.comicklive-v1.4.5.apk`). Keyed on the package alone, a
+     *    published extension update could never be picked up — the old file
+     *    existed, so it was returned forever.
+     *
+     * 2. **The download lands on a temp file and is renamed only once complete.**
+     *    Writing straight to the final path meant a dropped connection left a
+     *    truncated apk that `exists() && length() > 0` happily accepted, and
+     *    MangaRuntime then `setReadOnly()`s it — so the source was permanently
+     *    broken with no way to recover short of clearing app data.
+     */
     private fun ensureApk(meta: SourceMeta): File? {
         if (meta.apkUrl.isEmpty()) return null
         val dir = File(context.filesDir, "manga").apply { mkdirs() }
-        val file = File(dir, (meta.pkg.ifEmpty { meta.id }).replace('/', '_') + ".apk")
+        val base = (meta.pkg.ifEmpty { meta.id }).replace('/', '_')
+        val remoteName = meta.apkUrl.substringAfterLast('/').substringBefore('?')
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .takeIf { it.isNotEmpty() && it != ".apk" }
+        val file = File(dir, if (remoteName != null) "$base-$remoteName" else "$base.apk")
         if (file.exists() && file.length() > 0) return file
+
+        val tmp = File(dir, "${file.name}.part")
         return try {
             val conn = (URL(meta.apkUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"; instanceFollowRedirects = true
@@ -123,10 +146,37 @@ class MangaHost(private val context: Context) {
             if (conn.responseCode !in 200..299) {
                 Log.e(TAG, "apk ${meta.apkUrl} -> ${conn.responseCode}"); return null
             }
-            conn.inputStream.use { input -> FileOutputStream(file).use { input.copyTo(it) } }
+            val expected = conn.contentLengthLong
+            tmp.delete()
+            val written = conn.inputStream.use { input ->
+                FileOutputStream(tmp).use { input.copyTo(it) }
+            }
+            // Only trust Content-Length when the server actually sent one; chunked
+            // responses report -1 and a short read there is indistinguishable from
+            // a complete one.
+            if (expected > 0 && written != expected) {
+                Log.e(TAG, "apk ${meta.apkUrl} truncated: $written/$expected bytes")
+                tmp.delete()
+                return null
+            }
+            if (written <= 0) {
+                Log.e(TAG, "apk ${meta.apkUrl} empty"); tmp.delete(); return null
+            }
+            // Clear read-only in case a previous load marked an older file at this
+            // path; renameTo onto a read-only target fails silently otherwise.
+            if (file.exists()) {
+                file.setWritable(true)
+                file.delete()
+            }
+            if (!tmp.renameTo(file)) {
+                Log.e(TAG, "apk rename failed for ${file.name}"); tmp.delete(); return null
+            }
+            Log.i(TAG, "apk downloaded ${file.name} ($written bytes)")
             file
         } catch (t: Throwable) {
-            Log.e(TAG, "apk download failed: ${t.message}"); null
+            tmp.delete()
+            Log.e(TAG, "apk download failed: ${t.javaClass.simpleName}: ${t.message}")
+            null
         }
     }
 
@@ -408,6 +458,39 @@ class MangaHost(private val context: Context) {
         }
         val headers = JSONObject()
         http?.headers?.forEach { (k, value) -> headers.put(k, value) }
+
+        // Attach the source's cookies for each image host.
+        //
+        // Page images are fetched by Dart (CachedNetworkImage → Dart's own
+        // HttpClient), NOT by OkHttp, so they never touch the cookie jar that
+        // CloudflareInterceptor writes `cf_clearance` into. On a Cloudflare-gated
+        // source that produced the exact failure the user sees: the chapter's
+        // page list resolves fine (OkHttp, cookies applied) and then every image
+        // 403s. Serialising the cookies here is what lets the Dart side present
+        // the same identity OkHttp would have.
+        //
+        // Per-host rather than one blanket value: image CDNs are frequently on a
+        // different host than the API, and sending one host's cookies to another
+        // is both wrong and a way to leak a session token to a third party.
+        val jar = http?.client?.cookieJar
+        if (jar != null) {
+            val cookieByHost = HashMap<String, String>()
+            for (i in 0 until pagesArr.length()) {
+                val page = pagesArr.optJSONObject(i) ?: continue
+                val url = page.optString("imageUrl").toHttpUrlOrNull() ?: continue
+                val cookie = cookieByHost.getOrPut(url.host) {
+                    try {
+                        jar.loadForRequest(url)
+                            .joinToString("; ") { "${it.name}=${it.value}" }
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "cookies ${url.host}: ${t.message}")
+                        ""
+                    }
+                }
+                if (cookie.isNotEmpty()) page.put("cookie", cookie)
+            }
+        }
+
         return JSONObject().apply {
             put("provider", "mn:$id")
             put("headers", headers)

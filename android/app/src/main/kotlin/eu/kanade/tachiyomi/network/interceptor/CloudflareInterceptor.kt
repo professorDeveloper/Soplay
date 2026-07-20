@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.network.interceptor
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.SystemClock
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -15,6 +16,7 @@ import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 
 class CloudflareInterceptor(
@@ -25,9 +27,79 @@ class CloudflareInterceptor(
 
     private val executor = ContextCompat.getMainExecutor(context)
 
+    /** Per-host solve mutexes, so one gated source can't stall every other. */
+    private val hostLocks = ConcurrentHashMap<String, Any>()
+
+    /** host → elapsedRealtime of its last successful solve. */
+    private val lastSolvedAt = ConcurrentHashMap<String, Long>()
+
     override fun shouldIntercept(response: Response): Boolean {
         // Check if Cloudflare anti-bot is on
         return response.code in ERROR_CODES && response.header("Server") in SERVER_CHECK
+    }
+
+    /**
+     * Runs the WebView challenge for [request] and returns once a fresh
+     * `cf_clearance` is in the system cookie store, or throws [IOException].
+     *
+     * Exists for callers that are not inside this interceptor's own chain —
+     * specifically [com.lagradost.cloudstream3.network.CloudflareKiller], which
+     * CloudStream plugins install on their own OkHttp clients. Those clients do
+     * not share our cookie jar, so they need to drive the solve themselves and
+     * then attach the cookies by hand; without this they would each need a
+     * duplicate copy of the WebView dance below.
+     */
+    fun solveChallenge(request: Request) {
+        try {
+            solveOncePerHost(request)
+        } catch (e: CloudflareBypassException) {
+            throw IOException("Failed to bypass Cloudflare")
+        } catch (e: Exception) {
+            throw IOException(e)
+        }
+    }
+
+    /**
+     * Serialises solves per host, and skips the solve entirely if another thread
+     * just produced a clearance cookie for it.
+     *
+     * Without this, two concurrent requests to the same gated host destroy each
+     * other: the solve begins by *deleting* `cf_clearance` from the global
+     * WebView cookie store, so thread B's delete wipes the cookie thread A just
+     * earned, and both end up throwing. MangaHost issues getPopular and
+     * getLatest concurrently — and details+chapters+related as three — so on a
+     * Cloudflare-gated source this was close to guaranteed.
+     *
+     * Locking per host rather than globally keeps unrelated sources from
+     * queueing behind a 30-second solve.
+     */
+    private fun solveOncePerHost(request: Request) {
+        val host = request.url.host
+        val lock = hostLocks.getOrPut(host) { Any() }
+        synchronized(lock) {
+            // Was this host solved moments ago by whoever held the lock before
+            // us? Then our 403 was already in flight when that solve landed, and
+            // re-solving would just throw the fresh cookie away.
+            //
+            // The window is what distinguishes "someone just fixed this" from
+            // "the stored cookie genuinely stopped working" — an expired
+            // clearance produces a 403 long after the last solve, falls outside
+            // the window, and is re-solved normally.
+            val solvedAt = lastSolvedAt[host]
+            val fresh = solvedAt != null &&
+                SystemClock.elapsedRealtime() - solvedAt < RECENT_SOLVE_WINDOW_MS
+            if (fresh &&
+                cookieManager.get(request.url).any { it.name == "cf_clearance" }
+            ) {
+                return
+            }
+
+            cookieManager.remove(request.url, COOKIE_NAMES, 0)
+            val oldCookie = cookieManager.get(request.url)
+                .firstOrNull { it.name == "cf_clearance" }
+            resolveWithWebView(request, oldCookie)
+            lastSolvedAt[host] = SystemClock.elapsedRealtime()
+        }
     }
 
     override fun intercept(
@@ -37,10 +109,7 @@ class CloudflareInterceptor(
     ): Response {
         try {
             response.close()
-            cookieManager.remove(request.url, COOKIE_NAMES, 0)
-            val oldCookie = cookieManager.get(request.url)
-                .firstOrNull { it.name == "cf_clearance" }
-            resolveWithWebView(request, oldCookie)
+            solveOncePerHost(request)
 
             return chain.proceed(request)
         }
@@ -139,6 +208,13 @@ class CloudflareInterceptor(
         }
     }
 }
+
+/**
+ * How long after a successful solve a concurrent 403 is treated as stale rather
+ * than as a reason to solve again. Comfortably longer than the request that
+ * raced us, far shorter than a clearance cookie's lifetime.
+ */
+private const val RECENT_SOLVE_WINDOW_MS = 15_000L
 
 private val ERROR_CODES = listOf(403, 503)
 private val SERVER_CHECK = arrayOf("cloudflare-nginx", "cloudflare")
