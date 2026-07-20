@@ -536,6 +536,8 @@
     "installed_sources": "INSTALLED SOURCES",
     "source_settings": "SOURCE SETTINGS",
     "no_sources": "No sources yet",
+    "show_nsfw": "Adult sources",
+    "show_nsfw_hint": "Show sources marked 18+ in this list and in the provider picker. Off by default.",
     "show": "Show",
     "hide": "Hide",
     "installed": "Installed",
