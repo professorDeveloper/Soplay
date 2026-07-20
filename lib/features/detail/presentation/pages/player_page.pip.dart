@@ -24,10 +24,10 @@ extension _PlayerPip on _PlayerPageState {
         _refreshPipActions();
       case 'rewind':
         if (_partyBlockLocal()) return;
-        _seekRelative(const Duration(seconds: -10));
+        _seekRelative(-_seekStep);
       case 'forward':
         if (_partyBlockLocal()) return;
-        _seekRelative(const Duration(seconds: 10));
+        _seekRelative(_seekStep);
       case 'prev':
         if (_partyBlockEpisodeNav()) return;
         if (widget.args.isSerial && _episodeIndex - 1 >= 0) {
@@ -109,12 +109,32 @@ extension _PlayerPip on _PlayerPageState {
     await _enterFullscreen();
     _plog('fullscreen ready in ${sw.elapsedMilliseconds}ms');
     if (!mounted) return;
+
+    // Ask which backend to use *before* anything is resolved or decoded, so the
+    // engine the user picks is the only one that ever runs. Opt-in
+    // (askEngineOnPlay defaults to false) and Android-only — every other
+    // platform is pinned to a single backend, so showPlayerEngineSheet
+    // short-circuits there.
+    //
+    // A party guest is exempt: the sheet would block the sync handshake behind
+    // a modal, and the guest is not the one driving playback anyway.
+    if (_hive.askEngineOnPlay && !_inParty) {
+      final proceed = await showPlayerEngineSheet(context);
+      if (!mounted) return;
+      // Dismissed without choosing — leave rather than start on an engine the
+      // user never confirmed.
+      if (!proceed) {
+        _exit();
+        return;
+      }
+    }
+
     await _bootstrap();
   }
 
   Future<void> _enterFullscreen() async {
     if (isDesktopPlatform) {
-      await WakelockPlus.enable();
+      if (_hive.keepScreenOn) await WakelockPlus.enable();
       return;
     }
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -124,7 +144,7 @@ extension _PlayerPip on _PlayerPageState {
         DeviceOrientation.landscapeRight,
       ]);
     } catch (_) {}
-    await WakelockPlus.enable();
+    if (_hive.keepScreenOn) await WakelockPlus.enable();
   }
 
   Future<void> _toggleFullscreen() async {
