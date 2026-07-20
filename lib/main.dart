@@ -22,6 +22,7 @@ import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
+import 'package:soplay/core/player/media_controller.dart' show warmUpPlayerEngine;
 import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/features/download/data/download_service.dart';
@@ -80,7 +81,6 @@ void main() async {
   }
   _fireAndForget(getIt<DownloadService>().resumeIncomplete(), 'download');
   _fireAndForget(getIt<ProviderRegistry>().preload(), 'providers');
-  _fireAndForget(getIt<JsRuntimeService>().ensureReady(), 'js');
   _fireAndForget(
     getIt<NotificationService>().ensureInitialized(),
     'fcm',
@@ -114,6 +114,23 @@ void main() async {
     root = LiquidGlassWidgets.wrap(child: root, adaptiveQuality: true);
   }
   runApp(root);
+
+  // Deferred to after the first frame on purpose.
+  //
+  // Both of these load a large native library on the platform thread the first
+  // time they run — WebView pulls in libwebviewchromium.so (plus a sandboxed
+  // renderer process), media_kit pulls in libmpv. Kicked off before runApp they
+  // land squarely inside startup and show up as a ~1s dropped-frame stall
+  // before the first screen is even painted. After the first frame the user is
+  // looking at real UI while the same work happens.
+  //
+  // Still eager rather than on-demand: paying it here, once, is what keeps it
+  // out of the player, where the same stall reads as "the video took a second
+  // to open".
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _fireAndForget(getIt<JsRuntimeService>().ensureReady(), 'js');
+    _fireAndForget(warmUpPlayerEngine(), 'player-engine');
+  });
 }
 
 Future<void> _initHive() async {
