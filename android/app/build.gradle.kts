@@ -101,6 +101,25 @@ flutter {
     source = "../.."
 }
 
+// Versions that MUST track keiyoushi/extensions-source's gradle/libs.versions.toml.
+//
+// Extension APKs declare these `compileOnly` and expect the host to supply the
+// runtime at DexClassLoader time. When the host's copy is older than the one an
+// extension was compiled against, the extension's generated code calls methods
+// that do not exist in our copy and dies with AbstractMethodError /
+// NoSuchMethodError — which MangaHost catches and turns into an empty list, so
+// the source just silently shows nothing.
+//
+// That is exactly what serialization 1.7.3 vs the extensions' 1.11.0 was doing:
+// every JSON-based source (Comick, MangaDex, Bato …) failed while HTML-scraping
+// ones kept working.
+//
+// Before bumping these, check the upstream file:
+// https://github.com/keiyoushi/extensions-source/blob/main/gradle/libs.versions.toml
+val extensionSerialization = "1.11.0"
+val extensionCoroutines = "1.11.0"
+val extensionJsoup = "1.22.2"
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
@@ -111,7 +130,7 @@ dependencies {
     // docs/CLOUDSTREAM_INTEGRATION.md + cloudstream/PluginHost.kt.
     implementation("com.github.recloudstream.cloudstream:library:v4.7.0")
     // CloudStream plugins/extractors use coroutines on the IO dispatcher.
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$extensionCoroutines")
     // compileOnly: lets our clean-room CloudflareKiller implement okhttp3.Interceptor.
     // okhttp itself is supplied at runtime by the CloudStream `library` above (it's
     // `implementation`-scoped there, so it isn't on our compile classpath). The
@@ -122,9 +141,9 @@ dependencies {
     // stub `extensions-lib` as compileOnly, so the host app must supply the real
     // runtime + these libraries at DexClassLoader time. See docs/ANIYOMI_INTEGRATION.md.
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.2.20")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-okio:1.7.3")
-    implementation("org.jsoup:jsoup:1.18.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$extensionSerialization")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-okio:$extensionSerialization")
+    implementation("org.jsoup:jsoup:$extensionJsoup")
     implementation("io.reactivex:rxjava:1.3.8")
     implementation("androidx.preference:preference-ktx:1.2.1")
     // JS engine for Aniyomi extractors that deobfuscate links (QuickJS).

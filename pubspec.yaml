@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 3.0.0+12
+version: 3.0.1+2014
 
 environment:
   sdk: ^3.11.1
@@ -90,6 +90,10 @@ dependencies:
   media_kit: ^1.1.11
   media_kit_video: ^1.2.5
   media_kit_libs_windows_video: ^1.0.11
+  # Android libmpv, shipped so the opt-in "media_kit" playback engine
+  # (Settings → Player) can do audio-track switching. Adds native .so payload to
+  # every Android ABI — see the size note in .github/workflows/release.yml.
+  media_kit_libs_android_video: ^1.3.6
   flutter_inappwebview: ^6.1.5
   wakelock_plus: ^1.2.10
   floating: ^6.0.0

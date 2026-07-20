@@ -184,6 +184,28 @@ class HomeErrorView extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
+            // The actual reason, when there is one and it isn't the Cloudflare
+            // case (which already has its own button and explanation).
+            //
+            // Native extension failures arrive here as real diagnostics —
+            // "AbstractMethodError", "NoClassDefFoundError: <symbol>",
+            // "source unavailable" — and every one of them used to be dropped in
+            // favour of a generic "network error". That made an extension
+            // problem indistinguishable from being offline, for us as much as
+            // for the user. Selectable so it can be copied into a bug report.
+            if (!showCloudflare && (message?.trim().isNotEmpty ?? false)) ...[
+              const SizedBox(height: 10),
+              SelectableText(
+                message!.trim(),
+                maxLines: 4,
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
             const SizedBox(height: 24),
             SizedBox(
               width: 156,
