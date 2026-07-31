@@ -156,6 +156,32 @@ class NotificationService {
     }
   }
 
+  /// Show a local notification not tied to FCM (e.g. tracker "new episode").
+  Future<void> showLocalNotification({
+    required int id,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    if (!Platform.isAndroid) return;
+    await ensureInitialized();
+    await _local.show(
+      id,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channel.id,
+          _channel.name,
+          channelDescription: _channel.description,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+      payload: (data == null || data.isEmpty) ? null : _encodePayload(data),
+    );
+  }
+
   Future<void> _showLocal(RemoteMessage msg) async {
     final n = msg.notification;
     if (n == null) return;

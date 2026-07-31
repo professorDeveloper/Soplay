@@ -75,6 +75,8 @@ import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.da
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/search/data/datasources/search_data_source.dart';
 import 'package:soplay/features/search/data/repositories/search_repository_imp.dart';
+import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
+import 'package:soplay/features/tracker/data/follow_service.dart';
 import 'package:soplay/features/search/domain/repositories/search_repository.dart';
 import 'package:soplay/features/search/domain/usecases/genre_usecase.dart';
 import 'package:soplay/features/search/domain/usecases/search_usecase.dart';
@@ -86,6 +88,28 @@ import 'package:soplay/features/shorts/domain/usecases/get_shorts_usecase.dart';
 import 'package:soplay/features/shorts/domain/usecases/increase_short_view_usecase.dart';
 import 'package:soplay/features/shorts/domain/usecases/toggle_short_like_usecase.dart';
 import 'package:soplay/features/shorts/presentation/bloc/shorts_bloc.dart';
+import 'package:soplay/features/trivia/data/datasources/trivia_remote_data_source.dart';
+import 'package:soplay/features/trivia/data/repositories/trivia_repository_impl.dart';
+import 'package:soplay/features/trivia/domain/repositories/trivia_repository.dart';
+import 'package:soplay/features/trivia/domain/usecases/complete_round_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/create_challenge_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/create_round_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/get_actor_profile_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/get_challenge_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/get_leaderboard_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/get_popular_cast_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/get_top_fans_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/join_challenge_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/resume_round_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/search_cast_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/start_clip_usecase.dart';
+import 'package:soplay/features/trivia/domain/usecases/submit_answer_usecase.dart';
+import 'package:soplay/features/trivia/presentation/bloc/cast/cast_bloc.dart';
+import 'package:soplay/features/trivia/presentation/bloc/challenge/challenge_bloc.dart';
+import 'package:soplay/features/trivia/presentation/bloc/game/game_bloc.dart';
+import 'package:soplay/features/trivia/presentation/bloc/hub/trivia_hub_bloc.dart';
+import 'package:soplay/features/trivia/presentation/bloc/leaderboard/leaderboard_bloc.dart';
+import 'package:soplay/features/trivia/presentation/bloc/topfans/top_fans_bloc.dart';
 import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite_bloc.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_remote_data_source.dart';
@@ -221,6 +245,12 @@ Future<void> configureDependencies() async {
       hive: getIt<HiveService>(),
     ),
   );
+  getIt.registerLazySingleton<CrossSearchEngine>(
+    () => CrossSearchEngine(
+      jsRuntime: getIt<JsRuntimeService>(),
+      dataSource: getIt<SearchDataSource>(),
+    ),
+  );
   getIt.registerSingleton<WebViewStreamExtractor>(WebViewStreamExtractor());
   getIt.registerSingleton<DetailRepository>(
     DetailRepositoryImpl(
@@ -240,7 +270,7 @@ Future<void> configureDependencies() async {
     CommentsRepositoryImpl(getIt<CommentsDataSource>()),
   );
   getIt.registerSingleton<ProviderRepository>(
-    ProviderRepositoryImpl(getIt<ProviderDataSource>()),
+    ProviderRepositoryImpl(getIt<ProviderDataSource>(), getIt<HiveService>()),
   );
   getIt.registerSingleton<ShortsRepository>(
     ShortsRepositoryImpl(getIt<ShortsRemoteDataSource>()),
@@ -315,11 +345,65 @@ Future<void> configureDependencies() async {
     ToggleShortLikeUseCase(getIt<ShortsRepository>()),
   );
 
+  // ---- Buff (trivia) ----
+  getIt.registerSingleton<TriviaRemoteDataSource>(
+    TriviaRemoteDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<TriviaRepository>(
+    TriviaRepositoryImpl(getIt<TriviaRemoteDataSource>()),
+  );
+  getIt.registerSingleton<CreateRoundUseCase>(
+    CreateRoundUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<StartClipUseCase>(
+    StartClipUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<SubmitAnswerUseCase>(
+    SubmitAnswerUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<CompleteRoundUseCase>(
+    CompleteRoundUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<ResumeRoundUseCase>(
+    ResumeRoundUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<SearchCastUseCase>(
+    SearchCastUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<GetPopularCastUseCase>(
+    GetPopularCastUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<GetActorProfileUseCase>(
+    GetActorProfileUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<GetLeaderboardUseCase>(
+    GetLeaderboardUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<GetTopFansUseCase>(
+    GetTopFansUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<CreateChallengeUseCase>(
+    CreateChallengeUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<GetChallengeUseCase>(
+    GetChallengeUseCase(getIt<TriviaRepository>()),
+  );
+  getIt.registerSingleton<JoinChallengeUseCase>(
+    JoinChallengeUseCase(getIt<TriviaRepository>()),
+  );
+
   getIt.registerSingleton<GetDetailUseCase>(
     GetDetailUseCase(getIt<DetailRepository>()),
   );
   getIt.registerSingleton<GetEpisodesUseCase>(
     GetEpisodesUseCase(getIt<DetailRepository>()),
+  );
+  getIt.registerSingleton<FollowService>(
+    FollowService(
+      hive: getIt<HiveService>(),
+      getEpisodes: getIt<GetEpisodesUseCase>(),
+      notifications: getIt<NotificationService>(),
+    ),
   );
   getIt.registerSingleton<ResolveMediaUseCase>(
     ResolveMediaUseCase(getIt<DetailRepository>()),
@@ -394,6 +478,35 @@ Future<void> configureDependencies() async {
       increaseView: getIt<IncreaseShortViewUseCase>(),
       toggleLike: getIt<ToggleShortLikeUseCase>(),
       hiveService: getIt<HiveService>(),
+    ),
+  );
+  getIt.registerFactory(
+    () => TriviaHubBloc(getLeaderboard: getIt<GetLeaderboardUseCase>()),
+  );
+  getIt.registerFactory(
+    () => CastBloc(
+      searchCast: getIt<SearchCastUseCase>(),
+      getPopularCast: getIt<GetPopularCastUseCase>(),
+    ),
+  );
+  getIt.registerFactory(
+    () => GameBloc(
+      createRound: getIt<CreateRoundUseCase>(),
+      startClip: getIt<StartClipUseCase>(),
+      submitAnswer: getIt<SubmitAnswerUseCase>(),
+      completeRound: getIt<CompleteRoundUseCase>(),
+    ),
+  );
+  getIt.registerFactory(
+    () => LeaderboardBloc(getLeaderboard: getIt<GetLeaderboardUseCase>()),
+  );
+  getIt.registerFactory(
+    () => TopFansBloc(getTopFans: getIt<GetTopFansUseCase>()),
+  );
+  getIt.registerFactory(
+    () => ChallengeBloc(
+      getChallenge: getIt<GetChallengeUseCase>(),
+      joinChallenge: getIt<JoinChallengeUseCase>(),
     ),
   );
   getIt.registerFactory(

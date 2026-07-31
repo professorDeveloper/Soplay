@@ -228,6 +228,7 @@ class _ReaderPageState extends State<ReaderPage> {
   void _toggleOverlay() => setState(() => _showOverlay = !_showOverlay);
 
   void _goToPage(int page) {
+    if (_pageCount == 0) return; // clamp(0, -1) throws ArgumentError (Home/End key while loading)
     final clamped = page.clamp(0, _pageCount - 1);
     if (_mode == 'horizontal') {
       _pageController?.animateToPage(
@@ -1035,6 +1036,13 @@ class _PageImageState extends State<_PageImage> {
   static const Color _accent = Color(0xFF5B8DEF);
   int _retry = 0;
 
+  /// Chapter headers plus this page's host-scoped cookies, if it has any.
+  Map<String, String> get _imageHeaders {
+    final cookie = widget.page.cookie;
+    if (cookie == null || cookie.isEmpty) return widget.headers;
+    return <String, String>{...widget.headers, 'Cookie': cookie};
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
@@ -1056,7 +1064,11 @@ class _PageImageState extends State<_PageImage> {
         : CachedNetworkImage(
             key: ValueKey('$url#$_retry'),
             imageUrl: url,
-            httpHeaders: widget.headers,
+            // The page's own cookies win over anything in the chapter headers:
+            // they are scoped to this image's host, which the shared headers
+            // are not. Without them a Cloudflare-gated source serves the page
+            // list fine and then 403s every image.
+            httpHeaders: _imageHeaders,
             fit: BoxFit.fitWidth,
             width: width,
             memCacheWidth: cacheW,

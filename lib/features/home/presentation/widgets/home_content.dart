@@ -2,12 +2,15 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
+import 'package:soplay/features/banners/presentation/widgets/banners_carousel.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,7 +21,6 @@ import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/home/presentation/widgets/home_banner.dart';
 import 'package:soplay/features/home/presentation/widgets/home_history_section.dart';
 import 'package:soplay/features/home/presentation/widgets/home_movie_section.dart';
-import 'package:soplay/features/home/presentation/widgets/home_top_bar.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 
 import '../bloc/home/home_state.dart';
@@ -36,9 +38,17 @@ bool _isMyListSection(HomeSectionEntity section) {
 }
 
 class HomeContent extends StatefulWidget {
-  const HomeContent({super.key, required this.state});
+  const HomeContent({
+    super.key,
+    required this.state,
+    required this.blurProgress,
+  });
 
   final HomeLoaded state;
+
+  /// Owned by HomePage (which mounts the top bar once, outside the bloc
+  /// builder); we only publish our scroll progress into it.
+  final ValueNotifier<double> blurProgress;
 
   @override
   State<HomeContent> createState() => _HomeContentState();
@@ -49,44 +59,13 @@ class _HomeContentState extends State<HomeContent> {
   final HistoryService _historyService = getIt<HistoryService>();
   List<HistoryItem> _historyItems = const [];
 
-  final _blurProgress = ValueNotifier<double>(0);
-
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController()..addListener(_handleScroll);
     _historyService.revision.addListener(_loadHistory);
     _loadHistory();
-    _maybeShowTelegramPromo();
-  }
-
-  void _maybeShowTelegramPromo() {
-    final hive = getIt<HiveService>();
-    if (hive.hasTelegramPromoSeen) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      showAdaptiveModal<void>(
-        context: context,
-        backgroundColor: AppColors.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (ctx) => _TelegramPromoSheet(
-          onJoin: () {
-            Navigator.of(ctx).pop();
-            launchUrl(
-              Uri.parse('https://t.me/sozoApp'),
-              mode: LaunchMode.externalApplication,
-            );
-          },
-          onDismiss: (dontShowAgain) {
-            if (dontShowAgain) hive.markTelegramPromoSeen();
-            Navigator.of(ctx).pop();
-          },
-          onDontShowAgain: hive.markTelegramPromoSeen,
-        ),
-      );
-    });
+    TelegramPromo.maybeShow(context);
   }
 
   void _loadHistory() {
@@ -98,8 +77,8 @@ class _HomeContentState extends State<HomeContent> {
   void _handleScroll() {
     if (!_scrollController.hasClients) return;
     final next = ((_scrollController.offset - 250) / 150).clamp(0.0, 1.0);
-    if ((next - _blurProgress.value).abs() < 0.02) return;
-    _blurProgress.value = next;
+    if ((next - widget.blurProgress.value).abs() < 0.02) return;
+    widget.blurProgress.value = next;
   }
 
   @override
@@ -108,7 +87,6 @@ class _HomeContentState extends State<HomeContent> {
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();
-    _blurProgress.dispose();
     super.dispose();
   }
 
@@ -123,7 +101,6 @@ class _HomeContentState extends State<HomeContent> {
         state: widget.state,
         topPad: topPad,
         scrollController: _scrollController,
-        blurProgress: _blurProgress,
         historyItems: _historyItems,
         onRefresh: () async {
           context.read<HomeBloc>().add(HomeLoad(silent: true));
@@ -145,7 +122,6 @@ class _HomeContentBody extends StatelessWidget {
     required this.state,
     required this.topPad,
     required this.scrollController,
-    required this.blurProgress,
     required this.historyItems,
     required this.onRefresh,
   });
@@ -153,7 +129,6 @@ class _HomeContentBody extends StatelessWidget {
   final HomeLoaded state;
   final double topPad;
   final ScrollController scrollController;
-  final ValueNotifier<double> blurProgress;
   final List<HistoryItem> historyItems;
   final Future<void> Function() onRefresh;
 
@@ -166,84 +141,94 @@ class _HomeContentBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        RefreshIndicator(
-          color: AppColors.primary,
-          backgroundColor: AppColors.surface,
-          edgeOffset: topPad + 10,
-          displacement: topPad + 10,
-          strokeWidth: 2.6,
-          onRefresh: onRefresh,
-          child: BlocBuilder<BannersBloc, BannersState>(
-            builder: (context, bannersState) {
-              final slides = _composeSlides(bannersState.items);
-              final showHero = slides.isNotEmpty || bannersState.loading;
-              return CustomScrollView(
-                controller: scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  if (showHero)
-                    SliverToBoxAdapter(
-                      child: HomeBanner(
-                        slides: slides,
-                        topPadding: topPad,
-                        showSkeleton: state.homeData.banner.isEmpty &&
-                            bannersState.loading,
-                      ),
-                    ),
-                  if (historyItems.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: RepaintBoundary(
-                        child: HistorySection(items: historyItems),
-                      ),
-                    ),
-                  if (state.genres.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: RepaintBoundary(
-                        child: _GenreSection(genres: state.genres),
-                      ),
-                    ),
-                  if (state.collectionLoading)
-                    const SliverToBoxAdapter(child: CollectionLoadingRow()),
-                  for (final section in state.homeData.sections)
-                    if (section.items.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: RepaintBoundary(
-                          child: MovieSection(
-                            title: section.label,
-                            movies: section.items,
-                            type: section.viewAll.type,
-                            slug: section.viewAll.slug,
-                            onSeeAll: _isMyListSection(section)
-                                ? () => getIt<NavController>().goTo(3)
-                                : null,
-                          ),
-                        ),
-                      ),
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      // Desktop: clear the floating pill nav (~66px + 18 gap).
-                      height: isDesktopPlatform
-                          ? 100
-                          : MediaQuery.paddingOf(context).bottom + 16,
+    // No top bar here — HomePage mounts it once above this subtree.
+    return RefreshIndicator(
+      color: AppColors.primary,
+      backgroundColor: AppColors.surface,
+      edgeOffset: topPad + 10,
+      displacement: topPad + 10,
+      strokeWidth: 2.6,
+      onRefresh: onRefresh,
+      child: BlocBuilder<BannersBloc, BannersState>(
+        builder: (context, bannersState) {
+          final slides = _composeSlides(bannersState.items);
+          final showHero = slides.isNotEmpty || bannersState.loading;
+
+          final sectionSlivers = <Widget>[
+            for (final section in state.homeData.sections)
+              if (section.items.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: RepaintBoundary(
+                    child: MovieSection(
+                      title: section.label,
+                      movies: section.items,
+                      type: section.viewAll.type,
+                      slug: section.viewAll.slug,
+                      onSeeAll: _isMyListSection(section)
+                          ? () => getIt<NavController>().goToId(TabId.myList)
+                          : null,
                     ),
                   ),
-                ],
-              );
-            },
-          ),
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: ValueListenableBuilder<double>(
-            valueListenable: blurProgress,
-            builder: (_, progress, _) => HomeTopBar(blurProgress: progress),
-          ),
-        ),
-      ],
+                ),
+          ];
+          // Sponsor/CMS banner strip mid-feed (home_middle placement). It
+          // self-collapses when the placement has no active banners, and its
+          // view/click tracking is guest-safe (no auth required).
+          if (sectionSlivers.isNotEmpty) {
+            final mid = (sectionSlivers.length / 2)
+                .ceil()
+                .clamp(1, sectionSlivers.length);
+            sectionSlivers.insert(
+              mid,
+              const SliverToBoxAdapter(
+                child: BannersCarousel(
+                  placement: BannerPlacement.homeMiddle,
+                ),
+              ),
+            );
+          }
+
+          return CustomScrollView(
+            controller: scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              if (showHero)
+                SliverToBoxAdapter(
+                  child: HomeBanner(
+                    slides: slides,
+                    topPadding: topPad,
+                    showSkeleton:
+                        state.homeData.banner.isEmpty && bannersState.loading,
+                  ),
+                ),
+              if (historyItems.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: RepaintBoundary(
+                    child: HistorySection(items: historyItems),
+                  ),
+                ),
+              if (state.genres.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: RepaintBoundary(
+                    child: _GenreSection(genres: state.genres),
+                  ),
+                ),
+              if (state.collectionLoading)
+                const SliverToBoxAdapter(child: CollectionLoadingRow()),
+              ...sectionSlivers,
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  // Clear the floating nav capsule: desktop pill (~66+18) and
+                  // mobile glass capsule (62 bar + 12 gap + safe area).
+                  height: isDesktopPlatform
+                      ? 100
+                      : MediaQuery.paddingOf(context).bottom + 88,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -287,6 +272,87 @@ class _GenreSection extends StatelessWidget {
   }
 }
 
+/// One-shot gate for the "Join our Telegram" sheet.
+///
+/// WHY THIS EXISTS (the "two sheets at once" bug):
+/// the sheet used to be pushed straight from `_HomeContentState.initState`,
+/// which tied the decision to the lifetime of a WIDGET instead of to the app
+/// session. [HomeContent] is destroyed and rebuilt on every
+/// `HomeLoading`/`HomeError` -> `HomeLoaded` transition of the app-level
+/// `HomeBloc` (see `home_page.dart`), and a modal route is NOT torn down when
+/// the widget that pushed it is disposed — so a second mount pushed a second
+/// sheet on top of the first one, which was still sitting on the Navigator.
+///
+/// These statics live for the whole isolate, so the gate survives any rebuild,
+/// remount, tab reorder or nav-style change. [_claimed] is taken BEFORE the
+/// post-frame gap, so two mounts inside the SAME frame can never both get past
+/// it.
+class TelegramPromo {
+  TelegramPromo._();
+
+  static const String _channelUrl = 'https://t.me/sozoApp';
+
+  /// The promo has already been shown (or deliberately skipped) this launch.
+  static bool _claimed = false;
+
+  /// A promo sheet is on the Navigator right now.
+  static bool _open = false;
+
+  /// Show the promo at most once per app launch, and never while one is open.
+  static void maybeShow(BuildContext context) {
+    if (_claimed || _open) return;
+
+    final hive = getIt<HiveService>();
+    if (hive.hasTelegramPromoSeen) {
+      _claimed = true;
+      return;
+    }
+
+    // Claim the slot synchronously: a second HomeContent mounting later in this
+    // same frame hits this guard before we ever reach the frame callback.
+    _claimed = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // The mount that claimed the slot is already gone (a bloc state flip tore
+      // it down mid-frame). Release the claim so the next mount can show it —
+      // still exactly one sheet, just one frame later.
+      if (!context.mounted) {
+        _claimed = false;
+        return;
+      }
+      // Re-read: the persisted flag may have landed during the frame gap.
+      if (hive.hasTelegramPromoSeen || _open) return;
+
+      _open = true;
+      showAdaptiveModal<void>(
+        context: context,
+        backgroundColor: AppColors.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => _TelegramPromoSheet(
+          onJoin: () {
+            Navigator.of(ctx).pop();
+            launchUrl(
+              Uri.parse(_channelUrl),
+              mode: LaunchMode.externalApplication,
+            );
+          },
+          onDismiss: (dontShowAgain) {
+            if (dontShowAgain) hive.markTelegramPromoSeen();
+            Navigator.of(ctx).pop();
+          },
+          // Persist on every toggle (including untick) so the checkbox still
+          // works when the sheet is closed by a swipe or a barrier tap, which
+          // never routes through onDismiss.
+          onDontShowAgain: hive.setTelegramPromoSeen,
+        ),
+        // Covers every close path: button, swipe, barrier tap, system back.
+      ).whenComplete(() => _open = false);
+    });
+  }
+}
+
 class _TelegramPromoSheet extends StatefulWidget {
   const _TelegramPromoSheet({
     required this.onJoin,
@@ -296,7 +362,7 @@ class _TelegramPromoSheet extends StatefulWidget {
 
   final VoidCallback onJoin;
   final void Function(bool dontShowAgain) onDismiss;
-  final VoidCallback onDontShowAgain;
+  final void Function(bool dontShowAgain) onDontShowAgain;
 
   @override
   State<_TelegramPromoSheet> createState() => _TelegramPromoSheetState();
@@ -305,8 +371,39 @@ class _TelegramPromoSheet extends StatefulWidget {
 class _TelegramPromoSheetState extends State<_TelegramPromoSheet> {
   bool _dontShow = false;
 
+  void _toggleDontShow() {
+    setState(() => _dontShow = !_dontShow);
+    widget.onDontShowAgain(_dontShow);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final dontShowRow = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: _dontShow ? const Color(0xFF2AABEE) : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: _dontShow ? const Color(0xFF2AABEE) : AppColors.textHint,
+              width: 1.5,
+            ),
+          ),
+          child: _dontShow
+              ? const Icon(Icons.check_rounded, color: Colors.white, size: 12)
+              : null,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'home.dont_show_again'.tr(),
+          style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+        ),
+      ],
+    );
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),
       child: Column(
@@ -371,48 +468,19 @@ class _TelegramPromoSheetState extends State<_TelegramPromoSheet> {
             ),
           ),
           const SizedBox(height: 14),
-          GestureDetector(
-            onTap: () {
-              setState(() => _dontShow = !_dontShow);
-              if (_dontShow) widget.onDontShowAgain();
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: _dontShow
-                        ? const Color(0xFF2AABEE)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: _dontShow
-                          ? const Color(0xFF2AABEE)
-                          : AppColors.textHint,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: _dontShow
-                      ? const Icon(
-                          Icons.check_rounded,
-                          color: Colors.white,
-                          size: 12,
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'home.dont_show_again'.tr(),
-                  style: const TextStyle(
-                    color: AppColors.textHint,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // Android TV: the Join button is an ElevatedButton and focusable for
+          // free, but this opt-out sat on a bare GestureDetector, so a remote
+          // could never tick it. Off TV the GestureDetector below is the
+          // original one.
+          if (isTvPlatform)
+            TvFocusable(
+              onPressed: _toggleDontShow,
+              borderRadius: 8,
+              scale: 1.0,
+              child: dontShowRow,
+            )
+          else
+            GestureDetector(onTap: _toggleDontShow, child: dontShowRow),
         ],
       ),
     );

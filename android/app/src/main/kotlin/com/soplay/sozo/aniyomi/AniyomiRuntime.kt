@@ -15,6 +15,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.addSingleton
 import uy.kohesive.injekt.api.addSingletonFactory
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 object AniyomiRuntime {
 
@@ -22,7 +23,9 @@ object AniyomiRuntime {
     private const val METADATA_SOURCE_CLASS = "tachiyomi.animeextension.class"
 
     @Volatile private var bootstrapped = false
-    private val sourceCache = HashMap<String, AnimeCatalogueSource>()
+    // Concurrent: read on the hot path below without the lock, and written by
+    // loadApk while other threads may be reading.
+    private val sourceCache = ConcurrentHashMap<String, AnimeCatalogueSource>()
     private val loadedApks = HashSet<String>()
 
     fun bootstrap(context: Context) {
@@ -51,7 +54,11 @@ object AniyomiRuntime {
     fun source(context: Context, apkPath: String, pkg: String, sourceId: String): AnimeCatalogueSource? {
         sourceCache[sourceId]?.let { return it }
         bootstrap(context)
-        if (loadedApks.contains(apkPath)) return sourceCache[sourceId]
+        // The `loadedApks` check must stay INSIDE the lock together with the
+        // final read. The flag is set before the dex load completes, so checking
+        // it outside let a second thread see "loaded", read an empty cache and
+        // report the source as missing while the first thread was still loading
+        // it successfully. Same bug as MangaRuntime.source — see the note there.
         synchronized(this) {
             if (!loadedApks.contains(apkPath)) {
                 // Mark loaded BEFORE attempting: a failure (bad apk, link error)
@@ -60,11 +67,14 @@ object AniyomiRuntime {
                 try {
                     loadApk(context, apkPath, pkg)
                 } catch (t: Throwable) {
-                    Log.e(TAG, "loadApk failed for $apkPath: ${t.message}")
+                    // Log the throwable, not just its message: the `Caused by:`
+                    // chain names the exact missing symbol when an extension was
+                    // built against a newer extensions-lib than we implement.
+                    Log.e(TAG, "loadApk failed for $apkPath", t)
                 }
             }
+            return sourceCache[sourceId]
         }
-        return sourceCache[sourceId]
     }
 
     private fun loadApk(context: Context, apkPath: String, pkg: String) {

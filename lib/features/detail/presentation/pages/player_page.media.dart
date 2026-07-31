@@ -53,7 +53,10 @@ extension _PlayerMedia on _PlayerPageState {
     bool keepRetryCount = false,
   }) async {
     if (index < 0 || index >= widget.args.episodes.length) return;
-    if (!keepRetryCount) _retryAttempts = 0;
+    if (!keepRetryCount) {
+      _retryAttempts = 0;
+      _lifetimeRetries = 0;
+    }
     setState(() {
       _initializing = true;
       _stage = _LoadingStage.resolving;
@@ -62,6 +65,10 @@ extension _PlayerMedia on _PlayerPageState {
       _episodeIndex = index;
       _panel = _SidePanel.none;
     });
+    // Sync is per-episode: a shift/rate tuned for the previous episode is wrong
+    // here, so drop it and load whatever was saved for this one (0 / 1.0 when
+    // nothing was).
+    _restoreSubtitleSync();
     await _disposeController();
     await Future<void>.delayed(const Duration(milliseconds: 200));
     if (!mounted) return;
@@ -119,7 +126,7 @@ extension _PlayerMedia on _PlayerPageState {
         if (subs.isNotEmpty) {
           final defaultIdx = subs.indexWhere((s) => s.isDefault);
           if (defaultIdx >= 0) {
-            _loadSubtitle(defaultIdx);
+            unawaited(_loadSubtitle(defaultIdx));
           }
         }
       case Failure(:final error):
@@ -166,6 +173,7 @@ extension _PlayerMedia on _PlayerPageState {
     final keepPosition = _controller?.value.position ?? Duration.zero;
     final idx = _videoSources.indexWhere((s) => s.quality == source.quality);
     _retryAttempts = 0;
+    _lifetimeRetries = 0;
     setState(() {
       _initializing = true;
       _stage = _LoadingStage.loading;
@@ -366,6 +374,26 @@ extension _PlayerMedia on _PlayerPageState {
         'duration': _isLive ? 'live' : dur.toString(),
       });
       _plog('initialized — ${_isLive ? 'LIVE stream' : 'duration $dur'}');
+
+      // Engine = External player. Sozo still does the hard part — extraction,
+      // header-gated proxying, picking the quality — and then hands the
+      // resolved URL to VLC / MX Player. Bail out before autoplay rather than
+      // starting playback and immediately pausing it, so there is no burst of
+      // audio and no wasted bandwidth. Resume position is NOT carried across:
+      // the intent has no standard extra for it, so the external app starts
+      // from zero.
+      if (ExternalPlayer.isSupported &&
+          resolvePlayerEngine() == PlayerEngine.external) {
+        _plog('external engine — handing off to a third-party player');
+        setState(() {
+          _initializing = false;
+          _errorMessage = null;
+          _isCodecError = false;
+        });
+        await _handOffToExternalPlayer();
+        return;
+      }
+
       if (_canGeneratePreview && !_isLive) {
         FramePreviewService.open(
           _videoUrl!,
@@ -426,10 +454,13 @@ extension _PlayerMedia on _PlayerPageState {
         _isCodecError = true;
         msg =
             'This video format is not supported on your device. You can try playing it in your browser.';
-      } else if (_isRecoverableError(raw) && _retryAttempts < 2) {
+      } else if (_isRecoverableError(raw) &&
+          _retryAttempts < 2 &&
+          _lifetimeRetries < _kMaxLifetimeRetries) {
         _plog('recoverable error, retrying (attempt ${_retryAttempts + 1})',
             level: LogLevel.warn);
         _retryAttempts++;
+        _lifetimeRetries++;
         _autoRetrying = true;
         _autoRetry();
         return;
@@ -507,8 +538,12 @@ extension _PlayerMedia on _PlayerPageState {
       if (msg != null && msg != _lastError && mounted) {
         _lastError = msg;
         _plog('playback error: $msg', level: LogLevel.error);
-        if (!_autoRetrying && _retryAttempts < 2 && _isRecoverableError(msg)) {
+        if (!_autoRetrying &&
+            _retryAttempts < 2 &&
+            _lifetimeRetries < _kMaxLifetimeRetries &&
+            _isRecoverableError(msg)) {
           _retryAttempts++;
+          _lifetimeRetries++;
           _autoRetrying = true;
           _autoRetry();
           return;
@@ -555,7 +590,11 @@ extension _PlayerMedia on _PlayerPageState {
         // Guests in a party never self-advance — they wait for the host's
         // next party:content. The host auto-advances and emits it.
         final guestInParty = _inParty && !_isPartyHost;
+        // Auto-advance is opt-out, not opt-in: it is what the player has
+        // always done. Turning it off leaves the episode parked on its last
+        // frame, which is also what makes the history entry below correct.
         if (!guestInParty &&
+            _hive.autoPlayNextEpisode &&
             widget.args.isSerial &&
             _episodeIndex + 1 < widget.args.episodes.length) {
           _saveHistoryForNextEpisode();

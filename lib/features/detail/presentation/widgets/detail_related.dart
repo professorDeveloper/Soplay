@@ -69,7 +69,10 @@ class _RelatedCard extends StatelessWidget {
         if (item.contentUrl.isNotEmpty) {
           context.push(
             '/detail',
-            extra: DetailArgs(contentUrl: item.contentUrl),
+            // Related items belong to the SAME source as the open detail — pass
+            // it so the right provider resolves them (not the app's "current").
+            extra: DetailArgs(
+                contentUrl: item.contentUrl, provider: item.provider),
           );
         }
       },

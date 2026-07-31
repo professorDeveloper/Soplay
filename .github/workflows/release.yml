@@ -54,6 +54,27 @@ jobs:
           cache: true
       - name: Create .env (declared as a pubspec asset — the build fails without it)
         run: printf '%s' "${{ secrets.DOTENV }}" > .env
+      # Restore the release signing key. android/app/key.properties is
+      # gitignored, so without this the build falls through to
+      # signingConfigs.getByName("debug") — and a CI runner generates a FRESH
+      # debug keystore per run. Every delivered APK then carried a different
+      # signature, so users hit "package conflicts with an existing package"
+      # and could never update; they had to uninstall first. The secrets hold
+      # the real upload keystore, whose SHA-256 matches what is already
+      # installed on devices, so updates now apply in place.
+      - name: Restore Android signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_B64}" ] || [ -z "${KEY_PROPERTIES}" ]; then
+            echo "::error title=Signing secrets missing::ANDROID_KEYSTORE_B64 / ANDROID_KEY_PROPERTIES are not set. Refusing to ship a debug-signed APK that users cannot update to."
+            exit 1
+          fi
+          printf '%s' "${KEYSTORE_B64}" | base64 -d > android/app/upload-keystore.jks
+          printf '%s' "${KEY_PROPERTIES}" > android/app/key.properties
+          echo "keystore restored ($(stat -c%s android/app/upload-keystore.jks) bytes)"
       - run: flutter --version
       - run: flutter pub get
       # Split per ABI: release keeps R8/minify disabled (extensions break under
@@ -61,6 +82,48 @@ jobs:
       # 50 MB Telegram Bot API document limit.
       - name: Build release APKs
         run: flutter build apk --release --split-per-abi
+      # Fail loudly rather than shipping an APK nobody can update to. A
+      # debug-signed build is the exact failure this pipeline had before, and it
+      # is invisible until a user tries to install over an existing copy.
+      - name: Verify APK signature
+        run: |
+          set -euo pipefail
+          APKSIGNER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -name apksigner | sort | tail -1)"
+          APK="$(ls build/app/outputs/flutter-apk/app-*-release.apk | head -1)"
+          CERT="$("$APKSIGNER" verify --print-certs "$APK")"
+          echo "$CERT" | grep -E 'certificate DN|SHA-256 digest'
+          if echo "$CERT" | grep -q 'CN=Android Debug'; then
+            echo "::error title=Debug-signed APK::Built with the debug keystore. Users could not update to this build."
+            exit 1
+          fi
+      # Prints the versionCode/versionName baked into every APK, and fails if the
+      # ABIs disagree.
+      #
+      # Flutter's --split-per-abi rewrites versionCode per ABI as
+      # `abi * 1000 + versionCode` (arm32=1, arm64=2, x86_64=4). That is for the
+      # Play Store; here it silently broke the in-app updater, because the
+      # backend stores ONE number to compare against. android/app/build.gradle.kts
+      # overrides it back — this step is what proves the override still works
+      # after a Flutter upgrade, instead of us finding out from users.
+      - name: Report and verify versionCode
+        run: |
+          set -euo pipefail
+          AAPT="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -name aapt2 | sort | tail -1)"
+          CODES=""
+          for APK in build/app/outputs/flutter-apk/app-*-release.apk; do
+            LINE="$("$AAPT" dump badging "$APK" | head -1)"
+            CODE="$(echo "$LINE" | grep -oE "versionCode='[0-9]+'" | grep -oE '[0-9]+')"
+            NAME="$(echo "$LINE" | grep -oE "versionName='[^']*'" | cut -d"'" -f2)"
+            echo "$(basename "$APK"): versionCode=$CODE versionName=$NAME"
+            echo "- \`$(basename "$APK")\` → versionCode **$CODE**, versionName **$NAME**" >> "$GITHUB_STEP_SUMMARY"
+            CODES="$CODES $CODE"
+          done
+          UNIQUE="$(echo $CODES | tr ' ' '\n' | sort -u | wc -l)"
+          if [ "$UNIQUE" -ne 1 ]; then
+            echo "::error title=versionCode mismatch::APKs disagree on versionCode ($CODES). The per-ABI offset override in android/app/build.gradle.kts is not applying — the in-app updater will loop for some users."
+            exit 1
+          fi
+          echo "::notice title=versionCode::$(echo $CODES | cut -d' ' -f1) (identical across all ABIs)"
       - name: Collect APKs
         run: |
           set -euo pipefail
@@ -71,6 +134,39 @@ jobs:
         with:
           name: sozo-android
           path: dist/*.apk
+          if-no-files-found: error
+
+      # Android TV sideload set. This is NOT a separate build and there is no
+      # Gradle flavour: the single APK now declares LEANBACK_LAUNCHER and
+      # touchscreen-optional, so the same binary IS the TV binary. This artifact
+      # only isolates the two ABIs Android TV devices actually ship — arm64-v8a
+      # (Shield / Chromecast with Google TV / Google TV Streamer / most smart
+      # TVs) and armeabi-v7a (older, cheaper boxes) — so there is one obvious
+      # file to sideload instead of three.
+      #
+      # Filenames are deliberately left UNRENAMED. Copying an APK to
+      # "app-tv-release.apk" would assert a build that does not exist, and the
+      # first diff of the two files would be indistinguishable from a bug.
+      #
+      # Runs AFTER the upload above on purpose: if an ABI ever disappears from
+      # Flutter's output, sozo-android is already safely uploaded.
+      - name: Collect Android TV sideload set (same APKs, TV-capable ABIs)
+        run: |
+          set -euo pipefail
+          mkdir -p dist-tv
+          for abi in arm64-v8a armeabi-v7a; do
+            src="build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            if [ -f "${src}" ]; then
+              cp "${src}" dist-tv/
+            else
+              echo "::warning title=TV ABI missing::${src} was not produced by --split-per-abi"
+            fi
+          done
+          ls -lh dist-tv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sozo-androidtv
+          path: dist-tv/*.apk
           if-no-files-found: error
 
   # ---------------------------------------------------------------- Windows ----
@@ -157,31 +253,71 @@ jobs:
       - run: flutter --version
       - run: flutter pub get
       - run: flutter build macos --release
-      # No paid Apple Developer cert, so this is NOT notarized — Gatekeeper still
-      # warns on first open (users: right-click → Open, or run
-      #   xattr -dr com.apple.quarantine /Applications/Sozo.app ).
-      # But an ad-hoc signature makes the app self-consistent, avoiding the
-      # harsher "app is damaged" hard-block on Apple Silicon and letting the
-      # right-click-Open / quarantine-removal path work reliably.
-      - name: Ad-hoc codesign
+      # No paid Apple Developer cert, so this is NOT notarized. The goal here is
+      # a VALID ad-hoc signature: with one, a downloaded app shows the soft
+      # "unverified developer" prompt (right-click → Open works). An INVALID
+      # signature is what triggers the hard "app is damaged" block on Apple
+      # Silicon. `codesign --deep` alone is unreliable for the nested media_kit /
+      # mpv dylibs, so we sign inside-out (every Mach-O first, frameworks, then
+      # the app last) and then FAIL the build if the signature doesn't verify.
+      - name: Ad-hoc codesign (inside-out, must verify)
         run: |
+          set -euo pipefail
           APP=$(ls -d build/macos/Build/Products/Release/*.app | head -n1)
-          codesign --force --deep --sign - "$APP"
-          codesign --verify --deep --strict --verbose=2 "$APP" || true
-      - name: Create unsigned DMG
+          ENT="$PWD/macos/Runner/Release.entitlements"
+          echo "Signing: $APP"
+
+          # 1) every nested dylib / .so (deepest code first)
+          find "$APP" -type f \( -name '*.dylib' -o -name '*.so' \) -print0 \
+            | xargs -0 -I {} codesign --force --timestamp=none --sign - "{}"
+
+          # 2) every embedded framework bundle
+          if [ -d "$APP/Contents/Frameworks" ]; then
+            find "$APP/Contents/Frameworks" -maxdepth 1 -name '*.framework' -print0 \
+              | xargs -0 -I {} codesign --force --timestamp=none --sign - "{}"
+          fi
+
+          # 3) the app bundle last, with entitlements — --deep as a catch-all
+          codesign --force --deep --timestamp=none \
+            --entitlements "$ENT" --sign - "$APP"
+
+          # Must be valid, else the recipient gets "damaged" — fail loudly.
+          codesign --verify --deep --strict --verbose=2 "$APP"
+      - name: Create unsigned DMG (with open instructions)
         run: |
+          set -euo pipefail
           brew install create-dmg
           APP=$(ls -d build/macos/Build/Products/Release/*.app | head -n1)
-          echo "Packaging: $APP"
+
+          # Staging dir so the DMG carries the app + a plain-text "how to open"
+          # note (Gatekeeper still quarantines any un-notarized download).
+          STAGE="$(mktemp -d)/Sozo"
+          mkdir -p "$STAGE"
+          cp -R "$APP" "$STAGE/"
+          cat > "$STAGE/OCHISH — READ ME.txt" <<'TXT'
+          Sozo — macOS'da ochish (Apple imzosi yo'q, bu normal):
+
+          1. Sozo.app ni Applications ga sudrang.
+          2. Terminal'ni oching va shu bitta buyruqni bajaring:
+
+               xattr -dr com.apple.quarantine /Applications/Sozo.app
+
+          3. Endi Sozo oddiy ochiladi (Launchpad yoki Applications'dan).
+
+          Alternativa: Applications'da Sozo.app ni o'ng tugma → Open → Open.
+          Bu bir marta kerak; keyin har doim oddiy ochiladi.
+          TXT
+
+          echo "Packaging DMG from $STAGE"
           create-dmg \
             --volname "Sozo" \
-            --window-size 540 380 \
+            --window-size 560 400 \
             --icon-size 110 \
-            --app-drop-link 380 170 \
-            --icon "$(basename "$APP")" 150 170 \
+            --app-drop-link 400 185 \
+            --icon "$(basename "$APP")" 150 185 \
             --no-internet-enable \
-            "Sozo-macOS.dmg" "$APP" || \
-          create-dmg --volname "Sozo" "Sozo-macOS.dmg" "$APP"
+            "Sozo-macOS.dmg" "$STAGE" || \
+          create-dmg --volname "Sozo" "Sozo-macOS.dmg" "$STAGE"
       - uses: actions/upload-artifact@v4
         with:
           name: Sozo-macOS
@@ -233,6 +369,14 @@ jobs:
             HEAD="$(printf '🎬 Sozo — build (%s)\n\n🧰 Barcha fayllar shu run da (artifacts):\n%s' \
                     "${GITHUB_SHA:0:7}" "${RUN_URL}")"
           fi
+
+          # macOS is ad-hoc signed (no Apple cert), so first open needs one step.
+          HEAD="${HEAD}$(printf '\n\n🍎 macOS: agar "damaged/ochilmadi" chiqsa, Applications ga qo'"'"'ying va Terminal da: xattr -dr com.apple.quarantine /Applications/Sozo.app (yo'"'"'riqnoma DMG ichida).')"
+
+          # Android TV is the SAME APK (the manifest carries LEANBACK_LAUNCHER),
+          # so say it in plain terms — otherwise people hunt the run artifacts
+          # for a separate "TV build" that was never produced.
+          HEAD="${HEAD}$(printf '\n\n📺 Android TV: alohida build yo'"'"'q — bir xil APK. TV ga app-arm64-v8a-release.apk ni sideload qiling (eski/arzon boks bo'"'"'lsa armeabi-v7a).')"
 
           # Files too big for the bot are only listed (the run artifacts have them).
           BIG=""

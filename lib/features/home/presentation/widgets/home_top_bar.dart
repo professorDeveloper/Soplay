@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/navigation/app_tab.dart';
 import 'package:soplay/core/navigation/nav_controller.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
@@ -68,7 +69,7 @@ class HomeTopBar extends StatelessWidget {
           ),
           _TopBarIcon(
             icon: Icons.search_rounded,
-            onTap: () => getIt<NavController>().goTo(1),
+            onTap: () => getIt<NavController>().goToId(TabId.search),
           ),
           _DownloadIndicator(),
           const _NotificationsIndicator(),
@@ -76,8 +77,34 @@ class HomeTopBar extends StatelessWidget {
       ),
     );
 
+    // The backdrop is a SIBLING painted behind the bar, never a parent of it.
+    // It used to wrap `bar`, and the wrapper's TYPE changed as the blur kicked
+    // in (Container -> RepaintBoundary/ClipRect/BackdropFilter), so crossing the
+    // threshold while scrolling re-inflated the whole bar subtree — re-running
+    // _NotificationsIndicatorState.initState (and its unread-count fetch) each
+    // time. In a fixed Stack slot the bar's elements are only ever updated.
+    return RepaintBoundary(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(child: _TopBarBackground(progress: progress)),
+          ),
+          bar,
+        ],
+      ),
+    );
+  }
+}
+
+class _TopBarBackground extends StatelessWidget {
+  const _TopBarBackground({required this.progress});
+
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
     if (progress < 0.01) {
-      return Container(
+      return DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -88,30 +115,26 @@ class HomeTopBar extends StatelessWidget {
             ],
           ),
         ),
-        child: bar,
       );
     }
 
-    return RepaintBoundary(
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: 14 * progress,
-            sigmaY: 14 * progress,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.navBackground.withValues(alpha: 0.72 * progress),
-              border: progress > 0.05
-                  ? Border(
-                      bottom: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.07 * progress),
-                        width: 0.5,
-                      ),
-                    )
-                  : null,
-            ),
-            child: bar,
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: 14 * progress,
+          sigmaY: 14 * progress,
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.navBackground.withValues(alpha: 0.72 * progress),
+            border: progress > 0.05
+                ? Border(
+                    bottom: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.07 * progress),
+                      width: 0.5,
+                    ),
+                  )
+                : null,
           ),
         ),
       ),
@@ -172,9 +195,16 @@ class _ProviderSwitcher extends StatelessWidget {
     );
   }
 
+  /// Offline, a favourited server provider is dropped rather than offered —
+  /// picking it from the quick switcher would break the home screen. If that
+  /// leaves nothing, the caller falls through to the full picker, which
+  /// explains the outage.
   List<ProviderEntity> _resolveFavorites(ProviderLoaded state) {
     final favIds = getIt<HiveService>().getFavoriteProviders();
-    final byId = {for (final p in state.providers) p.id: p};
+    final byId = {
+      for (final p in state.providers)
+        if (state.isUsable(p)) p.id: p,
+    };
     return [
       for (final id in favIds)
         if (byId[id] != null) byId[id]!,
@@ -372,6 +402,26 @@ class _NotificationsIndicator extends StatefulWidget {
 
 class _NotificationsIndicatorState extends State<_NotificationsIndicator>
     with WidgetsBindingObserver {
+  /// Floor on the spacing between two unread-count calls, whatever fires them.
+  /// Shorter than the [_timer] period, so the intended 60s cadence always gets
+  /// through while every *extra* trigger (a remount, a lifecycle resume moments
+  /// after the last fetch, a second indicator that somehow outlived its widget)
+  /// is dropped. Field evidence: eight identical
+  /// GET /notifications/unread-count inside 7ms.
+  static const Duration _minInterval = Duration(seconds: 45);
+
+  /// Deliberately STATIC, not per-State: the throttle has to hold across
+  /// instances, because the bursts came from triggers this widget cannot see
+  /// from inside a single [State]. Overlapping callers await the same future,
+  /// so N triggers in one tick can only ever produce one HTTP request — and
+  /// every live instance still gets the result.
+  static Future<Result<int>>? _inFlight;
+  static DateTime? _lastFetch;
+
+  /// Last known count, so a remount paints the badge immediately instead of
+  /// flashing to 0 while (or instead of) fetching.
+  static int _cachedCount = 0;
+
   final NotificationsRepository _repo = getIt<NotificationsRepository>();
   final HiveService _hive = getIt<HiveService>();
   Timer? _timer;
@@ -381,6 +431,7 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _count = _cachedCount;
     _refresh();
     _timer = Timer.periodic(const Duration(seconds: 60), (_) => _refresh());
   }
@@ -397,16 +448,32 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
     if (state == AppLifecycleState.resumed) _refresh();
   }
 
-  Future<void> _refresh() async {
+  /// [force] skips the cool-down (but never the in-flight coalescing) — used
+  /// when the user just came back from /notifications or /login, where the
+  /// count is expected to have changed right now.
+  Future<void> _refresh({bool force = false}) async {
     if (!_hive.isLoggedIn) {
+      _cachedCount = 0;
       if (_count != 0 && mounted) setState(() => _count = 0);
       return;
     }
-    final result = await _repo.unreadCount();
-    if (!mounted) return;
+    final last = _lastFetch;
+    if (!force &&
+        _inFlight == null &&
+        last != null &&
+        DateTime.now().difference(last) < _minInterval) {
+      return;
+    }
+    // Every overlapping caller awaits the SAME request; the field is cleared
+    // before the awaiters resume, so the next trigger starts a fresh one.
+    final result = await (_inFlight ??= _repo.unreadCount().whenComplete(() {
+      _lastFetch = DateTime.now();
+      _inFlight = null;
+    }));
     switch (result) {
       case Success(:final value):
-        if (value != _count) setState(() => _count = value);
+        _cachedCount = value;
+        if (mounted && value != _count) setState(() => _count = value);
       case Failure():
         break;
     }
@@ -421,11 +488,11 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
         onTap: () async {
           if (!_hive.isLoggedIn) {
             await context.push('/login');
-            _refresh();
+            _refresh(force: true);
             return;
           }
           await context.push('/notifications');
-          _refresh();
+          _refresh(force: true);
         },
         child: Padding(
           padding: const EdgeInsets.all(8),

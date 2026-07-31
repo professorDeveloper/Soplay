@@ -131,6 +131,24 @@ class AppTheme {
             ),
           ),
         ),
+        // Mirrors elevatedButtonTheme, minus minimumSize: FilledButtons are
+        // used compactly inside Rows, where Size(double.infinity, 50) would
+        // overflow an unbounded main axis.
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.textPrimary,

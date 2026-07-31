@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
@@ -245,22 +246,37 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => setState(() => _expanded = !_expanded),
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 180),
-        alignment: Alignment.topCenter,
-        child: Text(
-          widget.text,
-          maxLines: _expanded ? null : 3,
-          overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 13,
-            height: 1.5,
-          ),
+    final body = AnimatedSize(
+      duration: const Duration(milliseconds: 180),
+      alignment: Alignment.topCenter,
+      child: Text(
+        widget.text,
+        maxLines: _expanded ? null : 3,
+        overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 13,
+          height: 1.5,
         ),
       ),
+    );
+
+    // Android TV: the synopsis is clamped to three lines and tapping is the
+    // only way to expand it, so without a focus stop the plot is unreadable on
+    // a television. No scale — growing a paragraph under the ring looks wrong;
+    // the ring alone marks it. Off TV: the original GestureDetector.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: () => setState(() => _expanded = !_expanded),
+        borderRadius: 8,
+        scale: 1.0,
+        child: body,
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: body,
     );
   }
 }

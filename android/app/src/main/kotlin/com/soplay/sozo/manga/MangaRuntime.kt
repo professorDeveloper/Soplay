@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceFactory
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Loads Mihon/Tachiyomi MANGA extension APKs at runtime and exposes their
@@ -24,7 +25,10 @@ object MangaRuntime {
     private const val TAG = "MangaRuntime"
     private const val METADATA_SOURCE_CLASS = "tachiyomi.extension.class"
 
-    private val sourceCache = HashMap<String, CatalogueSource>()
+    // ConcurrentHashMap so the hot path below can read without holding the lock.
+    // A plain HashMap here was also a correctness bug, not just a speed one:
+    // callers read it concurrently with loadApk() writing to it.
+    private val sourceCache = ConcurrentHashMap<String, CatalogueSource>()
     private val loadedApks = HashSet<String>()
 
     /** Last load/instantiate failure reason, surfaced to the UI for diagnosis. */
@@ -38,10 +42,25 @@ object MangaRuntime {
      * parsed/loaded or has no matching source.
      */
     fun source(context: Context, apkPath: String, pkg: String, sourceId: String): CatalogueSource? {
+        // Fast path: already loaded by someone. Safe without the lock because the
+        // map is concurrent and an entry is only ever published fully-built.
         sourceCache[sourceId]?.let { return it }
         // Shared Injekt singletons (NetworkHelper, JavaScriptEngine, Json, Application).
         AniyomiRuntime.bootstrap(context)
-        if (loadedApks.contains(apkPath)) return sourceCache[sourceId]
+
+        // Everything below is inside the lock, including the final read.
+        //
+        // It used to check `loadedApks` before taking the lock and return early.
+        // That was a race with a very visible symptom: the flag is set BEFORE the
+        // dex load (deliberately, so a broken apk isn't retried forever), so a
+        // second thread arriving mid-load saw "already loaded", read the
+        // still-empty cache, and reported the source as unavailable — while the
+        // first thread went on to load it successfully. MangaHost issues
+        // getPopular and getLatest concurrently, so this fired constantly and
+        // presented as "manga loads sometimes".
+        //
+        // Now a concurrent caller simply blocks until the load finishes and then
+        // reads a populated cache.
         synchronized(this) {
             if (!loadedApks.contains(apkPath)) {
                 // Mark loaded BEFORE attempting: a failure (bad apk, link error) must not
@@ -56,8 +75,8 @@ object MangaRuntime {
                     Log.e(TAG, "loadApk failed for $apkPath", t)
                 }
             }
+            return sourceCache[sourceId]
         }
-        return sourceCache[sourceId]
     }
 
     private fun loadApk(context: Context, apkPath: String, pkg: String) {
@@ -86,13 +105,32 @@ object MangaRuntime {
                 continue
             }
             val sources = when (instance) {
-                is SourceFactory -> instance.createSources()
+                is SourceFactory -> try {
+                    instance.createSources()
+                } catch (t: Throwable) {
+                    // A factory that throws here took every source in the apk with
+                    // it. Previously this propagated out of loadApk and was
+                    // reported as a generic apk failure, hiding which factory
+                    // actually broke.
+                    lastError = "createSources $className: ${t.javaClass.simpleName}: ${t.message}"
+                    Log.e(TAG, "createSources $className failed", t)
+                    continue
+                }
                 is Source -> listOf(instance)
-                else -> emptyList()
+                else -> {
+                    // Used to be a silent `emptyList()`: an entry class that is
+                    // neither shape vanished with no log and no lastError, which
+                    // is indistinguishable from "the source has no content".
+                    lastError = "unsupported entry class $className: ${instance.javaClass.name}"
+                    Log.e(TAG, "unsupported entry class $className -> ${instance.javaClass.name}")
+                    emptyList()
+                }
             }
-            sources.filterIsInstance<CatalogueSource>().forEach {
-                sourceCache[it.id.toString()] = it
+            val catalogues = sources.filterIsInstance<CatalogueSource>()
+            if (catalogues.isEmpty() && sources.isNotEmpty()) {
+                Log.w(TAG, "$className produced ${sources.size} source(s), none CatalogueSource")
             }
+            catalogues.forEach { sourceCache[it.id.toString()] = it }
         }
     }
 }

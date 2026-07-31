@@ -42,6 +42,34 @@ android {
         versionName = flutter.versionName
     }
 
+    // Undo Flutter's per-ABI versionCode offset.
+    //
+    // With --split-per-abi, FlutterPlugin.kt rewrites each output as
+    // `abiVersionCode * 1000 + versionCode` (arm32=1, arm64=2, x86_64=4). So a
+    // pubspec of `+14` shipped three APKs numbered 1014 / 2014 / 4014. That
+    // exists for the Play Store, which rejects variants sharing a versionCode.
+    //
+    // We deliver over Telegram, not the Play Store, and the offset actively
+    // breaks us: the backend update check stores ONE number and compares it to
+    // whatever the installed APK reports. With per-ABI numbers, a v7a user
+    // (1014) is forever "behind" an arm64 number (2014), so they are told to
+    // update, install the same build again, and are told to update again.
+    //
+    // Forcing every output back to the pubspec value means the number a user
+    // reports is exactly the number set in pubspec.yaml and typed into the
+    // admin panel — identical across ABIs, and monotonic across releases.
+    // Must use the same legacy API and type Flutter writes through
+    // (ApkVariantOutput.versionCodeOverride) — the modern androidComponents
+    // API does NOT win against it. Our callback registers after the Flutter
+    // plugin's, so it runs last and its value is the one that ships.
+    applicationVariants.all {
+        outputs.all {
+            @Suppress("DEPRECATION")
+            (this as com.android.build.gradle.api.ApkVariantOutput).versionCodeOverride =
+                flutter.versionCode
+        }
+    }
+
     // 2. Raqamli imzo sozlamalarini yaratish (faqat key.properties mavjud bo'lsa).
     // Debug build'da bu fayl bo'lmaydi — shuning uchun release imzosi shartli.
     if (keystorePropertiesFile.exists()) {
@@ -101,6 +129,25 @@ flutter {
     source = "../.."
 }
 
+// Versions that MUST track keiyoushi/extensions-source's gradle/libs.versions.toml.
+//
+// Extension APKs declare these `compileOnly` and expect the host to supply the
+// runtime at DexClassLoader time. When the host's copy is older than the one an
+// extension was compiled against, the extension's generated code calls methods
+// that do not exist in our copy and dies with AbstractMethodError /
+// NoSuchMethodError — which MangaHost catches and turns into an empty list, so
+// the source just silently shows nothing.
+//
+// That is exactly what serialization 1.7.3 vs the extensions' 1.11.0 was doing:
+// every JSON-based source (Comick, MangaDex, Bato …) failed while HTML-scraping
+// ones kept working.
+//
+// Before bumping these, check the upstream file:
+// https://github.com/keiyoushi/extensions-source/blob/main/gradle/libs.versions.toml
+val extensionSerialization = "1.11.0"
+val extensionCoroutines = "1.11.0"
+val extensionJsoup = "1.22.2"
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
@@ -111,7 +158,7 @@ dependencies {
     // docs/CLOUDSTREAM_INTEGRATION.md + cloudstream/PluginHost.kt.
     implementation("com.github.recloudstream.cloudstream:library:v4.7.0")
     // CloudStream plugins/extractors use coroutines on the IO dispatcher.
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$extensionCoroutines")
     // compileOnly: lets our clean-room CloudflareKiller implement okhttp3.Interceptor.
     // okhttp itself is supplied at runtime by the CloudStream `library` above (it's
     // `implementation`-scoped there, so it isn't on our compile classpath). The
@@ -122,9 +169,9 @@ dependencies {
     // stub `extensions-lib` as compileOnly, so the host app must supply the real
     // runtime + these libraries at DexClassLoader time. See docs/ANIYOMI_INTEGRATION.md.
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.2.20")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-okio:1.7.3")
-    implementation("org.jsoup:jsoup:1.18.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$extensionSerialization")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-okio:$extensionSerialization")
+    implementation("org.jsoup:jsoup:$extensionJsoup")
     implementation("io.reactivex:rxjava:1.3.8")
     implementation("androidx.preference:preference-ktx:1.2.1")
     // JS engine for Aniyomi extractors that deobfuscate links (QuickJS).

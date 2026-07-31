@@ -81,6 +81,24 @@ class CloudStreamChannel {
   static Future<Map<String, dynamic>> checkUpdates() async =>
       _obj(await _call('checkUpdates'));
 
+  /// List every plugin in a repo (without installing), each flagged `installed`.
+  static Future<Map<String, dynamic>> listRepoPlugins(String url) async =>
+      _obj(await _call('listRepoPlugins', {'url': url}));
+
+  /// Install a single plugin from a repo by its `internalName`.
+  static Future<Map<String, dynamic>> installPlugin(
+    String url,
+    String internalName,
+  ) async =>
+      _obj(await _call('installPlugin', {'url': url, 'internalName': internalName}));
+
+  /// Uninstall a single plugin by its `internalName`.
+  static Future<Map<String, dynamic>> uninstallPlugin(
+    String url,
+    String internalName,
+  ) async =>
+      _obj(await _call('uninstallPlugin', {'url': url, 'internalName': internalName}));
+
   static Future<List<dynamic>> getGenres(String provider) async =>
       _arr(await _call('getGenres', {'provider': provider}));
 

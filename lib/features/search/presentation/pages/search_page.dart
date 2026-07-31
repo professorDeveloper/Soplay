@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
@@ -138,6 +139,7 @@ class _SearchViewState extends State<_SearchView> {
               focus: _focus,
               hasActiveFilter: _hasActiveFilter,
               onFilterTap: _openFilter,
+              onMultiSearchTap: () => context.push('/cross-search'),
               onQueryChanged: (q) =>
                   context.read<SearchBloc>().add(SearchQueryChanged(q)),
               onClear: _clearSearch,

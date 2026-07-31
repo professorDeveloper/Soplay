@@ -53,8 +53,29 @@ class AuthInterceptor extends Interceptor {
       return;
     }
 
+    final staleAuth = request.headers['Authorization'];
     final newAccess = await _refresh(refreshToken);
     if (newAccess == null) {
+      // Our refresh may have failed only because a concurrent refresher (e.g.
+      // the watch-party socket's TokenRefresher) already rotated the refresh
+      // token and saved a fresh access token. Don't wipe auth / log out in that
+      // case — retry the request with the current token instead.
+      final current = hiveService.getToken();
+      if (current != null &&
+          current.isNotEmpty &&
+          'Bearer $current' != staleAuth) {
+        request.headers['Authorization'] = 'Bearer $current';
+        request.extra[_retriedKey] = true;
+        try {
+          final retryResponse = await dio.fetch(request);
+          handler.resolve(retryResponse);
+        } on DioException catch (e) {
+          handler.next(e);
+        } catch (_) {
+          handler.next(err);
+        }
+        return;
+      }
       await _expireSession();
       handler.next(err);
       return;

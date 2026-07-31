@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 
 class SearchStickyHeader extends StatelessWidget {
   const SearchStickyHeader({
@@ -13,6 +14,7 @@ class SearchStickyHeader extends StatelessWidget {
     required this.focus,
     required this.hasActiveFilter,
     required this.onFilterTap,
+    required this.onMultiSearchTap,
     required this.onQueryChanged,
     required this.onClear,
   });
@@ -23,6 +25,7 @@ class SearchStickyHeader extends StatelessWidget {
   final FocusNode focus;
   final bool hasActiveFilter;
   final VoidCallback onFilterTap;
+  final VoidCallback onMultiSearchTap;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClear;
 
@@ -79,6 +82,12 @@ class SearchStickyHeader extends StatelessWidget {
                   onChanged: onQueryChanged,
                   onClear: onClear,
                 ),
+              ),
+              const SizedBox(width: 10),
+              _HeaderIconButton(
+                icon: Icons.travel_explore_rounded,
+                onTap: onMultiSearchTap,
+                tooltip: 'Search all sources',
               ),
               const SizedBox(width: 10),
               _FilterButton(active: hasActiveFilter, onTap: onFilterTap),
@@ -189,16 +198,29 @@ class _SearchFieldState extends State<_SearchField> {
                 color: AppColors.textHint,
                 size: 20,
               ),
-              suffixIcon: widget.controller.text.isNotEmpty
-                  ? GestureDetector(
-                      onTap: widget.onClear,
-                      child: const Icon(
-                        Icons.close_rounded,
-                        color: AppColors.textHint,
-                        size: 18,
-                      ),
-                    )
-                  : null,
+              // Android TV: the clear (X) is the only way to drop a query
+              // without a hardware keyboard, so it needs to be a focus stop.
+              // Off TV both branches below are the original GestureDetector.
+              suffixIcon: widget.controller.text.isEmpty
+                  ? null
+                  : (isTvPlatform
+                      ? TvFocusable(
+                          onPressed: widget.onClear,
+                          borderRadius: 9,
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: AppColors.textHint,
+                            size: 18,
+                          ),
+                        )
+                      : GestureDetector(
+                          onTap: widget.onClear,
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: AppColors.textHint,
+                            size: 18,
+                          ),
+                        )),
               border: InputBorder.none,
               contentPadding: EdgeInsets.zero,
               isDense: true,
@@ -212,6 +234,46 @@ class _SearchFieldState extends State<_SearchField> {
   }
 }
 
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          height: 46,
+          width: 46,
+          decoration: BoxDecoration(
+            color: AppColors.surface.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Icon(icon, size: 20, color: AppColors.textSecondary),
+        ),
+      ),
+    );
+    // Android TV: the search header's action buttons were unreachable by the
+    // D-pad. Off TV this is the GestureDetector that was always here.
+    final button = isTvPlatform
+        ? TvFocusable(onPressed: onTap, borderRadius: 14, child: content)
+        : GestureDetector(onTap: onTap, child: content);
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
+  }
+}
+
 class _FilterButton extends StatelessWidget {
   const _FilterButton({required this.onTap, required this.active});
 
@@ -220,52 +282,56 @@ class _FilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            height: 46,
-            width: 46,
-            decoration: BoxDecoration(
+    final content = ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          height: 46,
+          width: 46,
+          decoration: BoxDecoration(
+            color: active
+                ? AppColors.primary.withValues(alpha: 0.18)
+                : AppColors.surface.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
               color: active
-                  ? AppColors.primary.withValues(alpha: 0.18)
-                  : AppColors.surface.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: active
-                    ? AppColors.primary.withValues(alpha: 0.5)
-                    : Colors.white.withValues(alpha: 0.08),
-              ),
+                  ? AppColors.primary.withValues(alpha: 0.5)
+                  : Colors.white.withValues(alpha: 0.08),
             ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  Icons.tune_rounded,
-                  size: 20,
-                  color: active ? AppColors.primary : AppColors.textSecondary,
-                ),
-                if (active)
-                  Positioned(
-                    top: 9,
-                    right: 9,
-                    child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                size: 20,
+                color: active ? AppColors.primary : AppColors.textSecondary,
+              ),
+              if (active)
+                Positioned(
+                  top: 9,
+                  right: 9,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
     );
+
+    // Android TV: without this, the filter sheet could not be opened at all.
+    if (isTvPlatform) {
+      return TvFocusable(onPressed: onTap, borderRadius: 14, child: content);
+    }
+
+    return GestureDetector(onTap: onTap, child: content);
   }
 }

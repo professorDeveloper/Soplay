@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
@@ -16,8 +17,10 @@ import 'package:soplay/core/bridge/bridge_control.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
+import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/desktop_window.dart';
+import 'package:soplay/core/system/nav_prefs.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_sources_page.dart';
@@ -259,14 +262,16 @@ class _ProfileViewState extends State<_ProfileView> {
                   child: _Reveal(order: 4, child: _SecuritySection()),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                if (isDesktopPlatform) ...[
-                  const SliverToBoxAdapter(
-                    child: _Reveal(order: 5, child: _AppearanceSection()),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                ],
                 const SliverToBoxAdapter(
-                  child: _Reveal(order: 6, child: _AboutSection()),
+                  child: _Reveal(order: 5, child: _AppearanceEntry()),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                const SliverToBoxAdapter(
+                  child: _Reveal(order: 6, child: _PlayerEntry()),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                const SliverToBoxAdapter(
+                  child: _Reveal(order: 7, child: _AboutSection()),
                 ),
                 SliverToBoxAdapter(
                   child: SizedBox(
@@ -1057,6 +1062,13 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                   ),
                 ),
               ),
+              if (state is ProviderLoaded && state.offline)
+                _ProvidersOfflineBanner(
+                  usableCount: state.usableProviders.length,
+                  cachedAt: state.cachedAt,
+                  onRetry: () =>
+                      context.read<ProviderBloc>().add(const ProviderLoad()),
+                ),
               if (state is ProviderLoaded)
                 Align(
                   alignment: Alignment.centerLeft,
@@ -1082,6 +1094,10 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                           bottomPad: bottomPad,
                           favorites: favorites,
                           onToggleFavorite: _toggleFavorite,
+                          unavailableIds: {
+                            for (final p in state.providers)
+                              if (!state.isUsable(p)) p.id,
+                          },
                         ),
                   ProviderError() => _ProvidersError(
                     onRetry: () =>
@@ -1305,6 +1321,7 @@ class _ProvidersList extends StatefulWidget {
     required this.bottomPad,
     required this.favorites,
     required this.onToggleFavorite,
+    this.unavailableIds = const {},
   });
 
   final List<ProviderEntity> providers;
@@ -1312,6 +1329,10 @@ class _ProvidersList extends StatefulWidget {
   final double bottomPad;
   final Set<String> favorites;
   final ValueChanged<String> onToggleFavorite;
+
+  /// Providers that exist in the list but cannot serve content right now
+  /// (server-backed entries while the backend is unreachable).
+  final Set<String> unavailableIds;
 
   @override
   State<_ProvidersList> createState() => _ProvidersListState();
@@ -1346,14 +1367,29 @@ class _ProvidersListState extends State<_ProvidersList> {
       itemBuilder: (context, i) {
         final provider = widget.providers[i];
         final selected = provider.id == widget.currentProviderId;
+        final unavailable = widget.unavailableIds.contains(provider.id);
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: _ProviderListTile(
             provider: provider,
             selected: selected,
             isFavorite: widget.favorites.contains(provider.id),
+            unavailable: unavailable,
             onToggleFavorite: () => widget.onToggleFavorite(provider.id),
             onTap: () {
+              // Refuse the selection outright rather than letting it fail
+              // three screens later inside a home or detail request.
+              if (unavailable) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('profile.provider_needs_server'.tr()),
+                    backgroundColor: AppColors.surface,
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+                return;
+              }
               context.read<ProviderBloc>().add(ProviderSelect(provider.id));
               Navigator.of(context).pop();
             },
@@ -1412,11 +1448,13 @@ class _ProviderListTile extends StatelessWidget {
     required this.isFavorite,
     required this.onToggleFavorite,
     required this.onTap,
+    this.unavailable = false,
   });
 
   final ProviderEntity provider;
   final bool selected;
   final bool isFavorite;
+  final bool unavailable;
   final VoidCallback onToggleFavorite;
   final VoidCallback onTap;
 
@@ -1440,6 +1478,13 @@ class _ProviderListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Opacity(
+      opacity: unavailable ? 0.45 : 1,
+      child: _tile(context),
+    );
+  }
+
+  Widget _tile(BuildContext context) {
     return Material(
       color: selected
           ? AppColors.primary.withValues(alpha: 0.10)
@@ -1490,7 +1535,10 @@ class _ProviderListTile extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          _ProviderModeBadge(mode: provider.mode),
+                          if (unavailable)
+                            const _ServerDownBadge()
+                          else
+                            _ProviderModeBadge(mode: provider.mode),
                           if (provider.requiresCfBypass) ...[
                             const SizedBox(width: 4),
                             const _CfBypassBadge(),
@@ -1560,6 +1608,127 @@ class _ProviderListTile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Replaces the mode badge on a server-backed provider while the API is down,
+/// so the reason it is greyed out is readable at a glance.
+class _ServerDownBadge extends StatelessWidget {
+  const _ServerDownBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    const color = AppColors.error;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 9, color: color),
+          const SizedBox(width: 3),
+          Text(
+            'profile.offline_badge'.tr(),
+            style: const TextStyle(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Explains the outage in place, above a list that is still partly usable.
+class _ProvidersOfflineBanner extends StatelessWidget {
+  const _ProvidersOfflineBanner({
+    required this.usableCount,
+    required this.cachedAt,
+    required this.onRetry,
+  });
+
+  final int usableCount;
+  final DateTime? cachedAt;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border, width: 0.6),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.cloud_off_rounded,
+              color: AppColors.textSecondary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'profile.offline_title'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  usableCount > 0
+                      ? 'profile.offline_local_available'
+                          .tr(args: ['$usableCount'])
+                      : 'profile.offline_no_local'.tr(),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+                if (cachedAt != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'profile.offline_cached_at'.tr(args: [_stamp(cachedAt!)]),
+                    style: const TextStyle(
+                      color: AppColors.textHint,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+            ),
+            child: Text('general.retry'.tr()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _stamp(DateTime at) {
+    final l = at.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(l.day)}.${two(l.month)} ${two(l.hour)}:${two(l.minute)}';
   }
 }
 
@@ -1669,30 +1838,96 @@ class _ProvidersLoading extends StatelessWidget {
   }
 }
 
+/// Reached only when the backend is unreachable, there is no cached list *and*
+/// no plugin is installed — i.e. there is genuinely no working path left. The
+/// copy therefore points at installing plugins, which needs no server.
 class _ProvidersError extends StatelessWidget {
   const _ProvidersError({required this.onRetry});
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: AppColors.textHint,
-            size: 36,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+      child: Center(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.06),
+                    ),
+                    child: const Icon(
+                      Icons.cloud_off_rounded,
+                      color: AppColors.textSecondary,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'profile.offline_title'.tr(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'profile.offline_no_local'.tr(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    height: 46,
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: onRetry,
+                      child: Text('general.retry'.tr()),
+                    ),
+                  ),
+                  if (CloudStreamChannel.isSupported) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 46,
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const CloudStreamSourcesPage(),
+                          ),
+                        ),
+                        child: Text('profile.offline_install_plugins'.tr()),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            'profile.providers_error'.tr(),
-            style: const TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 14),
-          OutlinedButton(
-              onPressed: onRetry, child: Text('general.retry'.tr())),
-        ],
+        ),
       ),
     );
   }
@@ -1796,6 +2031,17 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
               ),
               const Divider(color: AppColors.divider, height: 1),
               _Tile(
+                icon: Icons.notifications_active_outlined,
+                title: 'Following',
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textHint,
+                  size: 20,
+                ),
+                onTap: () => context.push('/following'),
+              ),
+              const Divider(color: AppColors.divider, height: 1),
+              _Tile(
                 icon: Icons.devices_rounded,
                 title: BridgeControl.canHost
                     ? 'profile.share_sources_desktop'.tr()
@@ -1895,7 +2141,11 @@ class _SecuritySectionState extends State<_SecuritySection> {
 }
 
 class _AppearanceSection extends StatefulWidget {
-  const _AppearanceSection();
+  const _AppearanceSection({this.showLabel = true});
+
+  /// When false (the standalone Navigation-bar page), the "APPEARANCE" label
+  /// and the redundant inner "Navigation bar" header are hidden.
+  final bool showLabel;
 
   @override
   State<_AppearanceSection> createState() => _AppearanceSectionState();
@@ -1903,11 +2153,138 @@ class _AppearanceSection extends StatefulWidget {
 
 class _AppearanceSectionState extends State<_AppearanceSection> {
   late bool _native = getIt<HiveService>().useNativeTitleBar;
+  late String _navStyle = getIt<HiveService>().navStyle;
 
   Future<void> _toggle(bool value) async {
     setState(() => _native = value);
     await getIt<HiveService>().setUseNativeTitleBar(value);
     await DesktopWindow.setNativeTitleBar(value);
+  }
+
+  Future<void> _setNavStyle(String value) async {
+    if (value == _navStyle) return;
+    setState(() => _navStyle = value);
+    await getIt<HiveService>().setNavStyle(value);
+    // Push to the shared notifier so the floating nav rebuilds instantly.
+    NavPrefs.navStyle.value = value;
+  }
+
+  // A tiny realistic mock of each nav style: solid/glass = a floating pill,
+  // classic = a full-width bar — with mini tab icons (the first = selected,
+  // in a little pill, like the real bar) instead of plain dots.
+  Widget _navPreview(String value, Color accent) {
+    const icons = [
+      Icons.home_rounded,
+      Icons.search_rounded,
+      Icons.play_arrow_rounded,
+      Icons.person_rounded,
+    ];
+    final muted = accent.withValues(alpha: 0.4);
+    Widget miniIcon(int i) {
+      if (i == 0) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 2.5, vertical: 1),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.22),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Icon(icons[i], size: 9, color: accent),
+        );
+      }
+      return Icon(icons[i], size: 9, color: muted);
+    }
+
+    final row = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < icons.length; i++)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 1.5),
+            child: miniIcon(i),
+          ),
+      ],
+    );
+
+    if (value == 'classic') {
+      return Container(
+        width: double.infinity,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.10),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+          border: Border(
+            top: BorderSide(color: accent.withValues(alpha: 0.4), width: 0.6),
+          ),
+        ),
+        child: row,
+      );
+    }
+    // solid / glass: floating rounded pill
+    return Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        gradient: value == 'glass'
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  accent.withValues(alpha: 0.26),
+                  accent.withValues(alpha: 0.06),
+                ],
+              )
+            : null,
+        color: value == 'solid' ? accent.withValues(alpha: 0.16) : null,
+        border: Border.all(color: accent.withValues(alpha: 0.45), width: 0.8),
+      ),
+      child: row,
+    );
+  }
+
+  Widget _navSegment(String value, String labelKey) {
+    final selected = _navStyle == value;
+    final accent = selected ? AppColors.primary : AppColors.textSecondary;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _setNavStyle(value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          margin: const EdgeInsets.all(3),
+          padding: const EdgeInsets.fromLTRB(6, 9, 6, 7),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.14)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primary.withValues(alpha: 0.5)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Column(
+            children: [
+              SizedBox(height: 24, child: Center(child: _navPreview(value, accent))),
+              const SizedBox(height: 7),
+              Text(labelKey.tr(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: selected
+                          ? AppColors.textPrimary
+                          : AppColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight:
+                          selected ? FontWeight.w700 : FontWeight.w500)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1917,25 +2294,160 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel('profile.section_appearance'.tr()),
-          const SizedBox(height: 8),
+          if (widget.showLabel) ...[
+            _SectionLabel('profile.section_appearance'.tr()),
+            const SizedBox(height: 8),
+          ],
           _SectionCard(
             children: [
-              SwitchListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                value: _native,
-                activeThumbColor: AppColors.primary,
-                secondary: const Icon(Icons.web_asset_rounded,
-                    color: AppColors.textSecondary),
-                title: Text('profile.native_window_bar'.tr(),
-                    style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 15)),
-                subtitle: Text('profile.native_window_bar_subtitle'.tr(),
-                    style: const TextStyle(
-                        color: AppColors.textHint, fontSize: 12)),
-                onChanged: _toggle,
-              ),
+              if (isDesktopPlatform)
+                SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  value: _native,
+                  activeThumbColor: AppColors.primary,
+                  secondary: const Icon(Icons.web_asset_rounded,
+                      color: AppColors.textSecondary),
+                  title: Text('profile.native_window_bar'.tr(),
+                      style: const TextStyle(
+                          color: AppColors.textPrimary, fontSize: 15)),
+                  subtitle: Text('profile.native_window_bar_subtitle'.tr(),
+                      style: const TextStyle(
+                          color: AppColors.textHint, fontSize: 12)),
+                  onChanged: _toggle,
+                ),
+              if (isMobilePlatform) ...[
+                if (widget.showLabel)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.dashboard_customize_rounded,
+                          size: 18, color: AppColors.textHint),
+                      const SizedBox(width: 8),
+                      Text('profile.nav_style'.tr(),
+                          style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        _navSegment('solid', 'profile.nav_style_solid'),
+                        _navSegment('glass', 'profile.nav_style_glass'),
+                        _navSegment('classic', 'profile.nav_style_classic'),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Material(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(14),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      leading: const Icon(Icons.view_week_rounded,
+                          color: AppColors.textSecondary),
+                      title: Text('nav_customize.entry_title'.tr(),
+                          style: const TextStyle(
+                              color: AppColors.textPrimary, fontSize: 15)),
+                      subtitle: Text('nav_customize.entry_subtitle'.tr(),
+                          style: const TextStyle(
+                              color: AppColors.textHint, fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right,
+                          color: AppColors.textHint),
+                      onTap: () => showTabCustomizer(context),
+                    ),
+                  ),
+                ),
+              ],
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Standalone Navigation-bar settings page (tab-bar style + tab customizer),
+/// opened from the Profile "Navigation bar" tile.
+class NavbarPage extends StatelessWidget {
+  const NavbarPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        title: Text('profile.nav_style'.tr(),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+      ),
+      body: const SingleChildScrollView(
+        padding: EdgeInsets.only(top: 12, bottom: 40),
+        child: _AppearanceSection(showLabel: false),
+      ),
+    );
+  }
+}
+
+/// Compact Profile entry (matches the security tiles) → opens [AppearancePage].
+class _AppearanceEntry extends StatelessWidget {
+  const _AppearanceEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: _SectionCard(
+        children: [
+          _Tile(
+            icon: Icons.view_week_rounded,
+            title: 'profile.nav_style'.tr(),
+            trailing: const Icon(Icons.chevron_right_rounded,
+                color: AppColors.textHint, size: 20),
+            onTap: () => context.push('/navbar'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact Profile entry → [PlayerSettingsPage].
+///
+/// Unconditional, unlike the engine picker it replaced: that was Android-only
+/// because every other platform is pinned to one backend, but the page now
+/// also owns playback defaults and subtitle appearance, which apply
+/// everywhere. The engine block inside is still gated on
+/// [canChoosePlayerEngine].
+class _PlayerEntry extends StatelessWidget {
+  const _PlayerEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: _SectionCard(
+        children: [
+          _Tile(
+            icon: Icons.play_circle_outline_rounded,
+            title: 'profile.section_player'.tr(),
+            trailing: const Icon(Icons.chevron_right_rounded,
+                color: AppColors.textHint, size: 20),
+            onTap: () => context.push('/player-settings'),
           ),
         ],
       ),
@@ -2122,7 +2634,7 @@ class _AboutSection extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _SocialIcon(
                 icon: Icons.telegram,

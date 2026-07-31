@@ -46,8 +46,10 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
   final WatchPartyService _service = getIt<WatchPartyService>();
 
   StreamSubscription<String>? _errorSub;
+  Timer? _watchdog;
   bool _joining = false;
   bool _opening = false;
+  bool _slow = false;
   String? _joinErrorCode;
   PartyResolveCapability? _blocked;
   String? _blockedProvider;
@@ -63,8 +65,31 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
   @override
   void dispose() {
     _service.state.removeListener(_onServiceState);
+    _watchdog?.cancel();
     unawaited(_errorSub?.cancel());
     super.dispose();
+  }
+
+  /// Arms a one-shot watchdog: if the join handshake hasn't put us in the room
+  /// after a grace period (e.g. the socket connected but `party:state` never
+  /// arrived, or it is silently retrying), flip to a retry view instead of an
+  /// endless spinner.
+  void _armWatchdog() {
+    _watchdog?.cancel();
+    _slow = false;
+    _watchdog = Timer(const Duration(seconds: 12), () {
+      if (!mounted) return;
+      if (!_service.state.value.inParty) setState(() => _slow = true);
+    });
+  }
+
+  Future<void> _retryConnect() async {
+    setState(() {
+      _slow = false;
+      _joinErrorCode = null;
+    });
+    _armWatchdog();
+    await _service.retryConnection();
   }
 
   /// Clears a latched plugin-required block once the party's content identity
@@ -72,9 +97,17 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
   /// to a server-resolvable source), so the guest is not stranded on the
   /// install view.
   void _onServiceState() {
+    if (!mounted) return;
+    final s = _service.state.value;
+    // Once we're actually in the room (or it terminated), stop the watchdog and
+    // clear the "slow" flag.
+    if (s.inParty || s.phase == PartyPhase.closed) {
+      _watchdog?.cancel();
+      if (_slow) setState(() => _slow = false);
+    }
     final blockedProvider = _blockedProvider;
-    if (blockedProvider == null || !mounted) return;
-    final currentProvider = _service.state.value.room?.content?.provider;
+    if (blockedProvider == null) return;
+    final currentProvider = s.room?.content?.provider;
     if (currentProvider != blockedProvider) {
       setState(() {
         _blocked = null;
@@ -94,6 +127,7 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
       _joining = true;
       _joinErrorCode = null;
     });
+    _armWatchdog();
     try {
       await _service.joinParty(code);
     } catch (_) {
@@ -128,7 +162,12 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
   }
 
   Future<void> _closeParty() async {
-    await _service.closeParty();
+    // closeParty already tears down the local session in its finally (socket
+    // disconnect + state reset). If the DELETE throws, still pop — otherwise the
+    // host is stranded on a perpetual "Connecting…" view.
+    try {
+      await _service.closeParty();
+    } catch (_) {}
     if (!mounted) return;
     context.pop();
   }
@@ -216,6 +255,11 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
             }
           },
           child: Scaffold(
+          // The chat composer lifts itself over the keyboard via its own
+          // viewInsets padding. Letting the Scaffold ALSO resize double-counts
+          // the inset and shoves the composer (and the send button) off screen,
+          // so typing/sending becomes impossible — disable the auto-resize.
+          resizeToAvoidBottomInset: false,
           backgroundColor: AppColors.background,
           appBar: AppBar(
             backgroundColor: AppColors.background,
@@ -264,11 +308,30 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
     if (!s.inParty || room == null) {
       final code = s.errorCode ?? _joinErrorCode;
       if (code != null && !_joining) {
-        return PartyErrorView(code: code);
+        return PartyErrorView(
+          code: code,
+          actionLabel: 'general.try_again'.tr(),
+          onAction: _retryConnect,
+        );
       }
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
+      // A failed connection, or a join that never lands, must NOT sit forever
+      // on a bare spinner — surface it with a retry so the room isn't a dead
+      // black screen.
+      if (s.connection == PartyConnection.error || _slow) {
+        final detail = s.errorMessage;
+        return PartyStateView(
+          icon: Icons.wifi_off_rounded,
+          title: 'watch_party.connect_failed_title'.tr(),
+          message: (detail != null && detail.trim().isNotEmpty)
+              ? '${'watch_party.connect_failed_msg'.tr()}\n\n$detail'
+              : 'watch_party.connect_failed_msg'.tr(),
+          actionLabel: 'general.try_again'.tr(),
+          onAction: _retryConnect,
+          secondaryLabel: 'watch_party.leave_party'.tr(),
+          onSecondary: _leave,
+        );
+      }
+      return _ConnectingView(connection: s.connection);
     }
 
     final content = room.content;
@@ -300,11 +363,16 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
                   onLeave: _leave,
                   onClose: _closeParty,
                 ),
-                const SizedBox(height: 6),
-                Center(child: PartyReactionPicker(service: _service)),
               ],
             ),
           ),
+        ),
+        const Divider(height: 1, color: AppColors.border),
+        // Fixed reaction bar directly above the chat — always reachable instead
+        // of buried at the bottom of the scrollable top region.
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Center(child: PartyReactionPicker(service: _service)),
         ),
         const Divider(height: 1, color: AppColors.border),
         Expanded(
@@ -312,17 +380,51 @@ class _WatchPartyPageState extends State<WatchPartyPage> {
           child: Stack(
             children: [
               PartyChatPanel(service: _service, myUserId: s.myUserId),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: 180,
+              // Floats reactions up across the whole chat area (ignores
+              // pointers, so chat stays fully tappable).
+              Positioned.fill(
                 child: PartyReactionsOverlay(service: _service),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ConnectingView extends StatelessWidget {
+  const _ConnectingView({required this.connection});
+
+  final PartyConnection connection;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = connection == PartyConnection.reconnecting
+        ? 'watch_party.reconnecting'.tr()
+        : 'watch_party.connecting'.tr();
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 34,
+            height: 34,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.6,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

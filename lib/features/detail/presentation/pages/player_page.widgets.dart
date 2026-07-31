@@ -248,18 +248,21 @@ class _IconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: color != null
-          ? color!.withValues(alpha: 0.22)
-          : Colors.black.withValues(alpha: 0.35),
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 38,
-          height: 38,
-          child: Icon(icon, color: color ?? Colors.white, size: 18),
+    return _tvRing(
+      circle: true,
+      Material(
+        color: color != null
+            ? color!.withValues(alpha: 0.22)
+            : Colors.black.withValues(alpha: 0.35),
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Icon(icon, color: color ?? Colors.white, size: 18),
+          ),
         ),
       ),
     );
@@ -365,25 +368,35 @@ class _CenterIconButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.large = false,
+    this.focusNode,
   });
   final IconData icon;
   final VoidCallback onTap;
   final bool large;
 
+  /// Supplied only on TV, so the remote can be parked on this button whenever
+  /// the overlay reappears. Null everywhere else — the InkWell then manages its
+  /// own node exactly as it does today.
+  final FocusNode? focusNode;
+
   @override
   Widget build(BuildContext context) {
     final size = large ? 72.0 : 52.0;
     final iconSize = large ? 42.0 : 28.0;
-    return Material(
-      color: Colors.black.withValues(alpha: 0.32),
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Icon(icon, color: Colors.white, size: iconSize),
+    return _tvRing(
+      circle: true,
+      Material(
+        color: Colors.black.withValues(alpha: 0.32),
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          focusNode: focusNode,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Icon(icon, color: Colors.white, size: iconSize),
+          ),
         ),
       ),
     );
@@ -407,7 +420,9 @@ class _BottomTextButton extends StatelessWidget {
     final color = enabled ? Colors.white : Colors.white38;
     return Padding(
       padding: const EdgeInsets.only(right: 10),
-      child: InkWell(
+      child: _tvRing(
+        radius: 6,
+        InkWell(
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(6),
         child: Padding(
@@ -427,6 +442,7 @@ class _BottomTextButton extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -451,6 +467,10 @@ class _EpisodeRow extends StatelessWidget {
         : episode.label;
     return InkWell(
       onTap: onTap,
+      // On TV the panel opens with the remote already on the episode being
+      // watched, so OK re-plays it and up/down walks the list from there.
+      autofocus: isTvPlatform && isActive,
+      focusColor: _kTvFocusFill,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -507,6 +527,8 @@ class _QualityRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      autofocus: isTvPlatform && isActive,
+      focusColor: _kTvFocusFill,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
@@ -569,6 +591,7 @@ class _SettingsTile extends StatelessWidget {
     final disabled = onTap == null;
     return InkWell(
       onTap: onTap,
+      focusColor: _kTvFocusFill,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
@@ -631,6 +654,7 @@ class _OptionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      focusColor: _kTvFocusFill,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
@@ -790,9 +814,7 @@ class _ColorDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
+    final dot = AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         width: 36,
         height: 36,
@@ -811,6 +833,21 @@ class _ColorDot extends StatelessWidget {
                   ),
                 ]
               : null,
+        ),
+    );
+    if (!isTvPlatform) return GestureDetector(onTap: onTap, child: dot);
+    // A bare GestureDetector cannot take focus, which would make the subtitle
+    // colour swatches unreachable by remote. InkWell is focusable; the ripple
+    // it adds is TV-only, so the phone sheet is pixel-identical.
+    return _tvRing(
+      circle: true,
+      Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: dot,
         ),
       ),
     );
@@ -868,6 +905,7 @@ class _Chip extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
+        focusColor: _kTvFocusFill,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(

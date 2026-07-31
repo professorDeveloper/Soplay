@@ -4,11 +4,13 @@ import android.Manifest
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
+import android.app.UiModeManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.media.AudioManager
 import android.graphics.drawable.Icon
@@ -22,6 +24,8 @@ import io.flutter.plugin.common.MethodChannel
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.roundToInt
+import com.lagradost.cloudstream3.CloudStreamApp
+import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.soplay.sozo.cloudstream.PluginHost
 import com.soplay.sozo.cloudstream.RepoManager
 import com.soplay.sozo.aniyomi.AniyomiHost
@@ -38,6 +42,7 @@ import kotlinx.coroutines.withContext
 class MainActivity : FlutterFragmentActivity() {
 
     private val channelName = "soplay/pip"
+    private val platformChannelName = "soplay/platform"
     private val downloadChannelName = "soplay/downloads"
     private val systemControlsChannelName = "soplay/system_controls"
     private val deeplinkSettingsChannelName = "soplay/deeplink_settings"
@@ -45,6 +50,7 @@ class MainActivity : FlutterFragmentActivity() {
     private val actionExtraId = "action_id"
 
     private var methodChannel: MethodChannel? = null
+    private var platformChannel: MethodChannel? = null
     private var downloadChannel: MethodChannel? = null
     private var systemControlsChannel: MethodChannel? = null
     private var deeplinkSettingsChannel: MethodChannel? = null
@@ -57,7 +63,19 @@ class MainActivity : FlutterFragmentActivity() {
     private var cloudstreamChannel: MethodChannel? = null
     private var previewChannel: MethodChannel? = null
     private val cloudstreamScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val pluginHost by lazy { PluginHost(applicationContext) }
+    private val pluginHost by lazy {
+        // CloudflareKiller is constructed by plugins with no arguments, so it
+        // can only get a Context from here. Installed alongside the host that
+        // loads those plugins, which guarantees it happens before any of them
+        // can run. Without it the killer degrades to a passthrough.
+        CloudflareKiller.install(applicationContext)
+        // NiceHttp — the HTTP layer inside the CloudStream library — reads
+        // CloudStreamApp.context on the first request a plugin makes. Unset, it
+        // throws NoClassDefFoundError on an OkHttp worker thread, which nothing
+        // catches, and the process dies.
+        CloudStreamApp.install(applicationContext)
+        PluginHost(applicationContext)
+    }
     private val repoManager by lazy { RepoManager(applicationContext, pluginHost) }
 
     private val aniyomiChannelName = "soplay/aniyomi"
@@ -108,6 +126,23 @@ class MainActivity : FlutterFragmentActivity() {
                         applyPipActions(isPlaying, hasPrev, hasNext)
                     }
                     result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        platformChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            platformChannelName
+        )
+        platformChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isTv" -> result.success(isLeanbackDevice())
+                "openExternalVideo" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    val title = call.argument<String>("title").orEmpty()
+                    val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
+                    result.success(openExternalVideo(url, title, headers))
                 }
                 else -> result.notImplemented()
             }
@@ -256,6 +291,29 @@ class MainActivity : FlutterFragmentActivity() {
                             }
                         }.toString()
                     }
+                }
+                "listRepoPlugins" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    csAsync(result) { repoManager.listRepoPluginsJson(url) }
+                }
+                "installPlugin" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    val internalName = call.argument<String>("internalName").orEmpty()
+                    csAsync(result) {
+                        repoManager.installPlugin(url, internalName) { current, total ->
+                            runOnUiThread {
+                                cloudstreamChannel?.invokeMethod(
+                                    "installProgress",
+                                    mapOf("current" to current, "total" to total),
+                                )
+                            }
+                        }.toString()
+                    }
+                }
+                "uninstallPlugin" -> {
+                    val url = call.argument<String>("url").orEmpty()
+                    val internalName = call.argument<String>("internalName").orEmpty()
+                    csAsync(result) { repoManager.uninstallPlugin(url, internalName).toString() }
                 }
                 "checkUpdates" -> {
                     csAsync(result) {
@@ -475,7 +533,14 @@ class MainActivity : FlutterFragmentActivity() {
                         withContext(Dispatchers.Main) { result.success(bytes) }
                     }
                 }
-                "close" -> { FramePreview.close(); result.success(true) }
+                // Off the platform thread like open/frame: close() can contend with a
+                // still-running open(), and blocking here would freeze the whole UI.
+                "close" -> {
+                    cloudstreamScope.launch {
+                        FramePreview.close()
+                        withContext(Dispatchers.Main) { result.success(true) }
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
@@ -483,6 +548,59 @@ class MainActivity : FlutterFragmentActivity() {
         setupBridgeChannel(flutterEngine)
         // Restart the bridge if the user had "share sources to desktop" on.
         if (bridgePrefs().getBoolean("enabled", false)) startBridgeServer()
+    }
+
+    /** True on Android TV / Google TV / Fire TV, false on phones and tablets.
+     *
+     *  All three checks are OR'd on purpose: Fire TV has historically not
+     *  reported UI_MODE_TYPE_TELEVISION, and some cheap TV boxes ship without
+     *  FEATURE_LEANBACK while still declaring the leanback software feature.
+     *  Anything that throws falls through to false, i.e. the phone path. */
+    private fun isLeanbackDevice(): Boolean = try {
+        val uiMode = getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+        uiMode?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+            packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+            packageManager.hasSystemFeature("android.software.leanback")
+    } catch (_: Throwable) {
+        false
+    }
+
+    /**
+     * Hands a stream to whatever video app the user picks (VLC, MX Player, …).
+     *
+     * Returns false when nothing on the device can handle it, so Dart can show
+     * a real message instead of the user staring at an unchanged screen.
+     *
+     * Headers are best-effort only. MX Player reads a "headers" String[] extra
+     * (alternating key/value); VLC has no such contract and ignores it. Callers
+     * must not assume a gated stream survives this trip — ExternalPlayer
+     * warns up front instead.
+     */
+    private fun openExternalVideo(
+        url: String,
+        title: String,
+        headers: Map<String, String>
+    ): Boolean {
+        if (url.isBlank()) return false
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(Uri.parse(url), "video/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                if (title.isNotBlank()) putExtra("title", title)
+                if (headers.isNotEmpty()) {
+                    val flat = ArrayList<String>(headers.size * 2)
+                    headers.forEach { (k, v) -> flat.add(k); flat.add(v) }
+                    putExtra("headers", flat.toTypedArray())
+                }
+            }
+            val chooser = Intent.createChooser(intent, title.ifBlank { "Play with" })
+            if (intent.resolveActivity(packageManager) == null) return false
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(chooser)
+            true
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     private fun bridgePrefs() = getSharedPreferences("sozo_bridge", Context.MODE_PRIVATE)

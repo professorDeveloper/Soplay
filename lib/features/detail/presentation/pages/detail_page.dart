@@ -11,6 +11,9 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
+import 'package:soplay/features/banners/domain/entities/banner_item.dart';
+import 'package:soplay/features/banners/presentation/widgets/banners_carousel.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
@@ -24,6 +27,8 @@ import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite
 import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite_event.dart';
 import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite_state.dart';
 import 'package:soplay/features/history/data/history_service.dart';
+import 'package:soplay/features/tracker/data/follow_service.dart';
+import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
@@ -197,6 +202,7 @@ class _DetailViewState extends State<_DetailView>
   late final bool _hasShots;
   double _collapseRange = 1;
   bool _autoPlayTriggered = false;
+  bool _isFollowing = false;
 
   @override
   void initState() {
@@ -205,6 +211,7 @@ class _DetailViewState extends State<_DetailView>
         widget.detail.cast.isNotEmpty ||
         (widget.detail.director?.trim().isNotEmpty ?? false);
     _hasShots = widget.detail.screenshots.isNotEmpty;
+    _isFollowing = getIt<FollowService>().isFollowed(widget.detail.contentUrl);
     _tabs = [
       'Similar',
       if (_hasCast) 'Cast',
@@ -500,6 +507,32 @@ class _DetailViewState extends State<_DetailView>
     _showSnack('app_lock.removed_from_private'.tr());
   }
 
+  void _onFindOtherSources() {
+    context.push('/cross-search', extra: widget.detail.title);
+  }
+
+  Future<void> _toggleFollow() async {
+    final svc = getIt<FollowService>();
+    if (_isFollowing) {
+      await svc.unfollow(widget.detail.contentUrl);
+    } else {
+      final d = widget.detail;
+      await svc.follow(FollowedTitle(
+        contentUrl: d.contentUrl,
+        provider: d.provider,
+        title: d.title,
+        thumbnail: d.thumbnail ?? '',
+        year: d.year,
+        addedAt: DateTime.now().millisecondsSinceEpoch,
+      ));
+    }
+    if (!mounted) return;
+    setState(() => _isFollowing = !_isFollowing);
+    _showSnack(_isFollowing
+        ? 'Following — you\'ll be notified of new episodes'
+        : 'Unfollowed');
+  }
+
   void _onShare() {
     final params = <String, String>{'url': widget.detail.contentUrl};
     final provider = widget.detail.provider.trim();
@@ -751,6 +784,15 @@ class _DetailViewState extends State<_DetailView>
                   playButtonKey: _bodyPlayKey,
                 ),
               ),
+              // Sponsor/CMS banner (detail_top placement). Opt-in: self-collapses
+              // to nothing unless an admin creates a detail_top banner. Guest-safe.
+              const SliverToBoxAdapter(
+                child: BannersCarousel(
+                  placement: BannerPlacement.detailTop,
+                  height: 130,
+                  padding: EdgeInsets.fromLTRB(0, 2, 0, 10),
+                ),
+              ),
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _TabBarDelegate(
@@ -854,6 +896,10 @@ class _DetailViewState extends State<_DetailView>
                             onAddToList: _toggleMyList,
                             onMoveToPrivate: _onMoveToPrivate,
                             onPrivateActions: _showPrivateActions,
+                            onFindSources: _onFindOtherSources,
+                            showFollow: detail.isSerial,
+                            isFollowing: _isFollowing,
+                            onFollow: _toggleFollow,
                             onShare: _onShare,
                           ),
                         ),
@@ -916,6 +962,10 @@ class _AnimatedTopBar extends StatelessWidget {
     required this.onAddToList,
     required this.onMoveToPrivate,
     required this.onPrivateActions,
+    required this.onFindSources,
+    required this.showFollow,
+    required this.isFollowing,
+    required this.onFollow,
     required this.onShare,
   });
 
@@ -934,6 +984,10 @@ class _AnimatedTopBar extends StatelessWidget {
   final VoidCallback onAddToList;
   final VoidCallback onMoveToPrivate;
   final VoidCallback onPrivateActions;
+  final VoidCallback onFindSources;
+  final bool showFollow;
+  final bool isFollowing;
+  final VoidCallback onFollow;
   final VoidCallback onShare;
 
   @override
@@ -1039,6 +1093,21 @@ class _AnimatedTopBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
+                if (showFollow) ...[
+                  _CircleIconButton(
+                    icon: isFollowing
+                        ? Icons.notifications_active_rounded
+                        : Icons.notifications_none_rounded,
+                    iconColor: isFollowing ? AppColors.rating : Colors.white,
+                    onTap: onFollow,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                _CircleIconButton(
+                  icon: Icons.travel_explore_rounded,
+                  onTap: onFindSources,
+                ),
+                const SizedBox(width: 8),
                 _CircleIconButton(
                   icon: Icons.ios_share_rounded,
                   onTap: onShare,
@@ -1202,6 +1271,44 @@ class _BackOnlyBar extends StatelessWidget {
   }
 }
 
+/// The back affordance on the detail error screen. On Android TV this is the
+/// only way off a failed page other than the system BACK key, so it must be a
+/// focus stop; a bare GestureDetector could never be reached by the D-pad.
+class _ErrorBackButton extends StatelessWidget {
+  const _ErrorBackButton({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.surfaceVariant,
+      ),
+      child: const Icon(
+        Icons.arrow_back_ios_new_rounded,
+        color: AppColors.textPrimary,
+        size: 17,
+      ),
+    );
+
+    // Off TV this returns exactly the GestureDetector that was here before.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: onBack,
+        borderRadius: 19,
+        autofocus: true,
+        child: button,
+      );
+    }
+
+    return GestureDetector(onTap: onBack, child: button);
+  }
+}
+
 class _ErrorView extends StatelessWidget {
   const _ErrorView({
     required this.message,
@@ -1226,22 +1333,7 @@ class _ErrorView extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Padding(
               padding: const EdgeInsets.only(left: 8),
-              child: GestureDetector(
-                onTap: onBack,
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.surfaceVariant,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: AppColors.textPrimary,
-                    size: 17,
-                  ),
-                ),
-              ),
+              child: _ErrorBackButton(onBack: onBack),
             ),
           ),
           const Spacer(),

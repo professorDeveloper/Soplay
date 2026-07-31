@@ -72,11 +72,68 @@ class HiveService {
       _authBox.delete(AppConstants.malTokenKey);
 
   String getCurrentProvider() {
-    return _settingsBox.get(AppConstants.currentProviderKey, defaultValue: '');
+    final saved = _settingsBox.get(
+      AppConstants.currentProviderKey,
+      defaultValue: '',
+    ) as String;
+    // Never hand out an empty id: the home, search and detail repositories send
+    // whatever this returns straight to the API, and an empty provider is a 400.
+    // ProviderBloc overwrites this with the real choice once the list loads.
+    return saved.isEmpty ? AppConstants.defaultProviderId : saved;
   }
 
   Future<void> saveCurrentProvider(String providerId) async {
     await _settingsBox.put(AppConstants.currentProviderKey, providerId);
+  }
+
+  /// The provider the user was on before an outage forced a temporary switch
+  /// to an on-device plugin. Restored as soon as the backend answers again, so
+  /// an outage never permanently rewrites their choice.
+  String getPreOutageProvider() {
+    return _settingsBox.get(AppConstants.preOutageProviderKey, defaultValue: '');
+  }
+
+  Future<void> savePreOutageProvider(String providerId) async {
+    await _settingsBox.put(AppConstants.preOutageProviderKey, providerId);
+  }
+
+  Future<void> clearPreOutageProvider() async {
+    await _settingsBox.delete(AppConstants.preOutageProviderKey);
+  }
+
+  /// Last provider list the backend served, kept so the picker still has
+  /// something to show while `/contents/providers` is unreachable.
+  List<Map<String, dynamic>> getCachedProviders() {
+    final raw = _settingsBox.get(AppConstants.cachedProvidersKey);
+    if (raw is! String || raw.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// When [getCachedProviders] was written, so the UI can say how stale it is.
+  DateTime? getCachedProvidersAt() {
+    final raw = _settingsBox.get(AppConstants.cachedProvidersAtKey);
+    if (raw is! int) return null;
+    return DateTime.fromMillisecondsSinceEpoch(raw);
+  }
+
+  Future<void> saveCachedProviders(List<Map<String, dynamic>> providers) async {
+    await _settingsBox.put(
+      AppConstants.cachedProvidersKey,
+      jsonEncode(providers),
+    );
+    await _settingsBox.put(
+      AppConstants.cachedProvidersAtKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   List<String> getFavoriteProviders() {
@@ -96,6 +153,40 @@ class HiveService {
       list.add(id);
     }
     await _settingsBox.put('favorite_providers', list);
+  }
+
+  /// Providers included in cross-provider ("all sources") search. Kept small on
+  /// purpose so search never fans out to hundreds of providers.
+  List<String> getCrossSearchProviders() {
+    return (_settingsBox.get('cross_search_providers') as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        <String>[];
+  }
+
+  Future<void> setCrossSearchProviders(List<String> ids) async {
+    await _settingsBox.put('cross_search_providers', ids);
+  }
+
+  /// Followed serials (tracker), stored as a JSON list of maps.
+  List<Map<String, dynamic>> getFollowedRaw() {
+    final raw = _settingsBox.get('followed_titles');
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          return decoded
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      } catch (_) {}
+    }
+    return <Map<String, dynamic>>[];
+  }
+
+  Future<void> setFollowedRaw(List<Map<String, dynamic>> items) async {
+    await _settingsBox.put('followed_titles', jsonEncode(items));
   }
 
   String getOpenSubtitlesKey() {
@@ -137,13 +228,168 @@ class HiveService {
     await _settingsBox.put(AppConstants.preferredMediaLangKey, lang);
   }
 
-  bool get hasTelegramPromoSeen {
-    return _settingsBox.get(AppConstants.telegramPromoSeenKey, defaultValue: false) == true;
+  /// Playback engine chosen in Settings → Player. Distinct from
+  /// [getPreferredMediaLang], which picks a different *stream* (sub vs dub);
+  /// this picks the *decoder* that plays whatever stream was chosen.
+  String getPlayerEngine() {
+    return _settingsBox.get(
+      AppConstants.playerEngineKey,
+      defaultValue: AppConstants.defaultPlayerEngine,
+    );
   }
 
-  Future<void> markTelegramPromoSeen() async {
-    await _settingsBox.put(AppConstants.telegramPromoSeenKey, true);
+  Future<void> savePlayerEngine(String engineId) async {
+    await _settingsBox.put(AppConstants.playerEngineKey, engineId);
   }
+
+  /// Whether playback should stop and ask which engine to use.
+  ///
+  /// Defaults to false: the picker is a deliberate opt-in, so an install that
+  /// never touches Settings → Player behaves exactly as it did before.
+  bool get askEngineOnPlay {
+    return _settingsBox.get(
+          AppConstants.askEngineOnPlayKey,
+          defaultValue: false,
+        ) ==
+        true;
+  }
+
+  Future<void> setAskEngineOnPlay(bool value) async {
+    await _settingsBox.put(AppConstants.askEngineOnPlayKey, value);
+  }
+
+  // --- Playback defaults -----------------------------------------------
+  //
+  // Every default below seeds a control that already existed inside the
+  // player. Reads are clamped to the same ranges the in-player controls
+  // enforce, so a hand-edited or corrupted box can never push the player into
+  // a state its own UI could not produce.
+
+  double getDefaultPlaybackSpeed() {
+    final raw = _settingsBox.get(
+      AppConstants.defaultPlaybackSpeedKey,
+      defaultValue: 1.0,
+    );
+    final v = raw is num ? raw.toDouble() : 1.0;
+    return v.clamp(0.25, 4.0);
+  }
+
+  Future<void> saveDefaultPlaybackSpeed(double speed) async {
+    await _settingsBox.put(AppConstants.defaultPlaybackSpeedKey, speed);
+  }
+
+  /// Stored as the enum's stable name (`contain` / `cover` / `fill`), never its
+  /// index — reordering the enum must not silently repoint existing installs.
+  String getDefaultPlayerFit() {
+    return _settingsBox.get(
+      AppConstants.defaultPlayerFitKey,
+      defaultValue: 'contain',
+    );
+  }
+
+  Future<void> saveDefaultPlayerFit(String fit) async {
+    await _settingsBox.put(AppConstants.defaultPlayerFitKey, fit);
+  }
+
+  /// Defaults to true — auto-advance is what the player has always done, and
+  /// this key exists only so it can be turned *off*.
+  bool get autoPlayNextEpisode {
+    return _settingsBox.get(
+          AppConstants.autoPlayNextEpisodeKey,
+          defaultValue: true,
+        ) ==
+        true;
+  }
+
+  Future<void> setAutoPlayNextEpisode(bool value) async {
+    await _settingsBox.put(AppConstants.autoPlayNextEpisodeKey, value);
+  }
+
+  int getDoubleTapSeekSeconds() {
+    final raw = _settingsBox.get(
+      AppConstants.doubleTapSeekSecondsKey,
+      defaultValue: 10,
+    );
+    final v = raw is num ? raw.toInt() : 10;
+    return v.clamp(5, 60);
+  }
+
+  Future<void> saveDoubleTapSeekSeconds(int seconds) async {
+    await _settingsBox.put(AppConstants.doubleTapSeekSecondsKey, seconds);
+  }
+
+  double getLongPressBoost() {
+    final raw = _settingsBox.get(
+      AppConstants.longPressBoostKey,
+      defaultValue: 2.0,
+    );
+    final v = raw is num ? raw.toDouble() : 2.0;
+    return v.clamp(1.25, 4.0);
+  }
+
+  Future<void> saveLongPressBoost(double rate) async {
+    await _settingsBox.put(AppConstants.longPressBoostKey, rate);
+  }
+
+  bool get brightnessGestureEnabled {
+    return _settingsBox.get(
+          AppConstants.brightnessGestureKey,
+          defaultValue: true,
+        ) ==
+        true;
+  }
+
+  Future<void> setBrightnessGestureEnabled(bool value) async {
+    await _settingsBox.put(AppConstants.brightnessGestureKey, value);
+  }
+
+  bool get volumeGestureEnabled {
+    return _settingsBox.get(
+          AppConstants.volumeGestureKey,
+          defaultValue: true,
+        ) ==
+        true;
+  }
+
+  Future<void> setVolumeGestureEnabled(bool value) async {
+    await _settingsBox.put(AppConstants.volumeGestureKey, value);
+  }
+
+  bool get keepScreenOn {
+    return _settingsBox.get(
+          AppConstants.keepScreenOnKey,
+          defaultValue: true,
+        ) ==
+        true;
+  }
+
+  Future<void> setKeepScreenOn(bool value) async {
+    await _settingsBox.put(AppConstants.keepScreenOnKey, value);
+  }
+
+  /// In-memory mirror of [AppConstants.telegramPromoSeenKey].
+  ///
+  /// [setTelegramPromoSeen] is called fire-and-forget from the promo sheet, so
+  /// between the call and the Hive flush a second synchronous read would still
+  /// see `false` and let another sheet through. Writing the mirror before the
+  /// `await` closes that window.
+  bool? _telegramPromoSeen;
+
+  bool get hasTelegramPromoSeen {
+    return _telegramPromoSeen ??=
+        _settingsBox.get(
+              AppConstants.telegramPromoSeenKey,
+              defaultValue: false,
+            ) ==
+            true;
+  }
+
+  Future<void> setTelegramPromoSeen(bool value) async {
+    _telegramPromoSeen = value; // visible to the very next synchronous read
+    await _settingsBox.put(AppConstants.telegramPromoSeenKey, value);
+  }
+
+  Future<void> markTelegramPromoSeen() => setTelegramPromoSeen(true);
 
   bool get isAmoledMode {
     return _settingsBox.get(AppConstants.amoledModeKey, defaultValue: false) == true;
@@ -225,6 +471,26 @@ class HiveService {
   Future<void> setUseNativeTitleBar(bool value) =>
       _settingsBox.put('use_native_title_bar', value);
 
+  // Mobile bottom-nav style: 'solid' | 'glass' | 'classic' (default 'solid').
+  String get navStyle {
+    final v = _settingsBox.get('nav_style', defaultValue: 'solid');
+    return v is String ? v : 'solid';
+  }
+
+  Future<void> setNavStyle(String value) =>
+      _settingsBox.put('nav_style', value);
+
+  // Bottom-nav tab set + order (list of TabId.name). Absent ⇒ current shipped
+  // 5 tabs ⇒ existing users see an identical bar (back-compat).
+  List<String> get tabOrder {
+    final v = _settingsBox.get('tab_order');
+    if (v is List) return v.map((e) => e.toString()).toList();
+    return const ['home', 'search', 'shorts', 'myList', 'profile'];
+  }
+
+  Future<void> setTabOrder(List<String> ids) =>
+      _settingsBox.put('tab_order', ids);
+
 
   bool get hasSeenPrivateShowcase =>
       _settingsBox.get('private_showcase_seen', defaultValue: false) == true;
@@ -237,6 +503,22 @@ class HiveService {
 
   Future<void> setPrivateAlwaysAsk(bool value) async =>
       _settingsBox.put('private_always_ask', value);
+
+  /// Whether adult manga sources are shown. Off unless the user opts in, and
+  /// read by both the manga sources list and [ProviderBloc] — the picker builds
+  /// its manga entries from the same plugin list, so a source hidden in one
+  /// place has to be hidden in the other or the opt-out means nothing.
+  bool get showNsfwMangaSources {
+    return _settingsBox.get(
+          AppConstants.showNsfwMangaSourcesKey,
+          defaultValue: false,
+        ) ==
+        true;
+  }
+
+  Future<void> setShowNsfwMangaSources(bool enabled) async {
+    await _settingsBox.put(AppConstants.showNsfwMangaSourcesKey, enabled);
+  }
 
   String getReaderMode(String contentUrl) {
     return _settingsBox.get('reader_mode::$contentUrl', defaultValue: 'vertical');
@@ -275,5 +557,36 @@ class HiveService {
       AppConstants.subtitleStyleKey,
       style.toJsonString(),
     );
+  }
+
+  /// Subtitle sync is tuned per title+episode: a shift that fixes episode 1 is
+  /// usually wrong for episode 2, and it used to live in a bare ValueNotifier
+  /// that reset to zero every time the player opened.
+  int getSubtitleOffsetMs(String key) {
+    final raw = _settingsBox.get('sub_offset::$key');
+    return raw is int ? raw : 0;
+  }
+
+  Future<void> saveSubtitleOffsetMs(String key, int ms) async {
+    if (ms == 0) {
+      await _settingsBox.delete('sub_offset::$key');
+      return;
+    }
+    await _settingsBox.put('sub_offset::$key', ms);
+  }
+
+  /// Frame-rate conversion factor for the active subtitle (1.0 = off).
+  double getSubtitleRate(String key) {
+    final raw = _settingsBox.get('sub_rate::$key');
+    if (raw is num && raw > 0) return raw.toDouble();
+    return 1.0;
+  }
+
+  Future<void> saveSubtitleRate(String key, double rate) async {
+    if ((rate - 1.0).abs() < 0.00001) {
+      await _settingsBox.delete('sub_rate::$key');
+      return;
+    }
+    await _settingsBox.put('sub_rate::$key', rate);
   }
 }

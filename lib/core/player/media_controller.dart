@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart' as mk;
 import 'package:media_kit_video/media_kit_video.dart' as mkv;
-import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/player/player_engine.dart';
 import 'package:video_player/video_player.dart' as vp;
 
 export 'package:video_player/video_player.dart'
@@ -26,7 +27,12 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     vp.VideoFormat? formatHint,
     vp.VideoPlayerOptions? videoPlayerOptions,
   }) {
-    if (isDesktopPlatform) {
+    // media_kit on desktop unconditionally (no native backend there); on
+    // Android only when the user asked for it. PlayerEngine.external never
+    // reaches here — the player page hands off before building a controller —
+    // but if it somehow does, falling through to the native backend is the
+    // safe answer, not a crash.
+    if (_useMediaKit()) {
       return _MediaKitController(_MediaKitSource.uri(url, httpHeaders));
     }
     return _NativeController(
@@ -43,7 +49,7 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     File file, {
     vp.VideoPlayerOptions? videoPlayerOptions,
   }) {
-    if (isDesktopPlatform) {
+    if (_useMediaKit()) {
       return _MediaKitController(_MediaKitSource.path(file.path));
     }
     return _NativeController(
@@ -64,10 +70,175 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
 
   bool get letterboxesInternally;
 
+  /// Whether this backend can enumerate and switch audio tracks at all.
+  ///
+  /// False for `video_player`: ExoPlayer has track selection internally but the
+  /// plugin exposes no API for it, so the UI must hide or disable the control
+  /// rather than offer one that silently does nothing.
+  bool get supportsAudioTracks => false;
+
+  /// Selectable audio tracks, empty when unsupported or when the media has a
+  /// single track. Only meaningful after [initialize] has completed.
+  List<PlayerAudioTrack> get audioTracks => const <PlayerAudioTrack>[];
+
+  /// [PlayerAudioTrack.id] of the track currently being decoded, if known.
+  String? get activeAudioTrackId => null;
+
+  /// No-op on backends where [supportsAudioTracks] is false.
+  Future<void> setAudioTrack(String id) async {}
+
   Widget buildView({BoxFit fit = BoxFit.contain});
 
   @override
   Future<void> dispose();
+}
+
+/// Native-language names for the codes that actually turn up in stream
+/// metadata, keyed by both ISO 639-1 and 639-2 because muxers disagree about
+/// which to write. Native rather than English on purpose: this list is how a
+/// user picks a dub, and someone hunting for the Russian track scans for
+/// "Русский", not "Russian".
+///
+/// A code that is missing here falls back to its own uppercase form, which is
+/// still strictly better than the raw mpv track id.
+const Map<String, String> _languageNames = <String, String>{
+  'en': 'English', 'eng': 'English',
+  'ru': 'Русский', 'rus': 'Русский',
+  'uz': 'O\'zbekcha', 'uzb': 'O\'zbekcha',
+  'tr': 'Türkçe', 'tur': 'Türkçe',
+  'es': 'Español', 'spa': 'Español',
+  'fr': 'Français', 'fra': 'Français', 'fre': 'Français',
+  'de': 'Deutsch', 'deu': 'Deutsch', 'ger': 'Deutsch',
+  'it': 'Italiano', 'ita': 'Italiano',
+  'pt': 'Português', 'por': 'Português',
+  'ja': '日本語', 'jpn': '日本語',
+  'ko': '한국어', 'kor': '한국어',
+  'zh': '中文', 'zho': '中文', 'chi': '中文',
+  'hi': 'हिन्दी', 'hin': 'हिन्दी',
+  'ar': 'العربية', 'ara': 'العربية',
+  'fa': 'فارسی', 'fas': 'فارسی', 'per': 'فارسی',
+  'he': 'עברית', 'heb': 'עברית',
+  'th': 'ไทย', 'tha': 'ไทย',
+  'vi': 'Tiếng Việt', 'vie': 'Tiếng Việt',
+  'id': 'Bahasa Indonesia', 'ind': 'Bahasa Indonesia',
+  'ms': 'Bahasa Melayu', 'msa': 'Bahasa Melayu', 'may': 'Bahasa Melayu',
+  'pl': 'Polski', 'pol': 'Polski',
+  'nl': 'Nederlands', 'nld': 'Nederlands', 'dut': 'Nederlands',
+  'sv': 'Svenska', 'swe': 'Svenska',
+  'no': 'Norsk', 'nor': 'Norsk',
+  'da': 'Dansk', 'dan': 'Dansk',
+  'fi': 'Suomi', 'fin': 'Suomi',
+  'cs': 'Čeština', 'ces': 'Čeština', 'cze': 'Čeština',
+  'sk': 'Slovenčina', 'slk': 'Slovenčina', 'slo': 'Slovenčina',
+  'uk': 'Українська', 'ukr': 'Українська',
+  'ro': 'Română', 'ron': 'Română', 'rum': 'Română',
+  'hu': 'Magyar', 'hun': 'Magyar',
+  'el': 'Ελληνικά', 'ell': 'Ελληνικά', 'gre': 'Ελληνικά',
+  'bg': 'Български', 'bul': 'Български',
+  'sr': 'Српски', 'srp': 'Српски',
+  'hr': 'Hrvatski', 'hrv': 'Hrvatski',
+  'kk': 'Қазақша', 'kaz': 'Қазақша',
+  'ky': 'Кыргызча', 'kir': 'Кыргызча',
+  'tg': 'Тоҷикӣ', 'tgk': 'Тоҷикӣ',
+  'tk': 'Türkmençe', 'tuk': 'Türkmençe',
+  'az': 'Azərbaycan', 'aze': 'Azərbaycan',
+  'bn': 'বাংলা', 'ben': 'বাংলা',
+  'ta': 'தமிழ்', 'tam': 'தமிழ்',
+  'te': 'తెలుగు', 'tel': 'తెలుగు',
+};
+
+/// One selectable audio track, flattened out of whatever the backend calls it.
+class PlayerAudioTrack {
+  const PlayerAudioTrack({
+    required this.id,
+    required this.title,
+    required this.language,
+    this.ordinal = 1,
+  });
+
+  /// Backend-specific handle passed straight back to [setAudioTrack].
+  final String id;
+  final String? title;
+  final String? language;
+
+  /// 1-based position in the track list. Only used to build a label when the
+  /// stream carries no usable metadata at all — several providers (vidapi
+  /// among them) mux HLS audio renditions with neither NAME nor LANGUAGE, and
+  /// mpv then reports nothing but the numeric track id.
+  final int ordinal;
+
+  /// True when the container actually told us something about this track.
+  /// False means [label] is a positional guess, and the UI should say
+  /// "Audio 1" in the user's language rather than pretend it knows more.
+  bool get hasMetadata {
+    final t = title?.trim();
+    final l = language?.trim();
+    return (t != null && t.isNotEmpty) || (l != null && l.isNotEmpty);
+  }
+
+  /// Resolved native language name, e.g. `rus` → `Русский`. Null when the
+  /// track carries no language code.
+  String? get languageName {
+    final l = language?.trim().toLowerCase();
+    if (l == null || l.isEmpty) return null;
+    // Strip region/variant suffixes: `pt-BR`, `en_US`, `rus (dub)` → base code.
+    final base = l.split(RegExp(r'[-_ ]')).first;
+    return _languageNames[base] ?? base.toUpperCase();
+  }
+
+  /// Human-readable label, best-effort: mpv fills `title` and `language`
+  /// inconsistently depending on the container, so fall back through both
+  /// before giving up and using the position.
+  ///
+  /// Deliberately never returns the bare [id] — a sheet listing "1" and "2" is
+  /// indistinguishable from a bug.
+  String get label {
+    final t = title?.trim();
+    final lang = languageName;
+    if (t != null && t.isNotEmpty && lang != null) {
+      // Don't repeat "Русский (Русский)" when the muxer wrote the language
+      // into the title as well.
+      if (t.toLowerCase() == lang.toLowerCase()) return t;
+      return '$t ($lang)';
+    }
+    if (t != null && t.isNotEmpty) return t;
+    if (lang != null) return lang;
+    return 'Audio $ordinal';
+  }
+}
+
+/// Whether a controller built right now should use the libmpv backend.
+bool _useMediaKit() => resolvePlayerEngine() == PlayerEngine.mediaKit;
+
+/// media_kit needs its native side initialised exactly once before the first
+/// [mk.Player]. `main()` does this eagerly on desktop; on Android the engine is
+/// opt-in, so it is done by [warmUpPlayerEngine] at startup when the user has
+/// actually selected media_kit, and lazily by the first controller otherwise.
+bool _mediaKitReady = false;
+
+void _ensureMediaKitInitialized() {
+  if (_mediaKitReady) return;
+  _mediaKitReady = true;
+  mk.MediaKit.ensureInitialized();
+}
+
+/// Loads libmpv ahead of the first playback, but only when media_kit is the
+/// selected engine.
+///
+/// `MediaKit.ensureInitialized()` is synchronous and pulls a large native
+/// library onto the platform thread. Left to the lazy path in
+/// [_MediaKitController]'s constructor it runs while the player page is opening
+/// — the user taps play and the UI locks up for the load. Doing it at startup
+/// moves that cost to a moment where nothing is waiting on it.
+///
+/// Deliberately conditional: a user on the default engine never pays the memory
+/// or load cost of a backend they are not using. Someone who switches to
+/// media_kit mid-session still gets the lazy path once, which is why
+/// [_ensureMediaKitInitialized] stays where it is.
+Future<void> warmUpPlayerEngine() async {
+  if (kIsWeb) return;
+  if (!_useMediaKit()) return;
+  _ensureMediaKitInitialized();
 }
 
 
@@ -134,12 +305,18 @@ class _MediaKitSource {
 
 class _MediaKitController extends PlayerController {
   _MediaKitController(this._src) {
+    // Must precede the first Player(): a field initializer would run before
+    // this body, so _player is deliberately late.
+    _ensureMediaKitInitialized();
+    _player = mk.Player();
     _videoController = mkv.VideoController(_player);
   }
 
   final _MediaKitSource _src;
-  final mk.Player _player = mk.Player();
+  late final mk.Player _player;
   late final mkv.VideoController _videoController;
+  List<PlayerAudioTrack> _audioTracks = const <PlayerAudioTrack>[];
+  String? _activeAudioTrackId;
   final List<StreamSubscription<dynamic>> _subs = <StreamSubscription<dynamic>>[];
   bool _disposed = false;
   String? _error;
@@ -182,10 +359,35 @@ class _MediaKitController extends PlayerController {
           .listen((c) => _emit(value.copyWith(isCompleted: c))))
       ..add(_player.stream.width.listen((_) => _emitSize()))
       ..add(_player.stream.height.listen((_) => _emitSize()))
+      ..add(_player.stream.tracks.listen((t) => _syncAudioTracks(t.audio)))
+      ..add(_player.stream.track.listen((t) {
+        _activeAudioTrackId = t.audio.id;
+      }))
       ..add(_player.stream.error.listen((e) {
         _error = e;
         _emit(value.copyWith(errorDescription: e));
       }));
+  }
+
+  /// mpv always reports a `no` (disabled) and an `auto` pseudo-track. Neither is
+  /// a real choice for "which dub am I listening to", so drop them and only
+  /// surface the control when a genuine alternative exists.
+  void _syncAudioTracks(List<mk.AudioTrack> tracks) {
+    final filtered =
+        tracks.where((t) => t.id != 'no' && t.id != 'auto').toList();
+    final real = <PlayerAudioTrack>[
+      for (var i = 0; i < filtered.length; i++)
+        PlayerAudioTrack(
+          id: filtered[i].id,
+          title: filtered[i].title,
+          language: filtered[i].language,
+          ordinal: i + 1,
+        ),
+    ];
+    if (real.length == _audioTracks.length) return;
+    _audioTracks = real;
+    // Nudge listeners so a sheet already on screen picks the new list up.
+    _emit(value.copyWith());
   }
 
   void _emitSize() {
@@ -259,6 +461,27 @@ class _MediaKitController extends PlayerController {
 
   @override
   bool get letterboxesInternally => true;
+
+  @override
+  bool get supportsAudioTracks => true;
+
+  @override
+  List<PlayerAudioTrack> get audioTracks => _audioTracks;
+
+  @override
+  String? get activeAudioTrackId =>
+      _activeAudioTrackId ?? _player.state.track.audio.id;
+
+  @override
+  Future<void> setAudioTrack(String id) async {
+    final match = _player.state.tracks.audio
+        .where((t) => t.id == id)
+        .cast<mk.AudioTrack?>()
+        .firstWhere((_) => true, orElse: () => null);
+    if (match == null) return;
+    await _player.setAudioTrack(match);
+    _activeAudioTrackId = id;
+  }
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) => mkv.Video(

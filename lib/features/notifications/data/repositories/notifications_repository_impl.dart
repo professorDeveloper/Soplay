@@ -49,8 +49,8 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
     try {
       return Success(await task());
     } on DioException catch (e) {
-      final raw = (e.response?.data as Map<String, dynamic>?)?['message']
-              as String? ??
+      final data = e.response?.data;
+      final raw = (data is Map ? data['message'] : null)?.toString() ??
           e.message ??
           'Xatolik yuz berdi';
       return Failure(Exception(raw));

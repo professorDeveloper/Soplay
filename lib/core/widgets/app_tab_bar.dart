@@ -1,0 +1,185 @@
+import 'package:flutter/material.dart';
+import 'package:soplay/core/theme/app_colors.dart';
+
+/// Canonical tab strip. Styling lifted verbatim from the detail page's
+/// tab bar so every feature reads the same.
+///
+/// Dual-mode: pass a [controller] to drive it yourself (detail keeps its own
+/// controller for swipe paging), or leave it null and the widget builds an
+/// internal one seeded from [selectedIndex].
+class AppTabBar extends StatefulWidget implements PreferredSizeWidget {
+  const AppTabBar({
+    super.key,
+    required this.labels,
+    this.selectedIndex,
+    this.onChanged,
+    this.controller,
+    this.isScrollable = true,
+    this.showDivider = true,
+    this.background = AppColors.background,
+    this.padding = const EdgeInsets.only(left: 8),
+  });
+
+  final List<String> labels;
+  final int? selectedIndex;
+  final ValueChanged<int>? onChanged;
+  final TabController? controller;
+  final bool isScrollable;
+  final bool showDivider;
+  final Color background;
+  final EdgeInsets padding;
+
+  static const double _dividerHeight = 0.5;
+
+  /// TabBar.preferredSize is `_kTabHeight (46) + indicatorWeight`, not
+  /// kTextTabBarHeight (48) — using the latter compresses the indicator strip
+  /// by 0.5px and shifts every sliver below a pinned header. Keep in sync with
+  /// the [_indicatorWeight] passed to the TabBar below.
+  static const double _indicatorWeight = 2.5;
+  static const double _stripHeight = 46.0 + _indicatorWeight;
+
+  @override
+  Size get preferredSize => Size.fromHeight(
+    _stripHeight + padding.vertical + (showDivider ? _dividerHeight : 0),
+  );
+
+  @override
+  State<AppTabBar> createState() => _AppTabBarState();
+}
+
+class _AppTabBarState extends State<AppTabBar>
+    with SingleTickerProviderStateMixin {
+  TabController? _internal;
+
+  TabController get _c => widget.controller ?? _internal!;
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureInternal();
+    _c.addListener(_onTabChanged);
+  }
+
+  @override
+  void didUpdateWidget(AppTabBar old) {
+    super.didUpdateWidget(old);
+    // Detach before _ensureInternal, which may dispose the old controller.
+    _c.removeListener(_onTabChanged);
+    _ensureInternal();
+    _c.addListener(_onTabChanged);
+    if (widget.controller == null &&
+        widget.selectedIndex != null &&
+        widget.selectedIndex != _c.index) {
+      _c.index = widget.selectedIndex!;
+    }
+  }
+
+  /// Builds (or rebuilds) the internal controller. A length change needs a
+  /// fresh controller — TabController's length is final.
+  void _ensureInternal() {
+    if (widget.controller != null) {
+      _internal?.dispose();
+      _internal = null;
+      return;
+    }
+    if (_internal != null && _internal!.length == widget.labels.length) return;
+    final index = (widget.selectedIndex ?? _internal?.index ?? 0)
+        .clamp(0, widget.labels.length - 1);
+    _internal?.dispose();
+    _internal = TabController(
+      length: widget.labels.length,
+      initialIndex: index,
+      vsync: this,
+    );
+  }
+
+  /// `indexIsChanging` alone is the correct guard. Adding
+  /// `index != previousIndex` double-dispatches: previousIndex still holds the
+  /// old value once the animation settles, so both clauses fire.
+  void _onTabChanged() {
+    if (!_c.indexIsChanging) widget.onChanged?.call(_c.index);
+  }
+
+  @override
+  void dispose() {
+    _c.removeListener(_onTabChanged);
+    _internal?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: widget.background,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: AppTabBar._stripHeight + widget.padding.vertical,
+            child: Padding(
+              padding: widget.padding,
+              child: TabBar(
+                controller: _c,
+                isScrollable: widget.isScrollable,
+                // TabAlignment.start asserts under isScrollable: false.
+                tabAlignment: widget.isScrollable
+                    ? TabAlignment.start
+                    : TabAlignment.fill,
+                indicatorColor: AppColors.primary,
+                indicatorWeight: AppTabBar._indicatorWeight,
+                indicatorSize: TabBarIndicatorSize.label,
+                labelColor: AppColors.textPrimary,
+                unselectedLabelColor: AppColors.textHint,
+                dividerColor: Colors.transparent,
+                overlayColor: WidgetStateProperty.all(Colors.transparent),
+                labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: EdgeInsets.zero,
+                labelStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+                tabs: widget.labels.map((l) => Tab(text: l)).toList(),
+              ),
+            ),
+          ),
+          if (widget.showDivider)
+            Container(
+              height: AppTabBar._dividerHeight,
+              color: AppColors.divider,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pins an [AppTabBar] (or any [PreferredSizeWidget]) inside a CustomScrollView.
+class AppTabBarHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const AppTabBarHeaderDelegate(this.child);
+
+  final PreferredSizeWidget child;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) =>
+      SizedBox(height: child.preferredSize.height, child: child);
+
+  @override
+  double get maxExtent => child.preferredSize.height;
+
+  @override
+  double get minExtent => child.preferredSize.height;
+
+  /// `||` is required. With `&&` and a constant extent this is permanently
+  /// false, the pinned header never rebuilds, and labels go stale on locale
+  /// switch.
+  @override
+  bool shouldRebuild(AppTabBarHeaderDelegate old) =>
+      child != old.child ||
+      child.preferredSize != old.child.preferredSize;
+}

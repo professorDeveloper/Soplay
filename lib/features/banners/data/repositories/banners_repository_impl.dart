@@ -14,8 +14,8 @@ class BannersRepositoryImpl implements BannersRepository {
       final items = await dataSource.list(placement);
       return Success(items);
     } on DioException catch (e) {
-      final raw = (e.response?.data as Map<String, dynamic>?)?['message']
-              as String? ??
+      final data = e.response?.data;
+      final raw = (data is Map ? data['message'] : null)?.toString() ??
           e.message ??
           'Xatolik yuz berdi';
       return Failure(Exception(raw));

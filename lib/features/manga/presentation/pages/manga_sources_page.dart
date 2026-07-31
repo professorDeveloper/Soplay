@@ -4,7 +4,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_source_settings_page.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
@@ -36,6 +38,8 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
           'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json',
     },
   ];
+
+  late final HiveService _hive = getIt<HiveService>();
 
   final _controller = TextEditingController();
   List<Map<String, String>> _repos = const [];
@@ -105,6 +109,24 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
     } catch (_) {}
   }
 
+  /// Installed sources minus the adult ones while the opt-in is off.
+  List<Map<String, dynamic>> get _visibleSources => _hive.showNsfwMangaSources
+      ? _sources
+      : _sources.where((s) => s['nsfw'] != true).toList();
+
+  Future<void> _setShowNsfw(bool value) async {
+    await _hive.setShowNsfwMangaSources(value);
+    if (!mounted) return;
+    setState(() {});
+    // The provider picker builds its manga entries from the same plugin list,
+    // so it has to be rebuilt too. Reloading also settles the awkward case of
+    // switching the setting off while an 18+ source is the active provider:
+    // ProviderBloc drops it from the list and its resolver moves the selection
+    // to a visible provider and persists it, rather than leaving the app
+    // pointed at a source the user just asked to stop seeing.
+    _reloadProviders();
+  }
+
   Future<void> _add() => _install(_controller.text.trim());
 
   Future<void> _install(String input) async {
@@ -165,6 +187,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
         ),
       );
     }
+    final visibleSources = _visibleSources;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -187,6 +210,8 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
           const SizedBox(height: 24),
           _recommendedSection(),
           const SizedBox(height: 24),
+          _nsfwCard(),
+          const SizedBox(height: 24),
           Row(
             children: [
               Text('manga.installed_sources'.tr(),
@@ -200,7 +225,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
           ),
           const SizedBox(height: 8),
           if (_repos.isEmpty) _empty() else ..._repos.map(_repoTile),
-          if (_sources.isNotEmpty) ...[
+          if (visibleSources.isNotEmpty) ...[
             const SizedBox(height: 24),
             Row(
               children: [
@@ -212,12 +237,57 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
               ],
             ),
             const SizedBox(height: 8),
-            ..._sources.map(_sourceTile),
+            ...visibleSources.map(_sourceTile),
           ],
         ],
       ),
     );
   }
+
+  Widget _nsfwCard() => Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border, width: 0.6),
+        ),
+        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text('manga.show_nsfw'.tr(),
+                            style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                      const SizedBox(width: 6),
+                      const _NsfwChip(),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text('manga.show_nsfw_hint'.tr(),
+                      style: const TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 12,
+                          height: 1.35)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Switch.adaptive(
+              value: _hive.showNsfwMangaSources,
+              activeThumbColor: _accent,
+              onChanged: _setShowNsfw,
+            ),
+          ],
+        ),
+      );
 
   Widget _sourceTile(Map<String, dynamic> source) {
     final name = (source['name'] as String?) ?? '';
@@ -244,19 +314,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
               ),
               if (nsfw) ...[
                 const SizedBox(width: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE53935).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text('18+',
-                      style: TextStyle(
-                          color: Color(0xFFE53935),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700)),
-                ),
+                const _NsfwChip(),
               ],
             ],
           ),
@@ -550,6 +608,26 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
       ),
     );
   }
+}
+
+/// The only signal that a source is adult, so it stays on every source tile
+/// even when the user has opted in to seeing them.
+class _NsfwChip extends StatelessWidget {
+  const _NsfwChip();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE53935).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Text('18+',
+            style: TextStyle(
+                color: Color(0xFFE53935),
+                fontSize: 9,
+                fontWeight: FontWeight.w700)),
+      );
 }
 
 class _InstalledChip extends StatelessWidget {

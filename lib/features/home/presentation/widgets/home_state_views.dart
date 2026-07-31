@@ -9,7 +9,6 @@ import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/home/presentation/widgets/home_banner.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
-import 'package:soplay/features/home/presentation/widgets/home_top_bar.dart';
 
 class HomeSkeleton extends StatelessWidget {
   const HomeSkeleton({super.key});
@@ -18,85 +17,78 @@ class HomeSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
 
+    // No top bar here — HomePage mounts it once above this subtree, so the
+    // Loading -> Loaded flip never re-mounts it (and never re-fires the
+    // notifications indicator's unread-count fetch).
     return ShimmerWrapper(
-      child: Stack(
-        children: [
-          CustomScrollView(
-            physics: const NeverScrollableScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(child: HomeBannerSkeleton(topPadding: topPad)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const HomeSkeletonBox(width: 80, height: 15, radius: 4),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 72,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: EdgeInsets.zero,
-                          itemCount: 6,
-                          itemBuilder: (_, _) => const Padding(
-                            padding: EdgeInsets.only(right: 8),
-                            child: HomeSkeletonBox(
-                              width: 110,
-                              height: 72,
-                              radius: 10,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              for (int i = 0; i < 3; i++) ...[
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
-                    child: Row(
-                      children: [
-                        HomeSkeletonBox(
-                          width: 100 + (i * 24).toDouble(),
-                          height: 15,
-                          radius: 4,
-                        ),
-                        const Spacer(),
-                        const HomeSkeletonBox(width: 18, height: 15, radius: 4),
-                      ],
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 195,
+      child: CustomScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(child: HomeBannerSkeleton(topPadding: topPad)),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const HomeSkeletonBox(width: 80, height: 15, radius: 4),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 72,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: EdgeInsets.zero,
                       itemCount: 6,
                       itemBuilder: (_, _) => const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4),
-                        child: _SkeletonCard(),
+                        padding: EdgeInsets.only(right: 8),
+                        child: HomeSkeletonBox(
+                          width: 110,
+                          height: 72,
+                          radius: 10,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: MediaQuery.paddingOf(context).bottom + 16,
+                ],
+              ),
+            ),
+          ),
+          for (int i = 0; i < 3; i++) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+                child: Row(
+                  children: [
+                    HomeSkeletonBox(
+                      width: 100 + (i * 24).toDouble(),
+                      height: 15,
+                      radius: 4,
+                    ),
+                    const Spacer(),
+                    const HomeSkeletonBox(width: 18, height: 15, radius: 4),
+                  ],
                 ),
               ),
-            ],
-          ),
-          const Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: HomeTopBar(blurProgress: 0),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 195,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: 6,
+                  itemBuilder: (_, _) => const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4),
+                    child: _SkeletonCard(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: MediaQuery.paddingOf(context).bottom + 16,
+            ),
           ),
         ],
       ),
@@ -192,6 +184,28 @@ class HomeErrorView extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
+            // The actual reason, when there is one and it isn't the Cloudflare
+            // case (which already has its own button and explanation).
+            //
+            // Native extension failures arrive here as real diagnostics —
+            // "AbstractMethodError", "NoClassDefFoundError: <symbol>",
+            // "source unavailable" — and every one of them used to be dropped in
+            // favour of a generic "network error". That made an extension
+            // problem indistinguishable from being offline, for us as much as
+            // for the user. Selectable so it can be copied into a bug report.
+            if (!showCloudflare && (message?.trim().isNotEmpty ?? false)) ...[
+              const SizedBox(height: 10),
+              SelectableText(
+                message!.trim(),
+                maxLines: 4,
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
             const SizedBox(height: 24),
             SizedBox(
               width: 156,

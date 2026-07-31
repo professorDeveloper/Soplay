@@ -20,6 +20,12 @@ class AppColors {
   static const Color error         = Color(0xFFE50914);
   static const Color success       = Color(0xFF46D369);
   static const Color rating        = Color(0xFFFFD700);
+
+  // Podium medals. Gold points at the existing rating gold on purpose.
+  static const Color medalGold     = rating;
+  static const Color medalSilver   = Color(0xFFC0C0C0);
+  static const Color medalBronze   = Color(0xFFCD7F32);
+
   static const Color overlay       = Color(0x99000000);
   static const Color gradientTransparent = Color(0x00000000);
   static const Color gradientBlack = Color(0xFF000000);

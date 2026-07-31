@@ -11,24 +11,30 @@ class BannersCarousel extends StatelessWidget {
   const BannersCarousel({
     super.key,
     required this.placement,
-    this.height = 140,
+    this.height = 150,
+    this.padding = const EdgeInsets.symmetric(vertical: 10),
   });
 
   final String placement;
   final double height;
 
+  /// Applied only when the carousel actually has banners — an empty placement
+  /// collapses to `SizedBox.shrink()` with no leftover gap in the feed.
+  final EdgeInsets padding;
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => getIt<BannersBloc>()..add(BannersLoad(placement)),
-      child: _CarouselView(height: height),
+      child: _CarouselView(height: height, padding: padding),
     );
   }
 }
 
 class _CarouselView extends StatefulWidget {
-  const _CarouselView({required this.height});
+  const _CarouselView({required this.height, required this.padding});
   final double height;
+  final EdgeInsets padding;
 
   @override
   State<_CarouselView> createState() => _CarouselViewState();
@@ -69,25 +75,28 @@ class _CarouselViewState extends State<_CarouselView> {
         if (state.items.isEmpty) {
           return const SizedBox.shrink();
         }
-        return SizedBox(
-          height: widget.height,
-          child: PageView.builder(
-            controller: _controller,
-            itemCount: state.items.length,
-            onPageChanged: (index) {
-              _trackView(context, state.items[index]);
-            },
-            itemBuilder: (context, index) {
-              final item = state.items[index];
-              if (index == 0) _trackView(context, item);
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: _BannerCard(
-                  item: item,
-                  onTap: () => _onTap(context, item),
-                ),
-              );
-            },
+        return Padding(
+          padding: widget.padding,
+          child: SizedBox(
+            height: widget.height,
+            child: PageView.builder(
+              controller: _controller,
+              itemCount: state.items.length,
+              onPageChanged: (index) {
+                _trackView(context, state.items[index]);
+              },
+              itemBuilder: (context, index) {
+                final item = state.items[index];
+                if (index == 0) _trackView(context, item);
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: _BannerCard(
+                    item: item,
+                    onTap: () => _onTap(context, item),
+                  ),
+                );
+              },
+            ),
           ),
         );
       },

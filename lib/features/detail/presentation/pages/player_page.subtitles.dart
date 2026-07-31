@@ -2,38 +2,82 @@
 part of 'player_page.dart';
 
 extension _PlayerSubtitles on _PlayerPageState {
-  Future<void> _loadSubtitle(int index) async {
+  /// Loads a track and reports whether it actually produced cues.
+  ///
+  /// Returns false — and leaves [_activeSubtitleIndex] on whatever was selected
+  /// before — for a non-2xx response, an empty body, a parse failure, or a file
+  /// that parses to zero cues. The old version returned void, swallowed every
+  /// error, and marked the track active *before* the download started, so the
+  /// sheet showed a ticked track and unlocked the sync control for a subtitle
+  /// that had never loaded.
+  Future<bool> _loadSubtitle(int index, {String declaredFormat = ''}) async {
     if (index < 0 || index >= _subtitles.length) {
       setState(() {
         _activeSubtitleIndex = -1;
         _captionFile = null;
       });
-      return;
+      return false;
     }
-    setState(() => _activeSubtitleIndex = index);
     final sub = _subtitles[index];
+    SubtitleParseResult result;
     try {
-      final response = await Dio().get<String>(
+      // ResponseType.bytes: Dio's string transformer always runs
+      // utf8.decode(..., allowMalformed: true) and ignores the declared
+      // charset, which destroys every cp1251/latin1 subtitle.
+      final response = await Dio().get<List<int>>(
         sub.file,
         options: Options(
-          responseType: ResponseType.plain,
+          responseType: ResponseType.bytes,
           headers: sub.headers.isEmpty ? null : sub.headers,
+          validateStatus: (s) => s != null && s < 500,
         ),
       );
-      if (!mounted) return;
-      final body = response.data;
-      if (body != null && body.isNotEmpty) {
-        final isVtt =
-            sub.file.toLowerCase().endsWith('.vtt') ||
-            body.trimLeft().startsWith('WEBVTT');
-        setState(() {
-          _captionFile = isVtt
-              ? WebVTTCaptionFile(body)
-              : SubRipCaptionFile(body);
-        });
+      if (!mounted) return false;
+      final status = response.statusCode ?? 0;
+      if (status < 200 || status >= 300) {
+        _plog('subtitle http $status for ${sub.file}', level: LogLevel.warn);
+        _toast('player.subtitle_failed_download'.tr());
+        return false;
       }
+      result = parseSubtitleBytes(
+        response.data ?? const <int>[],
+        url: sub.file,
+        declaredFormat: declaredFormat,
+      );
     } catch (e) {
       _plog('subtitle load error: $e', level: LogLevel.warn);
+      if (!mounted) return false;
+      _toast('player.subtitle_failed_download'.tr());
+      return false;
+    }
+
+    if (!mounted) return false;
+    if (!result.isSuccess) {
+      _plog('subtitle parse failed: ${result.failure}', level: LogLevel.warn);
+      _toast(_subtitleFailureMessage(result.failure));
+      return false;
+    }
+
+    _plog('subtitle loaded: ${result.captions.length} cues from ${sub.label}');
+    setState(() {
+      _activeSubtitleIndex = index;
+      _captionFile = result.captions;
+    });
+    return true;
+  }
+
+  String _subtitleFailureMessage(SubtitleParseFailure? failure) {
+    switch (failure) {
+      case SubtitleParseFailure.archive:
+        return 'player.subtitle_failed_archive'.tr();
+      case SubtitleParseFailure.html:
+        return 'player.subtitle_failed_html'.tr();
+      case SubtitleParseFailure.unsupportedFormat:
+        return 'player.subtitle_failed_format'.tr();
+      case SubtitleParseFailure.empty:
+      case SubtitleParseFailure.noCues:
+      case null:
+        return 'player.subtitle_failed_empty'.tr();
     }
   }
 
@@ -115,9 +159,16 @@ extension _PlayerSubtitles on _PlayerPageState {
                     style: const TextStyle(color: Colors.white, fontSize: 14)),
                 subtitle: Text('player.subtitle_sync_desc'.tr(),
                     style: const TextStyle(color: Colors.white38, fontSize: 11)),
-                trailing: _subtitleOffsetMs.value == 0
+                trailing: (_subtitleOffsetMs.value == 0 &&
+                        _subtitleRate.value == 1.0)
                     ? null
-                    : Text(_fmtSubtitleOffset(_subtitleOffsetMs.value),
+                    : Text(
+                        [
+                          if (_subtitleOffsetMs.value != 0)
+                            _fmtSubtitleOffset(_subtitleOffsetMs.value),
+                          if (_subtitleRate.value != 1.0)
+                            _fmtSubtitleRate(_subtitleRate.value),
+                        ].join(' · '),
                         style: const TextStyle(
                             color: Colors.white54, fontSize: 12)),
                 onTap: () {
@@ -191,8 +242,40 @@ extension _PlayerSubtitles on _PlayerPageState {
 
   int? _currentEpisodeNumber() {
     if (!widget.args.isSerial) return null;
-    final m = RegExp(r'(\d+)').firstMatch(_episodeTitle());
-    return m != null ? int.tryParse(m.group(1)!) : null;
+    // Read the episode number from the entity — parsing the '<title> · <label>'
+    // string picked up a digit in the TITLE (e.g. '3 Body Problem') instead of
+    // the episode, querying the wrong episode's subtitles.
+    if (_episodeIndex < 0 || _episodeIndex >= widget.args.episodes.length) {
+      return null;
+    }
+    return widget.args.episodes[_episodeIndex].episode;
+  }
+
+  /// Season markers the providers put in episode labels / titles. The app has no
+  /// season field of its own, and searching without a season returns e.g. S03E05
+  /// subtitles while S01E05 is playing — a large constant desync.
+  static final RegExp _seasonPattern = RegExp(
+    r'(?:\bs\s*(\d{1,2})\s*[.\-_ ]?\s*e\s*\d{1,3}\b)'
+    r'|(?:\b(?:season|сезон|сезона|fasl|mavsum)\s*[:.\-]?\s*(\d{1,2})\b)'
+    r'|(?:\b(\d{1,2})\s*[-\s]?\s*(?:fasl|mavsum|сезон)\b)',
+    caseSensitive: false,
+  );
+
+  int? _currentSeasonNumber() {
+    if (!widget.args.isSerial) return null;
+    final label = (_episodeIndex >= 0 &&
+            _episodeIndex < widget.args.episodes.length)
+        ? widget.args.episodes[_episodeIndex].label
+        : '';
+    for (final source in [label, widget.args.title]) {
+      if (source.isEmpty) continue;
+      final m = _seasonPattern.firstMatch(source);
+      if (m == null) continue;
+      final raw = m.group(1) ?? m.group(2) ?? m.group(3);
+      final n = int.tryParse(raw ?? '');
+      if (n != null && n > 0) return n;
+    }
+    return null;
   }
 
   String _wyzieKey() {
@@ -245,6 +328,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                   wyzieKey: wyzieKey,
                   title: q,
                   isSerial: widget.args.isSerial,
+                  season: _currentSeasonNumber(),
                   episode: _currentEpisodeNumber(),
                 );
                 if (!ctx.mounted) return;
@@ -267,6 +351,22 @@ extension _PlayerSubtitles on _PlayerPageState {
               WidgetsBinding.instance
                   .addPostFrameCallback((_) => runSearch());
             }
+
+            // The sheet is mainAxisSize.min inside a full-height modal, so a
+            // fixed 360px result list overflowed by 56px in landscape on a
+            // 2340x1080 phone (411 logical px tall). Budget: header row 44 +
+            // search field 60 + the 8/8 gaps = 120 of chrome, so the list gets
+            // whatever is left of the viewport after the keyboard and the
+            // system insets — 411 - 0 - 24 - 120 = 267 in landscape, and still
+            // the full 360 in portrait (891 - 120 = 771, clamped).
+            final mq = MediaQuery.of(ctx);
+            const chromeHeight = 120.0;
+            final listMaxHeight = (mq.size.height -
+                    mq.viewInsets.bottom -
+                    mq.padding.top -
+                    mq.padding.bottom -
+                    chromeHeight)
+                .clamp(120.0, 360.0);
 
             return SafeArea(
               child: Padding(
@@ -330,7 +430,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                     ),
                     const SizedBox(height: 8),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 360),
+                      constraints: BoxConstraints(maxHeight: listMaxHeight),
                       child: _subtitleResults(
                           sheetCtx, loading, searched, error, results),
                     ),
@@ -420,8 +520,17 @@ extension _PlayerSubtitles on _PlayerPageState {
       file: sub.url,
     );
     setState(() => _subtitles = [..._subtitles, entity]);
-    await _loadSubtitle(_subtitles.length - 1);
-    if (mounted) _toast('player.subtitle_loaded'.tr());
+    final added = _subtitles.length - 1;
+    // The "loaded" toast is gated on the real outcome — _loadSubtitle already
+    // reported the reason if it failed. A track that never loaded is dropped
+    // again so it cannot sit in the sheet pretending to work.
+    final ok = await _loadSubtitle(added, declaredFormat: sub.format);
+    if (!mounted) return;
+    if (ok) {
+      _toast('player.subtitle_loaded'.tr());
+    } else if (added < _subtitles.length && _activeSubtitleIndex != added) {
+      setState(() => _subtitles = [..._subtitles]..removeAt(added));
+    }
   }
 
   String _fmtSubtitleOffset(int ms) {
@@ -429,6 +538,39 @@ extension _PlayerSubtitles on _PlayerPageState {
     final sign = ms > 0 ? '+' : (ms < 0 ? '−' : '');
     return '$sign$s s';
   }
+
+  String _fmtSubtitleRate(double rate) =>
+      rate == 1.0 ? '1×' : '${rate.toStringAsFixed(5)}×';
+
+  /// Sync is stored per title+episode: a shift tuned for episode 1 must not
+  /// carry into episode 2, and it must survive closing the player.
+  String get _subtitleSyncKey {
+    final ep = _currentEpisodeNumber();
+    return '${widget.args.provider}::${widget.args.title}'
+        '${ep == null ? '' : '::ep$ep'}';
+  }
+
+  void _restoreSubtitleSync() {
+    final key = _subtitleSyncKey;
+    _subtitleOffsetMs.value = _hive.getSubtitleOffsetMs(key);
+    _subtitleRate.value = _hive.getSubtitleRate(key);
+  }
+
+  void _persistSubtitleSync() {
+    final key = _subtitleSyncKey;
+    unawaited(_hive.saveSubtitleOffsetMs(key, _subtitleOffsetMs.value));
+    unawaited(_hive.saveSubtitleRate(key, _subtitleRate.value));
+  }
+
+  /// Common telecine/PAL conversions. A 25fps subtitle over 23.976fps content
+  /// drifts ~2.5s per minute, which no constant offset can correct.
+  static const List<(String, double)> _subtitleRatePresets = [
+    ('1.0', 1.0),
+    ('25 → 23.976', 25.0 / 23.976),
+    ('23.976 → 25', 23.976 / 25.0),
+    ('30 → 29.97', 30.0 / 29.97),
+    ('24 → 23.976', 24.0 / 23.976),
+  ];
 
   void _openSubtitleSyncSheet() {
     showAdaptiveModal<void>(
@@ -445,6 +587,13 @@ extension _PlayerSubtitles on _PlayerPageState {
             void setOffset(int ms) {
               final clamped = ms.clamp(-20000, 20000);
               _subtitleOffsetMs.value = clamped;
+              _persistSubtitleSync();
+              setSheet(() {});
+            }
+
+            void setRate(double rate) {
+              _subtitleRate.value = rate.clamp(0.5, 2.0);
+              _persistSubtitleSync();
               setSheet(() {});
             }
 
@@ -484,7 +633,10 @@ extension _PlayerSubtitles on _PlayerPageState {
                                     fontWeight: FontWeight.w800)),
                           ),
                           TextButton.icon(
-                            onPressed: () => setOffset(0),
+                            onPressed: () {
+                              _subtitleRate.value = 1.0;
+                              setOffset(0);
+                            },
                             icon: const Icon(Icons.restart_alt_rounded,
                                 size: 16, color: Colors.white70),
                             label: Text('player.reset'.tr(),
@@ -525,27 +677,86 @@ extension _PlayerSubtitles on _PlayerPageState {
                         btn('+0.5', 500),
                       ],
                     ),
+                    // The ±0.1/±0.5 buttons above already cover this on a
+                    // remote, and a focused Material slider would trap the
+                    // D-pad (it binds up/down as well as left/right), so TV
+                    // drops the slider rather than adapting it.
+                    if (!isTvPlatform)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: SliderTheme(
+                          data: SliderTheme.of(ctx).copyWith(
+                            activeTrackColor: AppColors.primary,
+                            inactiveTrackColor: Colors.white12,
+                            thumbColor: AppColors.primary,
+                            overlayColor:
+                                AppColors.primary.withValues(alpha: 0.15),
+                            trackHeight: 3,
+                          ),
+                          child: Slider(
+                            min: -10000,
+                            max: 10000,
+                            divisions: 400,
+                            value: _subtitleOffsetMs.value
+                                .toDouble()
+                                .clamp(-10000, 10000),
+                            label: _fmtSubtitleOffset(_subtitleOffsetMs.value),
+                            onChanged: (v) => setOffset(v.round()),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 6),
+                    const Divider(color: Colors.white12, height: 1),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: SliderTheme(
-                        data: SliderTheme.of(ctx).copyWith(
-                          activeTrackColor: AppColors.primary,
-                          inactiveTrackColor: Colors.white12,
-                          thumbColor: AppColors.primary,
-                          overlayColor:
-                              AppColors.primary.withValues(alpha: 0.15),
-                          trackHeight: 3,
-                        ),
-                        child: Slider(
-                          min: -10000,
-                          max: 10000,
-                          divisions: 400,
-                          value: _subtitleOffsetMs.value
-                              .toDouble()
-                              .clamp(-10000, 10000),
-                          label: _fmtSubtitleOffset(_subtitleOffsetMs.value),
-                          onChanged: (v) => setOffset(v.round()),
-                        ),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.speed_rounded,
+                              color: Colors.white, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text('player.subtitle_rate'.tr(),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                          Text(_fmtSubtitleRate(_subtitleRate.value),
+                              style: const TextStyle(
+                                  color: Colors.white54, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                      child: Text('player.subtitle_rate_help'.tr(),
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 12)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final (label, rate) in _subtitleRatePresets)
+                            ChoiceChip(
+                              label: Text(
+                                rate == 1.0
+                                    ? 'player.subtitle_rate_off'.tr()
+                                    : '$label fps',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              selected:
+                                  (_subtitleRate.value - rate).abs() < 0.00001,
+                              onSelected: (_) => setRate(rate),
+                              backgroundColor: Colors.white10,
+                              selectedColor: AppColors.primary,
+                              labelStyle: const TextStyle(color: Colors.white),
+                              side: const BorderSide(color: Colors.white24),
+                              showCheckmark: false,
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -638,7 +849,32 @@ extension _PlayerSubtitles on _PlayerPageState {
                             ),
                           ),
                           Expanded(
-                            child: SliderTheme(
+                            child: isTvPlatform
+                                ? _TvStepper(
+                                    display:
+                                        '${_subtitleStyle.fontSize.round()}',
+                                    onDecrease: _subtitleStyle.fontSize > 12
+                                        ? () => apply(
+                                              _subtitleStyle.copyWith(
+                                                fontSize: (_subtitleStyle
+                                                            .fontSize -
+                                                        2)
+                                                    .clamp(12, 32),
+                                              ),
+                                            )
+                                        : null,
+                                    onIncrease: _subtitleStyle.fontSize < 32
+                                        ? () => apply(
+                                              _subtitleStyle.copyWith(
+                                                fontSize: (_subtitleStyle
+                                                            .fontSize +
+                                                        2)
+                                                    .clamp(12, 32),
+                                              ),
+                                            )
+                                        : null,
+                                  )
+                                : SliderTheme(
                               data: SliderTheme.of(ctx).copyWith(
                                 activeTrackColor: AppColors.primary,
                                 inactiveTrackColor: Colors.white12,
@@ -705,7 +941,30 @@ extension _PlayerSubtitles on _PlayerPageState {
                     _SheetSectionLabel('player.background'.tr()),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SliderTheme(
+                      child: isTvPlatform
+                          ? _TvStepper(
+                              display:
+                                  '${(_subtitleStyle.bgOpacity * 100).round()}%',
+                              onDecrease: _subtitleStyle.bgOpacity > 0
+                                  ? () => apply(
+                                        _subtitleStyle.copyWith(
+                                          bgOpacity:
+                                              (_subtitleStyle.bgOpacity - 0.1)
+                                                  .clamp(0.0, 1.0),
+                                        ),
+                                      )
+                                  : null,
+                              onIncrease: _subtitleStyle.bgOpacity < 1
+                                  ? () => apply(
+                                        _subtitleStyle.copyWith(
+                                          bgOpacity:
+                                              (_subtitleStyle.bgOpacity + 0.1)
+                                                  .clamp(0.0, 1.0),
+                                        ),
+                                      )
+                                  : null,
+                            )
+                          : SliderTheme(
                         data: SliderTheme.of(ctx).copyWith(
                           activeTrackColor: AppColors.primary,
                           inactiveTrackColor: Colors.white12,
@@ -838,32 +1097,59 @@ extension _PlayerSubtitles on _PlayerPageState {
       right: 16,
       bottom: _subtitleBottomOffset,
       child: IgnorePointer(
-        child: ValueListenableBuilder<int>(
-          valueListenable: _subtitleOffsetMs,
-          builder: (_, offsetMs, _) => ValueListenableBuilder<VideoPlayerValue>(
-            valueListenable: c,
-            builder: (_, value, _) {
-              final position =
-                  value.position - Duration(milliseconds: offsetMs);
-              Caption? active;
-              for (final caption in captions.captions) {
-                if (position >= caption.start && position <= caption.end) {
-                  active = caption;
-                  break;
-                }
-              }
-              if (active == null || active.text.isEmpty) {
-                return const SizedBox.shrink();
-              }
-              return Align(
-                alignment: Alignment.bottomCenter,
-                child: _styledSubtitle(active.text),
+        child: ListenableBuilder(
+          listenable: Listenable.merge([_subtitleOffsetMs, _subtitleRate, c]),
+          builder: (_, _) {
+            final rate = _subtitleRate.value;
+            var position =
+                c.value.position -
+                    Duration(milliseconds: _subtitleOffsetMs.value);
+            // Map the video clock onto the subtitle's own timeline: a 25fps
+            // subtitle over 23.976fps content needs its timestamps stretched,
+            // which is a division here, not a shift.
+            if (rate != 1.0 && rate > 0) {
+              position = Duration(
+                microseconds: (position.inMicroseconds / rate).round(),
               );
-            },
-          ),
+            }
+            final active = _captionAt(captions, position);
+            if (active == null || active.text.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Align(
+              alignment: Alignment.bottomCenter,
+              child: _styledSubtitle(active.text),
+            );
+          },
         ),
       ),
     );
+  }
+
+  /// The cue on screen at [position]. Cues are sorted by start, so this binary
+  /// searches for the LAST one that starts at or before [position] — the old
+  /// linear scan took the FIRST containing cue, which let a stale overlapping
+  /// cue hold the screen and read as "too slow".
+  Caption? _captionAt(List<Caption> cues, Duration position) {
+    var lo = 0;
+    var hi = cues.length - 1;
+    var idx = -1;
+    while (lo <= hi) {
+      final mid = (lo + hi) >> 1;
+      if (cues[mid].start <= position) {
+        idx = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    for (var i = idx; i >= 0; i--) {
+      if (position <= cues[i].end) return cues[i];
+      // Sorted by start, so once we are well behind nothing earlier can still
+      // be on screen — this only walks back over genuine overlaps.
+      if (position - cues[i].start > const Duration(seconds: 30)) break;
+    }
+    return null;
   }
 
   double get _subtitleBottomOffset {

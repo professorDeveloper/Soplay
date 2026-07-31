@@ -149,6 +149,10 @@ class DownloadService {
       } else {
         dl = await _downloadDirect(dl, cancel);
       }
+      // A cancelled HLS/manga download returns early with status still
+      // 'downloading'; don't persist it as completed (an HLS entry would have
+      // no index.m3u8 and be unplayable). Mirrors the DioException cancel path.
+      if (cancel.isCancelled) return false;
       dl = dl.copyWith(status: DownloadStatus.completed);
       await _save(dl, force: true);
       return true;

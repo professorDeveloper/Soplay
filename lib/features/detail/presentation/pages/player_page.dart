@@ -12,7 +12,9 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/diagnostics/log_viewer_sheet.dart';
 import 'package:soplay/core/diagnostics/player_log.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/core/player/external_player.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
+import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/system/desktop_window.dart';
@@ -23,11 +25,13 @@ import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:soplay/core/subtitles/online_subtitles_service.dart';
+import 'package:soplay/core/subtitles/subtitle_parser.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
 import 'package:soplay/core/preview/frame_preview_service.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/streak/presentation/dialogs/streak_milestone_dialog.dart';
@@ -57,6 +61,10 @@ part 'player_page.gestures.dart';
 part 'player_page.history.dart';
 part 'player_page.pip.dart';
 part 'player_page.party.dart';
+part 'player_page.tv.dart';
+
+/// Hard ceiling on auto-retries per episode — see [_PlayerPageState._lifetimeRetries].
+const int _kMaxLifetimeRetries = 4;
 
 class PlayerPage extends StatefulWidget {
   const PlayerPage({super.key, required this.args});
@@ -73,6 +81,19 @@ class _PlayerPageState extends State<PlayerPage>
   final HistoryService _history = getIt<HistoryService>();
   final DownloadService _downloads = getIt<DownloadService>();
   final Floating _floating = Floating();
+
+  // Playback preferences, snapshotted in initState. Settings → Player is not
+  // reachable while the player is open, so re-reading Hive would only cost —
+  // and _onPanUpdate runs on every drag frame, where a per-frame box lookup is
+  // exactly the kind of thing that shows up as jank.
+  late final int _seekSeconds;
+  late final double _longPressBoost;
+  late final bool _brightnessGestureEnabled;
+  late final bool _volumeGestureEnabled;
+
+  /// How far one double-tap / seek-button / arrow-key press jumps.
+  Duration get _seekStep => Duration(seconds: _seekSeconds);
+
   bool _isPip = false;
   bool _resumeAfterPause = false;
   bool _lastPipPlaying = false;
@@ -102,8 +123,16 @@ class _PlayerPageState extends State<PlayerPage>
 
   List<SubtitleEntity> _subtitles = const [];
   int _activeSubtitleIndex = -1;
-  ClosedCaptionFile? _captionFile;
+
+  /// Cues for the active track, already sorted by start time — see
+  /// [_PlayerSubtitles._loadSubtitle]. Null means "no track loaded".
+  List<Caption>? _captionFile;
   final ValueNotifier<int> _subtitleOffsetMs = ValueNotifier<int>(0);
+
+  /// Frame-rate conversion factor for the active subtitle. A 25fps subtitle
+  /// played over 23.976fps content drifts ~4.3%, which a constant offset cannot
+  /// correct; the lookup divides by this. 1.0 means no conversion.
+  final ValueNotifier<double> _subtitleRate = ValueNotifier<double>(1.0);
   SubtitleStyle _subtitleStyle = SubtitleStyle.defaults();
 
   String? _thumbnailsKey;
@@ -111,6 +140,8 @@ class _PlayerPageState extends State<PlayerPage>
   ThumbnailsEntity? _storyboard;
   final ValueNotifier<double?> _sliderDragValue = ValueNotifier<double?>(null);
 
+  /// Seeded from Settings → Player in [initState]; still freely changed
+  /// mid-playback from the speed sheet, which does not write the default back.
   double _playbackSpeed = 1.0;
   _PlayerFit _fit = _PlayerFit.contain;
   bool _isPortrait = false;
@@ -140,6 +171,14 @@ class _PlayerPageState extends State<PlayerPage>
   int _seekRippleSeconds = 0;
 
   int _retryAttempts = 0;
+
+  /// Hard ceiling on auto-retries for the current episode. [_retryAttempts] is
+  /// reset every time the controller reports `isInitialized`, so on a source that
+  /// initializes and *then* errors (common for CloudStream links that expire or
+  /// 403 mid-playback) it alone would let the retry loop run forever. This one is
+  /// only cleared on a genuine fresh start (new episode / quality switch).
+  int _lifetimeRetries = 0;
+
   bool _autoRetrying = false;
   final Stopwatch _playbackWatch = Stopwatch();
   bool _streakPingScheduled = false;
@@ -166,15 +205,52 @@ class _PlayerPageState extends State<PlayerPage>
   // install view in place of the generic error overlay.
   PartyResolveCapability? _pluginRequired;
 
+  // --- Android TV / D-pad (see player_page.tv.dart). Dart extensions cannot
+  // declare instance fields, so the remote's focus and step-seek state lives
+  // here. All of it is inert unless isTvPlatform is true.
+  //
+  // _tvRootFocus is an ancestor of every control, so it sees each key before
+  // the app-level directional-traversal shortcut and decides, per keystroke,
+  // whether the D-pad drives playback or moves focus. It is a *scope* on
+  // purpose: when a focused control is unmounted (controls auto-hide, the
+  // buffering spinner replaces the play cluster) focus falls back to the
+  // nearest enclosing scope. If that were the route's scope instead of this
+  // node, it would no longer be in the key-event chain and the remote would go
+  // dead until the next tap.
+  final FocusScopeNode _tvRootFocus = FocusScopeNode(debugLabel: 'tvPlayerRoot');
+  final FocusNode _tvPlayFocus = FocusNode(debugLabel: 'tvPlayerPlay');
+  final FocusNode _tvSeekFocus = FocusNode(debugLabel: 'tvPlayerSeek');
+
+  /// Debounce that turns a burst of left/right presses into a single seek.
+  Timer? _tvSeekCommit;
+  DateTime? _tvSeekLastStep;
+  int _tvSeekRepeats = 0;
+
+  /// Side-panel scroll controller, recreated per open so the episode list can
+  /// start near the episode being watched instead of at the top.
+  ScrollController? _tvPanelScroll;
+
+  /// Latched by [_exit] on TV so the intercepting [PopScope] lets the very next
+  /// pop through. Without it the deliberate exit would be swallowed by the same
+  /// guard that protects against accidental BACK.
+  bool _tvPopAllowed = false;
+
   @override
   void initState() {
     super.initState();
     _subtitleStyle = _hive.getSubtitleStyle();
+    _playbackSpeed = _hive.getDefaultPlaybackSpeed();
+    _fit = _playerFitFromId(_hive.getDefaultPlayerFit());
+    _seekSeconds = _hive.getDoubleTapSeekSeconds();
+    _longPressBoost = _hive.getLongPressBoost();
+    _brightnessGestureEnabled = _hive.brightnessGestureEnabled;
+    _volumeGestureEnabled = _hive.volumeGestureEnabled;
     _episodeIndex = widget.args.initialEpisodeIndex.clamp(
       0,
       widget.args.episodes.isEmpty ? 0 : widget.args.episodes.length - 1,
     );
     _currentLang = widget.args.initialLang ?? _hive.getPreferredMediaLang();
+    _restoreSubtitleSync();
     _controlsAnimation = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 220),
@@ -196,6 +272,11 @@ class _PlayerPageState extends State<PlayerPage>
         'serial': widget.args.isSerial.toString(),
       });
     unawaited(PlayerLog.instance.init());
+    if (isTvPlatform) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _tvRootFocus.requestFocus();
+      });
+    }
     _partyInit();
     _startup();
   }
@@ -242,6 +323,11 @@ class _PlayerPageState extends State<PlayerPage>
     _hideTimer?.cancel();
     _historyTimer?.cancel();
     _seekRippleTimer?.cancel();
+    _tvSeekCommit?.cancel();
+    _tvRootFocus.dispose();
+    _tvPlayFocus.dispose();
+    _tvSeekFocus.dispose();
+    _tvPanelScroll?.dispose();
     _controlsAnimation.dispose();
     _seekRippleController.dispose();
     _scrub.dispose();
@@ -249,6 +335,7 @@ class _PlayerPageState extends State<PlayerPage>
     _swipeIndicator.dispose();
     _sliderDragValue.dispose();
     _subtitleOffsetMs.dispose();
+    _subtitleRate.dispose();
     final c = _controller;
     if (c != null) {
       c.removeListener(_onMajorChange);
@@ -266,11 +353,22 @@ class _PlayerPageState extends State<PlayerPage>
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (_, _) => _restoreSystemUi(),
+      // BACK is the *only* dismiss affordance on a remote, so on TV the player
+      // intercepts it and unwinds one layer at a time (panel -> pending scrub ->
+      // controls -> exit) rather than dumping the viewer out mid-episode.
+      // _exit() latches _tvPopAllowed when the exit is genuinely intended.
+      // Phone and desktop keep the unconditional pop they ship today.
+      canPop: !isTvPlatform || _tvPopAllowed,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || !isTvPlatform) {
+          _restoreSystemUi();
+          return;
+        }
+        _onTvBack();
+      },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.light,
-        child: _wrapDesktopShortcuts(
+        child: _wrapPlayerShortcuts(
           Scaffold(
           backgroundColor: Colors.black,
           body: LayoutBuilder(
@@ -312,7 +410,20 @@ class _PlayerPageState extends State<PlayerPage>
     );
   }
 
-  Widget _wrapDesktopShortcuts(Widget child) {
+  Widget _wrapPlayerShortcuts(Widget child) {
+    if (isTvPlatform) {
+      // Separate handler, not a widened gate: the desktop map consumes all four
+      // arrows unconditionally, which on a remote would make directional focus
+      // traversal impossible. See player_page.tv.dart.
+      // Focus is claimed from initState rather than via autofocus: the error
+      // overlay's retry button also autofocuses, and two autofocus requests
+      // resolved in one frame within the same scope trip a debug assertion.
+      return FocusScope(
+        node: _tvRootFocus,
+        onKeyEvent: _onTvPlayerKey,
+        child: child,
+      );
+    }
     if (!isDesktopPlatform) return child;
     return Focus(autofocus: true, onKeyEvent: _onPlayerKey, child: child);
   }
@@ -353,12 +464,12 @@ class _PlayerPageState extends State<PlayerPage>
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowLeft) {
-      _seekRelative(const Duration(seconds: -10));
+      _seekRelative(-_seekStep);
       _showSeekRipple(-1);
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowRight) {
-      _seekRelative(const Duration(seconds: 10));
+      _seekRelative(_seekStep);
       _showSeekRipple(1);
       return KeyEventResult.handled;
     }

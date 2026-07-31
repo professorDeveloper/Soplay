@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 
 class SearchFilterSelection {
@@ -259,31 +260,36 @@ class _SheetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-        decoration: BoxDecoration(
+    final chip = AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      decoration: BoxDecoration(
+        color: selected
+            ? AppColors.primary.withValues(alpha: 0.18)
+            : AppColors.surfaceVariant.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
           color: selected
-              ? AppColors.primary.withValues(alpha: 0.18)
-              : AppColors.surfaceVariant.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected
-                ? AppColors.primary.withValues(alpha: 0.6)
-                : Colors.white.withValues(alpha: 0.06),
-          ),
+              ? AppColors.primary.withValues(alpha: 0.6)
+              : Colors.white.withValues(alpha: 0.06),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? AppColors.primary : AppColors.textSecondary,
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: selected ? AppColors.primary : AppColors.textSecondary,
+          fontSize: 13,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         ),
       ),
     );
+
+    // Android TV: every option in the filter sheet is one of these chips, so on
+    // a bare GestureDetector the sheet opened but nothing in it could be picked.
+    if (isTvPlatform) {
+      return TvFocusable(onPressed: onTap, borderRadius: 10, child: chip);
+    }
+
+    return GestureDetector(onTap: onTap, child: chip);
   }
 }

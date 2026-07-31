@@ -23,6 +23,20 @@ import 'package:soplay/features/manga/domain/entities/reader_args.dart';
 import 'package:soplay/features/manga/presentation/pages/reader_page.dart';
 import 'package:soplay/features/main/presentation/pages/main_page.dart';
 import 'package:soplay/features/network/presentation/pages/no_internet_page.dart';
+import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
+import 'package:soplay/features/tracker/presentation/pages/following_page.dart';
+import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
+import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
+import 'package:soplay/features/trivia/presentation/pages/actor_hero_page.dart';
+import 'package:soplay/features/trivia/presentation/pages/cast_picker_page.dart';
+import 'package:soplay/features/trivia/presentation/pages/challenge_landing_page.dart';
+import 'package:soplay/features/trivia/presentation/pages/game_page.dart';
+import 'package:soplay/features/trivia/presentation/pages/leaderboard_page.dart';
+import 'package:soplay/features/trivia/presentation/pages/result_page.dart';
+import 'package:soplay/features/trivia/presentation/pages/top_fans_page.dart';
+import 'package:soplay/features/trivia/presentation/trivia_args.dart';
+import 'package:soplay/features/profile/presentation/pages/player_settings_page.dart';
+import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:soplay/features/private_list/presentation/pages/private_list_page.dart';
 import 'package:soplay/features/splash/presentation/pages/splash_page.dart';
@@ -128,6 +142,23 @@ class AppRouter {
         builder: (context, state) => const NoInternetPage(),
       ),
       GoRoute(
+        path: '/cross-search',
+        builder: (context, state) =>
+            CrossSearchPage(initialQuery: state.extra as String?),
+      ),
+      GoRoute(
+        path: '/following',
+        builder: (context, state) => const FollowingPage(),
+      ),
+      GoRoute(
+        path: '/navbar',
+        builder: (context, state) => const NavbarPage(),
+      ),
+      GoRoute(
+        path: '/player-settings',
+        builder: (context, state) => const PlayerSettingsPage(),
+      ),
+      GoRoute(
         path: '/notifications',
         builder: (context, state) => const NotificationsPage(),
       ),
@@ -181,6 +212,53 @@ class AppRouter {
       GoRoute(
         path: '/private-list',
         builder: (context, state) => const PrivateListPage(),
+      ),
+      GoRoute(
+        path: '/trivia/cast',
+        builder: (context, state) => const CastPickerPage(),
+      ),
+      GoRoute(
+        path: '/trivia/actor',
+        builder: (context, state) =>
+            ActorHeroPage(person: state.extra as CastPersonEntity),
+      ),
+      GoRoute(
+        path: '/trivia/game',
+        builder: (context, state) => GamePage(args: state.extra as GameArgs),
+      ),
+      GoRoute(
+        path: '/trivia/result',
+        builder: (context, state) {
+          // `extra` carries the actor alongside the result; a bare result is
+          // still accepted (legacy pushes) and degrades to a brand-only share
+          // card with an actor-less replay.
+          final extra = state.extra;
+          if (extra is ResultArgs) {
+            return ResultPage(result: extra.result, actor: extra.actor);
+          }
+          return ResultPage(result: extra as TriviaResultEntity);
+        },
+      ),
+      GoRoute(
+        path: '/trivia/leaderboard',
+        builder: (context, state) => const LeaderboardPage(),
+      ),
+      GoRoute(
+        path: '/trivia/top-fans',
+        builder: (context, state) {
+          // `extra` carries the kind alongside the id; a bare int is still
+          // accepted (legacy pushes) and falls back to the live-actor kind.
+          final extra = state.extra;
+          if (extra is TopFansArgs) {
+            return TopFansPage(actorId: extra.actorId, kind: extra.kind);
+          }
+          return TopFansPage(actorId: extra is int ? extra : 0);
+        },
+      ),
+      GoRoute(
+        path: '/trivia/challenge/:code',
+        builder: (context, state) =>
+            ChallengeLandingPage(code: state.pathParameters['code']!),
       ),
     ],
   );

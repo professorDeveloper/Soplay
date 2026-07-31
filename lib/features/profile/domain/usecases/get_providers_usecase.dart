@@ -1,5 +1,5 @@
 import 'package:soplay/core/error/result.dart';
-import '../entities/provider_entity.dart';
+import '../entities/providers_snapshot.dart';
 import '../repositories/provider_repository.dart';
 
 class GetProvidersUseCase {
@@ -7,5 +7,5 @@ class GetProvidersUseCase {
 
   const GetProvidersUseCase(this.repository);
 
-  Future<Result<List<ProviderEntity>>> call() => repository.getProviders();
+  Future<Result<ProvidersSnapshot>> call() => repository.getProviders();
 }

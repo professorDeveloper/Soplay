@@ -72,8 +72,8 @@ class CommentsRepositoryImpl implements CommentsRepository {
       if (code == 401) return Failure(Exception('Please sign in first'));
       if (code == 403) return Failure(Exception('Not allowed'));
       if (code == 404) return Failure(Exception('Not found'));
-      final raw = (e.response?.data as Map<String, dynamic>?)?['message']
-              as String? ??
+      final data = e.response?.data;
+      final raw = (data is Map ? data['message'] : null)?.toString() ??
           e.message ??
           'Something went wrong';
       return Failure(Exception(raw));

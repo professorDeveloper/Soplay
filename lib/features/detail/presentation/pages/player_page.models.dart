@@ -2,6 +2,17 @@ part of 'player_page.dart';
 
 enum _PlayerFit { contain, cover, fill }
 
+/// Resolves the persisted default fill mode. Matches on the enum's *name*, not
+/// its index, so the stored value survives reordering; anything unrecognised
+/// falls back to [_PlayerFit.contain], which is what the player used before
+/// the setting existed.
+_PlayerFit _playerFitFromId(String? id) {
+  for (final f in _PlayerFit.values) {
+    if (f.name == id) return f;
+  }
+  return _PlayerFit.contain;
+}
+
 enum _SidePanel { none, episodes, quality }
 
 enum _LoadingStage { resolving, loading }
@@ -31,6 +42,24 @@ const MethodChannel _systemControlsChannel = MethodChannel(
   'soplay/system_controls',
 );
 const double _scrubSecondsPerFullSwipe = 90;
+
+/// Seek-button icons for the step chosen in Settings → Player.
+///
+/// That screen offers only 5/10/30 precisely because those are the values
+/// Material ships numbered icons for, so the button always shows the number it
+/// actually jumps. Anything else falls back to the 10s icon rather than
+/// silently lying about a number.
+IconData _rewindIconFor(int seconds) => switch (seconds) {
+      5 => Icons.replay_5_rounded,
+      30 => Icons.replay_30_rounded,
+      _ => Icons.replay_10_rounded,
+    };
+
+IconData _forwardIconFor(int seconds) => switch (seconds) {
+      5 => Icons.forward_5_rounded,
+      30 => Icons.forward_30_rounded,
+      _ => Icons.forward_10_rounded,
+    };
 
 String _formatDuration(Duration d) {
   final hours = d.inHours;

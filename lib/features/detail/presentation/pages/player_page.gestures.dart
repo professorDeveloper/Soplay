@@ -7,11 +7,12 @@ extension _PlayerGestures on _PlayerPageState {
     final width = constraints.maxWidth;
     final leftEdge = width * 0.3;
     final rightEdge = width * 0.7;
+    final step = _seekStep;
     if (dx < leftEdge) {
-      _seekRelative(const Duration(seconds: -10));
+      _seekRelative(-step);
       _showSeekRipple(-1);
     } else if (dx > rightEdge) {
-      _seekRelative(const Duration(seconds: 10));
+      _seekRelative(step);
       _showSeekRipple(1);
     }
   }
@@ -71,8 +72,8 @@ extension _PlayerGestures on _PlayerPageState {
     if (_partyBlockLocal()) return;
     _speedBeforeBoost = _playbackSpeed;
     _speedBoost.value = true;
-    c.setPlaybackSpeed(2.0);
-    _partyEmit('rate', rate: 2.0);
+    c.setPlaybackSpeed(_longPressBoost);
+    _partyEmit('rate', rate: _longPressBoost);
   }
 
   void _onLongPressEnd(LongPressEndDetails _) {
@@ -137,6 +138,13 @@ extension _PlayerGestures on _PlayerPageState {
     if (_dragIsHorizontal!) {
       _onHDragUpdate(d, constraints);
     } else if (!isDesktopPlatform) {
+      // A disabled side is inert rather than reassigned: silently turning a
+      // left-edge swipe into a volume change would be more surprising than
+      // nothing happening, which is what the user asked for.
+      final enabled = _dragSwipeType == _SwipeType.brightness
+          ? _brightnessGestureEnabled
+          : _volumeGestureEnabled;
+      if (!enabled) return;
       final delta = -(d.delta.dy) / (constraints.maxHeight * 0.7);
       if (_dragSwipeType == _SwipeType.brightness) {
         _brightness = (_brightness + delta).clamp(0.0, 1.0).toDouble();
@@ -159,6 +167,8 @@ extension _PlayerGestures on _PlayerPageState {
     } else if (_dragSwipeType != null) {
       final type = _dragSwipeType;
       Future.delayed(const Duration(milliseconds: 600), () {
+        // Popping the player within this window disposes _swipeIndicator.
+        if (!mounted) return;
         if (_swipeIndicator.value?.type == type) {
           _swipeIndicator.value = null;
         }

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android TV Leanback launcher tile — referenced as android:banner in
+     AndroidManifest.xml. Written as an XML drawable rather than a PNG so it is
+     diffable in review; android:banner accepts any drawable and the Leanback
+     launcher renders this fine.
+
+     The <size> on the first layer declares the 320x180 (16:9) xhdpi banner
+     geometry Android TV expects, so the tile is neither letterboxed nor
+     stretched. Parts are reused from the shipped adaptive icon
+     (ic_launcher_background + ic_launcher_foreground), so the TV tile is the
+     same brand mark as the phone icon rather than a second, drifting artwork.
+
+     PLAY UPGRADE PATH: if Sozo is ever submitted to Play for TV, review wants a
+     real raster banner. Dropping a 320x180 PNG at
+     res/drawable-xhdpi/tv_banner.png overrides this file with NO manifest
+     change — denser qualifiers win over the unqualified drawable/. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Field. Same #252222 as the launcher icon background. This is also the
+         only layer carrying <size>, so it sets the drawable's intrinsic 16:9. -->
+    <item>
+        <shape android:shape="rectangle">
+            <size android:width="320dp" android:height="180dp"/>
+            <solid android:color="@color/ic_launcher_background"/>
+        </shape>
+    </item>
+
+    <!-- Brand mark: the shipped adaptive-icon foreground, centred. Adaptive
+         foregrounds carry ~25% safe-zone padding on each side, so 132dp of box
+         renders roughly an 87dp mark on a 180dp-tall tile. -->
+    <item
+        android:width="132dp"
+        android:height="132dp"
+        android:gravity="center">
+        <bitmap
+            android:src="@mipmap/ic_launcher_foreground"
+            android:gravity="center"/>
+    </item>
+
+    <!-- AppColors.primary (0xFFE50914) as a 3dp bottom rule. The accent is a
+         thin bar or a small badge in this design language, never a large fill. -->
+    <item
+        android:height="3dp"
+        android:gravity="bottom|fill_horizontal">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFE50914"/>
+        </shape>
+    </item>
+</layer-list>

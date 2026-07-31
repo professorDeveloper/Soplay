@@ -13,7 +13,14 @@ String movieTitle(MovieEntity movie) {
 }
 
 String movieDescription(MovieEntity movie) {
-  return '${movie.title.trim()}${movie.rating}/10${movie.year} ${movie.description.trim()}';
+  // rating/year are nullable — interpolating them directly rendered the literal
+  // "null/10null" in the banner subtitle. Guard and separate them.
+  final stats = <String>[
+    if (movie.rating != null && movie.rating! > 0) '${movie.rating}/10',
+    if (movie.year != null) '${movie.year}',
+  ].join(' · ');
+  final desc = movie.description.trim();
+  return [if (stats.isNotEmpty) stats, if (desc.isNotEmpty) desc].join('  ');
 }
 
 List<String> movieMetaLabels(MovieEntity movie) {

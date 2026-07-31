@@ -9,6 +9,7 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/usecases/get_detail_usecase.dart';
 import 'package:soplay/features/banners/domain/entities/banner_item.dart';
 import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
@@ -178,17 +179,31 @@ class _MovieSlide extends StatelessWidget {
 
   final MovieEntity movie;
 
+  void _open(BuildContext context) {
+    if (movie.url.isNotEmpty) {
+      context.push(
+        '/detail',
+        extra: DetailArgs(contentUrl: movie.url, preview: movie),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Android TV: the hero is the first thing on Home and the D-pad's natural
+    // landing spot, but a bare GestureDetector cannot hold focus. No scale — a
+    // full-bleed slide has nowhere to grow into. Off TV: unchanged.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: () => _open(context),
+        borderRadius: 0,
+        scale: 1.0,
+        child: _MovieSlideContent(movie: movie),
+      );
+    }
+
     return GestureDetector(
-      onTap: () {
-        if (movie.url.isNotEmpty) {
-          context.push(
-            '/detail',
-            extra: DetailArgs(contentUrl: movie.url, preview: movie),
-          );
-        }
-      },
+      onTap: () => _open(context),
       child: _MovieSlideContent(movie: movie),
     );
   }
@@ -228,28 +243,38 @@ class _BannerSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          CachedNetworkImage(
-            imageUrl: banner.imageUrl,
-            fit: BoxFit.cover,
-            errorWidget: (_, _, _) => const ColoredBox(
-              color: AppColors.surfaceVariant,
-            ),
+    final content = Stack(
+      fit: StackFit.expand,
+      children: [
+        CachedNetworkImage(
+          imageUrl: banner.imageUrl,
+          fit: BoxFit.cover,
+          errorWidget: (_, _, _) => const ColoredBox(
+            color: AppColors.surfaceVariant,
           ),
-          const _SlideOverlays(),
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: 34,
-            child: _BannerInfo(banner: banner),
-          ),
-        ],
-      ),
+        ),
+        const _SlideOverlays(),
+        Positioned(
+          left: 20,
+          right: 20,
+          bottom: 34,
+          child: _BannerInfo(banner: banner),
+        ),
+      ],
     );
+
+    // Same reasoning as _MovieSlide: the promo slide shares the hero pager and
+    // must be a D-pad stop on TV. Off TV: unchanged.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: onTap,
+        borderRadius: 0,
+        scale: 1.0,
+        child: content,
+      );
+    }
+
+    return GestureDetector(onTap: onTap, child: content);
   }
 }
 
@@ -444,6 +469,7 @@ class _MetaChip extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────
 
 const double _kDesktopBannerHeight = 450.0;
+const double _kDesktopBannerRadius = 18.0;
 
 class _DesktopBanner extends StatefulWidget {
   const _DesktopBanner({
@@ -504,6 +530,9 @@ class _DesktopBannerState extends State<_DesktopBanner> {
         children: [
           SizedBox(
             height: _kDesktopBannerHeight,
+            // No drop shadow: the slide already dissolves its edges into the
+            // page background (see _EdgeBlend), so a shadow would fight that and
+            // make the hero read as a card floating above the feed.
             child: PageView.builder(
               controller: _ctrl,
               itemCount: widget.slides.length,
@@ -517,7 +546,7 @@ class _DesktopBannerState extends State<_DesktopBanner> {
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(widget.slides.length, (i) {
@@ -627,7 +656,7 @@ class _DesktopSlideState extends State<_DesktopSlide>
     };
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(_kDesktopBannerRadius),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -690,18 +719,7 @@ class _DesktopSlideState extends State<_DesktopSlide>
               ),
             ),
           ),
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x00181818), Color(0x88181818)],
-                  stops: [0.5, 1.0],
-                ),
-              ),
-            ),
-          ),
+          const Positioned.fill(child: _EdgeBlend()),
           // Content.
           Positioned(
             left: 34,
@@ -843,6 +861,83 @@ class _DesktopSlideState extends State<_DesktopSlide>
         extra: DetailArgs(contentUrl: movie.url, preview: movie),
       );
     }
+  }
+}
+
+/// Dissolves the card's four edges into the page background instead of ending
+/// them on a hard rectangle — the bottom carries the most, so the hero reads as
+/// part of the feed rather than a poster pasted on top of it.
+class _EdgeBlend extends StatelessWidget {
+  const _EdgeBlend();
+
+  static const Color _bg = AppColors.background;
+  static const Color _clear = Color(0x00181818);
+
+  @override
+  Widget build(BuildContext context) {
+    return const IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Bottom: the card doesn't end, it dissolves into the feed.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [_bg, Color(0xCC181818), _clear],
+                stops: [0.0, 0.14, 0.5],
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 72,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerRight,
+                  end: Alignment.centerLeft,
+                  colors: [Color(0xCC181818), _clear],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 56,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Color(0xB3181818), _clear],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: 56,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x99181818), _clear],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

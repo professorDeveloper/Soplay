@@ -121,6 +121,16 @@ class WatchPartyService with WidgetsBindingObserver {
     await _openSocket();
   }
 
+  /// Manual retry from the lobby when the connection failed or stalled on the
+  /// join handshake. Forces a fresh token and re-opens the socket for the
+  /// current room. No-op if we are not attached to a room.
+  Future<void> retryConnection() async {
+    if (_currentCode == null) return;
+    _handshakeRetried = false;
+    state.value = state.value.copyWith(clearError: true);
+    await _openSocket(force: true);
+  }
+
   /// Emit `party:leave` → disconnect → reset to empty.
   Future<void> leaveParty() async {
     final code = _currentCode;
@@ -182,22 +192,29 @@ class WatchPartyService with WidgetsBindingObserver {
   }
 
   void sendChat(String text) {
-    if (!_canEmit) return;
+    if (_currentCode == null) return;
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     final capped =
         trimmed.length > 500 ? trimmed.substring(0, 500) : trimmed;
-    final clientId = _nextClientId();
-    _rememberPending(_pendingChatIds, clientId);
-    _socket.emit('party:chat', <String, dynamic>{
-      'code': _currentCode,
-      'text': capped,
-      'clientId': clientId,
-    });
+    // Only wire an own-echo dedupe id when we actually put the message on the
+    // socket — otherwise the server never echoes it back and the pending id
+    // would leak.
+    if (_canEmit) {
+      final clientId = _nextClientId();
+      _rememberPending(_pendingChatIds, clientId);
+      _socket.emit('party:chat', <String, dynamic>{
+        'code': _currentCode,
+        'text': capped,
+        'clientId': clientId,
+      });
+    }
     // Optimistic local echo: show instantly instead of waiting for the server
-    // round-trip (which can be slow on a distant server). The server echoes our
-    // clientId back; _onChat suppresses only the matching pending entry on THIS
-    // device, so a second device on the same account still renders the message.
+    // round-trip (which can be slow on a distant server), and — crucially —
+    // render the sender's own message even during a brief reconnect so it never
+    // looks like the chat is dead. The server echoes our clientId back; _onChat
+    // suppresses only the matching pending entry on THIS device, so a second
+    // device on the same account still renders the message.
     if (!_chatCtrl.isClosed) {
       final me = hive.getUser();
       _chatCtrl.add(PartyChatMessage(
@@ -211,17 +228,19 @@ class WatchPartyService with WidgetsBindingObserver {
   }
 
   void sendReaction(String emoji) {
-    if (!_canEmit) return;
+    if (_currentCode == null) return;
     final trimmed = emoji.trim();
     if (trimmed.isEmpty) return;
     final capped = trimmed.length > 16 ? trimmed.substring(0, 16) : trimmed;
-    final clientId = _nextClientId();
-    _rememberPending(_pendingReactionIds, clientId);
-    _socket.emit('party:reaction', <String, dynamic>{
-      'code': _currentCode,
-      'emoji': capped,
-      'clientId': clientId,
-    });
+    if (_canEmit) {
+      final clientId = _nextClientId();
+      _rememberPending(_pendingReactionIds, clientId);
+      _socket.emit('party:reaction', <String, dynamic>{
+        'code': _currentCode,
+        'emoji': capped,
+        'clientId': clientId,
+      });
+    }
     // Optimistic local echo (see sendChat); own server echo dropped in
     // _onReaction by matching the pending clientId for THIS device only.
     if (!_reactionCtrl.isClosed) {
@@ -297,7 +316,10 @@ class WatchPartyService with WidgetsBindingObserver {
       return;
     }
     if (!_disposed) {
-      state.value = state.value.copyWith(connection: PartyConnection.error);
+      state.value = state.value.copyWith(
+        connection: PartyConnection.error,
+        errorMessage: message,
+      );
     }
   }
 

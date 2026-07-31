@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+
+import 'package:soplay/core/system/webview_env.dart';
 
 import 'dart_fetch.dart';
 import 'extractor_cache.dart';
@@ -22,6 +26,10 @@ class JsRuntimeService {
   String? _activeExtractor;
   int? _activeVersion;
 
+  // Serializes the extractor-swap + JS call critical section: every provider
+  // shares one webview and a single mutable globalThis.Provider.
+  Future<void> _jsGate = Future<void>.value();
+
   static const String _runtimeName = '__runtime__';
   static const String _bootstrapHtml = '''
 <!doctype html>
@@ -41,7 +49,12 @@ class JsRuntimeService {
     required this.providers,
   });
 
+  /// flutter_inappwebview ships no Linux implementation, so client/hybrid
+  /// providers (which run their extractor inside a webview) can't work there.
+  static bool get isSupported => !Platform.isLinux;
+
   Future<void> ensureReady() {
+    if (!isSupported) return Future<void>.value();
     return _ready ??= _boot().catchError((Object e) {
       _ready = null;
       JsLog.err('js', 'boot failed: $e');
@@ -104,6 +117,15 @@ class JsRuntimeService {
         args: [ref, {'lang': lang ?? 'sub'}],
       );
 
+  // Runs [action] after any in-flight locked section completes, so only one
+  // holds the shared `Provider` at a time. A failing action never poisons the
+  // gate for the next caller.
+  Future<T> _locked<T>(Future<T> Function() action) {
+    final run = _jsGate.then((_) => action());
+    _jsGate = run.then((_) {}, onError: (_) {});
+    return run;
+  }
+
   Future<Map<String, dynamic>?> _callObject(
     String provider,
     String fn, {
@@ -124,27 +146,36 @@ class JsRuntimeService {
       );
       return null;
     }
+    if (!isSupported) {
+      JsLog.info(tag, 'skip $fn — no webview runtime on this platform');
+      return null;
+    }
     final extractor = entity.extractor!;
     final sw = Stopwatch()..start();
     JsLog.req(tag, '$fn(${_summarizeArgs(args)})');
     try {
       await ensureReady();
-      await _ensureExtractor(extractor.name, extractor.version);
-
-      final result = await _controller!.callAsyncJavaScript(
-        functionBody: r'''
-          const __fn = (typeof Provider !== 'undefined') ? Provider[fnName] : null;
-          if (typeof __fn !== 'function') {
-            throw new Error('Provider.' + fnName + ' is not implemented');
-          }
-          const __r = await __fn.apply(Provider, fnArgs);
-          return __r === undefined ? null : __r;
-        ''',
-        arguments: {
-          'fnName': fn,
-          'fnArgs': args,
-        },
-      );
+      // Serialize extractor-swap + call: concurrent cross-search legs share one
+      // webview and one globalThis.Provider, so without this a second leg could
+      // swap Provider between this leg's setup and its call — returning one
+      // provider's results under another's name.
+      final result = await _locked(() async {
+        await _ensureExtractor(extractor.name, extractor.version);
+        return _controller!.callAsyncJavaScript(
+          functionBody: r'''
+            const __fn = (typeof Provider !== 'undefined') ? Provider[fnName] : null;
+            if (typeof __fn !== 'function') {
+              throw new Error('Provider.' + fnName + ' is not implemented');
+            }
+            const __r = await __fn.apply(Provider, fnArgs);
+            return __r === undefined ? null : __r;
+          ''',
+          arguments: {
+            'fnName': fn,
+            'fnArgs': args,
+          },
+        );
+      });
 
       if (result == null) {
         JsLog.err(tag, '$fn returned null result');
@@ -196,9 +227,24 @@ class JsRuntimeService {
       s.length <= max ? s : '${s.substring(0, max)}…';
 
   Future<void> _boot() async {
+    try {
+      await _bootOnce();
+    } on PlatformException catch (e) {
+      // Windows: the WebView2 profile is locked (orphaned msedgewebview2, a
+      // second window, or a read-only install dir). Move to a fresh profile and
+      // try once more — otherwise every client/hybrid provider stays dead.
+      JsLog.err('js', 'headless webview failed: ${e.message}');
+      if (!await WebViewEnv.rotate()) rethrow;
+      await _bootOnce();
+    }
+  }
+
+  Future<void> _bootOnce() async {
     final controllerCompleter = Completer<InAppWebViewController>();
+    final environment = await WebViewEnv.ensure();
 
     final webView = HeadlessInAppWebView(
+      webViewEnvironment: environment,
       initialUrlRequest: URLRequest(url: WebUri('about:blank')),
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,

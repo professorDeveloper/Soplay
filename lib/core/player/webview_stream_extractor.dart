@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:soplay/core/system/webview_env.dart';
 import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
 
 class ExtractedStream {
@@ -232,6 +233,7 @@ class WebViewStreamExtractor {
     }
 
     headless = HeadlessInAppWebView(
+      webViewEnvironment: await WebViewEnv.ensure(),
       initialUrlRequest: URLRequest(
         url: WebUri(pageUrl),
         headers: referer != null ? {'Referer': referer} : null,

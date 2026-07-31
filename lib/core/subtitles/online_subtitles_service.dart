@@ -63,7 +63,9 @@ class OnlineSubtitlesService {
     if (imdb == null) return const [];
 
     var results = await _wyzie(wyzieKey, imdb,
-        season: isSerial ? (season ?? 1) : null,
+        // Don't fabricate season 1 when the caller has no season — that returns
+        // season-1 subtitles for season 2+ episodes. Omit it instead.
+        season: isSerial ? season : null,
         episode: isSerial ? episode : null);
     if (results.isEmpty && isSerial) {
       results = await _wyzie(wyzieKey, imdb);
@@ -103,6 +105,23 @@ class OnlineSubtitlesService {
       ));
     }
     out.sort((a, b) => b.downloadCount.compareTo(a.downloadCount));
+    return _dedupe(out);
+  }
+
+  /// Wyzie mirrors the same file across sources, so the list showed byte
+  /// identical rows. Key on the download URL first, then on the human identity
+  /// (file name + language + format) for mirrors that differ only by host.
+  static List<OnlineSubtitle> _dedupe(List<OnlineSubtitle> input) {
+    final seen = <String>{};
+    final out = <OnlineSubtitle>[];
+    for (final s in input) {
+      final identity = s.fileName.isEmpty && s.display.isEmpty
+          ? s.url
+          : '${s.fileName}|${s.display}|${s.language}|${s.format}'
+              '|${s.hearingImpaired}|${s.downloadCount}';
+      if (!seen.add(s.url) || !seen.add(identity)) continue;
+      out.add(s);
+    }
     return out;
   }
 }

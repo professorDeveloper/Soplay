@@ -5,7 +5,9 @@ import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.util.Log
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
  * On-device seek-preview frame generator (like CloudStream's PreviewGenerator).
@@ -22,10 +24,13 @@ import java.util.concurrent.locks.ReentrantLock
  * holds the warm frame plus any frames the Dart side prefetches around the scrub
  * head — so repeated/neighbouring scrubs return instantly.
  *
- * Concurrency: `open()` does the slow network `setDataSource`, so it holds the
- * lock; `frame()` uses `tryLock` and bails out (null) instead of blocking — that
- * way the MethodChannel call never hangs while a source is still opening. The
- * cache has its own monitor so the fast-path read never waits on a slow open.
+ * Concurrency: `setDataSource` is a network fetch with NO timeout, so `open()`
+ * runs it OUTSIDE [lock] and only swaps the finished retriever in under the lock.
+ * That way `close()` — which the player calls from dispose() when the user hits
+ * back — never waits on a still-opening source. [generation] invalidates a slow
+ * open() that finished after a close()/newer open(), so it releases its retriever
+ * instead of installing a stale one. `frame()` uses tryLock and bails out (null)
+ * rather than blocking. The cache has its own monitor.
  */
 object FramePreview {
     private const val TAG = "FramePreview"
@@ -33,12 +38,17 @@ object FramePreview {
     private const val CACHE_CAP = 64
 
     private val lock = ReentrantLock()
-    private var retriever: MediaMetadataRetriever? = null
-    private var openUrl: String? = null
+
+    @Volatile private var retriever: MediaMetadataRetriever? = null
+    @Volatile private var openUrl: String? = null
+
+    /** Bumped by every [open] and [close]; a slow open() whose generation is stale
+     *  when it finishes throws its retriever away instead of installing it. */
+    private val generation = AtomicInteger(0)
 
     // Bounded LRU of bucketed-position -> JPEG bytes. Guarded by its own monitor
-    // (not [lock]) so a scrub can read a cached frame while a slow open() is still
-    // holding [lock]. access-order = true → least-recently-used is evicted first.
+    // (not [lock]) so a scrub can read a cached frame while an open() is running.
+    // access-order = true → least-recently-used is evicted first.
     private val cache = object : LinkedHashMap<Long, ByteArray>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: Map.Entry<Long, ByteArray>): Boolean =
             size > CACHE_CAP
@@ -55,31 +65,61 @@ object FramePreview {
      */
     fun open(url: String, headers: Map<String, String>, warmMs: Long = -1L) {
         if (openUrl == url && retriever != null) return
-        lock.lock()
+
+        val myGen = generation.incrementAndGet()
+        // Free whatever was open before (fast — no network under the lock).
+        lock.withLock { closeLocked() }
+
+        // The slow part runs OUTSIDE [lock] so close() can never wait on it.
+        val r = MediaMetadataRetriever()
         try {
-            closeLocked()
-            val r = MediaMetadataRetriever()
             if (headers.isEmpty()) r.setDataSource(url) else r.setDataSource(url, headers)
-            retriever = r
-            openUrl = url
-            if (warmMs >= 0) extractLocked(r, warmMs)?.let { cachePut(warmMs, it) }
         } catch (t: Throwable) {
             Log.e(TAG, "open failed: ${t.message}")
-            retriever = null; openUrl = null
-        } finally {
-            lock.unlock()
+            releaseQuietly(r)
+            return
         }
+
+        // Superseded while we were opening (player closed, or a newer source)?
+        if (generation.get() != myGen) {
+            releaseQuietly(r)
+            return
+        }
+
+        // [r] is still private to us here, so warming needs no lock either.
+        val warm = if (warmMs >= 0) {
+            try { extract(r, warmMs) } catch (t: Throwable) {
+                Log.e(TAG, "warm failed: ${t.message}"); null
+            }
+        } else {
+            null
+        }
+
+        val installed = lock.withLock {
+            if (generation.get() != myGen) {
+                false
+            } else {
+                retriever = r
+                openUrl = url
+                true
+            }
+        }
+        if (!installed) {
+            releaseQuietly(r)
+            return
+        }
+        if (warm != null) cachePut(warmMs, warm)
     }
 
     /** JPEG bytes of the frame nearest [positionMs], scaled to ~ [maxW]px wide. */
     fun frame(positionMs: Long, maxW: Int = MAX_W): ByteArray? {
         cacheGet(positionMs)?.let { return it }
-        // Don't block while a (slow) open() is in progress — return null so the
-        // channel call returns immediately and the UI shows its fallback.
+        // Don't block while another op holds the lock — return null so the channel
+        // call returns immediately and the UI shows its fallback.
         if (!lock.tryLock()) return null
         return try {
             val r = retriever ?: return null
-            val bytes = extractLocked(r, positionMs, maxW)
+            val bytes = extract(r, positionMs, maxW)
             if (bytes != null) cachePut(positionMs, bytes)
             bytes
         } catch (t: Throwable) {
@@ -89,8 +129,29 @@ object FramePreview {
         }
     }
 
-    /** Extract + JPEG-encode one frame. Caller must hold [lock]. */
-    private fun extractLocked(
+    /**
+     * Release the source. Invalidates any in-flight [open] (it will drop its own
+     * retriever when it finishes) so this never has to wait on a network fetch.
+     */
+    fun close() {
+        generation.incrementAndGet()
+        synchronized(cache) { cache.clear() }
+        lock.withLock { closeLocked() }
+    }
+
+    private fun closeLocked() {
+        releaseQuietly(retriever)
+        retriever = null
+        openUrl = null
+        synchronized(cache) { cache.clear() }
+    }
+
+    private fun releaseQuietly(r: MediaMetadataRetriever?) {
+        try { r?.release() } catch (_: Throwable) {}
+    }
+
+    /** Extract + JPEG-encode one frame from [r]. */
+    private fun extract(
         r: MediaMetadataRetriever,
         positionMs: Long,
         maxW: Int = MAX_W,
@@ -117,16 +178,5 @@ object FramePreview {
         if (bmp.width <= maxW || bmp.width == 0) return bmp
         val h = (bmp.height.toLong() * maxW / bmp.width).toInt().coerceAtLeast(1)
         return Bitmap.createScaledBitmap(bmp, maxW, h, true)
-    }
-
-    fun close() {
-        lock.lock()
-        try { closeLocked() } finally { lock.unlock() }
-    }
-
-    private fun closeLocked() {
-        try { retriever?.release() } catch (_: Throwable) {}
-        retriever = null; openUrl = null
-        synchronized(cache) { cache.clear() }
     }
 }

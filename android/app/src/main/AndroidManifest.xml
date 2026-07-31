@@ -9,10 +9,25 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
+
+    <!-- Android TV. Every feature below is required="false" ON PURPOSE: this is
+         one APK that installs and behaves identically on phones/tablets and
+         ADDITIONALLY appears on the Leanback launcher. required="true" anywhere
+         here would turn this into a TV-only APK and strip it from phones. -->
+    <uses-feature android:name="android.software.leanback" android:required="false"/>
+    <!-- Touchscreen is implicitly required="true" for every app that stays
+         silent about it. Without this line no TV can install or run Sozo. -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
+    <!-- android.permission.USE_FINGERPRINT (above) carries an implicit REQUIRED
+         android.hardware.fingerprint feature. No TV has a fingerprint reader,
+         so neutralise it explicitly. (USE_BIOMETRIC implies nothing.) -->
+    <uses-feature android:name="android.hardware.fingerprint" android:required="false"/>
+
     <application
         android:label="Sozo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
@@ -36,6 +51,10 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+                <!-- Additive: LAUNCHER stays, so phone/tablet launchers are
+                     unaffected. LEANBACK_LAUNCHER is what makes the same
+                     activity appear on the Android TV home screen. -->
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
@@ -83,6 +102,14 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="tg" />
+        </intent>
+        <!-- External playback handoff (Settings → Player → External player).
+             Without this, Android 11+ package visibility hides every installed
+             video app, resolveActivity() returns null and the chooser never
+             appears — the feature would silently do nothing. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="video/*" />
         </intent>
     </queries>
 </manifest>

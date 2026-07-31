@@ -232,12 +232,22 @@ class _DownloadsPageState extends State<DownloadsPage> {
                 height: 1,
                 indent: 82,
               ),
-              itemBuilder: (_, i) => _DownloadRow(
-                item: _items[i],
-                onTap: () => _play(_items[i]),
-                onRemove: () => _service.remove(_items[i].id),
-                onRetry: () => _service.startDownload(_items[i]),
-              ),
+              itemBuilder: (_, i) {
+                final item = _items[i];
+                return _DownloadRow(
+                  item: item,
+                  onTap: () => _play(item),
+                  onRemove: () {
+                    // Drop the row synchronously so a concurrent revision-driven
+                    // rebuild can't re-render an already-dismissed Dismissible
+                    // (assertion). _service.remove finishes the delete async.
+                    setState(() =>
+                        _items = _items.where((e) => e.id != item.id).toList());
+                    _service.remove(item.id);
+                  },
+                  onRetry: () => _service.startDownload(item),
+                );
+              },
             ),
           SliverToBoxAdapter(child: SizedBox(height: bottomPad + 24)),
         ],

@@ -39,18 +39,40 @@ class AppConstants {
   static const String themeModeKey = 'theme_mode';
   static const String languageKey = 'language';
   static const String currentProviderKey = 'current_provider';
+
+  /// Provider used until the real list arrives and ProviderBloc persists a
+  /// choice. Without it a fresh install races: HomeBloc reads the current
+  /// provider before the list has loaded, sends an empty id, and every content
+  /// request comes back 400 `Unknown provider ""` — so a brand-new user sees a
+  /// broken home screen. Must stay a valid server provider id.
+  static const String defaultProviderId = 'vidapi';
+  static const String preOutageProviderKey = 'pre_outage_provider';
+  static const String cachedProvidersKey = 'cached_providers';
+  static const String cachedProvidersAtKey = 'cached_providers_at';
   static const String shortsRefreshShowcaseSeenKey =
       'shorts_refresh_showcase_seen';
   static const String aniListTokenKey = 'anilist_token';
   static const String malTokenKey = 'mal_token';
   static const String preferredMediaLangKey = 'preferred_media_lang';
   static const String defaultMediaLang = 'sub';
+
+  /// Playback engine the user picked in Settings → Player. Absent ⇒
+  /// [defaultPlayerEngine], i.e. exactly the engine the app has always used, so
+  /// an existing install that never opens the setting is bit-for-bit unchanged.
+  /// Read through `resolvePlayerEngine()` — never trust this raw value, it only
+  /// applies on Android (desktop is always media_kit, iOS always video_player).
+  static const String playerEngineKey = 'player_engine';
+  static const String defaultPlayerEngine = 'default';
   static const String telegramPromoSeenKey = 'telegram_promo_seen';
   static const String amoledModeKey = 'amoled_mode';
   static const String onboardingSeenKey = 'onboarding_seen';
   static const String deeplinkPromptSeenKey = 'deeplink_prompt_seen';
   static const String deeplinkOptInKey = 'deeplink_opt_in';
   static const String openSubtitlesKeyKey = 'opensubtitles_api_key';
+
+  /// Opt-in for adult manga sources. Absent ⇒ off, so a fresh install never
+  /// surfaces an 18+ source until the user asks for it.
+  static const String showNsfwMangaSourcesKey = 'show_nsfw_manga_sources';
 
   static const String appLockEnabledKey = 'app_lock_enabled';
   static const String appLockPinLengthKey = 'app_lock_pin_length';
@@ -60,6 +82,26 @@ class AppConstants {
   static const String appLockPinSaltSecureKey = 'app_lock_pin_salt';
 
   static const String subtitleStyleKey = 'subtitle_style';
+
+  /// Ask which engine to use every time playback starts, instead of silently
+  /// using [playerEngineKey]. Absent ⇒ off, so an existing install keeps the
+  /// zero-prompt behaviour it already had; the picker is opt-in from
+  /// Settings → Player, or from the "don't ask again" checkbox in the sheet
+  /// itself (which writes `false` back here).
+  static const String askEngineOnPlayKey = 'ask_engine_on_play';
+
+  /// Playback defaults applied at player start. Each one mirrors a control that
+  /// already existed inside the fullscreen player and was previously reset on
+  /// every open; the stored value only seeds the initial state, so changing it
+  /// mid-playback still works exactly as before.
+  static const String defaultPlaybackSpeedKey = 'default_playback_speed';
+  static const String defaultPlayerFitKey = 'default_player_fit';
+  static const String autoPlayNextEpisodeKey = 'auto_play_next_episode';
+  static const String doubleTapSeekSecondsKey = 'double_tap_seek_seconds';
+  static const String longPressBoostKey = 'long_press_boost';
+  static const String brightnessGestureKey = 'brightness_gesture';
+  static const String volumeGestureKey = 'volume_gesture';
+  static const String keepScreenOnKey = 'keep_screen_on';
 
   static const String streakBox = 'streak_box';
   static const String streakStateKey = 'streak_state';

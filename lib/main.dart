@@ -13,6 +13,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/extensions/extension_bridge.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -21,6 +22,7 @@ import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
+import 'package:soplay/core/player/media_controller.dart' show warmUpPlayerEngine;
 import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/features/download/data/download_service.dart';
@@ -31,9 +33,21 @@ import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Resolve Android TV before any isMobilePlatform branch below: a television
+  // must not take the phone's liquid-glass path. No-op off Android, and any
+  // failure leaves the flag false, i.e. exactly today's phone behaviour.
+  await initTvPlatform();
   if (isDesktopPlatform) {
     MediaKit.ensureInitialized();
     await windowManager.ensureInitialized();
+  }
+  if (isMobilePlatform) {
+    // Pre-warm the liquid-glass fragment shaders (Impeller) so the glass bottom
+    // nav has no first-frame compile hitch. Guarded so a shader-load failure can
+    // never block startup; never runs on desktop.
+    try {
+      await LiquidGlassWidgets.initialize();
+    } catch (_) {}
   }
   try {
     await dotenv.load(fileName: '.env');
@@ -67,7 +81,6 @@ void main() async {
   }
   _fireAndForget(getIt<DownloadService>().resumeIncomplete(), 'download');
   _fireAndForget(getIt<ProviderRegistry>().preload(), 'providers');
-  _fireAndForget(getIt<JsRuntimeService>().ensureReady(), 'js');
   _fireAndForget(
     getIt<NotificationService>().ensureInitialized(),
     'fcm',
@@ -85,19 +98,39 @@ void main() async {
       overlays: SystemUiOverlay.values,
     ).catchError((Object _) {}),
   );
-  runApp(
-    EasyLocalization(
-      supportedLocales: const [
-        Locale('en'),
-        Locale('uz'),
-        Locale('ru'),
-      ],
-
-      path: 'assets/translations',
-      fallbackLocale: const Locale('en'),
-      child: const MyApp(),
-    ),
+  Widget root = EasyLocalization(
+    supportedLocales: const [
+      Locale('en'),
+      Locale('uz'),
+      Locale('ru'),
+    ],
+    path: 'assets/translations',
+    fallbackLocale: const Locale('en'),
+    child: const MyApp(),
   );
+  if (isMobilePlatform) {
+    // Adaptive glass quality (auto-degrades to a plain frosted tier on weak /
+    // non-Impeller GPUs) + app-wide glass theming hooks. Never runs on desktop.
+    root = LiquidGlassWidgets.wrap(child: root, adaptiveQuality: true);
+  }
+  runApp(root);
+
+  // Deferred to after the first frame on purpose.
+  //
+  // Both of these load a large native library on the platform thread the first
+  // time they run — WebView pulls in libwebviewchromium.so (plus a sandboxed
+  // renderer process), media_kit pulls in libmpv. Kicked off before runApp they
+  // land squarely inside startup and show up as a ~1s dropped-frame stall
+  // before the first screen is even painted. After the first frame the user is
+  // looking at real UI while the same work happens.
+  //
+  // Still eager rather than on-demand: paying it here, once, is what keeps it
+  // out of the player, where the same stall reads as "the video took a second
+  // to open".
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _fireAndForget(getIt<JsRuntimeService>().ensureReady(), 'js');
+    _fireAndForget(warmUpPlayerEngine(), 'player-engine');
+  });
 }
 
 Future<void> _initHive() async {
@@ -108,6 +141,7 @@ Future<void> _initHive() async {
     await Hive.initFlutter();
   }
   await Future.wait([
+
     Hive.openBox(AppConstants.authBox),
     Hive.openBox(AppConstants.settingsBox),
     Hive.openBox(AppConstants.historyBox),
