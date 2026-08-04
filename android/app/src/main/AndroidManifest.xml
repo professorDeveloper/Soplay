@@ -68,6 +68,63 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="sozo"/>
             </intent-filter>
+
+            <!-- "Open with Sozo" for extension repository index files.
+
+                 Extension repos are distributed as one index file: index.pb
+                 (Mihon/Keiyoushi, gzipped protobuf), index.min.json (Aniyomi and
+                 older forks), repo.json (CloudStream) or index.json (Mangayomi).
+                 These filters put Sozo in the chooser when one is tapped in a
+                 file manager, a browser download, or a chat app.
+
+                 Why the mimeType is a wildcard: senders label these
+                 inconsistently — Telegram sends application/octet-stream, Chrome
+                 sends application/json or text/plain, some file managers send
+                 nothing at all. Matching on the path pattern and re-checking the
+                 filename in RepoFileIntent is the only combination that actually
+                 catches them; a strict mimeType silently drops most real cases.
+
+                 pathPattern's ".*" is NOT greedy-safe across "." in Android's
+                 matcher, so each extension needs its own leading-wildcard entry. -->
+            <intent-filter android:label="@string/open_repo_file">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="content"/>
+                <data android:scheme="file"/>
+                <data android:host="*"/>
+                <data android:mimeType="*/*"/>
+                <data android:pathPattern=".*\\.pb"/>
+                <data android:pathPattern=".*\\..*\\.pb"/>
+                <data android:pathPattern=".*index\\.json"/>
+                <data android:pathPattern=".*index\\.min\\.json"/>
+                <data android:pathPattern=".*repo\\.json"/>
+                <data android:pathPattern=".*anime_index\\.json"/>
+                <data android:pathPattern=".*novel_index\\.json"/>
+            </intent-filter>
+            <!-- Same, for a direct link to a raw index (e.g. a GitHub raw URL
+                 pasted into a chat). Not autoVerify: these are third-party hosts
+                 we cannot claim, so the user picks Sozo from the chooser. -->
+            <intent-filter android:label="@string/open_repo_file">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="http"/>
+                <data android:scheme="https"/>
+                <data android:host="*"/>
+                <data android:pathPattern=".*\\.pb"/>
+                <data android:pathPattern=".*index\\.min\\.json"/>
+                <data android:pathPattern=".*anime_index\\.json"/>
+                <data android:pathPattern=".*novel_index\\.json"/>
+            </intent-filter>
+            <!-- Shared into Sozo from another app ("Share → Sozo"). -->
+            <intent-filter android:label="@string/open_repo_file">
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="application/octet-stream"/>
+                <data android:mimeType="application/json"/>
+                <data android:mimeType="text/plain"/>
+            </intent-filter>
         </activity>
         <service
             android:name=".DownloadForegroundService"

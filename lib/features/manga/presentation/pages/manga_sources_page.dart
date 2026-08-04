@@ -8,6 +8,8 @@ import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
+import 'package:soplay/features/extensions/presentation/widgets/recommended_repos_section.dart';
 import 'package:soplay/features/manga/presentation/pages/manga_source_settings_page.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
@@ -24,28 +26,12 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
       'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s';
   static const Color _accent = Color(0xFF5B8DEF);
 
-  static const List<Map<String, String>> _recommended = [
-    {
-      'name': 'Yuzono Manga',
-      'desc': 'Largest collection · auto-synced with Keiyoushi',
-      'url':
-          'https://raw.githubusercontent.com/yuzono/manga-repo/repo/index.min.json',
-    },
-    {
-      'name': 'Keiyoushi',
-      'desc': 'Community manga / manhwa / webtoon sources',
-      'url':
-          'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json',
-    },
-  ];
-
   late final HiveService _hive = getIt<HiveService>();
 
   final _controller = TextEditingController();
   List<Map<String, String>> _repos = const [];
   List<Map<String, dynamic>> _sources = const [];
   bool _busy = false;
-  bool _recommendedHidden = false;
   String? _status;
   bool _statusError = false;
   StreamSubscription<({int current, int total})>? _progressSub;
@@ -165,6 +151,39 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
     }
   }
 
+  /// Re-checks every installed repo for newer extension versions and applies
+  /// them — the manga counterpart of the CloudStream page's update action. The
+  /// native side swaps the stored metadata and drops the stale apk, so the new
+  /// one is fetched lazily on next use.
+  Future<void> _checkUpdates() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _statusError = false;
+      _status = 'manga.checking_updates'.tr();
+    });
+    try {
+      final res = await MangaChannel.checkUpdates();
+      final count = (res['count'] as num?)?.toInt() ?? 0;
+      if (!mounted) return;
+      if (count > 0) _reloadProviders();
+      setState(() {
+        _statusError = false;
+        _status = count == 0
+            ? 'manga.up_to_date'.tr()
+            : 'manga.updated_n'.tr(args: ['$count']);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _statusError = true;
+        _status = 'Error: $e';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _remove(String url) async {
     await MangaChannel.removeRepo(url);
     if (!mounted) return;
@@ -196,6 +215,13 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
         scrolledUnderElevation: 0,
         elevation: 0,
         title: Text('manga.sources_title'.tr()),
+        actions: [
+          IconButton(
+            tooltip: 'manga.check_updates'.tr(),
+            icon: const Icon(Icons.system_update_alt_rounded),
+            onPressed: (_busy || _repos.isEmpty) ? null : _checkUpdates,
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -208,7 +234,16 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
             _statusBanner(),
           ],
           const SizedBox(height: 24),
-          _recommendedSection(),
+          RecommendedReposSection(
+            kind: ExtensionRepoKind.manga,
+            installedUrls: {for (final r in _repos) (r['url'] ?? '').trim()},
+            busy: _busy,
+            accent: _accent,
+            fallbackIcon: _logo,
+            nsfwAllowed: _hive.showNsfwMangaSources,
+            title: 'manga.recommended'.tr(),
+            onInstall: (repo) => _install(repo.url),
+          ),
           const SizedBox(height: 24),
           _nsfwCard(),
           const SizedBox(height: 24),
@@ -429,108 +464,6 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
         ),
       );
 
-  bool _isInstalled(String url) =>
-      _repos.any((r) => (r['url'] ?? '').trim() == url.trim());
-
-  Widget _recommendedSection() => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.star_rounded, size: 15, color: _accent),
-              const SizedBox(width: 6),
-              Text('manga.recommended'.tr(),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.textHint, letterSpacing: 1)),
-              const Spacer(),
-              InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => setState(
-                    () => _recommendedHidden = !_recommendedHidden),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Text(
-                      _recommendedHidden
-                          ? 'manga.show'.tr()
-                          : 'manga.hide'.tr(),
-                      style: const TextStyle(
-                          color: AppColors.textHint,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
-          ),
-          if (!_recommendedHidden) ...[
-            const SizedBox(height: 8),
-            ..._recommended.map(_recommendedTile),
-          ],
-        ],
-      );
-
-  Widget _recommendedTile(Map<String, String> repo) {
-    final url = repo['url'] ?? '';
-    final name = repo['name'] ?? url;
-    final desc = repo['desc'] ?? '';
-    final installed = _isInstalled(url);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Material(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(11),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: (_busy || installed) ? null : () => _install(url),
-          splashColor: _accent.withValues(alpha: 0.12),
-          highlightColor: _accent.withValues(alpha: 0.06),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(
-                color: installed
-                    ? Colors.green.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.06),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: [
-                _logoBox(30),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
-                      Text(desc,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: AppColors.textHint, fontSize: 11)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                installed
-                    ? const _InstalledChip()
-                    : Icon(Icons.download_rounded,
-                        size: 20,
-                        color: _busy ? AppColors.textHint : _accent),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _statusBanner() {
     final color = _statusError ? Colors.redAccent : Colors.green;
     return Container(
@@ -627,30 +560,5 @@ class _NsfwChip extends StatelessWidget {
                 color: Color(0xFFE53935),
                 fontSize: 9,
                 fontWeight: FontWeight.w700)),
-      );
-}
-
-class _InstalledChip extends StatelessWidget {
-  const _InstalledChip();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.green.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.check_circle, size: 14, color: Colors.green),
-            const SizedBox(width: 4),
-            Text('manga.installed'.tr(),
-                style: const TextStyle(
-                    color: Colors.green,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
-          ],
-        ),
       );
 }

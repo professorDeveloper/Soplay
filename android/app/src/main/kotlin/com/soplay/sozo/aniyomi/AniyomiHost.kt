@@ -4,11 +4,14 @@ import android.content.Context
 import android.util.Log
 import eu.kanade.tachiyomi.animesource.AnimeCatalogueSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
+import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SAnimeImpl
 import eu.kanade.tachiyomi.animesource.model.SEpisodeImpl
 import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
 import eu.kanade.tachiyomi.network.NetworkHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
@@ -40,6 +43,14 @@ class AniyomiHost(private val context: Context) {
 
     private val sources = LinkedHashMap<String, SourceMeta>()
 
+    /**
+     * Why the last apk fetch failed, surfaced into `getMainPage`'s `error` field.
+     * Distinct from [AniyomiRuntime.lastError], which covers dex loading — this
+     * one covers never getting a usable file in the first place.
+     */
+    @Volatile
+    private var lastError: String? = null
+
     fun registerMeta(entry: JSONObject, repoName: String) {
         val id = entry.optString("id")
         if (id.isEmpty()) return
@@ -59,6 +70,27 @@ class AniyomiHost(private val context: Context) {
 
     fun removeSources(ids: List<String>) {
         ids.forEach { sources.remove(it) }
+    }
+
+    /**
+     * Invalidates everything cached for the extension published at [apkUrl] so the
+     * next use re-downloads it. Called by the updater after an upstream version bump.
+     * Evicting the runtime cache matters as much as deleting the file — otherwise
+     * the old code keeps being served from memory for the rest of the process.
+     */
+    fun dropCachedApk(apkUrl: String) {
+        if (apkUrl.isEmpty()) return
+        val affected = sources.values.filter { it.apkUrl == apkUrl }
+        if (affected.isEmpty()) return
+        AniyomiRuntime.evictSources(affected.map { it.id })
+        for (meta in affected) {
+            val f = cachedApkFile(meta)
+            if (f.exists()) {
+                // setWritable first: the runtime marks loaded apks read-only for W^X.
+                f.setWritable(true)
+                if (!f.delete()) Log.w(TAG, "could not delete stale apk ${f.name}")
+            }
+        }
     }
 
     private fun langRank(lang: String): Int = when (lang.trim().lowercase()) {
@@ -94,11 +126,44 @@ class AniyomiHost(private val context: Context) {
 
     // --- runtime: load source + convert to soplay JSON ---
 
-    private fun ensureApk(meta: SourceMeta): File? {
-        if (meta.apkUrl.isEmpty()) return null
+    /**
+     * Downloads the extension apk if it isn't cached, and returns it.
+     *
+     * Two things here are load-bearing (both were already fixed in `MangaHost`;
+     * this is the anime twin catching up, and they are exactly why "Aniyomi
+     * recommended won't load" was reproducible):
+     *
+     * 1. **The cache key includes the apk's filename**, which carries the version
+     *    (`aniyomi-all.animeonsen-v14.10.apk`). Keyed on the package alone, a
+     *    published extension update could never be picked up — the old file
+     *    existed, so it was returned forever.
+     *
+     * 2. **The download lands on a temp file and is renamed only once complete.**
+     *    Writing straight to the final path meant a dropped connection left a
+     *    truncated apk that `exists() && length() > 0` happily accepted, and
+     *    `AniyomiRuntime` then `setReadOnly()`s it — so the source was
+     *    permanently broken with no way to recover short of clearing app data.
+     */
+    /** Where [meta]'s apk is (or would be) cached. Single source of truth for the name. */
+    private fun cachedApkFile(meta: SourceMeta): File {
         val dir = File(context.filesDir, "aniyomi").apply { mkdirs() }
-        val file = File(dir, (meta.pkg.ifEmpty { meta.id }).replace('/', '_') + ".apk")
+        val base = (meta.pkg.ifEmpty { meta.id }).replace('/', '_')
+        val remoteName = meta.apkUrl.substringAfterLast('/').substringBefore('?')
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .takeIf { it.isNotEmpty() && it != ".apk" }
+        return File(dir, if (remoteName != null) "$base-$remoteName" else "$base.apk")
+    }
+
+    private fun ensureApk(meta: SourceMeta): File? {
+        if (meta.apkUrl.isEmpty()) {
+            lastError = "no apk url for ${meta.name}"
+            return null
+        }
+        val file = cachedApkFile(meta)
+        val dir = file.parentFile!!
         if (file.exists() && file.length() > 0) return file
+
+        val tmp = File(dir, "${file.name}.part")
         return try {
             val conn = (URL(meta.apkUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"; instanceFollowRedirects = true
@@ -106,20 +171,59 @@ class AniyomiHost(private val context: Context) {
                 setRequestProperty("User-Agent", UA)
             }
             if (conn.responseCode !in 200..299) {
+                lastError = "apk download ${conn.responseCode} for ${meta.name}"
                 Log.e(TAG, "apk ${meta.apkUrl} -> ${conn.responseCode}"); return null
             }
-            conn.inputStream.use { input -> FileOutputStream(file).use { input.copyTo(it) } }
+            val expected = conn.contentLengthLong
+            tmp.delete()
+            val written = conn.inputStream.use { input ->
+                FileOutputStream(tmp).use { input.copyTo(it) }
+            }
+            // Only trust Content-Length when the server actually sent one; chunked
+            // responses report -1 and a short read there is indistinguishable from
+            // a complete one.
+            if (expected > 0 && written != expected) {
+                lastError = "apk truncated for ${meta.name} ($written/$expected bytes)"
+                Log.e(TAG, "apk ${meta.apkUrl} truncated: $written/$expected bytes")
+                tmp.delete()
+                return null
+            }
+            if (written <= 0) {
+                lastError = "apk empty for ${meta.name}"
+                Log.e(TAG, "apk ${meta.apkUrl} empty"); tmp.delete(); return null
+            }
+            // Clear read-only in case a previous load marked an older file at this
+            // path; renameTo onto a read-only target fails silently otherwise.
+            if (file.exists()) {
+                file.setWritable(true)
+                file.delete()
+            }
+            if (!tmp.renameTo(file)) {
+                lastError = "apk rename failed for ${meta.name}"
+                Log.e(TAG, "apk rename failed for ${file.name}"); tmp.delete(); return null
+            }
+            Log.i(TAG, "apk downloaded ${file.name} ($written bytes)")
             file
         } catch (t: Throwable) {
-            Log.e(TAG, "apk download failed: ${t.message}"); null
+            tmp.delete()
+            lastError = "apk download ${t.javaClass.simpleName}: ${t.message}"
+            Log.e(TAG, "apk download failed: ${t.javaClass.simpleName}: ${t.message}")
+            null
         }
     }
 
     private fun sourceFor(id: String): AnimeCatalogueSource? {
-        val meta = sources[id] ?: return null
+        val meta = sources[id] ?: run {
+            lastError = "source not installed: an:$id"
+            return null
+        }
         val apk = ensureApk(meta) ?: return null
         return AniyomiRuntime.source(context, apk.absolutePath, meta.pkg, meta.id)
     }
+
+    /** Best available explanation for an empty result, or null when there is none. */
+    private fun failureReason(id: String): String =
+        AniyomiRuntime.lastError ?: lastError ?: "source unavailable: an:$id"
 
     private fun cardJson(a: SAnime, id: String) = JSONObject().apply {
         put("provider", "an:$id")
@@ -137,9 +241,23 @@ class AniyomiHost(private val context: Context) {
         val src = sourceFor(id)
         val sections = JSONArray()
         val banner = JSONArray()
+        var queryError: String? = null
         if (src != null) {
-            try {
-                val pop = runBlocking { src.getPopularAnime(page) }
+            // popular + latest are independent → fetch concurrently. runCatching
+            // INSIDE each job so one failing call can't cancel its sibling through
+            // the shared parent scope.
+            val popular: Result<AnimesPage>
+            val latest: Result<AnimesPage?>
+            runBlocking {
+                val popJob = async(Dispatchers.IO) { runCatching { src.getPopularAnime(page) } }
+                val latJob = async(Dispatchers.IO) {
+                    runCatching { if (src.supportsLatest) src.getLatestUpdates(page) else null }
+                }
+                popular = popJob.await()
+                latest = latJob.await()
+            }
+
+            popular.getOrNull()?.let { pop ->
                 pop.animes.firstOrNull()?.let {
                     val t = runCatching { it.title }.getOrDefault("<unset>")
                     Log.i(TAG, "popular[0] title='$t' url='${it.url}'")
@@ -155,22 +273,35 @@ class AniyomiHost(private val context: Context) {
                         put("items", items)
                     })
                 }
-            } catch (t: Throwable) { Log.e(TAG, "getPopular $id: ${t.message}") }
-            try {
-                if (src.supportsLatest) {
-                    val lat = runBlocking { src.getLatestUpdates(page) }
-                    val items = JSONArray()
-                    for (a in lat.animes.take(30)) items.put(cardJson(a, id))
-                    if (items.length() > 0) sections.put(JSONObject().apply {
-                        put("key", "latest"); put("label", "Latest")
-                        put("viewAll", JSONObject().apply { put("type", "an"); put("slug", "latest") })
-                        put("items", items)
-                    })
-                }
-            } catch (t: Throwable) { Log.e(TAG, "getLatest $id: ${t.message}") }
+            }
+            popular.exceptionOrNull()?.let { t ->
+                queryError = "getPopular: ${t.javaClass.simpleName}: ${t.message}"
+                Log.e(TAG, "getPopular $id", t)
+            }
+
+            latest.getOrNull()?.let { lat ->
+                val items = JSONArray()
+                for (a in lat.animes.take(30)) items.put(cardJson(a, id))
+                if (items.length() > 0) sections.put(JSONObject().apply {
+                    put("key", "latest"); put("label", "Latest")
+                    put("viewAll", JSONObject().apply { put("type", "an"); put("slug", "latest") })
+                    put("items", items)
+                })
+            }
+            latest.exceptionOrNull()?.let { t ->
+                if (queryError == null) queryError = "getLatest: ${t.javaClass.simpleName}: ${t.message}"
+                Log.e(TAG, "getLatest $id", t)
+            }
         }
         return JSONObject().apply {
             put("provider", "an:$id"); put("banner", banner); put("sections", sections)
+            // Surface the real failure — otherwise the home is silently empty and
+            // there is nothing on screen or in the logs tying it to a cause.
+            if (src == null) {
+                put("error", failureReason(id))
+            } else if (sections.length() == 0 && queryError != null) {
+                put("error", queryError)
+            }
         }.toString()
     }
 
@@ -196,15 +327,22 @@ class AniyomiHost(private val context: Context) {
         val src = sourceFor(id)
         val items = JSONArray()
         var hasNext = false
+        var error: String? = if (src == null) failureReason(id) else null
         if (src != null) try {
             val pg = runBlocking { src.getSearchAnime(page, query, AnimeFilterList()) }
             for (a in pg.animes) items.put(cardJson(a, id))
             hasNext = pg.hasNextPage
-        } catch (t: Throwable) { Log.e(TAG, "search $id: ${t.message}") }
+        } catch (t: Throwable) {
+            error = "${t.javaClass.simpleName}: ${t.message}"
+            Log.e(TAG, "search $id: ${t.message}")
+        }
         return JSONObject().apply {
             put("provider", "an:$id"); put("items", items)
             put("query", query); put("page", page)
             put("totalPages", if (hasNext) page + 1 else page)
+            // Lets the caller tell "this source is broken" from "0 matches" —
+            // previously both arrived as an empty list.
+            if (error != null && items.length() == 0) put("error", error)
         }.toString()
     }
 

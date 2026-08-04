@@ -77,6 +77,29 @@ class MangaHost(private val context: Context) {
         ids.forEach { sources.remove(it) }
     }
 
+    /**
+     * Invalidates everything cached for the extension published at [apkUrl] so the
+     * next use re-downloads it. Called by the updater after an upstream version bump.
+     *
+     * Deleting the file alone is not enough: [MangaRuntime] caches the constructed
+     * `CatalogueSource` by id, so without evicting those the app would keep serving
+     * the old code from memory for the rest of the process's life.
+     */
+    fun dropCachedApk(apkUrl: String) {
+        if (apkUrl.isEmpty()) return
+        val affected = sources.values.filter { it.apkUrl == apkUrl }
+        if (affected.isEmpty()) return
+        MangaRuntime.evictSources(affected.map { it.id })
+        for (meta in affected) {
+            val f = cachedApkFile(meta)
+            if (f.exists()) {
+                // setWritable first: the runtime marks loaded apks read-only for W^X.
+                f.setWritable(true)
+                if (!f.delete()) Log.w(TAG, "could not delete stale apk ${f.name}")
+            }
+        }
+    }
+
     private fun langRank(lang: String): Int = when (lang.trim().lowercase()) {
         "en" -> 0
         "all" -> 1
@@ -126,14 +149,20 @@ class MangaHost(private val context: Context) {
      *    MangaRuntime then `setReadOnly()`s it — so the source was permanently
      *    broken with no way to recover short of clearing app data.
      */
-    private fun ensureApk(meta: SourceMeta): File? {
-        if (meta.apkUrl.isEmpty()) return null
+    /** Where [meta]'s apk is (or would be) cached. Single source of truth for the name. */
+    private fun cachedApkFile(meta: SourceMeta): File {
         val dir = File(context.filesDir, "manga").apply { mkdirs() }
         val base = (meta.pkg.ifEmpty { meta.id }).replace('/', '_')
         val remoteName = meta.apkUrl.substringAfterLast('/').substringBefore('?')
             .replace(Regex("[^A-Za-z0-9._-]"), "_")
             .takeIf { it.isNotEmpty() && it != ".apk" }
-        val file = File(dir, if (remoteName != null) "$base-$remoteName" else "$base.apk")
+        return File(dir, if (remoteName != null) "$base-$remoteName" else "$base.apk")
+    }
+
+    private fun ensureApk(meta: SourceMeta): File? {
+        if (meta.apkUrl.isEmpty()) return null
+        val file = cachedApkFile(meta)
+        val dir = file.parentFile!!
         if (file.exists() && file.length() > 0) return file
 
         val tmp = File(dir, "${file.name}.part")
@@ -297,15 +326,22 @@ class MangaHost(private val context: Context) {
         val src = sourceFor(id)
         val items = JSONArray()
         var hasNext = false
+        var error: String? =
+            if (src == null) (MangaRuntime.lastError ?: "source unavailable: mn:$id") else null
         if (src != null) try {
             val pg = runBlocking { src.getSearchManga(page, query, FilterList()) }
             for (m in pg.mangas) items.put(cardJson(m, id))
             hasNext = pg.hasNextPage
-        } catch (t: Throwable) { Log.e(TAG, "search $id: ${t.message}") }
+        } catch (t: Throwable) {
+            error = "${t.javaClass.simpleName}: ${t.message}"
+            Log.e(TAG, "search $id: ${t.message}")
+        }
         return JSONObject().apply {
             put("provider", "mn:$id"); put("items", items)
             put("query", query); put("page", page)
             put("totalPages", if (hasNext) page + 1 else page)
+            // Lets the caller tell "this source is broken" from "0 matches".
+            if (error != null && items.length() == 0) put("error", error)
         }.toString()
     }
 

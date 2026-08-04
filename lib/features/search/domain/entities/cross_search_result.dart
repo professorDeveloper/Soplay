@@ -3,7 +3,10 @@ import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 
 /// How a provider is searched. Decides the dispatch path in [CrossSearchEngine].
 enum ProviderKind {
-  /// On-device Kotlin plugin host (`cs:` / `an:` / `mn:`).
+  /// On-device extension host: Kotlin (`cs:` / `an:` / `mn:`) or the
+  /// JavaScript runtime (`my:`). Both run entirely on the device and may need
+  /// to fetch the extension itself before the first call, which is why they
+  /// share the engine's longer per-provider budget.
   channel,
 
   /// On-device full-scope JS extractor.
@@ -31,7 +34,10 @@ class ProviderRef {
   final ProviderKind kind;
 
   static ProviderKind kindOf(String id, {required bool scopesAll}) {
-    if (id.startsWith('cs:') || id.startsWith('an:') || id.startsWith('mn:')) {
+    if (id.startsWith('cs:') ||
+        id.startsWith('an:') ||
+        id.startsWith('mn:') ||
+        id.startsWith('my:')) {
       return ProviderKind.channel;
     }
     return scopesAll ? ProviderKind.js : ProviderKind.server;

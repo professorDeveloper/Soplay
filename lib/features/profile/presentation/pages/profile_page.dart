@@ -15,6 +15,8 @@ import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/bridge/bridge_control.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
+import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
 import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/player/player_engine.dart';
@@ -246,6 +248,50 @@ class _ProfileViewState extends State<_ProfileView> {
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const MangaSourcesPage(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                ],
+                // Not gated on BridgeControl.canHost / a platform channel: these
+                // extensions are JavaScript, so this entry is valid on iOS,
+                // macOS and Windows as well as Android — the only extension
+                // ecosystem that is.
+                if (MangayomiRuntime.isSupported) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Material(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        child: ListTile(
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.network(
+                              'https://raw.githubusercontent.com/kodjodevf/mangayomi/main/assets/app_icons/icon-red.png',
+                              width: 28,
+                              height: 28,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => const Icon(
+                                  Icons.javascript_outlined,
+                                  color: AppColors.textHint),
+                            ),
+                          ),
+                          title: const Text('Mangayomi Sources',
+                              style: TextStyle(color: Colors.white)),
+                          subtitle: const Text('JavaScript · works on iOS too',
+                              style: TextStyle(
+                                  color: AppColors.textHint, fontSize: 11)),
+                          trailing: const Icon(Icons.chevron_right,
+                              color: AppColors.textHint),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const MangayomiSourcesPage(),
                             ),
                           ),
                         ),
@@ -917,6 +963,7 @@ String providerGroup(ProviderEntity p) {
   if (p.category == 'cloudstream') return 'cloudstream';
   if (p.category == 'aniyomi') return 'aniyomi';
   if (p.category == 'manga') return 'manga';
+  if (p.category == 'mangayomi') return 'mangayomi';
   return switch (p.mode) {
     'hybrid' => 'hybrid',
     'client' => 'local',
@@ -1075,10 +1122,15 @@ class _ProvidersPageState extends State<_ProvidersPage> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
                     child: Text(
-                      'profile.count_of_total_shown'.tr(args: [
-                        '${filtered.length}',
-                        '${state.providers.length}'
-                      ]),
+                      _query.isEmpty
+                          ? 'profile.count_of_total_shown'.tr(args: [
+                              '${filtered.length}',
+                              '${state.providers.length}'
+                            ])
+                          // A query ignores the category chip, so say so —
+                          // otherwise a hit from a hidden group looks like a bug.
+                          : '${filtered.length} / ${state.providers.length} · '
+                              '${'profile.searching_all_sources'.tr()}',
                       style: const TextStyle(
                           color: AppColors.textHint, fontSize: 12),
                     ),
@@ -1113,7 +1165,23 @@ class _ProvidersPageState extends State<_ProvidersPage> {
     );
   }
 
+  /// Providers matching the current category + query.
+  ///
+  /// **A query searches every provider, not just the active category.** The
+  /// category chips are a browsing aid; "All" deliberately hides the 260+
+  /// CloudStream/Aniyomi/Manga extension sources so the default list stays
+  /// short. Scoping the search box to that same subset meant typing an
+  /// installed extension's name in the default view found nothing at all —
+  /// the one place a user with hundreds of sources actually needs search.
   List<ProviderEntity> _filteredProviders(List<ProviderEntity> all) {
+    final q = _query.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      return all
+          .where((p) =>
+              p.name.toLowerCase().contains(q) || p.id.toLowerCase().contains(q))
+          .toList();
+    }
+
     Iterable<ProviderEntity> list;
     if (_selectedCategory == 'favorites') {
       final favs = getIt<HiveService>().getFavoriteProviders().toSet();
@@ -1122,17 +1190,14 @@ class _ProvidersPageState extends State<_ProvidersPage> {
       list = all.where((p) =>
           providerGroup(p) != 'cloudstream' &&
           providerGroup(p) != 'aniyomi' &&
-          providerGroup(p) != 'manga');
+          providerGroup(p) != 'manga' &&
+          providerGroup(p) != 'mangayomi');
     } else if (_selectedCategory.startsWith('repo:')) {
       final repo = _selectedCategory.substring(5);
       list = all.where(
           (p) => providerGroup(p) == 'cloudstream' && p.description == repo);
     } else {
       list = all.where((p) => providerGroup(p) == _selectedCategory);
-    }
-    if (_query.isNotEmpty) {
-      final q = _query.toLowerCase();
-      list = list.where((p) => p.name.toLowerCase().contains(q));
     }
     return list.toList();
   }
@@ -1156,7 +1221,8 @@ class _CategoryFilterButton extends StatelessWidget {
     'local',
     'cloudstream',
     'aniyomi',
-    'manga'
+    'manga',
+    'mangayomi',
   ];
 
   static const _meta = <String, (String, IconData)>{
@@ -1168,6 +1234,7 @@ class _CategoryFilterButton extends StatelessWidget {
     'cloudstream':('CloudStream', Icons.extension_outlined),
     'aniyomi':    ('Aniyomi',     Icons.play_circle_outline),
     'manga':      ('Manga',       Icons.menu_book_outlined),
+    'mangayomi':  ('Mangayomi',   Icons.javascript_outlined),
   };
 
   String _label(String key) =>

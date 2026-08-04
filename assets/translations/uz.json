@@ -286,7 +286,8 @@
     "volume_gesture": "Ovoz surish",
     "volume_gesture_desc": "O‘ng tomonda yuqoriga-pastga surish",
     "seconds_short": "{} s",
-    "subtitle_style_note": "Bular barcha videolarga tegishli. Subtitr vaqti esa har bir qism uchun alohida va pleyer ichida sozlanadi."
+    "subtitle_style_note": "Bular barcha videolarga tegishli. Subtitr vaqti esa har bir qism uchun alohida va pleyer ichida sozlanadi.",
+    "searching_all_sources": "barcha manbalar bo‘yicha qidirilmoqda"
   },
   "search": {
     "title": "Qidirish",
@@ -608,7 +609,11 @@
     "no_pages": "Sahifa topilmadi",
     "tap_to_reload": "Bosing — qayta yuklash",
     "download_started": "Yuklab olish boshlandi",
-    "downloaded_pages": "{} / {} sahifa"
+    "downloaded_pages": "{} / {} sahifa",
+    "check_updates": "Yangilanishlarni tekshirish",
+    "checking_updates": "Kengaytma yangilanishlari tekshirilmoqda…",
+    "up_to_date": "Barcha kengaytmalar eng so‘nggi holatda.",
+    "updated_n": "{} ta kengaytma yangilandi."
   },
   "cloudflare": {
     "title": "Siz odam ekanligingizni tasdiqlang",
@@ -678,7 +683,8 @@
     "continue_ep": "Davom etish · EP {}",
     "no_cast": "Aktyorlar haqida ma'lumot yo'q",
     "no_recommendations": "Tavsiyalar mavjud emas",
-    "untitled": "Nomsiz"
+    "untitled": "Nomsiz",
+    "read": "O‘qish"
   },
   "shorts": {
     "refresh": "Yangilash",
@@ -836,5 +842,10 @@
     "how_step_1": "Aktyorni tanlang",
     "how_step_2": "Qisqa klipni ko'ring",
     "how_step_3": "Filmni toping"
+  },
+  "outage": {
+    "body_with_local": "Sozo serverlariga ulanib bo‘lmadi. Qurilmangizdagi {} ta manba ishlayapti.",
+    "body_no_local": "Sozo serverlariga ulanib bo‘lmadi. CloudStream, Aniyomi yoki Manga manbasini qo‘shsangiz, ko‘rishda davom etasiz.",
+    "pick_source": "Manba tanlash"
   }
 }

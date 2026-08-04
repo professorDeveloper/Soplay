@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shown as Sozo's entry in the system "Open with" chooser for extension
+         repository index files (index.pb / index.min.json / repo.json). -->
+    <string name="open_repo_file">Install extension repo in Sozo</string>
+</resources>

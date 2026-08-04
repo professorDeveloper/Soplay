@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
+import 'package:soplay/features/extensions/presentation/widgets/recommended_repos_section.dart';
 import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_plugins_page.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
@@ -20,25 +22,9 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
   static const _icon =
       'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTRzeluIShlMnhgHeVHgTSkvsthvQEK2xaS5A&s';
 
-  static const List<Map<String, String>> _recommended = [
-    {
-      'name': 'Phisher Extensions',
-      'desc': 'Large collection · movies, series & anime',
-      'url':
-          'https://raw.githubusercontent.com/phisher98/cloudstream-extensions-phisher/refs/heads/builds/repo.json',
-    },
-    {
-      'name': 'Redowan CloudStream',
-      'desc': 'Popular providers · movies & series',
-      'url':
-          'https://raw.githubusercontent.com/redowan99/Redowan-CloudStream/master/repo.json',
-    },
-  ];
-
   final _controller = TextEditingController();
   List<Map<String, String>> _repos = const [];
   bool _busy = false;
-  bool _recommendedHidden = false;
   String? _status;
   bool _statusError = false;
   StreamSubscription<({int current, int total})>? _progressSub;
@@ -201,7 +187,16 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
             _statusBanner(),
           ],
           const SizedBox(height: 24),
-          _recommendedSection(),
+          RecommendedReposSection(
+            kind: ExtensionRepoKind.cloudstream,
+            installedUrls: {for (final r in _repos) (r['url'] ?? '').trim()},
+            busy: _busy,
+            accent: AppColors.primary,
+            fallbackIcon: _icon,
+            // CloudStream opens the repo's plugin list rather than installing
+            // everything — a repo can carry 100+ providers.
+            onInstall: (repo) => _browse(repo.url),
+          ),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -323,112 +318,6 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
     );
   }
 
-  bool _isInstalled(String url) =>
-      _repos.any((r) => (r['url'] ?? '').trim() == url.trim());
-
-  Widget _recommendedSection() => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.star_rounded, size: 15, color: AppColors.primary),
-              const SizedBox(width: 6),
-              Text('RECOMMENDED',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.textHint, letterSpacing: 1)),
-              const Spacer(),
-              InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => setState(
-                    () => _recommendedHidden = !_recommendedHidden),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Text(_recommendedHidden ? 'Show' : 'Hide',
-                      style: const TextStyle(
-                          color: AppColors.textHint,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
-          ),
-          if (!_recommendedHidden) ...[
-            const SizedBox(height: 8),
-            ..._recommended.map(_recommendedTile),
-          ],
-        ],
-      );
-
-  Widget _recommendedTile(Map<String, String> repo) {
-    final url = repo['url'] ?? '';
-    final name = repo['name'] ?? url;
-    final desc = repo['desc'] ?? '';
-    final installed = _isInstalled(url);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Material(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(11),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: _busy ? null : () => _browse(url),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(
-                color: installed
-                    ? Colors.green.withValues(alpha: 0.3)
-                    : AppColors.primary.withValues(alpha: 0.22),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.extension_rounded,
-                      color: AppColors.primary, size: 18),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
-                      Text(desc,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: AppColors.textHint, fontSize: 11)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                installed
-                    ? const _InstalledChip()
-                    : Icon(Icons.download_rounded,
-                        size: 20,
-                        color: _busy ? AppColors.textHint : AppColors.primary),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _empty() => Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 28),
@@ -479,29 +368,4 @@ class _CloudStreamSourcesPageState extends State<CloudStreamSourcesPage> {
       ),
     );
   }
-}
-
-class _InstalledChip extends StatelessWidget {
-  const _InstalledChip();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.green.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle, size: 14, color: Colors.green),
-            SizedBox(width: 4),
-            Text('Installed',
-                style: TextStyle(
-                    color: Colors.green,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
-          ],
-        ),
-      );
 }

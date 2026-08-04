@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/features/app_lock/presentation/pages/app_lock_settings_page.dart';
@@ -60,6 +62,17 @@ class AppRouter {
 
   static final router = GoRouter(
     initialLocation: '/splash',
+    // Android hands every ACTION_VIEW intent's URL to the router as route
+    // information, including ones the app claims for reasons that have nothing
+    // to do with navigation — the extension-index intent filters
+    // (`…/index.pb`, `…/index.min.json`) are exactly that. Those have no route
+    // and used to land the user on a bare "Page Not Found" behind the install
+    // sheet. Anything unroutable now falls back to the app itself; the sheet or
+    // DeeplinkService has already taken whatever meaning the URL carried.
+    onException: (_, state, router) {
+      debugPrint('[Router] no route for ${state.uri} — falling back to /main');
+      router.go('/main');
+    },
     observers: Platform.isAndroid
         ? [FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance)]
         : [],

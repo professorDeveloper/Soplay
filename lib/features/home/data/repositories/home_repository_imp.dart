@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
+import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/storage/hive_service.dart';
@@ -20,47 +21,75 @@ class HomeRepositoryImp implements HomeRepository {
   final JsRuntimeService? jsRuntime;
   final HiveService? hive;
 
-  const HomeRepositoryImp(this.dataSource, {this.jsRuntime, this.hive});
+  const HomeRepositoryImp(
+    this.dataSource, {
+    required this.mangayomi,
+    this.jsRuntime,
+    this.hive,
+  });
+
+  final MangayomiBridge mangayomi;
 
   String? get _currentProvider {
     final id = hive?.getCurrentProvider();
     return (id == null || id.isEmpty) ? null : id;
   }
 
+  /// Runs one on-device host's `getMainPage` and maps it to a [Result].
+  ///
+  /// An empty map means the platform channel itself failed; a populated map
+  /// with an `error` field means the host ran but the source is broken. Both
+  /// are failures, but only the second one can say something useful.
+  Future<Result<HomeDataEntity>> _fromHost(
+    Future<Map<String, dynamic>> Function() call,
+    String label,
+  ) async {
+    try {
+      final map = await call();
+      if (map.isEmpty) return Failure(Exception('$label: source unavailable'));
+      final err = map['error'];
+      if (err is String && err.isNotEmpty) {
+        return Failure(Exception('$label: $err'));
+      }
+      return Success(HomeDataModel.fromJson(map));
+    } catch (e) {
+      return Failure(Exception(e.toString()));
+    }
+  }
+
   @override
   Future<Result<HomeDataEntity>> loadHome() async {
     final js = jsRuntime;
     final provider = _currentProvider;
+    // Every on-device host reports *why* it came back empty in an `error` field
+    // (bad apk, dex link failure, HTTP status from the source). Surfacing that
+    // instead of a flat "home not found" is the difference between a user who
+    // can act — re-add the repo, update the extension — and one who just sees a
+    // blank screen. None of these paths touch our backend, so they must keep
+    // working during an outage.
     if (provider != null && provider.startsWith('cs:')) {
-      try {
-        final map = await CloudStreamChannel.getMainPage(provider.substring(3));
-        if (map.isNotEmpty) return Success(HomeDataModel.fromJson(map));
-        return Failure(Exception('CloudStream: home not found'));
-      } catch (e) {
-        return Failure(Exception(e.toString()));
-      }
+      return _fromHost(
+        () => CloudStreamChannel.getMainPage(provider.substring(3)),
+        'CloudStream',
+      );
     }
     if (provider != null && provider.startsWith('an:')) {
-      try {
-        final map = await AniyomiChannel.getMainPage(provider.substring(3));
-        if (map.isNotEmpty) return Success(HomeDataModel.fromJson(map));
-        return Failure(Exception('Aniyomi: home not found'));
-      } catch (e) {
-        return Failure(Exception(e.toString()));
-      }
+      return _fromHost(
+        () => AniyomiChannel.getMainPage(provider.substring(3)),
+        'Aniyomi',
+      );
     }
     if (provider != null && provider.startsWith('mn:')) {
-      try {
-        final map = await MangaChannel.getMainPage(provider.substring(3));
-        final err = map['error'];
-        if (err is String && err.isNotEmpty) {
-          return Failure(Exception('Manga: $err'));
-        }
-        if (map.isNotEmpty) return Success(HomeDataModel.fromJson(map));
-        return Failure(Exception('Manga: home not found'));
-      } catch (e) {
-        return Failure(Exception(e.toString()));
-      }
+      return _fromHost(
+        () => MangaChannel.getMainPage(provider.substring(3)),
+        'Manga',
+      );
+    }
+    if (provider != null && provider.startsWith('my:')) {
+      return _fromHost(
+        () => mangayomi.getMainPage(provider.substring(3)),
+        'Mangayomi',
+      );
     }
     if (js != null && provider != null) {
       try {
@@ -130,6 +159,18 @@ class HomeRepositoryImp implements HomeRepository {
         return Failure(Exception(e.toString()));
       }
     }
+    if (provider != null && provider.startsWith('my:')) {
+      try {
+        final map = await mangayomi.getSection(
+          provider.substring(3),
+          slug,
+          page: page,
+        );
+        return Success(ViewAllPagingModel.fromJson(map));
+      } catch (e) {
+        return Failure(Exception(e.toString()));
+      }
+    }
     if (js != null && provider != null && key == 'category') {
       try {
         final map = await js.tryGetCategory(provider, slug, page);
@@ -184,6 +225,10 @@ class HomeRepositoryImp implements HomeRepository {
       } catch (_) {
         return const Success(<GenreEntity>[]);
       }
+    }
+    if (provider != null && provider.startsWith('my:')) {
+      // Mangayomi exposes filters, not the app's flat genre list.
+      return const Success(<GenreEntity>[]);
     }
     if (provider != null && provider.startsWith('mn:')) {
       try {

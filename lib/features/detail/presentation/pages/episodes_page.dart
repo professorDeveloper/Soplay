@@ -12,6 +12,7 @@ import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
+import 'package:soplay/core/extensions/provider_media_kind.dart';
 import 'package:soplay/features/manga/domain/entities/reader_args.dart';
 import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
@@ -36,7 +37,12 @@ class _EpisodesPageState extends State<EpisodesPage> {
   final DownloadService _downloads = getIt<DownloadService>();
   late final GetEpisodesUseCase _getEpisodes;
 
-  bool get _isManga => widget.args.provider.startsWith('mn:');
+  /// Reading source (manga / manhwa / novel) rather than a video source.
+  ///
+  /// Resolved through [ProviderMediaKindX] instead of a `mn:` prefix test: a
+  /// Mangayomi provider (`my:`) can be manga, novel OR anime under the same
+  /// prefix, so only the source's declared item type can answer this.
+  bool get _isManga => widget.args.provider.opensReader;
 
   late List<EpisodeEntity> _episodes;
   late int _page;
@@ -213,7 +219,7 @@ class _EpisodesPageState extends State<EpisodesPage> {
         _historyItem!.episodeIndex == index &&
         _historyItem!.positionMs > 0;
 
-    if (widget.args.provider.startsWith('mn:')) {
+    if (_isManga) {
       context.push(
         '/reader',
         extra: ReaderArgs(

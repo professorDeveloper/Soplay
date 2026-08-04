@@ -1,3 +1,4 @@
+import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
 import 'episode_model.dart';
 import 'thumbnails_model.dart';
@@ -50,6 +51,28 @@ class PlaybackModel extends PlaybackEntity {
       sort: (json['sort'] as String?)?.toLowerCase() ?? 'asc',
     );
   }
+
+  /// Same playback with a different episode ordering.
+  ///
+  /// Sorting used to mutate `episodes` in place, which throws on any model
+  /// built from a const list — and silently reorders a list another screen may
+  /// still be holding. Returning a new model keeps sorting a pure operation.
+  PlaybackModel copyWithEpisodes(List<EpisodeEntity> episodes) => PlaybackModel(
+        provider: provider,
+        contentUrl: contentUrl,
+        isSerial: isSerial,
+        episodes: episodes,
+        videoSources: videoSources,
+        playerSrc: playerSrc,
+        type: type,
+        headers: headers,
+        thumbnails: thumbnails,
+        page: page,
+        size: size,
+        total: total,
+        totalPages: totalPages,
+        sort: sort,
+      );
 
   static Map<String, String> _parseHeaders(dynamic raw) {
     if (raw is! Map) return const {};

@@ -4,6 +4,7 @@ import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
+import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
 import 'package:soplay/features/search/data/datasources/search_data_source.dart';
 import 'package:soplay/features/search/data/model/search_model.dart';
@@ -23,13 +24,29 @@ import 'package:soplay/features/search/domain/entities/cross_search_result.dart'
 /// Native `cs:`/`an:`/`mn:` searches already run off the platform thread, so the
 /// pool only guards against overwhelming the device — the UI thread never blocks.
 class CrossSearchEngine {
-  CrossSearchEngine({required this.jsRuntime, required this.dataSource});
+  CrossSearchEngine({
+    required this.jsRuntime,
+    required this.dataSource,
+    required this.mangayomi,
+  });
 
   final JsRuntimeService jsRuntime;
   final SearchDataSource dataSource;
+  final MangayomiBridge mangayomi;
 
   static const int defaultConcurrency = 5;
   static const Duration defaultTimeout = Duration(seconds: 10);
+
+  /// Budget for an on-device extension host (`cs:` / `an:` / `mn:`).
+  ///
+  /// The first search against a freshly-installed source has to download and
+  /// dex-load its extension APK before it can issue a single request — several
+  /// megabytes over whatever connection the user has. Under the 10s budget that
+  /// suits an HTTP provider, every extension source timed out on first use and
+  /// the feature looked broken precisely when the user had just added sources.
+  /// Later searches hit the cached APK and return in well under a second, so
+  /// this ceiling is only ever paid once per source.
+  static const Duration channelTimeout = Duration(seconds: 45);
 
   /// A synthetic id used for the single collapsed backend ("Sozo") search leg.
   static const String serverId = '__server__';
@@ -90,8 +107,13 @@ class CrossSearchEngine {
     String query,
     Duration timeout,
   ) async {
+    // Extension hosts get the longer budget — see [channelTimeout].
+    final effective =
+        ref.kind == ProviderKind.channel && timeout < channelTimeout
+            ? channelTimeout
+            : timeout;
     try {
-      final items = await _dispatch(ref, query).timeout(timeout);
+      final items = await _dispatch(ref, query).timeout(effective);
       return ProviderSearchResult(
         provider: ref,
         items: items,
@@ -113,19 +135,39 @@ class CrossSearchEngine {
     }
   }
 
+  /// Unwraps an extension host's response.
+  ///
+  /// Throws when the source is genuinely broken (empty map = channel failure,
+  /// or an `error` field from the host) so the leg is reported as `error`
+  /// rather than `empty` — "this source is down" and "no match here" look
+  /// identical to the user otherwise, and only one of them is worth retrying.
+  List<MovieEntity> _unwrap(Map<String, dynamic> map, String label) {
+    if (map.isEmpty) throw Exception('$label: source unavailable');
+    final model = SearchModel.fromJson(map);
+    final error = (map['error'] as String?)?.trim();
+    if (model.items.isEmpty && error != null && error.isNotEmpty) {
+      throw Exception('$label: $error');
+    }
+    return model.items;
+  }
+
   Future<List<MovieEntity>> _dispatch(ProviderRef ref, String query) async {
     final id = ref.id;
     if (id.startsWith('cs:')) {
-      final map = await CloudStreamChannel.search(id.substring(3), query);
-      return map.isEmpty ? const [] : SearchModel.fromJson(map).items;
+      return _unwrap(
+          await CloudStreamChannel.search(id.substring(3), query), ref.name);
     }
     if (id.startsWith('an:')) {
-      final map = await AniyomiChannel.search(id.substring(3), query);
-      return map.isEmpty ? const [] : SearchModel.fromJson(map).items;
+      return _unwrap(
+          await AniyomiChannel.search(id.substring(3), query), ref.name);
     }
     if (id.startsWith('mn:')) {
-      final map = await MangaChannel.search(id.substring(3), query);
-      return map.isEmpty ? const [] : SearchModel.fromJson(map).items;
+      return _unwrap(
+          await MangaChannel.search(id.substring(3), query), ref.name);
+    }
+    if (id.startsWith('my:')) {
+      return _unwrap(
+          await mangayomi.search(id.substring(3), query), ref.name);
     }
     if (ref.kind == ProviderKind.js) {
       final map = await jsRuntime.trySearch(id, query, 1);
