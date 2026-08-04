@@ -32,6 +32,7 @@ import com.soplay.sozo.aniyomi.AniyomiHost
 import com.soplay.sozo.aniyomi.AniyomiRepoManager
 import com.soplay.sozo.manga.MangaHost
 import com.soplay.sozo.manga.MangaRepoManager
+import com.soplay.sozo.extensions.RepoFileIntent
 import com.soplay.sozo.preview.FramePreview
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -94,6 +95,13 @@ class MainActivity : FlutterFragmentActivity() {
     private var bridgeChannel: MethodChannel? = null
     private val bridgePort = 8765
     private var bridgeServer: BridgeServer? = null
+
+    // "Open with Sozo" on an extension index file (index.pb / index.min.json /
+    // repo.json). Held until Dart asks for it — on a cold start the engine isn't
+    // attached when the intent arrives.
+    private val repoFileChannelName = "soplay/repo_file"
+    private var repoFileChannel: MethodChannel? = null
+    @Volatile private var pendingRepoFile: String? = null
 
     companion object {
         const val ACTION_PLAY_PAUSE = "play_pause"
@@ -269,14 +277,14 @@ class MainActivity : FlutterFragmentActivity() {
         )
         cloudstreamChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
-                "listProviders" -> result.success(pluginHost.providersJson())
+                "listProviders" -> csAsync(result) { pluginHost.providersJson() }
                 "ensureLoaded" -> csAsync(result) {
                     repoManager.ensureLoaded(); pluginHost.providersJson()
                 }
-                "listRepos" -> result.success(repoManager.listReposJson())
+                "listRepos" -> csAsync(result) { repoManager.listReposJson() }
                 "removeRepo" -> {
                     val url = call.argument<String>("url").orEmpty()
-                    result.success(repoManager.removeRepo(url))
+                    csAsync(result) { repoManager.removeRepo(url) }
                 }
                 "addRepo" -> {
                     val url = call.argument<String>("url").orEmpty()
@@ -372,19 +380,45 @@ class MainActivity : FlutterFragmentActivity() {
         )
         aniyomiChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
-                "listProviders" -> result.success(aniyomiHost.providersJson())
+                "listProviders" -> csAsync(result) { aniyomiHost.providersJson() }
                 "ensureLoaded" -> csAsync(result) {
                     aniyomiRepoManager.ensureLoaded(); aniyomiHost.providersJson()
                 }
-                "listRepos" -> result.success(aniyomiRepoManager.listReposJson())
+                "listRepos" -> csAsync(result) { aniyomiRepoManager.listReposJson() }
                 "removeRepo" -> {
                     val url = call.argument<String>("url").orEmpty()
-                    result.success(aniyomiRepoManager.removeRepo(url))
+                    csAsync(result) { aniyomiRepoManager.removeRepo(url) }
                 }
                 "addRepo" -> {
                     val url = call.argument<String>("url").orEmpty()
                     csAsync(result) {
                         aniyomiRepoManager.addRepo(url) { current, total ->
+                            runOnUiThread {
+                                aniyomiChannel?.invokeMethod(
+                                    "installProgress",
+                                    mapOf("current" to current, "total" to total),
+                                )
+                            }
+                        }.toString()
+                    }
+                }
+                "addRepoFile" -> {
+                    val path = call.argument<String>("path").orEmpty()
+                    val name = call.argument<String>("name").orEmpty()
+                    csAsync(result) {
+                        aniyomiRepoManager.addRepoFile(path, name) { current, total ->
+                            runOnUiThread {
+                                aniyomiChannel?.invokeMethod(
+                                    "installProgress",
+                                    mapOf("current" to current, "total" to total),
+                                )
+                            }
+                        }.toString()
+                    }
+                }
+                "checkUpdates" -> {
+                    csAsync(result) {
+                        aniyomiRepoManager.checkUpdates { current, total ->
                             runOnUiThread {
                                 aniyomiChannel?.invokeMethod(
                                     "installProgress",
@@ -439,19 +473,45 @@ class MainActivity : FlutterFragmentActivity() {
         )
         mangaChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
-                "listProviders" -> result.success(mangaHost.providersJson())
+                "listProviders" -> csAsync(result) { mangaHost.providersJson() }
                 "ensureLoaded" -> csAsync(result) {
                     mangaRepoManager.ensureLoaded(); mangaHost.providersJson()
                 }
-                "listRepos" -> result.success(mangaRepoManager.listReposJson())
+                "listRepos" -> csAsync(result) { mangaRepoManager.listReposJson() }
                 "removeRepo" -> {
                     val url = call.argument<String>("url").orEmpty()
-                    result.success(mangaRepoManager.removeRepo(url))
+                    csAsync(result) { mangaRepoManager.removeRepo(url) }
                 }
                 "addRepo" -> {
                     val url = call.argument<String>("url").orEmpty()
                     csAsync(result) {
                         mangaRepoManager.addRepo(url) { current, total ->
+                            runOnUiThread {
+                                mangaChannel?.invokeMethod(
+                                    "installProgress",
+                                    mapOf("current" to current, "total" to total),
+                                )
+                            }
+                        }.toString()
+                    }
+                }
+                "addRepoFile" -> {
+                    val path = call.argument<String>("path").orEmpty()
+                    val name = call.argument<String>("name").orEmpty()
+                    csAsync(result) {
+                        mangaRepoManager.addRepoFile(path, name) { current, total ->
+                            runOnUiThread {
+                                mangaChannel?.invokeMethod(
+                                    "installProgress",
+                                    mapOf("current" to current, "total" to total),
+                                )
+                            }
+                        }.toString()
+                    }
+                }
+                "checkUpdates" -> {
+                    csAsync(result) {
+                        mangaRepoManager.checkUpdates { current, total ->
                             runOnUiThread {
                                 mangaChannel?.invokeMethod(
                                     "installProgress",
@@ -506,6 +566,22 @@ class MainActivity : FlutterFragmentActivity() {
                 "cloudflareInfo" -> {
                     val id = call.argument<String>("id").orEmpty()
                     csAsync(result) { mangaHost.cloudflareInfo(id) }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        repoFileChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            repoFileChannelName,
+        )
+        repoFileChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                // Consume-once: the dialog must not reappear on every resume.
+                "takePending" -> {
+                    val pending = pendingRepoFile
+                    pendingRepoFile = null
+                    result.success(pending)
                 }
                 else -> result.notImplemented()
             }
@@ -913,6 +989,19 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         registerPipReceiver()
+        // Cold start via "Open with Sozo". Parked rather than pushed: the Flutter
+        // side isn't listening yet, so it pulls this on first frame.
+        pendingRepoFile = RepoFileIntent.extract(applicationContext, intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // singleTop, so a second "Open with Sozo" while running lands here.
+        setIntent(intent)
+        RepoFileIntent.extract(applicationContext, intent)?.let { payload ->
+            pendingRepoFile = payload
+            repoFileChannel?.invokeMethod("openRepoFile", payload)
+        }
     }
 
     private fun registerPipReceiver() {

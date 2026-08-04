@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
+import 'package:soplay/features/extensions/presentation/widgets/recommended_repos_section.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 
@@ -20,25 +22,9 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
       'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s';
   static const Color _accent = Color(0xFF5B8DEF);
 
-  static const List<Map<String, String>> _recommended = [
-    {
-      'name': 'Yuzono Anime',
-      'desc': 'Largest collection · 270+ sources',
-      'url':
-          'https://raw.githubusercontent.com/yuzono/anime-repo/repo/index.min.json',
-    },
-    {
-      'name': 'Secozzi',
-      'desc': 'Jellyfin · Stremio · Torbox',
-      'url':
-          'https://raw.githubusercontent.com/Secozzi/aniyomi-extensions/repo/index.min.json',
-    },
-  ];
-
   final _controller = TextEditingController();
   List<Map<String, String>> _repos = const [];
   bool _busy = false;
-  bool _recommendedHidden = false;
   String? _status;
   bool _statusError = false;
   StreamSubscription<({int current, int total})>? _progressSub;
@@ -120,6 +106,39 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
     }
   }
 
+  /// Re-checks every installed repo for newer extension versions and applies
+  /// them. Same contract as the CloudStream page's update action: the native
+  /// side swaps the metadata and drops the stale apk, so the new one is fetched
+  /// lazily on next use.
+  Future<void> _checkUpdates() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _statusError = false;
+      _status = 'Checking for extension updates…';
+    });
+    try {
+      final res = await AniyomiChannel.checkUpdates();
+      final count = (res['count'] as num?)?.toInt() ?? 0;
+      if (!mounted) return;
+      if (count > 0) _reloadProviders();
+      setState(() {
+        _statusError = false;
+        _status = count == 0
+            ? 'All extensions are up to date.'
+            : 'Updated $count extension(s).';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _statusError = true;
+        _status = 'Update check failed: $e';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _remove(String url) async {
     await AniyomiChannel.removeRepo(url);
     if (!mounted) return;
@@ -150,6 +169,13 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
         scrolledUnderElevation: 0,
         elevation: 0,
         title: const Text('Aniyomi Sources'),
+        actions: [
+          IconButton(
+            tooltip: 'Check for extension updates',
+            icon: const Icon(Icons.system_update_alt_rounded),
+            onPressed: (_busy || _repos.isEmpty) ? null : _checkUpdates,
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -162,7 +188,14 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
             _statusBanner(),
           ],
           const SizedBox(height: 24),
-          _recommendedSection(),
+          RecommendedReposSection(
+            kind: ExtensionRepoKind.aniyomi,
+            installedUrls: {for (final r in _repos) (r['url'] ?? '').trim()},
+            busy: _busy,
+            accent: _accent,
+            fallbackIcon: _logo,
+            onInstall: (repo) => _install(repo.url),
+          ),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -281,105 +314,6 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
         ),
       );
 
-  bool _isInstalled(String url) =>
-      _repos.any((r) => (r['url'] ?? '').trim() == url.trim());
-
-  Widget _recommendedSection() => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.star_rounded, size: 15, color: _accent),
-              const SizedBox(width: 6),
-              Text('RECOMMENDED',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.textHint, letterSpacing: 1)),
-              const Spacer(),
-              InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => setState(
-                    () => _recommendedHidden = !_recommendedHidden),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Text(_recommendedHidden ? 'Show' : 'Hide',
-                      style: const TextStyle(
-                          color: AppColors.textHint,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
-          ),
-          if (!_recommendedHidden) ...[
-            const SizedBox(height: 8),
-            ..._recommended.map(_recommendedTile),
-          ],
-        ],
-      );
-
-  Widget _recommendedTile(Map<String, String> repo) {
-    final url = repo['url'] ?? '';
-    final name = repo['name'] ?? url;
-    final desc = repo['desc'] ?? '';
-    final installed = _isInstalled(url);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Material(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(11),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: (_busy || installed) ? null : () => _install(url),
-          splashColor: _accent.withValues(alpha: 0.12),
-          highlightColor: _accent.withValues(alpha: 0.06),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(
-                color: installed
-                    ? Colors.green.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.06),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: [
-                _logoBox(30),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
-                      Text(desc,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: AppColors.textHint, fontSize: 11)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                installed
-                    ? const _InstalledChip()
-                    : Icon(Icons.download_rounded,
-                        size: 20,
-                        color: _busy ? AppColors.textHint : _accent),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _statusBanner() {
     final color = _statusError ? Colors.redAccent : Colors.green;
     return Container(
@@ -455,29 +389,4 @@ class _AniyomiSourcesPageState extends State<AniyomiSourcesPage> {
       ),
     );
   }
-}
-
-class _InstalledChip extends StatelessWidget {
-  const _InstalledChip();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.green.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle, size: 14, color: Colors.green),
-            SizedBox(width: 4),
-            Text('Installed',
-                style: TextStyle(
-                    color: Colors.green,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
-          ],
-        ),
-      );
 }

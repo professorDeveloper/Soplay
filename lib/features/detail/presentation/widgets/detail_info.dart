@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:soplay/core/extensions/provider_media_kind.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -76,7 +77,14 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
           if (item != null && (item.positionMs > 0 || item.episodeNumber != null))
             _ContinueWatchingCard(item: item, onTap: widget.onPrimaryAction)
           else
-            _PlayButton(key: widget.playButtonKey, onTap: widget.onPrimaryAction),
+            _PlayButton(
+              key: widget.playButtonKey,
+              onTap: widget.onPrimaryAction,
+              // Manga / manhwa / novel sources open the reader, so the primary
+              // action is "Read", not "Play" — with a book icon to match. The
+              // wrong verb on a manga title reads as a broken source.
+              reader: widget.detail.provider.opensReader,
+            ),
         ],
       ),
     );
@@ -282,8 +290,15 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
 }
 
 class _PlayButton extends StatelessWidget {
-  const _PlayButton({super.key, required this.onTap});
+  const _PlayButton({
+    super.key,
+    required this.onTap,
+    this.reader = false,
+  });
   final VoidCallback onTap;
+
+  /// Reading source — label and icon switch from Play/▶ to Read/book.
+  final bool reader;
 
   @override
   Widget build(BuildContext context) {
@@ -298,9 +313,12 @@ class _PlayButton extends StatelessWidget {
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         ),
-        icon: const Icon(Icons.play_arrow_rounded, size: 26),
+        icon: Icon(
+          reader ? Icons.menu_book_rounded : Icons.play_arrow_rounded,
+          size: reader ? 22 : 26,
+        ),
         label: Text(
-          'detail.play'.tr(),
+          reader ? 'detail.read'.tr() : 'detail.play'.tr(),
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
         ),
       ),

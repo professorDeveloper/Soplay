@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
+import 'package:soplay/features/home/presentation/widgets/backend_outage_banner.dart';
 import 'package:soplay/features/home/presentation/widgets/home_content.dart';
 import 'package:soplay/features/home/presentation/widgets/home_state_views.dart';
 import 'package:soplay/features/home/presentation/widgets/home_top_bar.dart';
@@ -68,9 +69,18 @@ class _HomePageState extends State<HomePage> {
             top: 0,
             left: 0,
             right: 0,
-            child: ValueListenableBuilder<double>(
-              valueListenable: _blurProgress,
-              builder: (_, progress, _) => HomeTopBar(blurProgress: progress),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ValueListenableBuilder<double>(
+                  valueListenable: _blurProgress,
+                  builder: (_, progress, _) =>
+                      HomeTopBar(blurProgress: progress),
+                ),
+                // Collapses to nothing while the backend is healthy, so the bar
+                // keeps its exact previous geometry in the normal case.
+                const BackendOutageBanner(),
+              ],
             ),
           ),
         ],

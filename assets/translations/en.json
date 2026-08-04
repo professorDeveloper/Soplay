@@ -286,7 +286,8 @@
     "volume_gesture": "Volume swipe",
     "volume_gesture_desc": "Swipe up and down on the right side",
     "seconds_short": "{}s",
-    "subtitle_style_note": "These apply to every video. Subtitle timing stays per episode and is set inside the player."
+    "subtitle_style_note": "These apply to every video. Subtitle timing stays per episode and is set inside the player.",
+    "searching_all_sources": "searching all sources"
   },
   "search": {
     "title": "Search",
@@ -608,7 +609,11 @@
     "no_pages": "No pages found",
     "tap_to_reload": "Tap to reload",
     "download_started": "Download started",
-    "downloaded_pages": "{} / {} pages"
+    "downloaded_pages": "{} / {} pages",
+    "check_updates": "Check for updates",
+    "checking_updates": "Checking for extension updates…",
+    "up_to_date": "All extensions are up to date.",
+    "updated_n": "Updated {} extension(s)."
   },
   "cloudflare": {
     "title": "Verify you're human",
@@ -678,7 +683,8 @@
     "continue_ep": "Continue · EP {}",
     "no_cast": "No cast available",
     "no_recommendations": "No recommendations available",
-    "untitled": "Untitled"
+    "untitled": "Untitled",
+    "read": "Read"
   },
   "shorts": {
     "refresh": "Refresh",
@@ -836,5 +842,10 @@
     "how_step_1": "Pick an actor",
     "how_step_2": "Watch a short clip",
     "how_step_3": "Name the film"
+  },
+  "outage": {
+    "body_with_local": "Sozo servers are unreachable. Your {} on-device sources still work.",
+    "body_no_local": "Sozo servers are unreachable. Add a CloudStream, Aniyomi or Manga source to keep browsing offline of our API.",
+    "pick_source": "Pick source"
   }
 }

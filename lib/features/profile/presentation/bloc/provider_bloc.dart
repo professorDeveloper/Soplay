@@ -2,12 +2,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
+import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/error/result.dart';
+import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/core/extractor/provider_manager.dart';
 import 'package:soplay/core/js/provider_registry.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/profile/data/models/provider_model.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
+import 'package:soplay/features/profile/domain/entities/providers_snapshot.dart';
 import 'package:soplay/features/profile/domain/usecases/get_providers_usecase.dart';
 import 'provider_event.dart';
 import 'provider_state.dart';
@@ -18,10 +21,19 @@ const String _kCloudStreamIcon =
 const String _kAniyomiIcon =
     'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s';
 
+const String _kMangayomiIcon =
+    'https://raw.githubusercontent.com/kodjodevf/mangayomi/main/assets/app_icons/icon-red.png';
+
 const String _kMangaIcon =
     'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s';
 
 class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
+  /// How long the backend provider list gets before the app carries on with
+  /// on-device plugins alone. Shorter than Dio's own 15s connect timeout on
+  /// purpose: past this point the user is better served by a usable app that
+  /// says "offline" than by a spinner that might still resolve.
+  static const Duration _backendBudget = Duration(seconds: 8);
+
   final GetProvidersUseCase useCase;
   final HiveService hiveService;
   final ProviderManager providerManager;
@@ -43,12 +55,43 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
       emit(ProviderLoading());
     }
 
-    final result = await useCase();
+    // The on-device plugin hosts are loaded CONCURRENTLY with the backend list,
+    // never after it. They talk to Kotlin over a platform channel and need no
+    // backend at all, so an unreachable — or, worse, merely *slow* — API must
+    // not gate them. Sequentially, a backend hanging until its 15s connect
+    // timeout left the whole app on a spinner while every installed extension
+    // was already sitting there ready to serve.
+    final localCloudStream = <ProviderEntity>[];
+    final localAniyomi = <ProviderEntity>[];
+    final localManga = <ProviderEntity>[];
+    final localMangayomi = <ProviderEntity>[];
 
-    // The on-device plugin hosts are appended in every branch, including the
-    // failure one. They talk to Kotlin over a platform channel and need no
-    // backend at all, so an outage must never hide them — that is exactly when
-    // they are the only thing keeping the app usable.
+    // Kept as its own STRONGLY TYPED future rather than one element of a
+    // Future.wait<Object?>. Collapsing it into an untyped list erases
+    // Result<ProvidersSnapshot>, and the `case Success(:final value)` pattern
+    // then binds `value` as dynamic — so `value.providers.where(...)` builds a
+    // `(dynamic) => dynamic` closure that fails Iterable.where's runtime type
+    // check, the exception escapes the handler, and the bloc never emits: the
+    // provider picker spins forever.
+    //
+    // Bounded so a black-holed connection (SYN accepted, nothing returned)
+    // can't outlast the local legs. A timeout degrades to "offline", which is
+    // exactly the right reading.
+    final Future<Result<ProvidersSnapshot>?> backend = useCase()
+        .timeout(_backendBudget)
+        .then<Result<ProvidersSnapshot>?>((r) => r)
+        .catchError((Object _) => null);
+
+    final locals = Future.wait<void>([
+      _appendCloudStreamProviders(localCloudStream),
+      _appendAniyomiProviders(localAniyomi),
+      _appendMangaProviders(localManga),
+      _appendMangayomiProviders(localMangayomi),
+    ]);
+
+    final result = await backend;
+    await locals;
+
     final providers = <ProviderEntity>[];
     var offline = false;
     DateTime? cachedAt;
@@ -59,13 +102,16 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         offline = value.fromCache;
         cachedAt = value.cachedAt;
       case Failure():
+      case null: // timed out or threw
         // No network list and no cache — local plugins are all we have.
         offline = true;
     }
 
-    await _appendCloudStreamProviders(providers);
-    await _appendAniyomiProviders(providers);
-    await _appendMangaProviders(providers);
+    providers
+      ..addAll(localCloudStream)
+      ..addAll(localAniyomi)
+      ..addAll(localManga)
+      ..addAll(localMangayomi);
 
     if (providers.isEmpty) {
       if (previous is! ProviderLoaded) {
@@ -200,6 +246,40 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
           domains: const [],
           mode: 'client',
           category: 'manga',
+          nsfw: m['nsfw'] == true,
+        ));
+      }
+    } catch (_) {}
+  }
+
+  /// Mangayomi JavaScript extensions.
+  ///
+  /// The one source kind that is NOT Android-only: these run in the headless
+  /// WebView, so they are what makes extensions work on iOS/macOS/Windows.
+  /// Adult sources reuse the same opt-in the manga hosts use — one setting for
+  /// "show 18+ sources", not one per ecosystem.
+  Future<void> _appendMangayomiProviders(List<ProviderEntity> into) async {
+    if (!MangayomiBridge.isSupported) return;
+    final allowNsfw = hiveService.showNsfwMangaSources;
+    try {
+      final list = getIt<MangayomiBridge>()
+          .listProviders(includeNsfw: allowNsfw);
+      for (final m in list) {
+        final id = (m['id'] as String?)?.trim() ?? '';
+        if (id.isEmpty) continue;
+        into.add(ProviderModel(
+          id: id,
+          name: (m['name'] as String?) ?? id,
+          image: (m['icon'] as String?)?.isNotEmpty == true
+              ? m['icon'] as String
+              : _kMangayomiIcon,
+          url: (m['baseUrl'] as String?) ?? '',
+          description: (m['repo'] as String?)?.isNotEmpty == true
+              ? m['repo'] as String
+              : 'Mangayomi',
+          domains: const [],
+          mode: 'client',
+          category: 'mangayomi',
           nsfw: m['nsfw'] == true,
         ));
       }

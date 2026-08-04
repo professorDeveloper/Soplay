@@ -57,6 +57,7 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
     if (p.id.startsWith('cs:')) return 'CS';
     if (p.id.startsWith('an:')) return 'AN';
     if (p.id.startsWith('mn:')) return 'MN';
+    if (p.id.startsWith('my:')) return 'JS';
     return p.scopesAll ? 'JS' : 'SOZO';
   }
 

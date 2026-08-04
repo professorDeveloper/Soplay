@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
 import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
+import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/features/manga/data/models/manga_pages_model.dart';
@@ -26,10 +27,13 @@ class DetailRepositoryImpl implements DetailRepository {
 
   const DetailRepositoryImpl(
     this.dataSource, {
+    required this.mangayomi,
     this.jsRuntime,
     this.hive,
     this.webViewExtractor,
   });
+
+  final MangayomiBridge mangayomi;
 
   String? _resolveProvider(String? provider) {
     if (provider != null && provider.isNotEmpty) return provider;
@@ -65,6 +69,15 @@ class DetailRepositoryImpl implements DetailRepository {
         final map = await MangaChannel.load(effective.substring(3), contentUrl);
         if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
         return Failure(Exception('Manga: details not found'));
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
+    if (effective != null && effective.startsWith('my:')) {
+      try {
+        final map = await mangayomi.load(effective.substring(3), contentUrl);
+        if (map.isNotEmpty) return Success(DetailModel.fromJson(map));
+        return Failure(Exception('Mangayomi: details not found'));
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -125,6 +138,17 @@ class DetailRepositoryImpl implements DetailRepository {
           return Success(_applySort(PlaybackModel.fromJson(map), sort));
         }
         return Failure(Exception('Manga: chapters not found'));
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
+    if (effective != null && effective.startsWith('my:')) {
+      try {
+        final map = await mangayomi.load(effective.substring(3), contentUrl);
+        if (map.isNotEmpty) {
+          return Success(_applySort(PlaybackModel.fromJson(map), sort));
+        }
+        return Failure(Exception('Mangayomi: chapters not found'));
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -193,6 +217,19 @@ class DetailRepositoryImpl implements DetailRepository {
         return Failure(Exception(_normalizeJsError(e)));
       }
     }
+    if (provider.startsWith('my:')) {
+      try {
+        final map = await mangayomi.loadLinks(provider.substring(3), ref);
+        final sources = map['videoSources'];
+        if (map.isNotEmpty && sources is List && sources.isNotEmpty) {
+          return _postProcess(MediaResolveModel.fromJson(map));
+        }
+        return Failure(Exception('Mangayomi: stream not found'));
+      } catch (e) {
+        if (kDebugMode) debugPrint('[resolveMedia] Mangayomi path failed: $e');
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
     final js = jsRuntime;
     if (js != null) {
       try {
@@ -251,6 +288,18 @@ class DetailRepositoryImpl implements DetailRepository {
         return Failure(Exception(_normalizeJsError(e)));
       }
     }
+    if (provider.startsWith('my:')) {
+      try {
+        final map = await mangayomi.pageList(provider.substring(3), ref);
+        final pages = map['pages'];
+        if (map.isNotEmpty && pages is List && pages.isNotEmpty) {
+          return Success(MangaPagesModel.fromJson(map));
+        }
+        return Failure(Exception('Mangayomi: sahifalar topilmadi'));
+      } catch (e) {
+        return Failure(Exception(_normalizeJsError(e)));
+      }
+    }
     return Failure(Exception('Sahifalar faqat manga manbalari uchun'));
   }
 
@@ -261,7 +310,14 @@ class DetailRepositoryImpl implements DetailRepository {
   }
 
   PlaybackModel _applySort(PlaybackModel model, String sort) {
-    final eps = model.episodes;
+    // Sorts IN PLACE, so it can only run on a list we know is growable. Models
+    // built from a const/unmodifiable `episodes` would otherwise throw
+    // "Cannot modify an unmodifiable list" here rather than at construction,
+    // far from the cause.
+    // Copy before sorting: `sort` mutates in place and throws
+    // "Cannot modify an unmodifiable list" on a const/fixed-length list, which
+    // several of the host adapters can legitimately produce.
+    final eps = model.episodes.toList();
     if (eps.length < 2) return model;
     final desc = sort.toLowerCase() == 'desc';
     final orig = Map<Object?, int>.identity();
@@ -273,7 +329,7 @@ class DetailRepositoryImpl implements DetailRepository {
       if (c == 0) c = (orig[a] ?? 0).compareTo(orig[b] ?? 0);
       return desc ? -c : c;
     });
-    return model;
+    return model.copyWithEpisodes(eps);
   }
 
   String _normalizeJsError(Object error) {

@@ -28,6 +28,18 @@ object AniyomiRuntime {
     private val sourceCache = ConcurrentHashMap<String, AnimeCatalogueSource>()
     private val loadedApks = HashSet<String>()
 
+    /**
+     * Last load/instantiate failure reason, surfaced to the UI for diagnosis.
+     *
+     * Without this an unloadable extension is indistinguishable from "this source
+     * has no content": the home screen just came up empty with nothing in the UI
+     * to explain why. The manga runtime has had this for a while; the anime one
+     * is the twin that never got it.
+     */
+    @Volatile
+    var lastError: String? = null
+        private set
+
     fun bootstrap(context: Context) {
         if (bootstrapped) return
         synchronized(this) {
@@ -44,6 +56,14 @@ object AniyomiRuntime {
             }
             bootstrapped = true
         }
+    }
+
+    /**
+     * Forgets the given sources so the next lookup re-loads them from disk.
+     * Used after an extension update — see `MangaRuntime.evictSources`.
+     */
+    fun evictSources(sourceIds: List<String>) {
+        synchronized(this) { sourceIds.forEach { sourceCache.remove(it) } }
     }
 
     /**
@@ -67,6 +87,7 @@ object AniyomiRuntime {
                 try {
                     loadApk(context, apkPath, pkg)
                 } catch (t: Throwable) {
+                    lastError = "loadApk: ${t.javaClass.simpleName}: ${t.message}"
                     // Log the throwable, not just its message: the `Caused by:`
                     // chain names the exact missing symbol when an extension was
                     // built against a newer extensions-lib than we implement.
@@ -80,10 +101,16 @@ object AniyomiRuntime {
     private fun loadApk(context: Context, apkPath: String, pkg: String) {
         val pm = context.packageManager
         val info = pm.getPackageArchiveInfo(apkPath, PackageManager.GET_META_DATA) ?: run {
+            // Almost always a truncated/corrupt download rather than a bad repo.
+            lastError = "apk unreadable (corrupt download?): ${File(apkPath).name}"
             Log.e(TAG, "getPackageArchiveInfo null: $apkPath"); return
         }
-        val appInfo = info.applicationInfo ?: return
+        val appInfo = info.applicationInfo ?: run {
+            lastError = "apk has no applicationInfo: ${File(apkPath).name}"
+            return
+        }
         val classList = appInfo.metaData?.getString(METADATA_SOURCE_CLASS) ?: run {
+            lastError = "not an Aniyomi extension (no $METADATA_SOURCE_CLASS metadata)"
             Log.e(TAG, "no $METADATA_SOURCE_CLASS metadata"); return
         }
         // Android (API 26+) refuses to DexClassLoad a writable file (W^X). The apk
@@ -98,16 +125,31 @@ object AniyomiRuntime {
                 val clazz = loader.loadClass(className)
                 clazz.getDeclaredConstructor().newInstance()
             } catch (t: Throwable) {
-                Log.e(TAG, "instantiate $className failed: ${t.message}"); continue
+                lastError = "instantiate $className: ${t.javaClass.simpleName}: ${t.message}"
+                Log.e(TAG, "instantiate $className failed", t); continue
             }
             val sources = when (instance) {
-                is AnimeSourceFactory -> instance.createSources()
+                is AnimeSourceFactory -> try {
+                    instance.createSources()
+                } catch (t: Throwable) {
+                    // A throwing factory used to take every source in the apk with
+                    // it and propagate out as a generic "apk failed", hiding which
+                    // factory actually broke.
+                    lastError = "createSources $className: ${t.javaClass.simpleName}: ${t.message}"
+                    Log.e(TAG, "createSources $className failed", t); continue
+                }
                 is AnimeSource -> listOf(instance)
-                else -> emptyList()
+                else -> {
+                    lastError = "unsupported entry class $className: ${instance.javaClass.name}"
+                    Log.e(TAG, "unsupported entry class $className -> ${instance.javaClass.name}")
+                    emptyList()
+                }
             }
-            sources.filterIsInstance<AnimeCatalogueSource>().forEach {
-                sourceCache[it.id.toString()] = it
+            val catalogues = sources.filterIsInstance<AnimeCatalogueSource>()
+            if (catalogues.isEmpty() && sources.isNotEmpty()) {
+                Log.w(TAG, "$className produced ${sources.size} source(s), none AnimeCatalogueSource")
             }
+            catalogues.forEach { sourceCache[it.id.toString()] = it }
         }
     }
 }

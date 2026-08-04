@@ -34,6 +34,13 @@ android {
         freeCompilerArgs += "-Xcontext-receivers"
     }
 
+    buildFeatures {
+        // AGP 8 stopped generating BuildConfig by default. `eu.kanade.tachiyomi.AppInfo`
+        // — the compat shim modern Mihon extensions link against — reports the host
+        // app's version through it, so it has to come back on.
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.soplay.sozo"
         minSdk = flutter.minSdkVersion

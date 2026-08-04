@@ -21,6 +21,8 @@ import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/router/app_router.dart';
+import 'package:soplay/features/extensions/presentation/repo_file_import.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/player/media_controller.dart' show warmUpPlayerEngine;
 import 'package:soplay/core/system/app_orientation.dart';
@@ -86,6 +88,13 @@ void main() async {
     'fcm',
   );
   _fireAndForget(getIt<DeeplinkService>().start(), 'deeplink');
+  // "Open with Sozo" on an extension index file (index.pb / index.min.json /
+  // repo.json). The context is resolved lazily through the router's navigator:
+  // this fires over whatever screen the user is on, including a cold start
+  // where no route exists yet.
+  RepoFileImport.start(
+    () => AppRouter.router.routerDelegate.navigatorKey.currentContext,
+  );
   unawaited(
     AppOrientation.set([
       DeviceOrientation.portraitUp,

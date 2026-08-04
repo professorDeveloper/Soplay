@@ -50,6 +50,10 @@ import 'package:soplay/features/notifications/data/repositories/notifications_re
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:soplay/features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'package:soplay/features/extensions/data/extension_repo_repository.dart';
+import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
+import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
+import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/reports/data/datasources/reports_data_source.dart';
 import 'package:soplay/features/reports/data/repositories/reports_repository_impl.dart';
 import 'package:soplay/features/reports/domain/repositories/reports_repository.dart';
@@ -219,6 +223,24 @@ Future<void> configureDependencies() async {
       providers: getIt<ProviderRegistry>(),
     ),
   );
+  // Mangayomi JS extensions. Registered unconditionally — unlike the Kotlin
+  // hosts these run wherever there is a WebView, which is the whole reason they
+  // exist here (iOS/macOS/Windows extension support).
+  getIt.registerLazySingleton<MangayomiRepoStore>(
+    () => MangayomiRepoStore(dio: getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<MangayomiRuntime>(
+    () => MangayomiRuntime(
+      store: getIt<MangayomiRepoStore>(),
+      dartFetch: getIt<DartFetch>(),
+    ),
+  );
+  getIt.registerLazySingleton<MangayomiBridge>(
+    () => MangayomiBridge(
+      runtime: getIt<MangayomiRuntime>(),
+      store: getIt<MangayomiRepoStore>(),
+    ),
+  );
   getIt.registerLazySingleton<ExtractorRunner>(
     () => ExtractorRunner(dio: getIt<Dio>()),
   );
@@ -234,6 +256,7 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<HomeRepository>(
     HomeRepositoryImp(
       getIt<HomeDataSource>(),
+      mangayomi: getIt<MangayomiBridge>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
     ),
@@ -241,6 +264,7 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<SearchRepository>(
     SearchRepositoryImp(
       dataSource: getIt<SearchDataSource>(),
+      mangayomi: getIt<MangayomiBridge>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
     ),
@@ -249,12 +273,14 @@ Future<void> configureDependencies() async {
     () => CrossSearchEngine(
       jsRuntime: getIt<JsRuntimeService>(),
       dataSource: getIt<SearchDataSource>(),
+      mangayomi: getIt<MangayomiBridge>(),
     ),
   );
   getIt.registerSingleton<WebViewStreamExtractor>(WebViewStreamExtractor());
   getIt.registerSingleton<DetailRepository>(
     DetailRepositoryImpl(
       getIt<DetailDataSource>(),
+      mangayomi: getIt<MangayomiBridge>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
       webViewExtractor: getIt<WebViewStreamExtractor>(),
@@ -289,6 +315,11 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<BannersRepository>(
     BannersRepositoryImpl(getIt<BannersDataSource>()),
+  );
+  // Recommended extension repos for the sources pages — backend-curated with a
+  // compiled-in fallback, so the list survives an outage.
+  getIt.registerLazySingleton<ExtensionRepoRepository>(
+    () => ExtensionRepoRepository(dio: getIt<Dio>()),
   );
   getIt.registerSingleton<ReportsDataSource>(
     ReportsDataSource(dio: getIt<Dio>()),

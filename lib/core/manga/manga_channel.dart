@@ -81,6 +81,19 @@ class MangaChannel {
   static Future<Map<String, dynamic>> addRepo(String url) async =>
       _obj(await _call<String>('addRepo', {'url': url}));
 
+  /// Installs an index file opened from another app ("Open with Sozo").
+  /// [path] is a copy the native side made in our cache — see `RepoFileIntent`.
+  static Future<Map<String, dynamic>> addRepoFile(
+    String path, {
+    String name = '',
+  }) async =>
+      _obj(await _call<String>('addRepoFile', {'path': path, 'name': name}));
+
+  /// Re-fetches every installed repo index and applies newer extension versions.
+  /// Returns `{count, updated:[{pkg,name,version,repo}]}`.
+  static Future<Map<String, dynamic>> checkUpdates() async =>
+      _obj(await _call<String>('checkUpdates'));
+
   static Future<List<dynamic>> getGenres(String provider) async =>
       _arr(await _call<String>('getGenres', {'provider': provider}));
 

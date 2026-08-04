@@ -18,6 +18,7 @@ import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
+import 'package:soplay/core/extensions/provider_media_kind.dart';
 import 'package:soplay/features/detail/domain/entities/episodes_args.dart';
 import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
@@ -542,28 +543,21 @@ class _DetailViewState extends State<_DetailView>
   }
 
   void _handlePlayback(PlaybackEntity playback) {
+    // A reading source ALWAYS goes through the chapter list, even when it
+    // reports a single chapter (one-shots, and Mangayomi novels that expose one
+    // entry). Falling through to the movie path would hand a chapter url to the
+    // video player, which then spins forever looking for a stream that does not
+    // exist.
+    if (playback.provider.opensReader && playback.episodes.isNotEmpty) {
+      _openEpisodes(playback);
+      return;
+    }
     if (playback.isSerial) {
       if (playback.episodes.isEmpty) {
         _showSnack('detail.no_episodes'.tr());
         return;
       }
-      context.push(
-        '/episodes',
-        extra: EpisodesArgs(
-          title: widget.detail.title,
-          contentUrl: playback.contentUrl.isNotEmpty
-              ? playback.contentUrl
-              : widget.detail.contentUrl,
-          provider: playback.provider,
-          thumbnail: widget.detail.thumbnail,
-          episodes: playback.episodes,
-          headers: playback.headers,
-          page: playback.page,
-          size: playback.size,
-          total: playback.total,
-          totalPages: playback.totalPages,
-        ),
-      );
+      _openEpisodes(playback);
       return;
     }
 
@@ -587,6 +581,26 @@ class _DetailViewState extends State<_DetailView>
     }
 
     _playMovieDirect(playback);
+  }
+
+  void _openEpisodes(PlaybackEntity playback) {
+    context.push(
+      '/episodes',
+      extra: EpisodesArgs(
+        title: widget.detail.title,
+        contentUrl: playback.contentUrl.isNotEmpty
+            ? playback.contentUrl
+            : widget.detail.contentUrl,
+        provider: playback.provider,
+        thumbnail: widget.detail.thumbnail,
+        episodes: playback.episodes,
+        headers: playback.headers,
+        page: playback.page,
+        size: playback.size,
+        total: playback.total,
+        totalPages: playback.totalPages,
+      ),
+    );
   }
 
   void _playMovieDirect(PlaybackEntity playback) {
@@ -884,6 +898,7 @@ class _DetailViewState extends State<_DetailView>
                             collapse: c,
                             showPill: showPill,
                             title: detail.title,
+                            reader: detail.provider.opensReader,
                             isInList: isInList,
                             inPrivate: inPrivate,
                             isLoading: state is EpisodesLoading,
@@ -950,6 +965,7 @@ class _AnimatedTopBar extends StatelessWidget {
     required this.collapse,
     required this.showPill,
     required this.title,
+    required this.reader,
     required this.isInList,
     required this.inPrivate,
     required this.isLoading,
@@ -972,6 +988,9 @@ class _AnimatedTopBar extends StatelessWidget {
   final double collapse;
   final bool showPill;
   final String title;
+
+  /// Reading source — the pill says "Read" rather than "Play".
+  final bool reader;
   final bool isInList;
   final bool inPrivate;
   final bool isLoading;
@@ -1061,6 +1080,7 @@ class _AnimatedTopBar extends StatelessWidget {
                           child: _ActionPill(
                             onTap: onPrimaryAction,
                             isLoading: isLoading,
+                            reader: reader,
                           ),
                         )
                       : const SizedBox(key: ValueKey('no-pill'), width: 0),
@@ -1155,9 +1175,16 @@ class _CircleIconButton extends StatelessWidget {
 }
 
 class _ActionPill extends StatelessWidget {
-  const _ActionPill({required this.onTap, required this.isLoading});
+  const _ActionPill({
+    required this.onTap,
+    required this.isLoading,
+    this.reader = false,
+  });
   final VoidCallback onTap;
   final bool isLoading;
+
+  /// Reading source — the collapsed app-bar pill mirrors the main button.
+  final bool reader;
 
   @override
   Widget build(BuildContext context) {
@@ -1182,14 +1209,14 @@ class _ActionPill extends StatelessWidget {
                   ),
                 )
               else
-                const Icon(
-                  Icons.play_arrow_rounded,
-                  size: 18,
+                Icon(
+                  reader ? Icons.menu_book_rounded : Icons.play_arrow_rounded,
+                  size: reader ? 16 : 18,
                   color: Colors.black,
                 ),
               const SizedBox(width: 4),
               Text(
-                'detail.play'.tr(),
+                reader ? 'detail.read'.tr() : 'detail.play'.tr(),
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: 13,

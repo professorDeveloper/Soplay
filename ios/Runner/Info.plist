@@ -40,6 +40,53 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- "Open with Sozo" for extension repository index files.
+
+	     `index.pb` (Mihon/Keiyoushi, gzipped protobuf) has no registered UTI,
+	     so it is declared below as an imported type conforming to public.data.
+	     `index.min.json` / `repo.json` / `index.json` are ordinary JSON and are
+	     claimed through public.json — the filename is re-checked in
+	     RepoFileImport.swift, so claiming JSON broadly costs at most one
+	     dismissed sheet. -->
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>me.azamov.sozo.extension-index-pb</string>
+			<key>UTTypeDescription</key>
+			<string>Extension repository index</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>pb</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Extension repository index</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>me.azamov.sozo.extension-index-pb</string>
+				<string>public.json</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Read the file where it lives instead of forcing a copy into Inbox/.
+	     RepoFileImport still copies it into our caches, because the
+	     security-scoped access granted here ends when the delegate returns. -->
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

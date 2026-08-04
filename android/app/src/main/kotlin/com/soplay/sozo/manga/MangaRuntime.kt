@@ -37,6 +37,18 @@ object MangaRuntime {
         private set
 
     /**
+     * Forgets the given sources so the next lookup re-loads them from disk.
+     *
+     * Used after an extension update. The old apk's [DexClassLoader] cannot be
+     * unloaded, but the replacement lands at a new path (its filename carries the
+     * version), so it gets a fresh loader — this just stops the stale instances
+     * from shadowing it.
+     */
+    fun evictSources(sourceIds: List<String>) {
+        synchronized(this) { sourceIds.forEach { sourceCache.remove(it) } }
+    }
+
+    /**
      * Returns the [CatalogueSource] whose id matches [sourceId], loading the APK once
      * and caching every source it declares. Returns null when the apk can't be
      * parsed/loaded or has no matching source.
