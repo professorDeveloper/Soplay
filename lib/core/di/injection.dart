@@ -127,6 +127,9 @@ import 'package:soplay/features/my_list/domain/usecases/sync_favorites_usecase.d
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
 
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
+import '../../features/link_tv/data/datasources/link_tv_remote_data_source.dart';
+import '../../features/link_tv/data/repositories/link_tv_repository_impl.dart';
+import '../../features/link_tv/domain/repositories/link_tv_repository.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/login_usecase.dart';
@@ -165,6 +168,9 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<AuthRemoteDataSource>(
     AuthRemoteDataSource(dio: getIt<Dio>()),
   );
+  getIt.registerSingleton<LinkTvRemoteDataSource>(
+    LinkTvRemoteDataSource(dio: getIt<Dio>()),
+  );
   getIt.registerSingleton<HomeDataSource>(HomeDataSource(dio: getIt<Dio>()));
   getIt.registerSingleton<DetailDataSource>(
     DetailDataSource(dio: getIt<Dio>()),
@@ -175,6 +181,9 @@ Future<void> configureDependencies() async {
 
   getIt.registerSingleton<AuthRepository>(
     AuthRepositoryImpl(getIt<AuthRemoteDataSource>(), getIt<HiveService>()),
+  );
+  getIt.registerSingleton<LinkTvRepository>(
+    LinkTvRepositoryImpl(getIt<LinkTvRemoteDataSource>()),
   );
   getIt.registerSingleton<ProviderDataSource>(
     ProviderDataSource(dio: getIt<Dio>()),

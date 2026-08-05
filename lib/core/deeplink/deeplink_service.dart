@@ -96,6 +96,13 @@ class DeeplinkService {
         final url = q['url']?.trim();
         if (url == null || url.isEmpty) return null;
         return _detailRoute(url, q['provider']?.trim());
+      // /link/<CODE> — the QR a TV shows while it waits to be paired.
+      case 'link':
+      case 'pair':
+        final code = segments.length > 1 ? segments[1].trim() : '';
+        return code.isEmpty
+            ? '/link-tv'
+            : '/link-tv?code=${Uri.encodeComponent(code)}';
       case 'party':
         // Code lives in the PATH segment: /party/<CODE> — not a query param.
         final code = segments.length > 1 ? segments[1].trim() : '';
