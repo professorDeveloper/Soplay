@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/features/link_tv/presentation/pages/link_tv_page.dart';
 import 'package:soplay/features/app_lock/presentation/pages/app_lock_settings_page.dart';
 import 'package:soplay/features/app_lock/presentation/pages/pin_setup_page.dart';
 import 'package:soplay/features/app_lock/presentation/pages/pin_verify_page.dart';
@@ -189,6 +190,11 @@ class AppRouter {
                 : state.uri.queryParameters['code'],
           );
         },
+      ),
+      GoRoute(
+        path: '/link-tv',
+        builder: (context, state) =>
+            LinkTvPage(initialCode: state.uri.queryParameters['code']),
       ),
       GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
       GoRoute(path: '/main', builder: (context, state) => const MainPage()),

@@ -111,6 +111,7 @@ dependencies:
   media_kit_libs_macos_video: ^1.1.4
   media_kit_libs_linux: ^1.2.1
   liquid_glass_widgets: ^0.18.4
+  mobile_scanner: ^7.4.0
 
 dev_dependencies:
   flutter_test:

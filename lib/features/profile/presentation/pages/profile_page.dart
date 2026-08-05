@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/features/link_tv/presentation/pages/link_tv_page.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -300,6 +301,21 @@ class _ProfileViewState extends State<_ProfileView> {
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 ],
+                // Signed-in only: approving a TV pairing binds it to an account, so
+                // there is nothing this can do for a guest.
+                SliverToBoxAdapter(
+                  child: BlocBuilder<AuthBloc, AuthState>(
+                    buildWhen: (prev, next) =>
+                        (prev is AuthLoaded) != (next is AuthLoaded),
+                    builder: (context, state) {
+                      if (state is! AuthLoaded) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: const _LinkTvTile(),
+                      );
+                    },
+                  ),
+                ),
                 const SliverToBoxAdapter(
                   child: _Reveal(order: 3, child: _WatchHistorySection()),
                 ),
@@ -3263,6 +3279,36 @@ class _SheetCountdownCell extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Entry point into the phone half of the TV pairing flow.
+class _LinkTvTile extends StatelessWidget {
+  const _LinkTvTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        child: ListTile(
+          leading: const Icon(Icons.cast_connected, color: AppColors.primary),
+          title: Text('link_tv.title'.tr(),
+              style: const TextStyle(color: Colors.white)),
+          subtitle: Text('link_tv.tile_subtitle'.tr(),
+              style: const TextStyle(color: AppColors.textHint, fontSize: 11)),
+          trailing:
+              const Icon(Icons.chevron_right, color: AppColors.textHint),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const LinkTvPage()),
+          ),
         ),
       ),
     );
