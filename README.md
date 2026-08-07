@@ -12,6 +12,7 @@
 
 </div>
 
+
 ## About
 
 Sozo is built around a simple, elegant streaming experience for discovering, watching, and downloading content. The name Sozo means "creation" or "imagination" in Japanese, matching the app's anime-inspired identity and polished dark interface.
