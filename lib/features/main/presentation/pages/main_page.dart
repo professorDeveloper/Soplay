@@ -14,6 +14,7 @@ import 'package:riasdxd/core/system/nav_prefs.dart';
 import 'package:riasdxd/core/system/platform_utils.dart';
 import 'package:riasdxd/core/theme/app_colors.dart';
 import 'package:riasdxd/features/app_updater/presentation/services/update_checker.dart';
+import 'package:riasdxd/features/notifications/data/services/release_notifier.dart';
 import 'package:riasdxd/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:riasdxd/features/home/presentation/bloc/home/home_event.dart';
 import 'package:riasdxd/features/home/presentation/bloc/home/home_state.dart';
@@ -94,6 +95,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       if (!mounted) return;
       if (!isDesktopPlatform) {
         getIt<UpdateChecker>().run(context);
+        // Throttled client-side check for new recent-releases / trending titles;
+        // fires local notifications. Fire-and-forget — never blocks the frame.
+        getIt<ReleaseNotifier>().run();
         // The deeplink opt-in walks the user into the Android "open by default"
         // settings screen, which does not exist on leanback — skip on TV.
         if (!isTvPlatform) DeeplinkOptIn.maybePrompt(context);
@@ -106,6 +110,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed && mounted && !isDesktopPlatform) {
       getIt<UpdateChecker>().run(context);
+      getIt<ReleaseNotifier>().run();
     }
   }
 

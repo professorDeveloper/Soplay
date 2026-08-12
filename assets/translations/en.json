@@ -558,6 +558,12 @@
   },
   "notifications": {
     "title": "Notifications",
+    "settings_title": "Content alerts",
+    "settings_recent_title": "Recent releases",
+    "settings_recent_subtitle": "Notify me when new titles are added.",
+    "settings_trending_title": "Top trending",
+    "settings_trending_subtitle": "Notify me about what's trending now.",
+    "settings_hint": "These alerts are checked periodically while you use the app. Turning both off stops new-content notifications.",
     "mark_all_read": "Mark all read",
     "empty_title": "No notifications yet",
     "empty_subtitle": "When something new arrives, you'll see it here.",

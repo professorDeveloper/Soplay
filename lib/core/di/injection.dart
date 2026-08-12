@@ -48,6 +48,7 @@ import 'package:riasdxd/features/comments/presentation/blocs/comments_bloc/comme
 import 'package:riasdxd/features/notifications/data/datasources/notifications_data_source.dart';
 import 'package:riasdxd/features/notifications/data/repositories/notifications_repository_impl.dart';
 import 'package:riasdxd/features/notifications/data/services/notification_service.dart';
+import 'package:riasdxd/features/notifications/data/services/release_notifier.dart';
 import 'package:riasdxd/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:riasdxd/features/notifications/presentation/bloc/notifications_bloc.dart';
 import 'package:riasdxd/features/extensions/data/extension_repo_repository.dart';
@@ -318,6 +319,12 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<NotificationService>(
     NotificationService(repository: getIt<NotificationsRepository>()),
+  );
+  getIt.registerSingleton<ReleaseNotifier>(
+    ReleaseNotifier(
+      homeData: getIt<HomeDataSource>(),
+      notifications: getIt<NotificationService>(),
+    ),
   );
   getIt.registerSingleton<BannersDataSource>(
     BannersDataSource(dio: getIt<Dio>()),

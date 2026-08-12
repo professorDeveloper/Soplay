@@ -102,6 +102,18 @@ class _MyAppState extends State<MyApp> {
         } else {
           router.push('/notifications');
         }
+      case 'new_release':
+      case 'top_trending':
+        // Client-side local alert. A single new title carries its contentUrl —
+        // open it directly; a grouped alert has none — land the user on Home.
+        if (contentUrl != null && contentUrl.isNotEmpty) {
+          router.push(
+            '/detail',
+            extra: DetailArgs(contentUrl: contentUrl, provider: provider),
+          );
+        } else {
+          getIt<NavController>().goToId(TabId.home);
+        }
       case 'system_ban':
         getIt<AuthBloc>().add(AuthSessionExpired());
         router.go('/login');

@@ -69,6 +69,14 @@ class _NotificationsViewState extends State<_NotificationsView> {
           style: const TextStyle(color: AppColors.textPrimary),
         ),
         actions: [
+          IconButton(
+            tooltip: 'notifications.settings_title'.tr(),
+            icon: const Icon(
+              Icons.tune_rounded,
+              color: AppColors.textPrimary,
+            ),
+            onPressed: () => context.push('/notification-settings'),
+          ),
           DesktopRefreshButton(
             color: AppColors.textPrimary,
             onRefresh: () => context

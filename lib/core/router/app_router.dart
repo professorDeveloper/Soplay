@@ -41,6 +41,7 @@ import 'package:riasdxd/features/trivia/presentation/trivia_args.dart';
 import 'package:riasdxd/features/profile/presentation/pages/player_settings_page.dart';
 import 'package:riasdxd/features/profile/presentation/pages/profile_page.dart';
 import 'package:riasdxd/features/notifications/presentation/pages/notifications_page.dart';
+import 'package:riasdxd/features/notifications/presentation/pages/notification_settings_page.dart';
 import 'package:riasdxd/features/private_list/presentation/pages/private_list_page.dart';
 import 'package:riasdxd/features/splash/presentation/pages/splash_page.dart';
 import 'package:riasdxd/features/streak/presentation/pages/streak_page.dart';
@@ -175,6 +176,10 @@ class AppRouter {
       GoRoute(
         path: '/notifications',
         builder: (context, state) => const NotificationsPage(),
+      ),
+      GoRoute(
+        path: '/notification-settings',
+        builder: (context, state) => const NotificationSettingsPage(),
       ),
       GoRoute(
         path: '/streak',
