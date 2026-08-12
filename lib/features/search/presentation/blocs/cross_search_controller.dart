@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
-import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
+import 'package:riasdxd/features/search/domain/entities/cross_search_result.dart';
+import 'package:riasdxd/features/search/domain/services/cross_search_engine.dart';
 
 /// Drives one cross-search page: debounces input, runs the engine, collects
 /// results incrementally, and cancels the previous run on every new query.

@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/core/tv/tv.dart';
-import 'package:soplay/features/detail/domain/entities/detail_args.dart';
-import 'package:soplay/features/home/domain/entities/movie.dart';
-import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
-import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
-import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
-import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
-import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
-import 'package:soplay/features/search/presentation/blocs/cross_search_controller.dart';
-import 'package:soplay/features/search/presentation/widgets/search_set_sheet.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/core/tv/tv.dart';
+import 'package:riasdxd/features/detail/domain/entities/detail_args.dart';
+import 'package:riasdxd/features/home/domain/entities/movie.dart';
+import 'package:riasdxd/features/profile/domain/entities/provider_entity.dart';
+import 'package:riasdxd/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:riasdxd/features/profile/presentation/bloc/provider_state.dart';
+import 'package:riasdxd/features/search/domain/entities/cross_search_result.dart';
+import 'package:riasdxd/features/search/domain/services/cross_search_engine.dart';
+import 'package:riasdxd/features/search/presentation/blocs/cross_search_controller.dart';
+import 'package:riasdxd/features/search/presentation/widgets/search_set_sheet.dart';
 
 /// Search a curated set of providers at once. Results stream in, grouped by
 /// provider — freeze-proof (bounded concurrency + per-provider timeout in the

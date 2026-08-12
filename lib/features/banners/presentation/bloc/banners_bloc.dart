@@ -1,8 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/banners/domain/entities/banner_item.dart';
-import 'package:soplay/features/banners/domain/repositories/banners_repository.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/banners/domain/entities/banner_item.dart';
+import 'package:riasdxd/features/banners/domain/repositories/banners_repository.dart';
 
 part 'banners_event.dart';
 part 'banners_state.dart';

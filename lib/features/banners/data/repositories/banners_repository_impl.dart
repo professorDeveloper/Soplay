@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/banners/data/datasources/banners_data_source.dart';
-import 'package:soplay/features/banners/domain/entities/banner_item.dart';
-import 'package:soplay/features/banners/domain/repositories/banners_repository.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/banners/data/datasources/banners_data_source.dart';
+import 'package:riasdxd/features/banners/domain/entities/banner_item.dart';
+import 'package:riasdxd/features/banners/domain/repositories/banners_repository.dart';
 
 class BannersRepositoryImpl implements BannersRepository {
   final BannersDataSource dataSource;

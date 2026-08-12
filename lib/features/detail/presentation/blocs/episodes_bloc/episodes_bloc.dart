@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
-import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/detail/domain/entities/playback_entity.dart';
+import 'package:riasdxd/features/detail/domain/usecases/get_episodes_usecase.dart';
 
 part 'episodes_event.dart';
 part 'episodes_state.dart';

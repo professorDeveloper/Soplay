@@ -1,11 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/player/media_controller.dart'
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/player/media_controller.dart'
     show warmUpPlayerEngine;
-import 'package:soplay/core/player/player_engine.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/player/player_engine.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 /// Icon shown for each backend. Shared with Settings → Player so the row a
 /// user taps in the sheet is visually the same row they see in settings.

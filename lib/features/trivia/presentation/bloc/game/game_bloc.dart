@@ -1,15 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/trivia/domain/entities/reveal_result_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_round_entity.dart';
-import 'package:soplay/features/trivia/domain/trivia_failure.dart';
-import 'package:soplay/features/trivia/domain/usecases/complete_round_usecase.dart';
-import 'package:soplay/features/trivia/domain/usecases/create_round_usecase.dart';
-import 'package:soplay/features/trivia/domain/usecases/start_clip_usecase.dart';
-import 'package:soplay/features/trivia/domain/usecases/submit_answer_usecase.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/trivia/domain/entities/reveal_result_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_result_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_round_entity.dart';
+import 'package:riasdxd/features/trivia/domain/trivia_failure.dart';
+import 'package:riasdxd/features/trivia/domain/usecases/complete_round_usecase.dart';
+import 'package:riasdxd/features/trivia/domain/usecases/create_round_usecase.dart';
+import 'package:riasdxd/features/trivia/domain/usecases/start_clip_usecase.dart';
+import 'package:riasdxd/features/trivia/domain/usecases/submit_answer_usecase.dart';
 
 import 'game_event.dart';
 import 'game_state.dart';

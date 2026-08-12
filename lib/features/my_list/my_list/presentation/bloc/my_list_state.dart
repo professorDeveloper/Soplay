@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
+import 'package:riasdxd/features/my_list/domain/entities/favorite_entity.dart';
 
 sealed class MyListState extends Equatable {
   const MyListState();

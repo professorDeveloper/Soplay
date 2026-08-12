@@ -1,13 +1,13 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/shorts/domain/entities/short_entity.dart';
-import 'package:soplay/features/shorts/domain/entities/short_like_result.dart';
-import 'package:soplay/features/shorts/domain/entities/shorts_feed_result.dart';
-import 'package:soplay/features/shorts/domain/usecases/get_shorts_usecase.dart';
-import 'package:soplay/features/shorts/domain/usecases/increase_short_view_usecase.dart';
-import 'package:soplay/features/shorts/domain/usecases/toggle_short_like_usecase.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/shorts/domain/entities/short_entity.dart';
+import 'package:riasdxd/features/shorts/domain/entities/short_like_result.dart';
+import 'package:riasdxd/features/shorts/domain/entities/shorts_feed_result.dart';
+import 'package:riasdxd/features/shorts/domain/usecases/get_shorts_usecase.dart';
+import 'package:riasdxd/features/shorts/domain/usecases/increase_short_view_usecase.dart';
+import 'package:riasdxd/features/shorts/domain/usecases/toggle_short_like_usecase.dart';
 
 import 'shorts_event.dart';
 import 'shorts_state.dart';

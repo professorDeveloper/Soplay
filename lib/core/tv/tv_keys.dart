@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:soplay/core/system/platform_utils.dart';
+import 'package:riasdxd/core/system/platform_utils.dart';
 
 /// D-pad and media-key vocabulary for the TV build.
 ///

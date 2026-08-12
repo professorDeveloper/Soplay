@@ -1,15 +1,15 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:soplay/core/extensions/provider_media_kind.dart';
+import 'package:riasdxd/core/extensions/provider_media_kind.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/core/tv/tv.dart';
-import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
-import 'package:soplay/features/history/data/history_service.dart';
-import 'package:soplay/features/history/domain/entities/history_item.dart';
-import 'package:soplay/features/home/domain/entities/view_all.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/system/responsive.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/core/tv/tv.dart';
+import 'package:riasdxd/features/detail/domain/entities/detail_entity.dart';
+import 'package:riasdxd/features/history/data/history_service.dart';
+import 'package:riasdxd/features/history/domain/entities/history_item.dart';
+import 'package:riasdxd/features/home/domain/entities/view_all.dart';
 
 class DetailContentHeader extends StatefulWidget {
   const DetailContentHeader({

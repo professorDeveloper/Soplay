@@ -1,8 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
-import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:riasdxd/features/trivia/domain/entities/cast_person_entity.dart';
 
 /// A single circular cast/character card used by the "Popular now" grid and the
 /// as-you-type results grid. The profile photo carries a shared [Hero] tag so it

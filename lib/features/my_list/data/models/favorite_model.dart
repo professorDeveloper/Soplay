@@ -1,4 +1,4 @@
-import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
+import 'package:riasdxd/features/my_list/domain/entities/favorite_entity.dart';
 
 class FavoriteModel extends FavoriteEntity {
   const FavoriteModel({

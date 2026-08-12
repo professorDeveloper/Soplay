@@ -1,8 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
-import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_sources_page.dart';
-import 'package:soplay/features/watch_party/presentation/widgets/party_error_views.dart';
+import 'package:riasdxd/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
+import 'package:riasdxd/features/cloudstream/presentation/pages/cloudstream_sources_page.dart';
+import 'package:riasdxd/features/watch_party/presentation/widgets/party_error_views.dart';
 
 /// Shown when the host is watching from a source (CloudStream `cs:` / Aniyomi
 /// `an:`) that requires an on-device plugin this device does not have. Routes the

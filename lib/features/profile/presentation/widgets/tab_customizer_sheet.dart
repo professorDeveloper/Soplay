@@ -1,10 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/navigation/app_tab.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/system/nav_prefs.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/navigation/app_tab.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/core/system/nav_prefs.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 /// Bottom-bar customizer (Settings → Appearance). Ports satashkent's
 /// quick-nav customizer to soplay tokens: a draft copy edited freely, persisted

@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/home/domain/entities/movie.dart';
-import 'package:soplay/features/search/domain/entities/genre_entity.dart';
-import 'package:soplay/features/search/domain/usecases/genre_usecase.dart';
-import 'package:soplay/features/search/domain/usecases/search_usecase.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/home/domain/entities/movie.dart';
+import 'package:riasdxd/features/search/domain/entities/genre_entity.dart';
+import 'package:riasdxd/features/search/domain/usecases/genre_usecase.dart';
+import 'package:riasdxd/features/search/domain/usecases/search_usecase.dart';
 
 part 'search_event.dart';
 part 'search_state.dart';

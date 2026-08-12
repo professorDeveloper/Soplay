@@ -1,5 +1,5 @@
-import 'package:soplay/features/banners/domain/entities/banner_item.dart';
-import 'package:soplay/features/home/domain/entities/movie.dart';
+import 'package:riasdxd/features/banners/domain/entities/banner_item.dart';
+import 'package:riasdxd/features/home/domain/entities/movie.dart';
 
 sealed class HeroSlide {
   const HeroSlide();

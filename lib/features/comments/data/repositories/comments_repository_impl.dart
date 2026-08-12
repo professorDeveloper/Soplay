@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/comments/data/datasources/comments_data_source.dart';
-import 'package:soplay/features/comments/domain/entities/comment_entity.dart';
-import 'package:soplay/features/comments/domain/entities/comment_list.dart';
-import 'package:soplay/features/comments/domain/entities/like_result.dart';
-import 'package:soplay/features/comments/domain/repositories/comments_repository.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/comments/data/datasources/comments_data_source.dart';
+import 'package:riasdxd/features/comments/domain/entities/comment_entity.dart';
+import 'package:riasdxd/features/comments/domain/entities/comment_list.dart';
+import 'package:riasdxd/features/comments/domain/entities/like_result.dart';
+import 'package:riasdxd/features/comments/domain/repositories/comments_repository.dart';
 
 class CommentsRepositoryImpl implements CommentsRepository {
   final CommentsDataSource dataSource;

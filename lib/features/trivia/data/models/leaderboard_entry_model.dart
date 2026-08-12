@@ -1,4 +1,4 @@
-import 'package:soplay/features/trivia/domain/entities/leaderboard_entry_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/leaderboard_entry_entity.dart';
 
 class LeaderboardEntryModel extends LeaderboardEntryEntity {
   const LeaderboardEntryModel({

@@ -1,13 +1,13 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/system/platform_utils.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/detail/domain/entities/detail_args.dart';
-import 'package:soplay/features/history/data/history_service.dart';
-import 'package:soplay/features/history/domain/entities/history_item.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/system/platform_utils.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/detail/domain/entities/detail_args.dart';
+import 'package:riasdxd/features/history/data/history_service.dart';
+import 'package:riasdxd/features/history/domain/entities/history_item.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_shared_widgets.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});

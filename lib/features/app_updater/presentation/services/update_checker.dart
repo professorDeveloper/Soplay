@@ -8,13 +8,13 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/app_updater/domain/entities/app_version_check.dart';
-import 'package:soplay/features/app_updater/domain/repositories/app_updater_repository.dart';
-import 'package:soplay/features/app_updater/presentation/pages/force_update_page.dart';
-import 'package:soplay/features/app_updater/presentation/widgets/install_progress_dialog.dart';
-import 'package:soplay/features/app_updater/presentation/widgets/update_dialog.dart';
+import 'package:riasdxd/core/constants/app_constants.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/app_updater/domain/entities/app_version_check.dart';
+import 'package:riasdxd/features/app_updater/domain/repositories/app_updater_repository.dart';
+import 'package:riasdxd/features/app_updater/presentation/pages/force_update_page.dart';
+import 'package:riasdxd/features/app_updater/presentation/widgets/install_progress_dialog.dart';
+import 'package:riasdxd/features/app_updater/presentation/widgets/update_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UpdateChecker {

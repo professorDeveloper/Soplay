@@ -1,10 +1,10 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
-import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
-import 'package:soplay/core/manga/manga_channel.dart';
-import 'package:soplay/features/cloudflare/cloudflare_solver_page.dart';
+import 'package:riasdxd/core/aniyomi/aniyomi_channel.dart';
+import 'package:riasdxd/core/cloudstream/cloudstream_channel.dart';
+import 'package:riasdxd/core/manga/manga_channel.dart';
+import 'package:riasdxd/features/cloudflare/cloudflare_solver_page.dart';
 
 Future<bool> requestCloudflareSolve(
   BuildContext context,

@@ -6,22 +6,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/detail/domain/entities/player_args.dart';
-import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
-import 'package:soplay/features/watch_party/data/watch_party_service.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_room.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_state.dart';
-import 'package:soplay/features/watch_party/domain/party_resolve_gate.dart';
-import 'package:soplay/features/watch_party/presentation/widgets/party_chat_panel.dart';
-import 'package:soplay/features/watch_party/presentation/widgets/party_code_sheet.dart';
-import 'package:soplay/features/watch_party/presentation/widgets/party_error_views.dart';
-import 'package:soplay/features/watch_party/presentation/widgets/party_member_bar.dart';
-import 'package:soplay/features/watch_party/presentation/widgets/party_plugin_required_view.dart';
-import 'package:soplay/features/watch_party/presentation/widgets/party_reactions_bar.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/detail/domain/entities/player_args.dart';
+import 'package:riasdxd/features/detail/domain/usecases/resolve_media_usecase.dart';
+import 'package:riasdxd/features/watch_party/data/watch_party_service.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_content.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_room.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_state.dart';
+import 'package:riasdxd/features/watch_party/domain/party_resolve_gate.dart';
+import 'package:riasdxd/features/watch_party/presentation/widgets/party_chat_panel.dart';
+import 'package:riasdxd/features/watch_party/presentation/widgets/party_code_sheet.dart';
+import 'package:riasdxd/features/watch_party/presentation/widgets/party_error_views.dart';
+import 'package:riasdxd/features/watch_party/presentation/widgets/party_member_bar.dart';
+import 'package:riasdxd/features/watch_party/presentation/widgets/party_plugin_required_view.dart';
+import 'package:riasdxd/features/watch_party/presentation/widgets/party_reactions_bar.dart';
 
 /// The watch-party lobby (`/watch-party`).
 ///

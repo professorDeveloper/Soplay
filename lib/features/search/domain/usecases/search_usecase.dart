@@ -1,5 +1,5 @@
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/search/domain/entities/search_entity.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/search/domain/entities/search_entity.dart';
 
 import '../repositories/search_repository.dart';
 

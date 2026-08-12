@@ -1,5 +1,5 @@
-import 'package:soplay/features/trivia/data/models/top_fan_model.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_fan_stat_entity.dart';
+import 'package:riasdxd/features/trivia/data/models/top_fan_model.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_fan_stat_entity.dart';
 
 class ActorFanStatModel extends ActorFanStatEntity {
   const ActorFanStatModel({

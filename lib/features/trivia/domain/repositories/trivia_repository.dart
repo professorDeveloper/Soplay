@@ -1,12 +1,12 @@
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_fan_stat_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_profile_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/challenge_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/leaderboard_entry_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/reveal_result_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_round_entity.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_fan_stat_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_profile_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/cast_person_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/challenge_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/leaderboard_entry_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/reveal_result_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_result_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_round_entity.dart';
 
 abstract class TriviaRepository {
   // --- Rounds & gameplay -----------------------------------------------------

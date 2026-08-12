@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/features/my_list/data/models/favorite_model.dart';
+import 'package:riasdxd/features/my_list/data/models/favorite_model.dart';
 
 class MyListRemoteDataSource {
   const MyListRemoteDataSource({required this.dio});

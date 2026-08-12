@@ -9,20 +9,20 @@ import 'package:go_router/go_router.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/system/desktop_window.dart';
-import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/system/system_controls.dart';
-import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
-import 'package:soplay/features/download/data/download_service.dart';
-import 'package:soplay/features/download/domain/entities/download_item.dart';
-import 'package:soplay/features/history/data/history_service.dart';
-import 'package:soplay/features/history/domain/entities/history_item.dart';
-import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
-import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/core/system/desktop_window.dart';
+import 'package:riasdxd/core/system/responsive.dart';
+import 'package:riasdxd/core/system/system_controls.dart';
+import 'package:riasdxd/features/detail/domain/usecases/get_pages_usecase.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/detail/domain/entities/episode_entity.dart';
+import 'package:riasdxd/features/download/data/download_service.dart';
+import 'package:riasdxd/features/download/domain/entities/download_item.dart';
+import 'package:riasdxd/features/history/data/history_service.dart';
+import 'package:riasdxd/features/history/domain/entities/history_item.dart';
+import 'package:riasdxd/features/manga/domain/entities/manga_page_entity.dart';
+import 'package:riasdxd/features/manga/domain/entities/reader_args.dart';
 
 class ReaderPage extends StatefulWidget {
   final ReaderArgs args;

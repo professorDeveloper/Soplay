@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/features/notifications/data/models/notification_item_model.dart';
+import 'package:riasdxd/features/notifications/data/models/notification_item_model.dart';
 
 class NotificationsDataSource {
   final Dio dio;

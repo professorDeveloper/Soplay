@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 class InstallProgressController extends ChangeNotifier {
   double progress = 0;

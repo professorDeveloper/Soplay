@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 /// The tile vocabulary shared by every standalone settings screen reached from
 /// Profile (Player, Navigation bar, …).

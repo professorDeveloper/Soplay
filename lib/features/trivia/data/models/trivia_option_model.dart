@@ -1,4 +1,4 @@
-import 'package:soplay/features/trivia/domain/entities/trivia_option_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_option_entity.dart';
 
 class TriviaOptionModel extends TriviaOptionEntity {
   const TriviaOptionModel({

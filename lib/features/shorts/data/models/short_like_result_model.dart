@@ -1,4 +1,4 @@
-import 'package:soplay/features/shorts/domain/entities/short_like_result.dart';
+import 'package:riasdxd/features/shorts/domain/entities/short_like_result.dart';
 
 class ShortLikeResultModel extends ShortLikeResult {
   const ShortLikeResultModel({required super.liked, required super.likeCount});

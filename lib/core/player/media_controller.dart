@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart' as mk;
 import 'package:media_kit_video/media_kit_video.dart' as mkv;
-import 'package:soplay/core/player/player_engine.dart';
+import 'package:riasdxd/core/player/player_engine.dart';
 import 'package:video_player/video_player.dart' as vp;
 
 export 'package:video_player/video_player.dart'

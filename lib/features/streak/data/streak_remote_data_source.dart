@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import 'package:soplay/features/streak/domain/entities/streak_state.dart';
+import 'package:riasdxd/features/streak/domain/entities/streak_state.dart';
 
 class StreakRemoteDataSource {
   final Dio dio;

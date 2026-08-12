@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_fan_stat_entity.dart';
-import 'package:soplay/features/trivia/domain/usecases/get_top_fans_usecase.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_fan_stat_entity.dart';
+import 'package:riasdxd/features/trivia/domain/usecases/get_top_fans_usecase.dart';
 
 import 'top_fans_event.dart';
 import 'top_fans_state.dart';

@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
-import 'package:soplay/core/extensions/extension_bridge.dart';
+import 'package:riasdxd/core/extensions/extension_bridge.dart';
 
 class CloudStreamChannel {
   CloudStreamChannel._();

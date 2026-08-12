@@ -1,9 +1,9 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/trivia/domain/entities/challenge_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_round_entity.dart';
-import 'package:soplay/features/trivia/domain/usecases/get_challenge_usecase.dart';
-import 'package:soplay/features/trivia/domain/usecases/join_challenge_usecase.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/trivia/domain/entities/challenge_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_round_entity.dart';
+import 'package:riasdxd/features/trivia/domain/usecases/get_challenge_usecase.dart';
+import 'package:riasdxd/features/trivia/domain/usecases/join_challenge_usecase.dart';
 
 import 'challenge_event.dart';
 import 'challenge_state.dart';

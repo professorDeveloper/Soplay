@@ -1,4 +1,4 @@
-import 'package:soplay/core/error/result.dart';
+import 'package:riasdxd/core/error/result.dart';
 import '../entities/comment_entity.dart';
 import '../entities/comment_list.dart';
 import '../entities/like_result.dart';

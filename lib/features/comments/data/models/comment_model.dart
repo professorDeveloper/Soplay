@@ -1,4 +1,4 @@
-import 'package:soplay/features/comments/domain/entities/comment_entity.dart';
+import 'package:riasdxd/features/comments/domain/entities/comment_entity.dart';
 import 'comment_author_model.dart';
 
 class CommentModel extends CommentEntity {

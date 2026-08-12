@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 import '../../domain/entities/linked_device.dart';
 import '../bloc/link_tv_bloc.dart';

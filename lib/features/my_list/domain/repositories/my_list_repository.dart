@@ -1,5 +1,5 @@
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/my_list/domain/entities/favorite_entity.dart';
 
 abstract class MyListRepository {
   Future<Result<List<FavoriteEntity>>> getFavorites();

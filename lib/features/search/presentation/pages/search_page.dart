@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/search/domain/entities/genre_entity.dart';
-import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
-import 'package:soplay/features/search/presentation/widgets/search_filter_sheet.dart';
-import 'package:soplay/features/search/presentation/widgets/search_header.dart';
-import 'package:soplay/features/search/presentation/widgets/search_state_views.dart';
+import 'package:riasdxd/core/system/responsive.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/search/domain/entities/genre_entity.dart';
+import 'package:riasdxd/features/search/presentation/blocs/search_bloc.dart';
+import 'package:riasdxd/features/search/presentation/widgets/search_filter_sheet.dart';
+import 'package:riasdxd/features/search/presentation/widgets/search_header.dart';
+import 'package:riasdxd/features/search/presentation/widgets/search_state_views.dart';
 
 class SearchPage extends StatelessWidget {
   const SearchPage({super.key});

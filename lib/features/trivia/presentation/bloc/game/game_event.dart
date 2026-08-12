@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_round_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_round_entity.dart';
 
 sealed class GameEvent extends Equatable {
   const GameEvent();

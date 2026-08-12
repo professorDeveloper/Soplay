@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
-import 'package:soplay/features/notifications/data/services/notification_service.dart';
-import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/detail/domain/usecases/get_episodes_usecase.dart';
+import 'package:riasdxd/features/notifications/data/services/notification_service.dart';
+import 'package:riasdxd/features/tracker/domain/entities/followed_title.dart';
 
 /// Follow serials and detect new episodes. The update check reuses the same
 /// freeze-proof pattern as cross-search: bounded concurrency + per-title

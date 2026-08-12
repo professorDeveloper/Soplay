@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:soplay/core/subtitles/subtitle_parser.dart';
+import 'package:riasdxd/core/subtitles/subtitle_parser.dart';
 
 void main() {
   test('empty-bodied cue mid-file no longer truncates the rest', () {

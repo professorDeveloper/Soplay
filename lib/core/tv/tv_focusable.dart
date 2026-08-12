@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:soplay/core/system/platform_utils.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/system/platform_utils.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 import 'tv_keys.dart';
 

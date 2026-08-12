@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/features/reports/domain/entities/report_payload.dart';
+import 'package:riasdxd/features/reports/domain/entities/report_payload.dart';
 
 class ReportsDataSource {
   final Dio dio;

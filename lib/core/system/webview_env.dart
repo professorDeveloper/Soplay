@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:soplay/core/js/js_log.dart';
+import 'package:riasdxd/core/js/js_log.dart';
 
 /// WebView2 (Windows) keeps its profile in a *user data folder*. Left to itself
 /// the plugin puts that folder next to the .exe and locks it for the lifetime of

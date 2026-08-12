@@ -1,4 +1,4 @@
-import 'package:soplay/features/trivia/domain/entities/actor_ref_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_ref_entity.dart';
 
 class ActorRefModel extends ActorRefEntity {
   const ActorRefModel({

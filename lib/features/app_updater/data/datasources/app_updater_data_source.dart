@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/features/app_updater/data/models/app_version_check_model.dart';
+import 'package:riasdxd/features/app_updater/data/models/app_version_check_model.dart';
 
 class AppUpdaterDataSource {
   final Dio dio;

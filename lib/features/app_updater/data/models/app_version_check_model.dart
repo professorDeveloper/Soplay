@@ -1,4 +1,4 @@
-import 'package:soplay/features/app_updater/domain/entities/app_version_check.dart';
+import 'package:riasdxd/features/app_updater/domain/entities/app_version_check.dart';
 
 class AppVersionCheckModel extends AppVersionCheck {
   const AppVersionCheckModel({

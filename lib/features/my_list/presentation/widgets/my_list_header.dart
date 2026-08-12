@@ -2,8 +2,8 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/system/responsive.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 class MyListHeader extends StatelessWidget {
   const MyListHeader({

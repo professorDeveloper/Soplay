@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/features/comments/data/models/comment_list_model.dart';
-import 'package:soplay/features/comments/data/models/comment_model.dart';
-import 'package:soplay/features/comments/domain/entities/like_result.dart';
+import 'package:riasdxd/features/comments/data/models/comment_list_model.dart';
+import 'package:riasdxd/features/comments/data/models/comment_model.dart';
+import 'package:riasdxd/features/comments/domain/entities/like_result.dart';
 
 class CommentsDataSource {
   final Dio dio;

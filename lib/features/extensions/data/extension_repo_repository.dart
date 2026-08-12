@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
-import 'package:soplay/features/extensions/data/extension_repo_defaults.dart';
-import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
+import 'package:riasdxd/features/extensions/data/extension_repo_defaults.dart';
+import 'package:riasdxd/features/extensions/domain/entities/extension_repo_entity.dart';
 
 /// Serves the "Recommended" lists for the sources pages.
 ///

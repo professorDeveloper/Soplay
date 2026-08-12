@@ -1,9 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
-import 'package:soplay/features/trivia/domain/entities/top_fan_entity.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:riasdxd/features/trivia/domain/entities/top_fan_entity.dart';
 
 /// Medal accent colors for ranks 1..3. Semantic, not decorative — they come
 /// from the shared medal tokens so the board and this strip cannot drift apart.

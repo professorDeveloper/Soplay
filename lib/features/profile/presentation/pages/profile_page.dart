@@ -7,40 +7,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/features/link_tv/presentation/pages/link_tv_page.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
+import 'package:riasdxd/features/link_tv/presentation/pages/link_tv_page.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
-import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
-import 'package:soplay/core/bridge/bridge_control.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
-import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
-import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
-import 'package:soplay/core/manga/manga_channel.dart';
-import 'package:soplay/core/player/player_engine.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/system/desktop_window.dart';
-import 'package:soplay/core/system/nav_prefs.dart';
-import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
-import 'package:soplay/features/manga/presentation/pages/manga_sources_page.dart';
-import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_sources_page.dart';
-import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
-import 'package:soplay/features/private_list/presentation/private_unlock.dart';
-import 'package:soplay/features/auth/domain/entities/user_entity.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
-import 'package:soplay/features/download/data/download_service.dart';
-import 'package:soplay/features/history/data/history_service.dart';
-import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
-import 'package:soplay/features/streak/presentation/widgets/streak_card.dart';
-import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
-import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
-import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
+import 'package:riasdxd/core/aniyomi/aniyomi_channel.dart';
+import 'package:riasdxd/core/cloudstream/cloudstream_channel.dart';
+import 'package:riasdxd/core/bridge/bridge_control.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/extensions/data/mangayomi_runtime.dart';
+import 'package:riasdxd/features/extensions/presentation/pages/mangayomi_sources_page.dart';
+import 'package:riasdxd/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
+import 'package:riasdxd/core/manga/manga_channel.dart';
+import 'package:riasdxd/core/player/player_engine.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/core/system/desktop_window.dart';
+import 'package:riasdxd/core/system/nav_prefs.dart';
+import 'package:riasdxd/core/system/responsive.dart';
+import 'package:riasdxd/features/cloudflare/cloudflare_solver.dart';
+import 'package:riasdxd/features/manga/presentation/pages/manga_sources_page.dart';
+import 'package:riasdxd/features/cloudstream/presentation/pages/cloudstream_sources_page.dart';
+import 'package:riasdxd/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:riasdxd/features/private_list/presentation/private_unlock.dart';
+import 'package:riasdxd/features/auth/domain/entities/user_entity.dart';
+import 'package:riasdxd/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:riasdxd/features/auth/presentation/bloc/auth_event.dart';
+import 'package:riasdxd/features/auth/presentation/bloc/auth_state.dart';
+import 'package:riasdxd/features/download/data/download_service.dart';
+import 'package:riasdxd/features/history/data/history_service.dart';
+import 'package:riasdxd/features/profile/domain/entities/provider_entity.dart';
+import 'package:riasdxd/features/streak/presentation/widgets/streak_card.dart';
+import 'package:riasdxd/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:riasdxd/features/profile/presentation/bloc/provider_event.dart';
+import 'package:riasdxd/features/profile/presentation/bloc/provider_state.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -2676,7 +2676,7 @@ class _AboutSection extends StatelessWidget {
             children: [
               _Tile(
                 icon: Icons.info_outline_rounded,
-                title: 'Sozo',
+                title: 'RiasDxD',
                 trailing: FutureBuilder<PackageInfo>(
                   future: PackageInfo.fromPlatform(),
                   builder: (_, snap) => Text(

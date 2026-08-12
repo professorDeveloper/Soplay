@@ -1,10 +1,10 @@
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
-import 'package:soplay/features/my_list/data/datasources/my_list_remote_data_source.dart';
-import 'package:soplay/features/my_list/data/models/favorite_model.dart';
-import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
-import 'package:soplay/features/my_list/domain/repositories/my_list_repository.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/my_list/data/datasources/my_list_local_data_source.dart';
+import 'package:riasdxd/features/my_list/data/datasources/my_list_remote_data_source.dart';
+import 'package:riasdxd/features/my_list/data/models/favorite_model.dart';
+import 'package:riasdxd/features/my_list/domain/entities/favorite_entity.dart';
+import 'package:riasdxd/features/my_list/domain/repositories/my_list_repository.dart';
 
 class MyListRepositoryImpl implements MyListRepository {
   const MyListRepositoryImpl(this.remote, this.local, this.hive);

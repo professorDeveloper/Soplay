@@ -1,14 +1,14 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/detail/domain/entities/detail_args.dart';
-import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
-import 'package:soplay/features/my_list/data/private_list_service.dart';
-import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
-import 'package:soplay/features/my_list/presentation/widgets/favorite_card.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/system/responsive.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/detail/domain/entities/detail_args.dart';
+import 'package:riasdxd/features/my_list/data/datasources/my_list_local_data_source.dart';
+import 'package:riasdxd/features/my_list/data/private_list_service.dart';
+import 'package:riasdxd/features/my_list/domain/entities/favorite_entity.dart';
+import 'package:riasdxd/features/my_list/presentation/widgets/favorite_card.dart';
 
 class PrivateListPage extends StatelessWidget {
   const PrivateListPage({super.key});

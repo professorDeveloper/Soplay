@@ -4,16 +4,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:palette_generator/palette_generator.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/detail/domain/entities/detail_args.dart';
-import 'package:soplay/features/home/presentation/bloc/view_all/view_all_bloc.dart';
-import 'package:soplay/features/home/presentation/bloc/view_all/view_all_event.dart';
-import 'package:soplay/features/home/presentation/bloc/view_all/view_all_state.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
-import 'package:soplay/features/home/presentation/widgets/home_ui_helpers.dart';
-import 'package:soplay/features/home/domain/entities/movie.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/system/responsive.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/detail/domain/entities/detail_args.dart';
+import 'package:riasdxd/features/home/presentation/bloc/view_all/view_all_bloc.dart';
+import 'package:riasdxd/features/home/presentation/bloc/view_all/view_all_event.dart';
+import 'package:riasdxd/features/home/presentation/bloc/view_all/view_all_state.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_ui_helpers.dart';
+import 'package:riasdxd/features/home/domain/entities/movie.dart';
 
 class ActorArgs {
   final String id;

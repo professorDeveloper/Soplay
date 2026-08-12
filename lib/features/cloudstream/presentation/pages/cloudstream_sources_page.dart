@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
-import 'package:soplay/features/extensions/presentation/widgets/recommended_repos_section.dart';
-import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_plugins_page.dart';
-import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
-import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
+import 'package:riasdxd/core/cloudstream/cloudstream_channel.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/extensions/domain/entities/extension_repo_entity.dart';
+import 'package:riasdxd/features/extensions/presentation/widgets/recommended_repos_section.dart';
+import 'package:riasdxd/features/cloudstream/presentation/pages/cloudstream_plugins_page.dart';
+import 'package:riasdxd/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:riasdxd/features/profile/presentation/bloc/provider_event.dart';
 
 class CloudStreamSourcesPage extends StatefulWidget {
   const CloudStreamSourcesPage({super.key});

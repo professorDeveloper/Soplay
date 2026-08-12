@@ -1,12 +1,12 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/features/trivia/data/models/actor_fan_stat_model.dart';
-import 'package:soplay/features/trivia/data/models/actor_profile_model.dart';
-import 'package:soplay/features/trivia/data/models/cast_person_model.dart';
-import 'package:soplay/features/trivia/data/models/challenge_model.dart';
-import 'package:soplay/features/trivia/data/models/leaderboard_entry_model.dart';
-import 'package:soplay/features/trivia/data/models/reveal_result_model.dart';
-import 'package:soplay/features/trivia/data/models/trivia_result_model.dart';
-import 'package:soplay/features/trivia/data/models/trivia_round_model.dart';
+import 'package:riasdxd/features/trivia/data/models/actor_fan_stat_model.dart';
+import 'package:riasdxd/features/trivia/data/models/actor_profile_model.dart';
+import 'package:riasdxd/features/trivia/data/models/cast_person_model.dart';
+import 'package:riasdxd/features/trivia/data/models/challenge_model.dart';
+import 'package:riasdxd/features/trivia/data/models/leaderboard_entry_model.dart';
+import 'package:riasdxd/features/trivia/data/models/reveal_result_model.dart';
+import 'package:riasdxd/features/trivia/data/models/trivia_result_model.dart';
+import 'package:riasdxd/features/trivia/data/models/trivia_round_model.dart';
 
 class TriviaRemoteDataSource {
   const TriviaRemoteDataSource({required this.dio});

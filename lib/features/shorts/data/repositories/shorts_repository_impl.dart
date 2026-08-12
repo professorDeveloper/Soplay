@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/shorts/data/datasources/shorts_remote_data_source.dart';
-import 'package:soplay/features/shorts/domain/entities/short_entity.dart';
-import 'package:soplay/features/shorts/domain/entities/short_like_result.dart';
-import 'package:soplay/features/shorts/domain/entities/shorts_feed_result.dart';
-import 'package:soplay/features/shorts/domain/repositories/shorts_repository.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/shorts/data/datasources/shorts_remote_data_source.dart';
+import 'package:riasdxd/features/shorts/domain/entities/short_entity.dart';
+import 'package:riasdxd/features/shorts/domain/entities/short_like_result.dart';
+import 'package:riasdxd/features/shorts/domain/entities/shorts_feed_result.dart';
+import 'package:riasdxd/features/shorts/domain/repositories/shorts_repository.dart';
 
 class ShortsRepositoryImpl implements ShortsRepository {
   const ShortsRepositoryImpl(this.dataSource);

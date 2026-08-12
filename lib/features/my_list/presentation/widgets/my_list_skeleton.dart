@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_shared_widgets.dart';
 
 class MyListSkeleton extends StatelessWidget {
   const MyListSkeleton({super.key});

@@ -1,15 +1,15 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
-import 'package:soplay/features/detail/domain/entities/player_args.dart';
-import 'package:soplay/features/download/data/download_service.dart';
-import 'package:soplay/features/download/domain/entities/download_item.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
-import 'package:soplay/features/manga/domain/entities/reader_args.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/system/responsive.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/detail/domain/entities/episode_entity.dart';
+import 'package:riasdxd/features/detail/domain/entities/player_args.dart';
+import 'package:riasdxd/features/download/data/download_service.dart';
+import 'package:riasdxd/features/download/domain/entities/download_item.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:riasdxd/features/manga/domain/entities/reader_args.dart';
 
 class DownloadsSection extends StatefulWidget {
   const DownloadsSection({super.key});

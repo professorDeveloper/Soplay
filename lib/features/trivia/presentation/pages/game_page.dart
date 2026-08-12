@@ -6,20 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/player/media_controller.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/detail/domain/entities/detail_args.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_option_entity.dart';
-import 'package:soplay/features/trivia/presentation/bloc/game/game_bloc.dart';
-import 'package:soplay/features/trivia/presentation/bloc/game/game_event.dart';
-import 'package:soplay/features/trivia/presentation/bloc/game/game_state.dart';
-import 'package:soplay/features/trivia/presentation/trivia_args.dart';
-import 'package:soplay/features/trivia/presentation/widgets/buff_empty_panel.dart';
-import 'package:soplay/features/trivia/presentation/widgets/countdown_ring.dart';
-import 'package:soplay/features/trivia/presentation/widgets/option_chip.dart';
-import 'package:soplay/features/trivia/presentation/widgets/progress_dots.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/player/media_controller.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/detail/domain/entities/detail_args.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_option_entity.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/game/game_bloc.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/game/game_event.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/game/game_state.dart';
+import 'package:riasdxd/features/trivia/presentation/trivia_args.dart';
+import 'package:riasdxd/features/trivia/presentation/widgets/buff_empty_panel.dart';
+import 'package:riasdxd/features/trivia/presentation/widgets/countdown_ring.dart';
+import 'package:riasdxd/features/trivia/presentation/widgets/option_chip.dart';
+import 'package:riasdxd/features/trivia/presentation/widgets/progress_dots.dart';
 
 /// Full-screen trivia gameplay. Owns a [GameBloc] (which owns the round + the
 /// countdown, whose window comes from the round payload) and a reused

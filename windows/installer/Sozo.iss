@@ -3,7 +3,7 @@
 ; Then compile this:    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\installer\Sozo.iss
 ; Output: Sozo-Setup.exe on the Desktop.
 
-#define MyAppName "Sozo"
+#define MyAppName "RiasDxD"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "Azamov"
 #define MyAppURL "https://sozo.azamov.me"

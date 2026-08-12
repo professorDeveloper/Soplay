@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/features/comments/presentation/widgets/comments_panel.dart';
+import 'package:riasdxd/features/comments/presentation/widgets/comments_panel.dart';
 
 class DetailCommentsTab extends StatelessWidget {
   const DetailCommentsTab({

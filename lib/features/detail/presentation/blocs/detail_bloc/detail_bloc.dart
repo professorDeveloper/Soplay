@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
-import 'package:soplay/features/detail/domain/usecases/get_detail_usecase.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/detail/domain/entities/detail_entity.dart';
+import 'package:riasdxd/features/detail/domain/usecases/get_detail_usecase.dart';
 
 part 'detail_event.dart';
 part 'detail_state.dart';

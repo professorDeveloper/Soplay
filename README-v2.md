@@ -1,11 +1,11 @@
 <div align="center">
-  <img src="docs/images/banner-v2.svg" alt="Sozo banner" width="100%" />
+  <img src="docs/images/banner-v2.svg" alt="RiasDxD banner" width="100%" />
 
-  <h1>Sozo <sup>v2</sup></h1>
+  <h1>RiasDxD <sup>v2</sup></h1>
   <p>A modern Flutter streaming app for movies, series, and anime.</p>
 
   <p>
-    <a href="https://sozo.framer.website/"><img src="https://img.shields.io/badge/Website-Sozo-111111?style=for-the-badge" alt="Website" /></a>
+    <a href="https://sozo.framer.website/"><img src="https://img.shields.io/badge/Website-RiasDxD-111111?style=for-the-badge" alt="Website" /></a>
     <a href="https://telegram.me/sozoapp"><img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&amp;logo=telegram&amp;logoColor=white" alt="Telegram" /></a>
     <a href="https://discord.gg/n22URhYvMR"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&amp;logo=discord&amp;logoColor=white" alt="Discord" /></a>
   </p>
@@ -14,11 +14,11 @@
 
 ## About
 
-Sozo is built around a simple, elegant streaming experience for discovering, watching, and downloading content. The name Sozo means "creation" or "imagination" in Japanese, matching the app's anime-inspired identity and polished dark interface.
+RiasDxD is built around a simple, elegant streaming experience for discovering, watching, and downloading content. The name RiasDxD means "creation" or "imagination" in Japanese, matching the app's anime-inspired identity and polished dark interface.
 
-## Why Sozo
+## Why RiasDxD
 
-Sozo focuses on a cinematic mobile experience: fast browsing, clean visuals, smooth playback, and a layout that feels made for everyday watching. From home discovery to offline downloads, every screen is designed to keep the content first.
+RiasDxD focuses on a cinematic mobile experience: fast browsing, clean visuals, smooth playback, and a layout that feels made for everyday watching. From home discovery to offline downloads, every screen is designed to keep the content first.
 
 ## Highlights
 
@@ -52,9 +52,9 @@ Sozo focuses on a cinematic mobile experience: fast browsing, clean visuals, smo
 
 ## Join The Community
 
-Have an idea, found a bug, or want to follow upcoming updates? Join the Sozo community and be part of the project as it grows.
+Have an idea, found a bug, or want to follow upcoming updates? Join the RiasDxD community and be part of the project as it grows.
 
 <p align="center">
-  <a href="https://telegram.me/sozoapp"><img src="https://img.shields.io/badge/Join%20Telegram-Sozo%20Community-2CA5E0?style=for-the-badge&amp;logo=telegram&amp;logoColor=white" alt="Join Telegram" /></a>
+  <a href="https://telegram.me/sozoapp"><img src="https://img.shields.io/badge/Join%20Telegram-RiasDxD%20Community-2CA5E0?style=for-the-badge&amp;logo=telegram&amp;logoColor=white" alt="Join Telegram" /></a>
   <a href="https://discord.gg/n22URhYvMR"><img src="https://img.shields.io/badge/Join%20Discord-Discuss%20Features-5865F2?style=for-the-badge&amp;logo=discord&amp;logoColor=white" alt="Join Discord" /></a>
 </p>

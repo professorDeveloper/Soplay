@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_fan_stat_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_fan_stat_entity.dart';
 
 enum TopFansStatus { initial, loading, loaded, error }
 

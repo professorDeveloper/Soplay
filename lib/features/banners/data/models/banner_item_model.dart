@@ -1,4 +1,4 @@
-import 'package:soplay/features/banners/domain/entities/banner_item.dart';
+import 'package:riasdxd/features/banners/domain/entities/banner_item.dart';
 
 class BannerItemModel extends BannerItem {
   const BannerItemModel({

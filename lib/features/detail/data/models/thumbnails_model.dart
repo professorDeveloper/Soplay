@@ -1,4 +1,4 @@
-import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
+import 'package:riasdxd/features/detail/domain/entities/thumbnails_entity.dart';
 
 class ThumbnailsModel extends ThumbnailsEntity {
   const ThumbnailsModel({

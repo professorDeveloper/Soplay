@@ -1,4 +1,4 @@
-import 'package:soplay/features/search/domain/entities/genre_entity.dart';
+import 'package:riasdxd/features/search/domain/entities/genre_entity.dart';
 
 import '../../../../core/error/result.dart';
 import '../entities/home_data_entity.dart';

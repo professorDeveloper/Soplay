@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/features/detail/data/models/detail_model.dart';
-import 'package:soplay/features/detail/data/models/media_resolve_model.dart';
-import 'package:soplay/features/detail/data/models/playback_model.dart';
+import 'package:riasdxd/features/detail/data/models/detail_model.dart';
+import 'package:riasdxd/features/detail/data/models/media_resolve_model.dart';
+import 'package:riasdxd/features/detail/data/models/playback_model.dart';
 
 class DetailDataSource {
   final Dio dio;

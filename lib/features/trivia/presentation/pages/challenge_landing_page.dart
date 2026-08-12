@@ -6,13 +6,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/trivia/domain/entities/challenge_entity.dart';
-import 'package:soplay/features/trivia/presentation/bloc/challenge/challenge_bloc.dart';
-import 'package:soplay/features/trivia/presentation/bloc/challenge/challenge_event.dart';
-import 'package:soplay/features/trivia/presentation/bloc/challenge/challenge_state.dart';
-import 'package:soplay/features/trivia/presentation/trivia_args.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/trivia/domain/entities/challenge_entity.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/challenge/challenge_bloc.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/challenge/challenge_event.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/challenge/challenge_state.dart';
+import 'package:riasdxd/features/trivia/presentation/trivia_args.dart';
 
 /// Deep-link target for `soplay://trivia/challenge/<code>`: shows the challenger
 /// and the score to beat, then materializes a round from the frozen 10 clips and

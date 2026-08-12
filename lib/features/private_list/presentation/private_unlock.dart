@@ -1,11 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
-import 'package:soplay/features/my_list/data/private_list_service.dart';
-import 'package:soplay/features/private_list/presentation/pages/private_unlock_page.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:riasdxd/features/my_list/data/private_list_service.dart';
+import 'package:riasdxd/features/private_list/presentation/pages/private_unlock_page.dart';
 
 Future<bool> requestPrivateUnlock(BuildContext context) async {
   final lock = getIt<AppLockRepository>();

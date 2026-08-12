@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/auth/data/models/user_model.dart';
-import 'package:soplay/features/auth/domain/entities/auth_token.dart';
-import 'package:soplay/features/auth/domain/entities/user_entity.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/auth/data/models/user_model.dart';
+import 'package:riasdxd/features/auth/domain/entities/auth_token.dart';
+import 'package:riasdxd/features/auth/domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
 

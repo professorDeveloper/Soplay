@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/detail/domain/entities/detail_args.dart';
-import 'package:soplay/features/tracker/data/follow_service.dart';
-import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/detail/domain/entities/detail_args.dart';
+import 'package:riasdxd/features/tracker/data/follow_service.dart';
+import 'package:riasdxd/features/tracker/domain/entities/followed_title.dart';
 
 /// Serials the user follows, with a manual "check for new episodes". A check
 /// also runs automatically when the page opens.

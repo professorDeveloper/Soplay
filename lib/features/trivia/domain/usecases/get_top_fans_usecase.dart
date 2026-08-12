@@ -1,6 +1,6 @@
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_fan_stat_entity.dart';
-import 'package:soplay/features/trivia/domain/repositories/trivia_repository.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_fan_stat_entity.dart';
+import 'package:riasdxd/features/trivia/domain/repositories/trivia_repository.dart';
 
 class GetTopFansUseCase {
   const GetTopFansUseCase(this.repository);

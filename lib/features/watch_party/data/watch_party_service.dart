@@ -3,18 +3,18 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show WidgetsBinding, WidgetsBindingObserver, AppLifecycleState;
 
-import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/core/network/token_refresher.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/watch_party/data/watch_party_remote_data_source.dart';
-import 'package:soplay/features/watch_party/data/watch_party_socket_client.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_chat_message.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_member.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_playback.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_reaction.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_room.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_state.dart';
+import 'package:riasdxd/core/constants/app_constants.dart';
+import 'package:riasdxd/core/network/token_refresher.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/watch_party/data/watch_party_remote_data_source.dart';
+import 'package:riasdxd/features/watch_party/data/watch_party_socket_client.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_chat_message.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_content.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_member.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_playback.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_reaction.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_room.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_state.dart';
 
 /// Live watch-party session. Registered as an eager get_it singleton and is the
 /// single source of truth via [state]. Mirrors `StreakService`'s shape

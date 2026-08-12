@@ -5,11 +5,11 @@ import 'dart:io' show Platform;
 import 'package:flutter/services.dart' show PlatformException, rootBundle;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import 'package:soplay/core/js/dart_fetch.dart';
-import 'package:soplay/core/js/js_log.dart';
-import 'package:soplay/core/system/webview_env.dart';
-import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
-import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
+import 'package:riasdxd/core/js/dart_fetch.dart';
+import 'package:riasdxd/core/js/js_log.dart';
+import 'package:riasdxd/core/system/webview_env.dart';
+import 'package:riasdxd/features/extensions/data/mangayomi_repo_store.dart';
+import 'package:riasdxd/features/extensions/domain/entities/mangayomi_source.dart';
 
 /// Runs Mangayomi JavaScript extensions in a headless WebView.
 ///

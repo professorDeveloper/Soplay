@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:soplay/features/shorts/domain/entities/short_entity.dart';
+import 'package:riasdxd/features/shorts/domain/entities/short_entity.dart';
 
 sealed class ShortsState extends Equatable {
   const ShortsState();

@@ -1,16 +1,16 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/trivia/data/datasources/trivia_remote_data_source.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_fan_stat_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_profile_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/challenge_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/leaderboard_entry_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/reveal_result_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_round_entity.dart';
-import 'package:soplay/features/trivia/domain/repositories/trivia_repository.dart';
-import 'package:soplay/features/trivia/domain/trivia_failure.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/trivia/data/datasources/trivia_remote_data_source.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_fan_stat_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_profile_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/cast_person_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/challenge_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/leaderboard_entry_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/reveal_result_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_result_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_round_entity.dart';
+import 'package:riasdxd/features/trivia/domain/repositories/trivia_repository.dart';
+import 'package:riasdxd/features/trivia/domain/trivia_failure.dart';
 
 class TriviaRepositoryImpl implements TriviaRepository {
   const TriviaRepositoryImpl(this.dataSource);

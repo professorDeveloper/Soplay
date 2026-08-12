@@ -1,4 +1,4 @@
-import 'package:soplay/features/comments/domain/entities/comment_list.dart';
+import 'package:riasdxd/features/comments/domain/entities/comment_list.dart';
 import 'comment_model.dart';
 
 class CommentListModel extends CommentList {

@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart' show Bloc, Emitter;
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/home/domain/entities/view_all_paging_entity.dart';
-import 'package:soplay/features/home/presentation/bloc/view_all/view_all_event.dart';
-import 'package:soplay/features/home/presentation/bloc/view_all/view_all_state.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/home/domain/entities/view_all_paging_entity.dart';
+import 'package:riasdxd/features/home/presentation/bloc/view_all/view_all_event.dart';
+import 'package:riasdxd/features/home/presentation/bloc/view_all/view_all_state.dart';
 
 import '../../../domain/usecase/view_all_usecase.dart';
 

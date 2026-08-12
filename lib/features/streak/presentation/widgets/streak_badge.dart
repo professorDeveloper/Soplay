@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/navigation/app_tab.dart';
-import 'package:soplay/core/navigation/nav_controller.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/streak/data/streak_service.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/navigation/app_tab.dart';
+import 'package:riasdxd/core/navigation/nav_controller.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/streak/data/streak_service.dart';
 
 class StreakBadge extends StatefulWidget {
   const StreakBadge({super.key});

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/core/router/app_router.dart';
+import 'package:riasdxd/core/constants/app_constants.dart';
+import 'package:riasdxd/core/router/app_router.dart';
 
 class NoInternetInterceptor extends Interceptor {
   static int _lastRedirectMs = 0;

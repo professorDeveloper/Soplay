@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:riasdxd/features/auth/presentation/bloc/auth_event.dart';
+import 'package:riasdxd/features/auth/presentation/bloc/auth_state.dart';
 
 class OtpVerifyPage extends StatefulWidget {
   const OtpVerifyPage({super.key, required this.email});

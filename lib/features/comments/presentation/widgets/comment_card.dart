@@ -1,9 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/comments/domain/entities/comment_entity.dart';
-import 'package:soplay/features/reports/domain/entities/report_payload.dart';
-import 'package:soplay/features/reports/presentation/widgets/report_sheet.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/comments/domain/entities/comment_entity.dart';
+import 'package:riasdxd/features/reports/domain/entities/report_payload.dart';
+import 'package:riasdxd/features/reports/presentation/widgets/report_sheet.dart';
 import 'comment_avatar.dart';
 
 class CommentCard extends StatelessWidget {

@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
-import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/core/storage/hive_service.dart';
+import 'package:riasdxd/core/constants/app_constants.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
 
 /// Single-flight JWT freshener for the socket handshake.
 ///

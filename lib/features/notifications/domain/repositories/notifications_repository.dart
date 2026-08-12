@@ -1,5 +1,5 @@
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/notifications/domain/entities/notification_item.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/notifications/domain/entities/notification_item.dart';
 
 abstract class NotificationsRepository {
   Future<Result<NotificationList>> list({

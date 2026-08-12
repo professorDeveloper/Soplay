@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 class MyListBackground extends StatelessWidget {
   const MyListBackground({super.key});

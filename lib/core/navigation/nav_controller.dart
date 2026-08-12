@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:soplay/core/navigation/app_tab.dart';
+import 'package:riasdxd/core/navigation/app_tab.dart';
 
 class NavController {
   final _index = ValueNotifier<int>(0);

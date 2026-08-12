@@ -1,4 +1,4 @@
-import 'package:soplay/features/trivia/domain/entities/top_fan_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/top_fan_entity.dart';
 
 class TopFanModel extends TopFanEntity {
   const TopFanModel({

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
-import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
-import 'package:soplay/features/home/presentation/widgets/backend_outage_banner.dart';
-import 'package:soplay/features/home/presentation/widgets/home_content.dart';
-import 'package:soplay/features/home/presentation/widgets/home_state_views.dart';
-import 'package:soplay/features/home/presentation/widgets/home_top_bar.dart';
+import 'package:riasdxd/features/home/presentation/bloc/home/home_bloc.dart';
+import 'package:riasdxd/features/home/presentation/bloc/home/home_event.dart';
+import 'package:riasdxd/features/home/presentation/widgets/backend_outage_banner.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_content.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_state_views.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_top_bar.dart';
 
 import '../bloc/home/home_state.dart';
 

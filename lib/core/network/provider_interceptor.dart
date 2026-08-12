@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/core/storage/hive_service.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
 
 class ProviderInterceptor extends Interceptor {
   final HiveService hiveService;

@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:soplay/core/storage/hive_service.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
 
 class AuthInterceptor extends Interceptor {
   static const _skipKey = 'skipAuthInterceptor';

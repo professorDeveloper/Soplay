@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/core/tv/tv.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/core/tv/tv.dart';
 
 class DetailHeroBackground extends StatelessWidget {
   const DetailHeroBackground({

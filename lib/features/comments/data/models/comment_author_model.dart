@@ -1,4 +1,4 @@
-import 'package:soplay/features/comments/domain/entities/comment_author.dart';
+import 'package:riasdxd/features/comments/domain/entities/comment_author.dart';
 
 class CommentAuthorModel extends CommentAuthor {
   const CommentAuthorModel({

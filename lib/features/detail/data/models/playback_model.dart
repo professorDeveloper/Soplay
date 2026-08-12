@@ -1,5 +1,5 @@
-import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
-import 'package:soplay/features/detail/domain/entities/playback_entity.dart';
+import 'package:riasdxd/features/detail/domain/entities/episode_entity.dart';
+import 'package:riasdxd/features/detail/domain/entities/playback_entity.dart';
 import 'episode_model.dart';
 import 'thumbnails_model.dart';
 import 'video_source_model.dart';

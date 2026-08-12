@@ -4,21 +4,21 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
-import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/leaderboard_entry_entity.dart';
-import 'package:soplay/features/trivia/presentation/bloc/cast/cast_bloc.dart';
-import 'package:soplay/features/trivia/presentation/bloc/cast/cast_event.dart';
-import 'package:soplay/features/trivia/presentation/bloc/cast/cast_state.dart';
-import 'package:soplay/features/trivia/presentation/bloc/hub/trivia_hub_bloc.dart';
-import 'package:soplay/features/trivia/presentation/bloc/hub/trivia_hub_event.dart';
-import 'package:soplay/features/trivia/presentation/bloc/hub/trivia_hub_state.dart';
-import 'package:soplay/features/trivia/presentation/pages/top_fans_page.dart'
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:riasdxd/features/trivia/domain/entities/cast_person_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/leaderboard_entry_entity.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/cast/cast_bloc.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/cast/cast_event.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/cast/cast_state.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/hub/trivia_hub_bloc.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/hub/trivia_hub_event.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/hub/trivia_hub_state.dart';
+import 'package:riasdxd/features/trivia/presentation/pages/top_fans_page.dart'
     show RankBadge;
-import 'package:soplay/features/trivia/presentation/widgets/buff_empty_panel.dart';
-import 'package:soplay/features/trivia/presentation/widgets/cast_card.dart';
+import 'package:riasdxd/features/trivia/presentation/widgets/buff_empty_panel.dart';
+import 'package:riasdxd/features/trivia/presentation/widgets/cast_card.dart';
 
 /// The Buff bottom-nav tab: a fan checker. Leads with the Fan Test entry (which
 /// borrows real faces from [CastBloc] so the card carries artwork), continues

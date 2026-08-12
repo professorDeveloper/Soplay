@@ -1,8 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_ref_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_ref_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_result_entity.dart';
 
 /// The off-screen, fixed-size card that gets rasterized (RepaintBoundary →
 /// toImage) and shared. It is deliberately self-contained and `const`-friendly

@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_content.dart';
 
 /// Thin REST layer for watch party rooms. Mirrors `StreakRemoteDataSource`:
 /// a single injected [Dio] whose baseUrl already ends with `/api`.

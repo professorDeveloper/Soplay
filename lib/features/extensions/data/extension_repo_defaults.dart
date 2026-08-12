@@ -1,4 +1,4 @@
-import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
+import 'package:riasdxd/features/extensions/domain/entities/extension_repo_entity.dart';
 
 /// Compiled-in fallback for the "Recommended" lists.
 ///

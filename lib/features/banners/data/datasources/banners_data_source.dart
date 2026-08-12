@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/features/banners/data/models/banner_item_model.dart';
+import 'package:riasdxd/features/banners/data/models/banner_item_model.dart';
 
 class BannersDataSource {
   final Dio dio;

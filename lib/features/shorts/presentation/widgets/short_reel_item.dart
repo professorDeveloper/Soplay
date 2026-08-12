@@ -3,10 +3,10 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:soplay/features/reports/domain/entities/report_payload.dart';
-import 'package:soplay/features/reports/presentation/widgets/report_sheet.dart';
-import 'package:soplay/core/player/media_controller.dart';
-import 'package:soplay/core/system/platform_utils.dart';
+import 'package:riasdxd/features/reports/domain/entities/report_payload.dart';
+import 'package:riasdxd/features/reports/presentation/widgets/report_sheet.dart';
+import 'package:riasdxd/core/player/media_controller.dart';
+import 'package:riasdxd/core/system/platform_utils.dart';
 
 import '../../domain/entities/short_entity.dart';
 

@@ -2,9 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/home/presentation/widgets/home_downloads_section.dart';
+import 'package:riasdxd/core/constants/app_constants.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_downloads_section.dart';
 
 class NoInternetPage extends StatefulWidget {
   const NoInternetPage({super.key});

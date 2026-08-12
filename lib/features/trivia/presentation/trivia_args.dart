@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_ref_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_round_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_ref_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_result_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_round_entity.dart';
 
 /// Navigation payload for the trivia game route (`/trivia/game`).
 ///

@@ -2,15 +2,15 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/system/platform_utils.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
-import 'package:soplay/features/app_lock/presentation/bloc/app_lock_bloc.dart';
-import 'package:soplay/features/app_lock/presentation/bloc/app_lock_event.dart';
-import 'package:soplay/features/app_lock/presentation/bloc/app_lock_state.dart';
-import 'package:soplay/features/app_lock/presentation/widgets/pin_dots.dart';
-import 'package:soplay/features/app_lock/presentation/widgets/pin_keypad.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/system/platform_utils.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:riasdxd/features/app_lock/presentation/bloc/app_lock_bloc.dart';
+import 'package:riasdxd/features/app_lock/presentation/bloc/app_lock_event.dart';
+import 'package:riasdxd/features/app_lock/presentation/bloc/app_lock_state.dart';
+import 'package:riasdxd/features/app_lock/presentation/widgets/pin_dots.dart';
+import 'package:riasdxd/features/app_lock/presentation/widgets/pin_keypad.dart';
 
 class PinVerifyPage extends StatelessWidget {
   const PinVerifyPage({super.key, this.redirectTo = '/main'});

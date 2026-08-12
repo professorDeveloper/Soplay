@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:soplay/core/system/webview_env.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/system/webview_env.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 class CloudflareSolverPage extends StatefulWidget {
   const CloudflareSolverPage({

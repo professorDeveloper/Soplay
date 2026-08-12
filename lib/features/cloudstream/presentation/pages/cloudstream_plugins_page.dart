@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
-import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
+import 'package:riasdxd/core/cloudstream/cloudstream_channel.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:riasdxd/features/profile/presentation/bloc/provider_event.dart';
 
 /// Browse a single CloudStream repo and install only the plugins you want.
 ///

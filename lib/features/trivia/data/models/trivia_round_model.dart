@@ -1,6 +1,6 @@
-import 'package:soplay/features/trivia/data/models/actor_ref_model.dart';
-import 'package:soplay/features/trivia/data/models/trivia_clip_model.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_round_entity.dart';
+import 'package:riasdxd/features/trivia/data/models/actor_ref_model.dart';
+import 'package:riasdxd/features/trivia/data/models/trivia_clip_model.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_round_entity.dart';
 
 class TriviaRoundModel extends TriviaRoundEntity {
   const TriviaRoundModel({

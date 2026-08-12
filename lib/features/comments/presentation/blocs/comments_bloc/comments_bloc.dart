@@ -1,9 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/comments/domain/entities/comment_entity.dart';
-import 'package:soplay/features/comments/domain/repositories/comments_repository.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/comments/domain/entities/comment_entity.dart';
+import 'package:riasdxd/features/comments/domain/repositories/comments_repository.dart';
 
 part 'comments_event.dart';
 part 'comments_state.dart';

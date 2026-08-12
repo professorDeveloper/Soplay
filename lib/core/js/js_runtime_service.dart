@@ -5,7 +5,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import 'package:soplay/core/system/webview_env.dart';
+import 'package:riasdxd/core/system/webview_env.dart';
 
 import 'dart_fetch.dart';
 import 'extractor_cache.dart';

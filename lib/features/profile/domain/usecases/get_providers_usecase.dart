@@ -1,4 +1,4 @@
-import 'package:soplay/core/error/result.dart';
+import 'package:riasdxd/core/error/result.dart';
 import '../entities/providers_snapshot.dart';
 import '../repositories/provider_repository.dart';
 

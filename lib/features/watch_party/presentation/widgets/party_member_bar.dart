@@ -1,10 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/comments/domain/entities/comment_author.dart';
-import 'package:soplay/features/comments/presentation/widgets/comment_avatar.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_member.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_room.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/comments/domain/entities/comment_author.dart';
+import 'package:riasdxd/features/comments/presentation/widgets/comment_avatar.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_member.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_room.dart';
 
 /// Horizontal strip of party members: avatar (with host crown + online dot),
 /// name, and an `online/max` counter chip.

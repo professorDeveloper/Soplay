@@ -3,17 +3,17 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_fan_stat_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/top_fan_entity.dart';
-import 'package:soplay/features/trivia/presentation/bloc/topfans/top_fans_bloc.dart';
-import 'package:soplay/features/trivia/presentation/bloc/topfans/top_fans_event.dart';
-import 'package:soplay/features/trivia/presentation/bloc/topfans/top_fans_state.dart';
-import 'package:soplay/features/trivia/presentation/widgets/top_fans_strip.dart' show kMedalColors;
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:riasdxd/features/auth/presentation/bloc/auth_state.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_fan_stat_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/top_fan_entity.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/topfans/top_fans_bloc.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/topfans/top_fans_event.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/topfans/top_fans_state.dart';
+import 'package:riasdxd/features/trivia/presentation/widgets/top_fans_strip.dart' show kMedalColors;
 
 /// Full ranked Top Fans board for one actor/character: medals for the top 3,
 /// fandom % + best score per fan, and the current user's row pinned + highlighted.

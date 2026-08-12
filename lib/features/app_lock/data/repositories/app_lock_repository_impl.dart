@@ -1,5 +1,5 @@
-import 'package:soplay/features/app_lock/data/datasources/app_lock_local_data_source.dart';
-import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:riasdxd/features/app_lock/data/datasources/app_lock_local_data_source.dart';
+import 'package:riasdxd/features/app_lock/domain/repositories/app_lock_repository.dart';
 
 class AppLockRepositoryImpl implements AppLockRepository {
   AppLockRepositoryImpl(this._source);

@@ -1,5 +1,5 @@
-import 'package:soplay/features/trivia/data/models/actor_ref_model.dart';
-import 'package:soplay/features/trivia/domain/entities/challenge_entity.dart';
+import 'package:riasdxd/features/trivia/data/models/actor_ref_model.dart';
+import 'package:riasdxd/features/trivia/domain/entities/challenge_entity.dart';
 
 class ChallengeModel extends ChallengeEntity {
   const ChallengeModel({

@@ -1,5 +1,5 @@
-import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
-import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
+import 'package:riasdxd/core/aniyomi/aniyomi_channel.dart';
+import 'package:riasdxd/core/cloudstream/cloudstream_channel.dart';
 
 /// Result of asking whether THIS device can turn a party's content identity
 /// into a playable stream.

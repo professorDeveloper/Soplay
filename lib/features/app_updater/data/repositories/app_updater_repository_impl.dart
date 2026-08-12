@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/app_updater/data/datasources/app_updater_data_source.dart';
-import 'package:soplay/features/app_updater/domain/entities/app_version_check.dart';
-import 'package:soplay/features/app_updater/domain/repositories/app_updater_repository.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/app_updater/data/datasources/app_updater_data_source.dart';
+import 'package:riasdxd/features/app_updater/domain/entities/app_version_check.dart';
+import 'package:riasdxd/features/app_updater/domain/repositories/app_updater_repository.dart';
 
 class AppUpdaterRepositoryImpl implements AppUpdaterRepository {
   final AppUpdaterDataSource dataSource;

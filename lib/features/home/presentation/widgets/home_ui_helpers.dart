@@ -1,5 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:soplay/features/home/domain/entities/movie.dart';
+import 'package:riasdxd/features/home/domain/entities/movie.dart';
 
 String movieTitle(MovieEntity movie) {
   final title = movie.title.trim();

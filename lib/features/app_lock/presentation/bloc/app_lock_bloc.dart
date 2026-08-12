@@ -1,5 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:riasdxd/features/app_lock/domain/repositories/app_lock_repository.dart';
 
 import 'app_lock_event.dart';
 import 'app_lock_state.dart';

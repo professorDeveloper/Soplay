@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/system/platform_utils.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/home/presentation/bloc/view_all/view_all_bloc.dart';
-import 'package:soplay/features/home/presentation/bloc/view_all/view_all_event.dart';
-import 'package:soplay/features/home/presentation/bloc/view_all/view_all_state.dart';
-import 'package:soplay/features/home/presentation/widgets/view_all_widgets.dart';
+import 'package:riasdxd/core/system/platform_utils.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/home/presentation/bloc/view_all/view_all_bloc.dart';
+import 'package:riasdxd/features/home/presentation/bloc/view_all/view_all_event.dart';
+import 'package:riasdxd/features/home/presentation/bloc/view_all/view_all_state.dart';
+import 'package:riasdxd/features/home/presentation/widgets/view_all_widgets.dart';
 
 class HomeViewAllPage extends StatefulWidget {
   const HomeViewAllPage({

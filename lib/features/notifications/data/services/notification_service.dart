@@ -5,8 +5,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/notifications/domain/repositories/notifications_repository.dart';
 
 typedef NotificationTapHandler = void Function(Map<String, dynamic> data);
 

@@ -9,11 +9,11 @@ import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_ref_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
-import 'package:soplay/features/trivia/presentation/trivia_args.dart';
-import 'package:soplay/features/trivia/presentation/widgets/share_card.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_ref_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_result_entity.dart';
+import 'package:riasdxd/features/trivia/presentation/trivia_args.dart';
+import 'package:riasdxd/features/trivia/presentation/widgets/share_card.dart';
 
 /// Round-result screen. Every Buff round is a fan test, so the page always
 /// leads with the circular fandom-% gauge and offers play-again, leaderboard,

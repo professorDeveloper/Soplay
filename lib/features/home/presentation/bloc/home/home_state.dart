@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:soplay/features/search/domain/entities/genre_entity.dart';
+import 'package:riasdxd/features/search/domain/entities/genre_entity.dart';
 
 import '../../../domain/entities/home_data_entity.dart';
 import '../../../domain/entities/movie.dart';

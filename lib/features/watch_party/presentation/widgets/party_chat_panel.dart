@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/comments/domain/entities/comment_author.dart';
-import 'package:soplay/features/comments/presentation/widgets/comment_avatar.dart';
-import 'package:soplay/features/watch_party/data/watch_party_service.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_chat_message.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/comments/domain/entities/comment_author.dart';
+import 'package:riasdxd/features/comments/presentation/widgets/comment_avatar.dart';
+import 'package:riasdxd/features/watch_party/data/watch_party_service.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_chat_message.dart';
 
 /// Live chat for a watch party: a scrolling message list fed by
 /// `service.chat`, plus a composer wired to `service.sendChat`.

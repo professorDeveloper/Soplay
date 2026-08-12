@@ -1,7 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
-import 'package:soplay/core/system/platform_utils.dart';
+import 'package:riasdxd/core/system/platform_utils.dart';
 
 class AppOrientation {
   AppOrientation._();

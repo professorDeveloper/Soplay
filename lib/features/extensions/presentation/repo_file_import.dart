@@ -5,11 +5,11 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
-import 'package:soplay/core/manga/manga_channel.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/aniyomi/aniyomi_channel.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/features/extensions/data/mangayomi_repo_store.dart';
+import 'package:riasdxd/core/manga/manga_channel.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 /// Handles "Open with Sozo" on an extension repository index file.
 ///

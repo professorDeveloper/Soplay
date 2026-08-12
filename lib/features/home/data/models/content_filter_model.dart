@@ -1,4 +1,4 @@
-import 'package:soplay/features/home/domain/entities/content_filter_entity.dart';
+import 'package:riasdxd/features/home/domain/entities/content_filter_entity.dart';
 
 class ContentFilterModel extends ContentFilterEntity {
   const ContentFilterModel({

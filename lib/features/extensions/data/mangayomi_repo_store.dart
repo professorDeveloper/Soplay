@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
 
-import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
+import 'package:riasdxd/core/constants/app_constants.dart';
+import 'package:riasdxd/features/extensions/domain/entities/mangayomi_source.dart';
 
 /// Installs and persists Mangayomi repositories, entirely in Dart.
 ///

@@ -1,5 +1,5 @@
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/manga/domain/entities/manga_pages_entity.dart';
 import '../entities/detail_entity.dart';
 import '../entities/media_resolve_entity.dart';
 import '../entities/playback_entity.dart';

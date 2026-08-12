@@ -1,10 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/detail/domain/entities/cast_entity.dart';
-import 'package:soplay/features/detail/presentation/pages/actor_page.dart';
+import 'package:riasdxd/core/system/responsive.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/detail/domain/entities/cast_entity.dart';
+import 'package:riasdxd/features/detail/presentation/pages/actor_page.dart';
 
 class DetailCastTab extends StatelessWidget {
   const DetailCastTab({super.key, required this.cast, this.director});

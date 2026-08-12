@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/watch_party/data/watch_party_service.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_content.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_room.dart';
-import 'package:soplay/features/watch_party/presentation/party_entry.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/watch_party/data/watch_party_service.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_content.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_room.dart';
+import 'package:riasdxd/features/watch_party/presentation/party_entry.dart';
 
 /// Builds the public invite link for a room code.
 String partyInviteLink(String code) => 'https://sozo.azamov.me/party/$code';

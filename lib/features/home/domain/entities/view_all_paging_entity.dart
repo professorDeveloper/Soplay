@@ -1,4 +1,4 @@
-import 'package:soplay/features/home/domain/entities/movie.dart';
+import 'package:riasdxd/features/home/domain/entities/movie.dart';
 
 class ViewAllPagingEntity {
   final int page;

@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:soplay/core/player/local_hls_proxy.dart';
+import 'package:riasdxd/core/player/local_hls_proxy.dart';
 
 void main() {
   group('LocalHlsProxy', () {

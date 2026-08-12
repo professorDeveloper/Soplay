@@ -1,5 +1,5 @@
-import 'package:soplay/features/trivia/data/models/trivia_option_model.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_clip_entity.dart';
+import 'package:riasdxd/features/trivia/data/models/trivia_option_model.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_clip_entity.dart';
 
 class TriviaClipModel extends TriviaClipEntity {
   const TriviaClipModel({

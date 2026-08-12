@@ -1,4 +1,4 @@
-import 'package:soplay/features/home/data/models/movie_model.dart';
+import 'package:riasdxd/features/home/data/models/movie_model.dart';
 
 import '../../domain/entities/view_all_paging_entity.dart';
 

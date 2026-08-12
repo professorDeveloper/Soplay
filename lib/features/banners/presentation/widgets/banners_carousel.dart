@@ -1,10 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/banners/domain/entities/banner_item.dart';
-import 'package:soplay/features/banners/presentation/bloc/banners_bloc.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/banners/domain/entities/banner_item.dart';
+import 'package:riasdxd/features/banners/presentation/bloc/banners_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class BannersCarousel extends StatelessWidget {

@@ -1,4 +1,4 @@
-import 'package:soplay/features/home/domain/entities/view_all.dart';
+import 'package:riasdxd/features/home/domain/entities/view_all.dart';
 
 class ViewAllModel extends ViewAllEntity {
   ViewAllModel({required super.slug, required super.type});

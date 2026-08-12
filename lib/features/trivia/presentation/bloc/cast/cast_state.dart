@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/cast_person_entity.dart';
 
 /// - [initial]        nothing loaded yet
 /// - [loadingPopular] fetching the popular grid (empty query)

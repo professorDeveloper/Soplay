@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/features/shorts/data/models/short_like_result_model.dart';
-import 'package:soplay/features/shorts/data/models/short_model.dart';
-import 'package:soplay/features/shorts/domain/entities/shorts_feed_result.dart';
+import 'package:riasdxd/features/shorts/data/models/short_like_result_model.dart';
+import 'package:riasdxd/features/shorts/data/models/short_model.dart';
+import 'package:riasdxd/features/shorts/domain/entities/shorts_feed_result.dart';
 
 class ShortsRemoteDataSource {
   const ShortsRemoteDataSource({required this.dio});

@@ -7,13 +7,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
-import 'package:soplay/features/download/domain/entities/download_item.dart';
-import 'package:soplay/features/manga/domain/entities/manga_page_entity.dart';
-import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
+import 'package:riasdxd/core/constants/app_constants.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/detail/domain/usecases/get_pages_usecase.dart';
+import 'package:riasdxd/features/download/domain/entities/download_item.dart';
+import 'package:riasdxd/features/manga/domain/entities/manga_page_entity.dart';
+import 'package:riasdxd/features/manga/domain/entities/manga_pages_entity.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 class DownloadService {

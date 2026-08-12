@@ -1,4 +1,4 @@
-import 'package:soplay/features/trivia/domain/entities/reveal_result_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/reveal_result_entity.dart';
 
 class RevealResultModel extends RevealResultEntity {
   const RevealResultModel({

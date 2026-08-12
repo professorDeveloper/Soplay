@@ -5,14 +5,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
-import 'package:soplay/features/trivia/presentation/bloc/cast/cast_bloc.dart';
-import 'package:soplay/features/trivia/presentation/bloc/cast/cast_event.dart';
-import 'package:soplay/features/trivia/presentation/bloc/cast/cast_state.dart';
-import 'package:soplay/features/trivia/presentation/widgets/buff_empty_panel.dart';
-import 'package:soplay/features/trivia/presentation/widgets/popular_cast_grid.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/trivia/domain/entities/cast_person_entity.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/cast/cast_bloc.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/cast/cast_event.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/cast/cast_state.dart';
+import 'package:riasdxd/features/trivia/presentation/widgets/buff_empty_panel.dart';
+import 'package:riasdxd/features/trivia/presentation/widgets/popular_cast_grid.dart';
 
 /// Fan-Test entry surface: a pinned glass search bar over a "Popular now" grid
 /// that becomes debounced as-you-type results. Tapping a card flies its photo

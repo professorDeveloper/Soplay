@@ -1,14 +1,14 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
-import 'package:soplay/features/home/presentation/bloc/home/home_bloc.dart';
-import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
-import 'package:soplay/features/home/presentation/widgets/home_banner.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/cloudflare/cloudflare_solver.dart';
+import 'package:riasdxd/features/home/presentation/bloc/home/home_bloc.dart';
+import 'package:riasdxd/features/home/presentation/bloc/home/home_event.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_banner.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_shared_widgets.dart';
 
 class HomeSkeleton extends StatelessWidget {
   const HomeSkeleton({super.key});

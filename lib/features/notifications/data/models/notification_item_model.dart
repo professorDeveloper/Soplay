@@ -1,4 +1,4 @@
-import 'package:soplay/features/notifications/domain/entities/notification_item.dart';
+import 'package:riasdxd/features/notifications/domain/entities/notification_item.dart';
 
 class NotificationItemModel extends NotificationItem {
   const NotificationItemModel({

@@ -4,10 +4,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/streak/data/streak_remote_data_source.dart';
-import 'package:soplay/features/streak/domain/entities/streak_state.dart';
+import 'package:riasdxd/core/constants/app_constants.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/streak/data/streak_remote_data_source.dart';
+import 'package:riasdxd/features/streak/domain/entities/streak_state.dart';
 
 class StreakService {
   StreakService({

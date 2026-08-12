@@ -1,8 +1,8 @@
-import 'package:soplay/features/detail/data/models/subtitle_model.dart';
-import 'package:soplay/features/detail/data/models/thumbnails_model.dart';
-import 'package:soplay/features/detail/data/models/video_source_model.dart';
-import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
-import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
+import 'package:riasdxd/features/detail/data/models/subtitle_model.dart';
+import 'package:riasdxd/features/detail/data/models/thumbnails_model.dart';
+import 'package:riasdxd/features/detail/data/models/video_source_model.dart';
+import 'package:riasdxd/features/detail/domain/entities/extractor_config_entity.dart';
+import 'package:riasdxd/features/detail/domain/entities/media_resolve_entity.dart';
 
 class MediaResolveModel extends MediaResolveEntity {
   const MediaResolveModel({

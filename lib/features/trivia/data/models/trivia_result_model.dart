@@ -1,4 +1,4 @@
-import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_result_entity.dart';
 
 class TriviaResultModel extends TriviaResultEntity {
   const TriviaResultModel({

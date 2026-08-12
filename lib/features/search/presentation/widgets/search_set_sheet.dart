@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/profile/domain/entities/provider_entity.dart';
 
 /// Multi-select for the cross-search provider set. Returns the chosen ids via
 /// `Navigator.pop(context, Set<String>)`, or `null` if dismissed.

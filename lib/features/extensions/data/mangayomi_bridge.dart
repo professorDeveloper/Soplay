@@ -1,6 +1,6 @@
-import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
-import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
-import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
+import 'package:riasdxd/features/extensions/data/mangayomi_repo_store.dart';
+import 'package:riasdxd/features/extensions/data/mangayomi_runtime.dart';
+import 'package:riasdxd/features/extensions/domain/entities/mangayomi_source.dart';
 
 /// Translates between Mangayomi's extension API and the JSON contracts the rest
 /// of the app already speaks (the same shapes `MangaHost` / `AniyomiHost` emit).

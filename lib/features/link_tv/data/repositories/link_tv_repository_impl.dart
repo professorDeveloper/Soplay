@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/core/error/result.dart';
+import 'package:riasdxd/core/error/result.dart';
 
 import '../../domain/entities/linked_device.dart';
 import '../../domain/link_tv_failure.dart';

@@ -1,4 +1,4 @@
-import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
+import 'package:riasdxd/features/detail/domain/entities/episode_entity.dart';
 
 class ReaderArgs {
   final String title;

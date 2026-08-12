@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/reports/data/datasources/reports_data_source.dart';
-import 'package:soplay/features/reports/domain/entities/report_payload.dart';
-import 'package:soplay/features/reports/domain/repositories/reports_repository.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/reports/data/datasources/reports_data_source.dart';
+import 'package:riasdxd/features/reports/domain/entities/report_payload.dart';
+import 'package:riasdxd/features/reports/domain/repositories/reports_repository.dart';
 
 class ReportsRepositoryImpl implements ReportsRepository {
   final ReportsDataSource dataSource;

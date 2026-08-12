@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/features/history/domain/entities/history_item.dart';
-import 'package:soplay/features/my_list/data/private_list_service.dart';
+import 'package:riasdxd/core/constants/app_constants.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/features/history/domain/entities/history_item.dart';
+import 'package:riasdxd/features/my_list/data/private_list_service.dart';
 
 class HistoryService {
   static const int _maxItems = 50;

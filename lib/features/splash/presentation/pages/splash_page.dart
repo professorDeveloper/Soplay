@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
-import 'package:soplay/features/splash/presentation/widgets/netflix_splash.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:riasdxd/features/splash/presentation/widgets/netflix_splash.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});

@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/app_updater/domain/entities/app_version_check.dart';
-import 'package:soplay/features/app_updater/presentation/widgets/release_notes_view.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/app_updater/domain/entities/app_version_check.dart';
+import 'package:riasdxd/features/app_updater/presentation/widgets/release_notes_view.dart';
 
 const Color _androidAccent = Color(0xFF10B981);
 const Color _iosAccent = Color(0xFF0F172A);

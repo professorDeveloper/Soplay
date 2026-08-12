@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/storage/hive_service.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
 
 class ThemeController extends ChangeNotifier {
   final HiveService _hive;

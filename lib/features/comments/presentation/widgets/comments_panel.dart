@@ -2,12 +2,12 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/comments/domain/entities/comment_entity.dart';
-import 'package:soplay/features/comments/presentation/blocs/comments_bloc/comments_bloc.dart';
-import 'package:soplay/features/comments/presentation/widgets/comment_card.dart';
-import 'package:soplay/features/comments/presentation/widgets/comment_compose.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/comments/domain/entities/comment_entity.dart';
+import 'package:riasdxd/features/comments/presentation/blocs/comments_bloc/comments_bloc.dart';
+import 'package:riasdxd/features/comments/presentation/widgets/comment_card.dart';
+import 'package:riasdxd/features/comments/presentation/widgets/comment_compose.dart';
 
 class CommentsPanel extends StatelessWidget {
   const CommentsPanel({

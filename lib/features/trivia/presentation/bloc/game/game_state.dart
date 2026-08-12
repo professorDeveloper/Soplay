@@ -1,8 +1,8 @@
 import 'package:equatable/equatable.dart';
-import 'package:soplay/features/trivia/domain/entities/actor_ref_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/reveal_result_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_clip_entity.dart';
-import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/actor_ref_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/reveal_result_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_clip_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/trivia_result_entity.dart';
 
 /// - [loading]  building / finalizing the round
 /// - [playing]  a clip is on screen, countdown running, options tappable

@@ -1,5 +1,5 @@
-import 'package:soplay/features/home/data/models/view_all_model.dart';
-import 'package:soplay/features/home/domain/entities/home_section_entity.dart';
+import 'package:riasdxd/features/home/data/models/view_all_model.dart';
+import 'package:riasdxd/features/home/domain/entities/home_section_entity.dart';
 
 import 'movie_model.dart';
 

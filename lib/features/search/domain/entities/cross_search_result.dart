@@ -1,5 +1,5 @@
-import 'package:soplay/features/home/domain/entities/movie.dart';
-import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
+import 'package:riasdxd/features/home/domain/entities/movie.dart';
+import 'package:riasdxd/features/profile/domain/entities/provider_entity.dart';
 
 /// How a provider is searched. Decides the dispatch path in [CrossSearchEngine].
 enum ProviderKind {

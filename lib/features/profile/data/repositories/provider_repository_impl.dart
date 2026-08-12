@@ -1,5 +1,5 @@
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/storage/hive_service.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
 import '../../domain/entities/providers_snapshot.dart';
 import '../../domain/repositories/provider_repository.dart';
 import '../datasources/provider_data_source.dart';

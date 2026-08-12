@@ -1,4 +1,4 @@
-import 'package:soplay/features/home/domain/entities/home_data_entity.dart';
+import 'package:riasdxd/features/home/domain/entities/home_data_entity.dart';
 
 import 'content_filter_model.dart';
 import 'home_section_model.dart';

@@ -1,15 +1,15 @@
 import 'package:flutter/cupertino.dart';
 
-import 'package:soplay/features/home/presentation/pages/home_page.dart';
-import 'package:soplay/features/search/presentation/pages/search_page.dart';
-import 'package:soplay/features/shorts/presentation/pages/shorts_page.dart';
-import 'package:soplay/features/my_list/presentation/pages/my_list_page.dart';
-import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
+import 'package:riasdxd/features/home/presentation/pages/home_page.dart';
+import 'package:riasdxd/features/search/presentation/pages/search_page.dart';
+import 'package:riasdxd/features/shorts/presentation/pages/shorts_page.dart';
+import 'package:riasdxd/features/my_list/presentation/pages/my_list_page.dart';
+import 'package:riasdxd/features/profile/presentation/pages/profile_page.dart';
 // Optional feature tabs — already-shipped pages.
-import 'package:soplay/features/download/presentation/pages/downloads_page.dart';
-import 'package:soplay/features/history/presentation/pages/history_page.dart';
-import 'package:soplay/features/tracker/presentation/pages/following_page.dart';
-import 'package:soplay/features/trivia/presentation/pages/buff_hub_page.dart';
+import 'package:riasdxd/features/download/presentation/pages/downloads_page.dart';
+import 'package:riasdxd/features/history/presentation/pages/history_page.dart';
+import 'package:riasdxd/features/tracker/presentation/pages/following_page.dart';
+import 'package:riasdxd/features/trivia/presentation/pages/buff_hub_page.dart';
 
 /// Stable, persisted key for every navigable tab. Add a value here + one
 /// registry entry + a `navigation.<name>` translation to introduce a new tab

@@ -1,10 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/app_lock/domain/repositories/app_lock_repository.dart';
 
 class AppLockSettingsPage extends StatefulWidget {
   const AppLockSettingsPage({super.key});

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/features/streak/domain/entities/streak_state.dart';
+import 'package:riasdxd/features/streak/domain/entities/streak_state.dart';
 
 const Color _ember = Color(0xFFFFA94D);
 const Color _emberDeep = Color(0xFFEF7A35);

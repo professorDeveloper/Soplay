@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/features/search/data/model/genre_model.dart';
+import 'package:riasdxd/features/search/data/model/genre_model.dart';
 
 import '../model/search_model.dart';
 

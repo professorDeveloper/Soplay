@@ -2,11 +2,11 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/streak/data/streak_service.dart';
-import 'package:soplay/features/streak/domain/entities/streak_state.dart';
-import 'package:soplay/features/streak/presentation/widgets/streak_calendar_heatmap.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/streak/data/streak_service.dart';
+import 'package:riasdxd/features/streak/domain/entities/streak_state.dart';
+import 'package:riasdxd/features/streak/presentation/widgets/streak_calendar_heatmap.dart';
 
 const Color _ember = Color(0xFFFFA94D);
 const Color _emberDeep = Color(0xFFEF7A35);

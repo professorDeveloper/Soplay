@@ -1,4 +1,4 @@
-import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
+import 'package:riasdxd/features/trivia/domain/entities/cast_person_entity.dart';
 
 class CastPersonModel extends CastPersonEntity {
   const CastPersonModel({

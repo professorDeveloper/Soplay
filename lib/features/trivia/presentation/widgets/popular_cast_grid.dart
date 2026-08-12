@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
-import 'package:soplay/features/trivia/presentation/widgets/cast_card.dart';
+import 'package:riasdxd/features/trivia/domain/entities/cast_person_entity.dart';
+import 'package:riasdxd/features/trivia/presentation/widgets/cast_card.dart';
 
 /// A 3-column grid of circular [CastCard]s. Used for both the "Popular now"
 /// grid (empty query) and the as-you-type results grid. Scrolls on its own so

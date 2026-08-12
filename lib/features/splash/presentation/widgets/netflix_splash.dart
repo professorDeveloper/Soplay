@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 class NetflixSplash extends StatefulWidget {
   const NetflixSplash({super.key, required this.onComplete});

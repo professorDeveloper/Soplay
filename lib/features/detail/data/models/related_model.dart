@@ -1,4 +1,4 @@
-import 'package:soplay/features/detail/domain/entities/related_entity.dart';
+import 'package:riasdxd/features/detail/domain/entities/related_entity.dart';
 
 class RelatedModel extends RelatedEntity {
   const RelatedModel({

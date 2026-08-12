@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/router/app_router.dart';
-import 'package:soplay/core/storage/hive_service.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/router/app_router.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
 
 class DeeplinkService {
   DeeplinkService({AppLinks? appLinks}) : _appLinks = appLinks ?? AppLinks();

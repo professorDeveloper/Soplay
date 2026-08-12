@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 /// Canonical selectable chip: tint fill + tinted border when selected,
 /// lifted from the player page's quality/track chips.

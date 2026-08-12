@@ -1,4 +1,4 @@
-import 'package:soplay/features/shorts/domain/entities/short_entity.dart';
+import 'package:riasdxd/features/shorts/domain/entities/short_entity.dart';
 
 class ShortModel extends ShortEntity {
   const ShortModel({

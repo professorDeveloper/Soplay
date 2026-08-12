@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import 'package:soplay/core/system/webview_env.dart';
+import 'package:riasdxd/core/system/webview_env.dart';
 
 class CfBypassService {
   static const _pollInterval = Duration(milliseconds: 600);

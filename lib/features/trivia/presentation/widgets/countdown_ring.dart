@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 /// A circular countdown ring with the seconds-remaining badge in its centre.
 /// The window length comes from [totalSeconds] — never assumed — so the ring

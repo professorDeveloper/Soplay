@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/comments/domain/entities/comment_author.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/comments/domain/entities/comment_author.dart';
 
 class CommentAvatar extends StatelessWidget {
   const CommentAvatar({super.key, required this.author, this.size = 36});

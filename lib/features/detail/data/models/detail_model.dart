@@ -1,4 +1,4 @@
-import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
+import 'package:riasdxd/features/detail/domain/entities/detail_entity.dart';
 import 'cast_model.dart';
 import 'related_model.dart';
 import 'screenshot_model.dart';

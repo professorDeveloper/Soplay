@@ -1,8 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/notifications/domain/entities/notification_item.dart';
-import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/notifications/domain/entities/notification_item.dart';
+import 'package:riasdxd/features/notifications/domain/repositories/notifications_repository.dart';
 
 part 'notifications_event.dart';
 part 'notifications_state.dart';

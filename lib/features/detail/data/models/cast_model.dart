@@ -1,4 +1,4 @@
-import 'package:soplay/features/detail/domain/entities/cast_entity.dart';
+import 'package:riasdxd/features/detail/domain/entities/cast_entity.dart';
 
 class CastModel extends CastEntity {
   const CastModel({

@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/player/media_controller.dart'
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/player/media_controller.dart'
     show warmUpPlayerEngine;
-import 'package:soplay/core/player/player_engine.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
-import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
-import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
+import 'package:riasdxd/core/player/player_engine.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/detail/domain/entities/subtitle_style.dart';
+import 'package:riasdxd/features/detail/presentation/widgets/player_engine_sheet.dart';
+import 'package:riasdxd/features/profile/presentation/widgets/settings_tiles.dart';
 
 /// Settings → Player. Every control here seeds a knob that already exists
 /// inside the fullscreen player.

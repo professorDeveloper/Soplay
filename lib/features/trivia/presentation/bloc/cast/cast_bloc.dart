@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
-import 'package:soplay/features/trivia/domain/usecases/get_popular_cast_usecase.dart';
-import 'package:soplay/features/trivia/domain/usecases/search_cast_usecase.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/trivia/domain/entities/cast_person_entity.dart';
+import 'package:riasdxd/features/trivia/domain/usecases/get_popular_cast_usecase.dart';
+import 'package:riasdxd/features/trivia/domain/usecases/search_cast_usecase.dart';
 
 import 'cast_event.dart';
 import 'cast_state.dart';

@@ -24,7 +24,7 @@
     <uses-feature android:name="android.hardware.fingerprint" android:required="false"/>
 
     <application
-        android:label="Sozo"
+        android:label="RiasDxD"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:banner="@drawable/tv_banner"

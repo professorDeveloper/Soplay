@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/detail/domain/entities/screenshot_entity.dart';
+import 'package:riasdxd/core/system/responsive.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/detail/domain/entities/screenshot_entity.dart';
 
 class DetailScreenshotsSection extends StatelessWidget {
   const DetailScreenshotsSection({super.key, required this.screenshots});

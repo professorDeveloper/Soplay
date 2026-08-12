@@ -1,4 +1,4 @@
-import 'package:soplay/features/home/domain/entities/view_all.dart';
+import 'package:riasdxd/features/home/domain/entities/view_all.dart';
 
 import 'movie.dart';
 

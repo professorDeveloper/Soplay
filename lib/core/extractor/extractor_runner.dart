@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:soplay/core/system/webview_env.dart';
+import 'package:riasdxd/core/system/webview_env.dart';
 
 import 'extractor_entity.dart';
 

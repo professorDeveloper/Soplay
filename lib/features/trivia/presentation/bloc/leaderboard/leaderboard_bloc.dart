@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/trivia/domain/entities/leaderboard_entry_entity.dart';
-import 'package:soplay/features/trivia/domain/usecases/get_leaderboard_usecase.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/trivia/domain/entities/leaderboard_entry_entity.dart';
+import 'package:riasdxd/features/trivia/domain/usecases/get_leaderboard_usecase.dart';
 
 import 'leaderboard_event.dart';
 import 'leaderboard_state.dart';

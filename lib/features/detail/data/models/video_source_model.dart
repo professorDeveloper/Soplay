@@ -1,4 +1,4 @@
-import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
+import 'package:riasdxd/features/detail/domain/entities/video_source_entity.dart';
 
 class VideoSourceModel extends VideoSourceEntity {
   const VideoSourceModel({

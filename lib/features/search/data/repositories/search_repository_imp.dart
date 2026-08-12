@@ -1,13 +1,13 @@
-import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
-import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
-import 'package:soplay/core/manga/manga_channel.dart';
-import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/js/js_runtime_service.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/search/data/model/genre_model.dart';
-import 'package:soplay/features/search/data/model/search_model.dart';
-import 'package:soplay/features/search/domain/repositories/search_repository.dart';
+import 'package:riasdxd/core/aniyomi/aniyomi_channel.dart';
+import 'package:riasdxd/core/cloudstream/cloudstream_channel.dart';
+import 'package:riasdxd/core/manga/manga_channel.dart';
+import 'package:riasdxd/features/extensions/data/mangayomi_bridge.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/core/js/js_runtime_service.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/search/data/model/genre_model.dart';
+import 'package:riasdxd/features/search/data/model/search_model.dart';
+import 'package:riasdxd/features/search/domain/repositories/search_repository.dart';
 
 import '../datasources/search_data_source.dart';
 

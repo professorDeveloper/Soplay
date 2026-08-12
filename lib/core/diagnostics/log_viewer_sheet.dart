@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:soplay/core/system/responsive.dart';
+import 'package:riasdxd/core/system/responsive.dart';
 
 import 'player_log.dart';
 

@@ -1,5 +1,5 @@
-import 'package:soplay/features/profile/data/datasources/provider_data_source.dart';
-import 'package:soplay/features/profile/data/models/provider_model.dart';
+import 'package:riasdxd/features/profile/data/datasources/provider_data_source.dart';
+import 'package:riasdxd/features/profile/data/models/provider_model.dart';
 
 class ProviderRegistry {
   final ProviderDataSource source;

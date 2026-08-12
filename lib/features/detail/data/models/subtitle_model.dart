@@ -1,4 +1,4 @@
-import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
+import 'package:riasdxd/features/detail/domain/entities/subtitle_entity.dart';
 
 class SubtitleModel extends SubtitleEntity {
   const SubtitleModel({

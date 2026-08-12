@@ -1,6 +1,6 @@
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
-import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/features/extensions/data/mangayomi_repo_store.dart';
+import 'package:riasdxd/features/extensions/domain/entities/mangayomi_source.dart';
 
 /// Whether a provider's "episodes" are pages to read or a stream to play.
 ///

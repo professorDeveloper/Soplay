@@ -4,17 +4,17 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
-import 'package:soplay/core/bridge/bridge_control.dart';
-import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/extensions/extension_bridge.dart';
-import 'package:soplay/core/manga/manga_channel.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
-import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
+import 'package:riasdxd/core/aniyomi/aniyomi_channel.dart';
+import 'package:riasdxd/core/bridge/bridge_control.dart';
+import 'package:riasdxd/core/cloudstream/cloudstream_channel.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/extensions/extension_bridge.dart';
+import 'package:riasdxd/core/manga/manga_channel.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/core/system/responsive.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/profile/presentation/bloc/provider_bloc.dart';
+import 'package:riasdxd/features/profile/presentation/bloc/provider_event.dart';
 
 class DesktopSharePage extends StatefulWidget {
   const DesktopSharePage({super.key});

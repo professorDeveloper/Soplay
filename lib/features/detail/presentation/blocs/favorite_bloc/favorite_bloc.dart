@@ -1,11 +1,11 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
-import 'package:soplay/features/my_list/data/private_list_service.dart';
-import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
-import 'package:soplay/features/my_list/domain/usecases/add_favorite_usecase.dart';
-import 'package:soplay/features/my_list/domain/usecases/remove_favorite_usecase.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/features/my_list/data/datasources/my_list_local_data_source.dart';
+import 'package:riasdxd/features/my_list/data/private_list_service.dart';
+import 'package:riasdxd/features/my_list/domain/entities/favorite_entity.dart';
+import 'package:riasdxd/features/my_list/domain/usecases/add_favorite_usecase.dart';
+import 'package:riasdxd/features/my_list/domain/usecases/remove_favorite_usecase.dart';
 
 import 'favorite_event.dart';
 import 'favorite_state.dart';

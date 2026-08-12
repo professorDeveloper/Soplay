@@ -1,18 +1,18 @@
 import 'package:dio/dio.dart';
-import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
-import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
-import 'package:soplay/core/manga/manga_channel.dart';
-import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/js/js_runtime_service.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/home/data/datasources/home_data_source.dart';
-import 'package:soplay/features/home/data/models/home_data_model.dart';
-import 'package:soplay/features/home/data/models/view_all_paging_model.dart';
-import 'package:soplay/features/home/domain/entities/view_all_paging_entity.dart';
-import 'package:soplay/features/home/domain/repositories/home_repository.dart';
-import 'package:soplay/features/search/domain/entities/genre_entity.dart';
-import 'package:soplay/features/search/data/model/genre_model.dart';
+import 'package:riasdxd/core/aniyomi/aniyomi_channel.dart';
+import 'package:riasdxd/core/cloudstream/cloudstream_channel.dart';
+import 'package:riasdxd/core/manga/manga_channel.dart';
+import 'package:riasdxd/features/extensions/data/mangayomi_bridge.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/core/js/js_runtime_service.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/home/data/datasources/home_data_source.dart';
+import 'package:riasdxd/features/home/data/models/home_data_model.dart';
+import 'package:riasdxd/features/home/data/models/view_all_paging_model.dart';
+import 'package:riasdxd/features/home/domain/entities/view_all_paging_entity.dart';
+import 'package:riasdxd/features/home/domain/repositories/home_repository.dart';
+import 'package:riasdxd/features/search/domain/entities/genre_entity.dart';
+import 'package:riasdxd/features/search/data/model/genre_model.dart';
 
 import '../../domain/entities/home_data_entity.dart';
 

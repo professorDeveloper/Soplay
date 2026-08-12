@@ -1,4 +1,4 @@
-import 'package:soplay/core/error/result.dart';
+import 'package:riasdxd/core/error/result.dart';
 
 import '../entities/auth_token.dart';
 import '../entities/user_entity.dart';

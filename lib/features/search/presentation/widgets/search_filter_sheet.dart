@@ -2,9 +2,9 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/core/tv/tv.dart';
-import 'package:soplay/features/search/domain/entities/genre_entity.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/core/tv/tv.dart';
+import 'package:riasdxd/features/search/domain/entities/genre_entity.dart';
 
 class SearchFilterSelection {
   const SearchFilterSelection({this.genre = ''});

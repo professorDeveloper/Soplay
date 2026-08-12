@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/watch_party/data/watch_party_service.dart';
-import 'package:soplay/features/watch_party/domain/entities/party_reaction.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/watch_party/data/watch_party_service.dart';
+import 'package:riasdxd/features/watch_party/domain/entities/party_reaction.dart';
 
 const List<String> kPartyReactions = ['❤️', '😂', '😮', '👏', '🔥', '😍', '🎉'];
 

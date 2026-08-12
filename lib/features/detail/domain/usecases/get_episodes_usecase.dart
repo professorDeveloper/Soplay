@@ -1,4 +1,4 @@
-import 'package:soplay/core/error/result.dart';
+import 'package:riasdxd/core/error/result.dart';
 import '../entities/playback_entity.dart';
 import '../repositories/detail_repository.dart';
 

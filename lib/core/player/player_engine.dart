@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:soplay/core/constants/app_constants.dart';
-import 'package:soplay/core/system/platform_utils.dart';
+import 'package:riasdxd/core/constants/app_constants.dart';
+import 'package:riasdxd/core/system/platform_utils.dart';
 
 /// Playback backend for the in-app player.
 ///

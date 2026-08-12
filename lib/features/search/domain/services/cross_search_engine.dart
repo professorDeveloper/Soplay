@@ -1,14 +1,14 @@
 import 'dart:async';
 
-import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
-import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
-import 'package:soplay/core/js/js_runtime_service.dart';
-import 'package:soplay/core/manga/manga_channel.dart';
-import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
-import 'package:soplay/features/home/domain/entities/movie.dart';
-import 'package:soplay/features/search/data/datasources/search_data_source.dart';
-import 'package:soplay/features/search/data/model/search_model.dart';
-import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
+import 'package:riasdxd/core/aniyomi/aniyomi_channel.dart';
+import 'package:riasdxd/core/cloudstream/cloudstream_channel.dart';
+import 'package:riasdxd/core/js/js_runtime_service.dart';
+import 'package:riasdxd/core/manga/manga_channel.dart';
+import 'package:riasdxd/features/extensions/data/mangayomi_bridge.dart';
+import 'package:riasdxd/features/home/domain/entities/movie.dart';
+import 'package:riasdxd/features/search/data/datasources/search_data_source.dart';
+import 'package:riasdxd/features/search/data/model/search_model.dart';
+import 'package:riasdxd/features/search/domain/entities/cross_search_result.dart';
 
 /// Fans a query out across a set of providers with **bounded concurrency**, a
 /// **per-provider timeout**, and **incremental** emission — the core reason the
@@ -71,7 +71,7 @@ class CrossSearchEngine {
     if (hasServer) {
       tasks.add(const ProviderRef(
         id: serverId,
-        name: 'Sozo',
+        name: 'RiasDxD',
         kind: ProviderKind.server,
       ));
     }

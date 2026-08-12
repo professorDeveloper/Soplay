@@ -1,4 +1,4 @@
-import 'package:soplay/features/home/domain/repositories/home_repository.dart';
+import 'package:riasdxd/features/home/domain/repositories/home_repository.dart';
 
 import '../../../../core/error/result.dart';
 import '../entities/view_all_paging_entity.dart';

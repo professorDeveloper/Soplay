@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 /// Canonical tab strip. Styling lifted verbatim from the detail page's
 /// tab bar so every feature reads the same.

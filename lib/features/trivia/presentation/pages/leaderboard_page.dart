@@ -3,15 +3,15 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/core/widgets/app_tab_bar.dart';
-import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
-import 'package:soplay/features/trivia/domain/entities/leaderboard_entry_entity.dart';
-import 'package:soplay/features/trivia/presentation/bloc/leaderboard/leaderboard_bloc.dart';
-import 'package:soplay/features/trivia/presentation/bloc/leaderboard/leaderboard_event.dart';
-import 'package:soplay/features/trivia/presentation/bloc/leaderboard/leaderboard_state.dart';
-import 'package:soplay/features/trivia/presentation/pages/top_fans_page.dart' show RankBadge;
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/core/widgets/app_tab_bar.dart';
+import 'package:riasdxd/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:riasdxd/features/trivia/domain/entities/leaderboard_entry_entity.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/leaderboard/leaderboard_bloc.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/leaderboard/leaderboard_event.dart';
+import 'package:riasdxd/features/trivia/presentation/bloc/leaderboard/leaderboard_state.dart';
+import 'package:riasdxd/features/trivia/presentation/pages/top_fans_page.dart' show RankBadge;
 
 /// Global leaderboard with daily / weekly / all-time / friends scope tabs. The
 /// current user's row is highlighted inline and pinned to the bottom.

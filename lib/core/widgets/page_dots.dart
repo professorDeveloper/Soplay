@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:soplay/core/theme/app_colors.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
 
 /// Canonical page indicator, standardised on the desktop hero carousel's dots.
 /// Renders nothing for a single page.

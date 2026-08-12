@@ -1,4 +1,4 @@
-import 'package:soplay/features/my_list/domain/repositories/my_list_repository.dart';
+import 'package:riasdxd/features/my_list/domain/repositories/my_list_repository.dart';
 
 class SyncFavoritesUseCase {
   final MyListRepository repository;

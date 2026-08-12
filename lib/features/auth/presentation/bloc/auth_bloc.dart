@@ -1,17 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:soplay/core/error/result.dart';
-import 'package:soplay/core/storage/hive_service.dart';
-import 'package:soplay/features/auth/domain/entities/auth_token.dart';
-import 'package:soplay/features/auth/domain/repositories/auth_repository.dart';
-import 'package:soplay/features/auth/domain/usecases/login_usecase.dart';
-import 'package:soplay/features/auth/domain/usecases/register_usecase.dart';
-import 'package:soplay/features/auth/domain/usecases/resend_otp_usecase.dart';
-import 'package:soplay/features/auth/domain/usecases/verify_otp_usecase.dart';
-import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
-import 'package:soplay/features/my_list/domain/usecases/sync_favorites_usecase.dart';
-import 'package:soplay/features/notifications/data/services/notification_service.dart';
+import 'package:riasdxd/core/error/result.dart';
+import 'package:riasdxd/core/storage/hive_service.dart';
+import 'package:riasdxd/features/auth/domain/entities/auth_token.dart';
+import 'package:riasdxd/features/auth/domain/repositories/auth_repository.dart';
+import 'package:riasdxd/features/auth/domain/usecases/login_usecase.dart';
+import 'package:riasdxd/features/auth/domain/usecases/register_usecase.dart';
+import 'package:riasdxd/features/auth/domain/usecases/resend_otp_usecase.dart';
+import 'package:riasdxd/features/auth/domain/usecases/verify_otp_usecase.dart';
+import 'package:riasdxd/features/auth/presentation/bloc/auth_state.dart';
+import 'package:riasdxd/features/my_list/domain/usecases/sync_favorites_usecase.dart';
+import 'package:riasdxd/features/notifications/data/services/notification_service.dart';
 
 import 'auth_event.dart';
 

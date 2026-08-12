@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/core/theme/app_colors.dart';
-import 'package:soplay/features/extensions/data/extension_repo_repository.dart';
-import 'package:soplay/features/extensions/domain/entities/extension_repo_entity.dart';
+import 'package:riasdxd/core/di/injection.dart';
+import 'package:riasdxd/core/theme/app_colors.dart';
+import 'package:riasdxd/features/extensions/data/extension_repo_repository.dart';
+import 'package:riasdxd/features/extensions/domain/entities/extension_repo_entity.dart';
 
 /// The "Recommended" block shared by every sources page.
 ///
