@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 
@@ -50,6 +51,17 @@ class MyListHeader extends StatelessWidget {
                 height: 1.05,
               ),
             ),
+          ),
+          // Entry point to the curated lists (Watch Later / Watched). They live
+          // on their own page rather than as modes of this one — see
+          // UserListsPage — so this is the only way in.
+          IconButton(
+            tooltip: 'My Lists',
+            icon: const Icon(
+              Icons.playlist_add_check_rounded,
+              color: AppColors.textSecondary,
+            ),
+            onPressed: () => context.push('/my-lists'),
           ),
           if (onRefresh != null)
             DesktopRefreshButton(

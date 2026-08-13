@@ -33,6 +33,8 @@ import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
+import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
+import 'package:soplay/features/user_lists/domain/repositories/user_lists_repository.dart';
 import 'package:soplay/features/private_list/presentation/private_unlock.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_cast_tab.dart';
@@ -899,6 +901,15 @@ class _DetailViewState extends State<_DetailView>
                             showPill: showPill,
                             title: detail.title,
                             reader: detail.provider.opensReader,
+                            // Identity for the Watch Later / Watched buttons.
+                            // Those talk to UserListsRepository themselves, so
+                            // they need the content, not another callback pair.
+                            listEntity: FavoriteEntity(
+                              provider: detail.provider,
+                              contentUrl: detail.contentUrl,
+                              title: detail.title,
+                              thumbnail: detail.thumbnail ?? '',
+                            ),
                             isInList: isInList,
                             inPrivate: inPrivate,
                             isLoading: state is EpisodesLoading,
@@ -966,6 +977,7 @@ class _AnimatedTopBar extends StatelessWidget {
     required this.showPill,
     required this.title,
     required this.reader,
+    required this.listEntity,
     required this.isInList,
     required this.inPrivate,
     required this.isLoading,
@@ -991,6 +1003,9 @@ class _AnimatedTopBar extends StatelessWidget {
 
   /// Reading source — the pill says "Read" rather than "Play".
   final bool reader;
+
+  /// Content identity for the Watch Later / Watched buttons.
+  final FavoriteEntity listEntity;
   final bool isInList;
   final bool inPrivate;
   final bool isLoading;
@@ -1113,6 +1128,20 @@ class _AnimatedTopBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
+                _UserListButton(
+                  kind: UserListKind.watchLater,
+                  entity: listEntity,
+                  activeIcon: Icons.watch_later_rounded,
+                  inactiveIcon: Icons.watch_later_outlined,
+                ),
+                const SizedBox(width: 8),
+                _UserListButton(
+                  kind: UserListKind.watched,
+                  entity: listEntity,
+                  activeIcon: Icons.visibility_rounded,
+                  inactiveIcon: Icons.visibility_outlined,
+                ),
+                const SizedBox(width: 8),
                 if (showFollow) ...[
                   _CircleIconButton(
                     icon: isFollowing
@@ -1137,6 +1166,71 @@ class _AnimatedTopBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Toggle for one user-curated list (Watch Later / Watched).
+///
+/// Owns its state and talks to [UserListsRepository] directly instead of adding
+/// another callback pair to [_AnimatedTopBar]: the two buttons behave
+/// identically, differ only by [kind], and a third list would be one more
+/// instance rather than more plumbing.
+///
+/// The repository writes its cache before the network, so the flip is immediate
+/// and survives a failed request — no spinner, no rollback dance.
+class _UserListButton extends StatefulWidget {
+  const _UserListButton({
+    required this.kind,
+    required this.entity,
+    required this.activeIcon,
+    required this.inactiveIcon,
+  });
+
+  final UserListKind kind;
+  final FavoriteEntity entity;
+  final IconData activeIcon;
+  final IconData inactiveIcon;
+
+  @override
+  State<_UserListButton> createState() => _UserListButtonState();
+}
+
+class _UserListButtonState extends State<_UserListButton> {
+  late bool _active = _read();
+
+  bool _read() => getIt<UserListsRepository>()
+      .contains(widget.kind, widget.entity.contentUrl);
+
+  @override
+  void didUpdateWidget(covariant _UserListButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The same button is reused when the page rebinds to another title.
+    if (oldWidget.entity.contentUrl != widget.entity.contentUrl) {
+      _active = _read();
+    }
+  }
+
+  Future<void> _toggle() async {
+    final repo = getIt<UserListsRepository>();
+    final next = !_active;
+    setState(() => _active = next);
+    if (next) {
+      await repo.add(widget.kind, widget.entity);
+      // Marking Watched evicts the title from Watch Later (server and cache
+      // both), so the sibling button must re-read rather than stay lit.
+      if (widget.kind == UserListKind.watched && mounted) setState(() {});
+    } else {
+      await repo.remove(widget.kind, widget.entity.contentUrl);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _CircleIconButton(
+      icon: _active ? widget.activeIcon : widget.inactiveIcon,
+      iconColor: _active ? AppColors.rating : Colors.white,
+      onTap: _toggle,
     );
   }
 }

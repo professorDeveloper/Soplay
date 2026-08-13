@@ -33,6 +33,10 @@ class AppConstants {
   static const String favoritesBox = 'favorites_box';
   static const String privateFavoritesBox = 'private_favorites_box';
 
+  /// Offline cache for the user-curated lists (`Watch Later` / `Watched`).
+  /// One box, keyed by list slug — the lists share a shape, so they share a box.
+  static const String userListsBox = 'user_lists_box';
+
   static const String accessTokenKey = 'access_token';
   static const String refreshTokenKey = 'refresh_token';
   static const String userKey = 'user';

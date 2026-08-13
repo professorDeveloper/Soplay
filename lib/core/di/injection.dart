@@ -117,6 +117,9 @@ import 'package:soplay/features/trivia/presentation/bloc/topfans/top_fans_bloc.d
 import 'package:soplay/features/detail/presentation/blocs/favorite_bloc/favorite_bloc.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_local_data_source.dart';
 import 'package:soplay/features/my_list/data/datasources/my_list_remote_data_source.dart';
+import 'package:soplay/features/user_lists/data/datasources/user_lists_remote_data_source.dart';
+import 'package:soplay/features/user_lists/data/repositories/user_lists_repository_impl.dart';
+import 'package:soplay/features/user_lists/domain/repositories/user_lists_repository.dart';
 import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/data/repositories/my_list_repository_impl.dart';
 import 'package:soplay/features/my_list/domain/repositories/my_list_repository.dart';
@@ -360,6 +363,18 @@ Future<void> configureDependencies() async {
       getIt<HiveService>(),
     ),
   );
+  // User-curated lists (Watch Later / Watched). One repository serves both —
+  // the kind is a parameter, mirroring the server's single handler.
+  getIt.registerSingleton<UserListsRemoteDataSource>(
+    UserListsRemoteDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<UserListsRepository>(
+    UserListsRepositoryImpl(
+      getIt<UserListsRemoteDataSource>(),
+      getIt<HiveService>(),
+    ),
+  );
+
   getIt.registerSingleton<GetFavoritesUseCase>(
     GetFavoritesUseCase(getIt<MyListRepository>()),
   );
