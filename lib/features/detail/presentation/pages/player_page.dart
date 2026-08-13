@@ -15,6 +15,7 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/player/external_player.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
 import 'package:soplay/core/player/player_engine.dart';
+import 'package:soplay/core/player/webview_stream_extractor.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/system/desktop_window.dart';
@@ -22,6 +23,7 @@ import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
+import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:soplay/core/subtitles/online_subtitles_service.dart';
@@ -108,6 +110,18 @@ class _PlayerPageState extends State<PlayerPage>
   bool _isHls = false;
   bool _isLive = false;
   List<VideoSourceEntity> _videoSources = const [];
+
+  /// Server-sent headless-WebView sniff directive for the CURRENT media, or null.
+  ///
+  /// Held as state rather than threaded through [_initializeWith]'s eight call
+  /// sites: quality switches, party sync and retries all re-enter that method
+  /// and every one of them needs the same directive.
+  ///
+  /// It is a capability description, never a provider name — a source whose real
+  /// manifest only exists once the page's own JS has run carries this, and the
+  /// player treats them all identically. Adding such a provider is a backend-only
+  /// change.
+  ExtractorConfigEntity? _extractorConfig;
   int _currentSourceIndex = -1;
   bool _autoFallbackUsed = false;
   String? _errorMessage;

@@ -113,6 +113,7 @@ extension _PlayerMedia on _PlayerPageState {
           _subtitles = subs;
           _activeSubtitleIndex = -1;
           _captionFile = null;
+          _extractorConfig = value.extractor;
         });
         unawaited(_loadThumbnails(value.thumbnails));
         await _initializeWith(
@@ -247,7 +248,61 @@ extension _PlayerMedia on _PlayerPageState {
     }
   }
 
+  /// Entry point for every playback start. Resolves a page-url source to its
+  /// real manifest first, then hands off to [_initializeResolved].
+  ///
+  /// A wrapper rather than an inline block because all eight call sites (first
+  /// play, episode change, quality switch, party sync, retry, fallback) must go
+  /// through the sniff — putting it here means none of them can forget.
   Future<void> _initializeWith({
+    required String url,
+    required Map<String, String> headers,
+    required String? type,
+    Duration resumeAt = Duration.zero,
+    PartyPlayback? party,
+  }) async {
+    var effUrl = url;
+    var effHeaders = headers;
+    var effType = type;
+
+    // Only when the server sent a directive — no provider check, no url
+    // pattern-matching. See `_extractorConfig`.
+    final cfg = _extractorConfig;
+    if (cfg != null && url.isNotEmpty) {
+      _plog('webview sniff: host=${cfg.hostPattern} patterns=${cfg.urlPatterns}');
+      final sw = Stopwatch()..start();
+      final sniffed = await getIt<WebViewStreamExtractor>().extract(
+        pageUrl: url,
+        config: cfg,
+        pageHeaders: headers,
+      );
+      if (!mounted) return;
+      if (sniffed != null) {
+        effUrl = sniffed.url;
+        // Sniffed headers win: they are the ones the page actually sent, and
+        // the CDN gates on exactly those.
+        effHeaders = {...headers, ...sniffed.headers};
+        effType = sniffed.playType;
+        _plog('sniff ok in ${sw.elapsedMilliseconds}ms -> $effUrl');
+      } else {
+        // Fall through with the page url. It will fail, but with the player's
+        // own error rather than a silent black screen — and the log above says
+        // why. Blanking here would hide a recoverable retry.
+        _plog('sniff found no stream in ${sw.elapsedMilliseconds}ms',
+            level: LogLevel.warn);
+      }
+    }
+
+    await _initializeResolved(
+      url: effUrl,
+      headers: effHeaders,
+      type: effType,
+      resumeAt: resumeAt,
+      party: party,
+    );
+  }
+
+  Future<void> _initializeResolved({
     required String url,
     required Map<String, String> headers,
     required String? type,
