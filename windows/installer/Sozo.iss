@@ -5,7 +5,7 @@
 
 #define MyAppName "RiasDxD"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "Azamov"
+#define MyAppPublisher "AniFan"
 #define MyAppURL "https://sozo.azamov.me"
 #define MyAppExeName "soplay.exe"
 #define SourceDir "..\..\build\windows\x64\runner\Release"

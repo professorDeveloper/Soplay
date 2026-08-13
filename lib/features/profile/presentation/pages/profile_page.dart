@@ -2575,23 +2575,17 @@ class _AboutSection extends StatelessWidget {
               const SizedBox(height: 24),
               ClipRRect(
                 borderRadius: BorderRadius.circular(18),
-                child: Image.network(
-                  'https://avatars.githubusercontent.com/u/108933534?v=4',
+                child: Container(
                   width: 56,
                   height: 56,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    width: 56,
-                    height: 56,
-                    color: AppColors.primary,
-                    child: const Center(
-                      child: Text(
-                        'AX',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
+                  color: AppColors.primary,
+                  child: const Center(
+                    child: Text(
+                      'AF',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
@@ -2599,7 +2593,7 @@ class _AboutSection extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Azamov X',
+                'AniFan',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 17,
@@ -2612,48 +2606,6 @@ class _AboutSection extends StatelessWidget {
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: Material(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => _open('https://t.me/ackles'),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.telegram,
-                            color: Color(0xFF2AABEE),
-                            size: 22,
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            '@ackles',
-                            style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const Spacer(),
-                          const Icon(
-                            Icons.open_in_new_rounded,
-                            color: AppColors.textHint,
-                            size: 16,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -2697,7 +2649,7 @@ class _AboutSection extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Azamov X',
+                      'AniFan',
                       style:
                           TextStyle(color: AppColors.textSecondary, fontSize: 13),
                     ),
@@ -3219,22 +3171,6 @@ class _ServerSupportSheet extends StatelessWidget {
                 ),
               );
             },
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop();
-                launchUrl(
-                  Uri.parse('https://t.me/ackles'),
-                  mode: LaunchMode.externalApplication,
-                );
-              },
-              icon: const Icon(Icons.favorite_rounded, size: 18),
-              label: Text('profile.support_developer'.tr()),
-            ),
           ),
         ],
       ),

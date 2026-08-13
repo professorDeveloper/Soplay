@@ -59,5 +59,4 @@ Follow the project website, star the repository, or join the community to share 
 <p align="center">
   <a href="https://sozo.framer.website/"><img src="https://img.shields.io/badge/Visit%20Website-sozo.framer.website-111111?style=for-the-badge" alt="Visit Website" /></a>
   <a href="https://github.com/Sozo-app/Sozo/stargazers"><img src="https://img.shields.io/badge/Star%20The%20Project-Support%20RiasDxD-E50914?style=for-the-badge" alt="Star RiasDxD" /></a>
-  <a href="https://www.buymeacoffee.com/chihaku"><img src="https://img.shields.io/badge/Support-Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge" alt="Buy Me A Coffee" /></a>
 </p>
