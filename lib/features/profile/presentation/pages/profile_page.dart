@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
@@ -2549,6 +2550,146 @@ class _AboutSection extends StatelessWidget {
     }
   }
 
+  static const String _btcAddress =
+      'bc1q9je9tkj4789s9kvesmmcmh6h06lxga7u4efq2y';
+
+  void _showDonate(BuildContext context) {
+    showAdaptiveModal<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SizedBox(
+        width: double.infinity,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'profile.donate_title'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'profile.donate_subtitle'.tr(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Image.asset(
+                  'assets/icons/donate_btc.png',
+                  width: 220,
+                  height: 220,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.currency_bitcoin,
+                    color: Color(0xFFF7931A),
+                    size: 18,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Bitcoin (BTC)',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Material(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    await Clipboard.setData(
+                      const ClipboardData(text: _btcAddress),
+                    );
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('profile.donate_copied'.tr())),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            _btcAddress,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Icon(
+                          Icons.copy_rounded,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'profile.donate_network_note'.tr(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 11,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showDeveloper(BuildContext context) {
     showAdaptiveModal<void>(
       context: context,
@@ -2662,6 +2803,17 @@ class _AboutSection extends StatelessWidget {
                   ],
                 ),
                 onTap: () => _showDeveloper(context),
+              ),
+              Divider(color: AppColors.divider, height: 1),
+              _Tile(
+                icon: Icons.favorite_rounded,
+                title: 'profile.donate_tile'.tr(),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textHint,
+                  size: 20,
+                ),
+                onTap: () => _showDonate(context),
               ),
               Divider(color: AppColors.divider, height: 1),
               const _ServerCountdownTile(),
