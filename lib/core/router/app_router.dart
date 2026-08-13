@@ -38,6 +38,8 @@ import 'package:soplay/features/trivia/presentation/pages/leaderboard_page.dart'
 import 'package:soplay/features/trivia/presentation/pages/result_page.dart';
 import 'package:soplay/features/trivia/presentation/pages/top_fans_page.dart';
 import 'package:soplay/features/trivia/presentation/trivia_args.dart';
+import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
+import 'package:soplay/features/user_lists/presentation/pages/user_lists_page.dart';
 import 'package:soplay/features/profile/presentation/pages/player_settings_page.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
@@ -117,6 +119,13 @@ class AppRouter {
           final args = state.extra as EpisodesArgs;
           return EpisodesPage(args: args);
         },
+      ),
+      // Watch Later / Watched. `extra` optionally carries the tab to open on,
+      // so a shortcut can deep-link straight to one list.
+      GoRoute(
+        path: '/my-lists',
+        builder: (context, state) =>
+            UserListsPage(initialKind: state.extra as UserListKind?),
       ),
       GoRoute(
         path: '/actor',

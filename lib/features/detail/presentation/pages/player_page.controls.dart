@@ -672,6 +672,13 @@ extension _PlayerControls on _PlayerPageState {
     final hasEpisodes = widget.args.isSerial && widget.args.episodes.isNotEmpty;
     final hasQualities = _videoSources.length > 1;
     final hasLangSwitcher = _availableLangsForCurrentEpisode().length > 1;
+    // Same gate the settings-sheet entry uses (player_page.panels.dart): the
+    // top bar only promotes the action, it does not widen who can download.
+    // `_videoUrl` must already be resolved — a download needs the real stream,
+    // not the pending/placeholder state the bar renders during load.
+    final canDownload = widget.args.showDownloadAction &&
+        widget.args.provider != 'uzmovi' &&
+        _videoUrl != null;
     final isBuffering = c != null && c.value.isBuffering;
 
     final overlay = FadeTransition(
@@ -741,6 +748,13 @@ extension _PlayerControls on _PlayerPageState {
                           onTap: _openSubtitleSheet,
                         ),
                         const SizedBox(width: 8),
+                        if (canDownload) ...[
+                          _IconButton(
+                            icon: Icons.download_rounded,
+                            onTap: _startDownload,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         _IconButton(
                           icon: Icons.settings_outlined,
                           onTap: _openSettingsSheet,
@@ -781,6 +795,13 @@ extension _PlayerControls on _PlayerPageState {
                           onTap: _enterPip,
                         ),
                         const SizedBox(width: 8),
+                        if (canDownload) ...[
+                          _IconButton(
+                            icon: Icons.download_rounded,
+                            onTap: _startDownload,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         _IconButton(
                           icon: Icons.settings_outlined,
                           onTap: _openSettingsSheet,
