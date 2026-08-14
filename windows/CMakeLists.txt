@@ -10,6 +10,17 @@ set(BINARY_NAME "soplay")
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
 
+# The Firebase C++ SDK (pulled in for Windows by the firebase_* plugins) still
+# ships a CMakeLists that declares a pre-3.5 minimum. CMake >= 4.0 refuses that
+# with "Compatibility with CMake < 3.5 has been removed", failing generation.
+# Pin the minimum policy version so those legacy vendored subprojects configure.
+# Set as a cache entry before the plugins are added so it propagates to them,
+# and only when the user hasn't already supplied it on the command line.
+if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
+  set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING
+    "Minimum CMake policy version for legacy vendored subprojects (e.g. Firebase)")
+endif()
+
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTICONFIG)
