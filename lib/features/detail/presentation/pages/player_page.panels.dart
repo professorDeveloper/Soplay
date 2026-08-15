@@ -489,11 +489,17 @@ extension _PlayerPanels on _PlayerPageState {
       top: 0,
       bottom: 0,
       right: 0,
-      width: 320,
+      // Wider on TV: 320dp is a phone drawer, and at 10 feet the episode
+      // labels in it truncate to uselessness.
+      width: isTvPlatform ? 420 : 320,
       child: Material(
         color: Colors.black.withValues(alpha: 0.92),
         child: SafeArea(
-          child: Column(
+          // Its own focus scope so _openPanel can hand the remote over and
+          // _closePanel can hand it back — see [_tvPanelFocus].
+          child: FocusScope(
+            node: _tvPanelFocus,
+            child: Column(
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
@@ -510,6 +516,7 @@ extension _PlayerPanels on _PlayerPageState {
                     const Spacer(),
                     IconButton(
                       onPressed: _closePanel,
+                      focusColor: _kTvFocusFill,
                       icon: const Icon(
                         Icons.close_rounded,
                         color: Colors.white70,
@@ -553,6 +560,7 @@ extension _PlayerPanels on _PlayerPageState {
                       ),
               ),
             ],
+            ),
           ),
         ),
       ),

@@ -170,10 +170,23 @@ extension _PlayerControls on _PlayerPageState {
     });
     _controlsAnimation.forward();
     _hideTimer?.cancel();
+    if (isTvPlatform) {
+      // Post-frame: the panel's rows do not exist yet during this build, so
+      // there is nothing to focus until it has been laid out. An `autofocus`
+      // row (the active quality/episode) claims focus first and this becomes a
+      // no-op — which is the order we want.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _panel == _SidePanel.none) return;
+        if (_tvPanelFocus.focusedChild == null) _tvPanelFocus.nextFocus();
+      });
+    }
   }
 
   void _closePanel() {
     setState(() => _panel = _SidePanel.none);
+    // Give the remote back to the player controls; otherwise focus dies with
+    // the unmounted panel and the next D-pad press has nowhere to go.
+    if (isTvPlatform) _tvRootFocus.requestFocus();
     _scheduleHide();
   }
 

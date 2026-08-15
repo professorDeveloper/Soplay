@@ -654,6 +654,12 @@ class _OptionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      // Land the remote on the value that is already active, the way the
+      // episode and quality rows in the side panel do. Without it the sheet
+      // opened with focus on the first row, so "change the subtitle track"
+      // started by moving *away* from the current one — and if nothing else
+      // claimed focus the D-pad appeared dead entirely.
+      autofocus: isTvPlatform && selected,
       focusColor: _kTvFocusFill,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
