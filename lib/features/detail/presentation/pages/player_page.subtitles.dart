@@ -142,6 +142,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                 ),
               const Divider(color: Colors.white12, height: 1),
               ListTile(
+                focusColor: _kTvFocusFill,
                 leading: const Icon(Icons.travel_explore_rounded,
                     color: Colors.white70, size: 20),
                 title: Text('player.search_online'.tr(),
@@ -153,6 +154,7 @@ extension _PlayerSubtitles on _PlayerPageState {
               ),
               if (_activeSubtitleIndex != -1)
               ListTile(
+                focusColor: _kTvFocusFill,
                 leading: const Icon(Icons.av_timer_rounded,
                     color: Colors.white70, size: 20),
                 title: Text('player.subtitle_sync'.tr(),
@@ -481,8 +483,13 @@ extension _PlayerSubtitles on _PlayerPageState {
       shrinkWrap: true,
       padding: EdgeInsets.zero,
       children: [
-        for (final r in results.take(60))
+        for (final (i, r) in results.take(60).indexed)
           ListTile(
+            focusColor: _kTvFocusFill,
+            // Put the remote on the first result as soon as the list renders,
+            // so "search online" ends with something selected rather than a
+            // list the D-pad has to find its way into.
+            autofocus: isTvPlatform && i == 0,
             dense: true,
             title: Text(r.fileName.isNotEmpty ? r.fileName : r.display,
                 maxLines: 2,
@@ -1041,6 +1048,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                       child: InkWell(
                         onTap: () =>
                             apply(_subtitleStyle.copyWith(bold: !_subtitleStyle.bold)),
+                        focusColor: _kTvFocusFill,
                         borderRadius: BorderRadius.circular(10),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(

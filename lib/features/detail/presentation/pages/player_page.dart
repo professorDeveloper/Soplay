@@ -232,6 +232,18 @@ class _PlayerPageState extends State<PlayerPage>
   // node, it would no longer be in the key-event chain and the remote would go
   // dead until the next tap.
   final FocusScopeNode _tvRootFocus = FocusScopeNode(debugLabel: 'tvPlayerRoot');
+
+  /// Focus scope for the TV side panel (quality / episodes).
+  ///
+  /// The panel is drawn INSIDE the player's own focus scope, so opening it did
+  /// not move focus: the rows' `autofocus` only wins when nothing in the
+  /// enclosing scope holds focus, and the player controls always do. The panel
+  /// therefore appeared while the remote kept driving the controls behind it —
+  /// which is what "quality doesn't work on TV" actually was. Giving the panel
+  /// its own scope lets [_openPanel] hand focus over and [_closePanel] hand it
+  /// back deterministically.
+  final FocusScopeNode _tvPanelFocus =
+      FocusScopeNode(debugLabel: 'tvPlayerPanel');
   final FocusNode _tvPlayFocus = FocusNode(debugLabel: 'tvPlayerPlay');
   final FocusNode _tvSeekFocus = FocusNode(debugLabel: 'tvPlayerSeek');
 
@@ -339,6 +351,7 @@ class _PlayerPageState extends State<PlayerPage>
     _seekRippleTimer?.cancel();
     _tvSeekCommit?.cancel();
     _tvRootFocus.dispose();
+    _tvPanelFocus.dispose();
     _tvPlayFocus.dispose();
     _tvSeekFocus.dispose();
     _tvPanelScroll?.dispose();
