@@ -201,6 +201,59 @@ class _DesktopRefreshButtonState extends State<DesktopRefreshButton>
   }
 }
 
+/// Puts D-pad focus inside the sheet it wraps.
+///
+/// A modal route does not move focus into itself. On a phone that is invisible —
+/// the next interaction is a tap. On a television it is the whole bug: the sheet
+/// appears, focus is still on the control *behind* it, and the first few remote
+/// presses either do nothing or drive the player underneath. Every "the settings
+/// menu opens but the remote is dead" report traces back to this.
+///
+/// Runs after the first frame because the route's subtree — and therefore its
+/// focusable descendants — does not exist yet during build. If a descendant
+/// declared `autofocus` (the selected row, typically) it has already claimed
+/// focus by then and this is a no-op, which is exactly the desired precedence:
+/// land on the current value, not the first item.
+class _TvFocusEntry extends StatefulWidget {
+  const _TvFocusEntry({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_TvFocusEntry> createState() => _TvFocusEntryState();
+}
+
+class _TvFocusEntryState extends State<_TvFocusEntry> {
+  final FocusScopeNode _scope = FocusScopeNode(debugLabel: 'tvModal');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_scope.focusedChild != null) return; // an autofocus already won
+      // nextFocus() from the scope lands on its first focusable descendant.
+      _scope.nextFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _scope.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // The traversal group keeps arrow keys inside the sheet, so the D-pad
+    // cannot wander back onto the player controls behind the barrier.
+    return FocusScope(
+      node: _scope,
+      child: FocusTraversalGroup(child: widget.child),
+    );
+  }
+}
+
 Future<T?> showAdaptiveModal<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -209,7 +262,39 @@ Future<T?> showAdaptiveModal<T>({
   ShapeBorder? shape,
   bool showDragHandle = false,
   double desktopMaxWidth = 460,
+  double tvMaxWidth = 620,
 }) {
+  // Television: a centred dialog, not a bottom sheet.
+  //
+  // A bottom sheet is a thumb affordance — it hugs the edge furthest from the
+  // eye line on a 10-foot screen, and its width is set by the screen, so on a
+  // TV it renders as a short, very wide strip. The same content as a centred
+  // panel reads correctly and, more importantly, gives the remote one obvious
+  // place to be.
+  if (isTvPlatform) {
+    return showDialog<T>(
+      context: context,
+      builder: (ctx) => _TvFocusEntry(
+        child: Dialog(
+          backgroundColor: backgroundColor,
+          clipBehavior: Clip.antiAlias,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 48,
+            vertical: 32,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: tvMaxWidth,
+              // Overscan-safe: TVs crop the outer few percent of the panel.
+              maxHeight: MediaQuery.sizeOf(ctx).height * 0.78,
+            ),
+            child: SingleChildScrollView(child: builder(ctx)),
+          ),
+        ),
+      ),
+    );
+  }
   if (isDesktopPlatform) {
     return showDialog<T>(
       context: context,
