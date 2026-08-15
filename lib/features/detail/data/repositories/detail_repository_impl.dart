@@ -99,6 +99,29 @@ class DetailRepositoryImpl implements DetailRepository {
     }
   }
 
+  /// Maps an on-device host's `load()` payload to a playback result.
+  ///
+  /// The hosts set an `error` field when they produced a page but nothing
+  /// playable — a Live TV response type they don't map, a torrent-only entry, a
+  /// source whose apk failed to link. Without reading it the caller just sees an
+  /// empty episode list and shows a generic "no episodes", which is
+  /// indistinguishable from a title that genuinely has none.
+  Result<PlaybackModel> _playbackFrom(
+    Map<String, dynamic> map,
+    String label,
+    String sort,
+  ) {
+    if (map.isEmpty) return Failure(Exception('$label: source unavailable'));
+    final model = PlaybackModel.fromJson(map);
+    if (model.episodes.isEmpty) {
+      final err = map['error'];
+      return Failure(Exception(
+        err is String && err.isNotEmpty ? '$label: $err' : '$label: nothing to play',
+      ));
+    }
+    return Success(_applySort(model, sort));
+  }
+
   @override
   Future<Result<PlaybackEntity>> getEpisodes(
     String contentUrl, {
@@ -112,10 +135,7 @@ class DetailRepositoryImpl implements DetailRepository {
     if (effective != null && effective.startsWith('cs:')) {
       try {
         final map = await CloudStreamChannel.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) {
-          return Success(_applySort(PlaybackModel.fromJson(map), sort));
-        }
-        return Failure(Exception('CloudStream: episodes not found'));
+        return _playbackFrom(map, 'CloudStream', sort);
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -123,10 +143,7 @@ class DetailRepositoryImpl implements DetailRepository {
     if (effective != null && effective.startsWith('an:')) {
       try {
         final map = await AniyomiChannel.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) {
-          return Success(_applySort(PlaybackModel.fromJson(map), sort));
-        }
-        return Failure(Exception('Aniyomi: episodes not found'));
+        return _playbackFrom(map, 'Aniyomi', sort);
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -134,10 +151,7 @@ class DetailRepositoryImpl implements DetailRepository {
     if (effective != null && effective.startsWith('mn:')) {
       try {
         final map = await MangaChannel.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) {
-          return Success(_applySort(PlaybackModel.fromJson(map), sort));
-        }
-        return Failure(Exception('Manga: chapters not found'));
+        return _playbackFrom(map, 'Manga', sort);
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
@@ -145,10 +159,7 @@ class DetailRepositoryImpl implements DetailRepository {
     if (effective != null && effective.startsWith('my:')) {
       try {
         final map = await mangayomi.load(effective.substring(3), contentUrl);
-        if (map.isNotEmpty) {
-          return Success(_applySort(PlaybackModel.fromJson(map), sort));
-        }
-        return Failure(Exception('Mangayomi: chapters not found'));
+        return _playbackFrom(map, 'Mangayomi', sort);
       } catch (e) {
         return Failure(Exception(_normalizeJsError(e)));
       }
