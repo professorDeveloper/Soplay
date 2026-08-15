@@ -7,10 +7,12 @@ import android.util.Log
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.AnimeLoadResponse
 import com.lagradost.cloudstream3.Episode
+import com.lagradost.cloudstream3.LiveStreamLoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.MovieLoadResponse
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.TorrentLoadResponse
 import com.lagradost.cloudstream3.TvSeriesLoadResponse
 import com.lagradost.cloudstream3.plugins.BasePlugin
 import com.lagradost.cloudstream3.plugins.Plugin
@@ -340,6 +342,7 @@ class PluginHost(private val appContext: Context) {
         } ?: return "{}"
         val episodes = JSONArray()
         var isSerial = false
+        var unsupported: String? = null
         when (resp) {
             is TvSeriesLoadResponse -> {
                 isSerial = true
@@ -357,6 +360,25 @@ class PluginHost(private val appContext: Context) {
                 episodes.put(JSONObject().apply {
                     put("episode", 1); put("label", "Play"); put("mediaRef", ref)
                 })
+            }
+            // Live TV channels. Structurally identical to a movie — one `dataUrl`
+            // handed straight to loadLinks — but it is a SEPARATE response class,
+            // and leaving it out of this `when` is why every Live TV plugin
+            // (IPTVPlayer, QuickIPTV, PublicSportsIPTV, …) opened to a detail page
+            // with no episodes and nothing to press: `load()` succeeded, the title
+            // and poster rendered, and the playable entry was silently dropped.
+            is LiveStreamLoadResponse -> {
+                val ref = resp.dataUrl.ifEmpty { resp.url }
+                episodes.put(JSONObject().apply {
+                    put("episode", 1); put("label", "Watch live"); put("mediaRef", ref)
+                })
+            }
+            // Torrent/magnet entries have no dataUrl and no HTTP stream — there is
+            // nothing this app's player can do with them. Say so explicitly rather
+            // than rendering the same silent empty page.
+            is TorrentLoadResponse -> {
+                unsupported =
+                    "This is a torrent entry (magnet link) — Sozo's player cannot open it."
             }
         }
         // Cast (actors) + related (recommendations) when the provider supplies them.
@@ -399,6 +421,13 @@ class PluginHost(private val appContext: Context) {
             put("cast", cast)
             put("related", related)
             put("episodes", episodes)
+            // An empty episode list is never something the UI can act on, so
+            // always say why. Previously this returned a valid-looking payload
+            // with zero entries and the detail page just sat there.
+            if (episodes.length() == 0) {
+                put("error", unsupported
+                    ?: "${'$'}{api.name}: no playable entry for this title (${'$'}{resp.javaClass.simpleName})")
+            }
         }.toString()
     }
 
