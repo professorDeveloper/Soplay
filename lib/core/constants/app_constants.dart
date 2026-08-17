@@ -62,6 +62,10 @@ class AppConstants {
   /// auth box: it survives a token refresh and is cleared explicitly on
   /// sign-out rather than incidentally.
   static const String aniListLinksKey = 'anilist_links';
+
+  /// Unlinks not yet accepted by the account. Kept separate so clearing the
+  /// map never silently drops a pending removal.
+  static const String aniListLinkTombstonesKey = 'anilist_link_tombstones';
   static const String malTokenKey = 'mal_token';
   static const String preferredMediaLangKey = 'preferred_media_lang';
   static const String defaultMediaLang = 'sub';

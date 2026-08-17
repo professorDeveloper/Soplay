@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/anilist/data/anilist_constants.dart';
+import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -21,13 +23,16 @@ class AnilistService extends ChangeNotifier {
   AnilistService({
     required Dio backendDio,
     required HiveService hive,
+    required AnilistLinkStore links,
     AnilistApi? api,
   }) : _dio = backendDio,
        _hive = hive,
+       _links = links,
        _api = api ?? AnilistApi();
 
   final Dio _dio;
   final HiveService _hive;
+  final AnilistLinkStore _links;
   final AnilistApi _api;
 
   AnilistViewer? _viewer;
@@ -118,6 +123,30 @@ class AnilistService extends ChangeNotifier {
     }
     if (_token != null) notifyListeners();
     await refreshFromAccount();
+    await syncLinks();
+  }
+
+  /// Exchanges this device's title->media links with the account.
+  ///
+  /// This is what makes tracking work on a TV at all: a d-pad cannot realistically
+  /// search AniList, and an Uzbek or transliterated source title will never match
+  /// exactly — so the TV depends on the association made here by hand.
+  ///
+  /// Silent on failure. It runs on startup and after a link, neither of which the
+  /// user is waiting on, and a tracker that cannot reach the network is not an
+  /// error worth a dialog.
+  Future<void> syncLinks() async {
+    if (!isConnected) return;
+    try {
+      final response = await _dio.post(
+        '/anilist/links/sync',
+        data: {'items': _links.pendingChanges()},
+      );
+      final items = (response.data as Map?)?['items'];
+      if (items is List) await _links.applyRemote(items);
+    } catch (_) {
+      // Offline, or signed out. The local map and its pending unlinks stay put.
+    }
   }
 
   /// Pulls the link stored on the Sozo account.
@@ -154,6 +183,9 @@ class AnilistService extends ChangeNotifier {
     await _store(link.cast<String, dynamic>());
     final v = _viewer;
     if (v == null) throw const AnilistException('AniList hisobi aniqlanmadi');
+    // Pull whatever links the account already holds, so a phone that connects
+    // second inherits every association made on the first.
+    unawaited(syncLinks());
     return v;
   }
 

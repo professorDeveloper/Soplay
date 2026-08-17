@@ -189,10 +189,14 @@ Future<void> configureDependencies() async {
   // AniList. Rides the authenticated backend client because the link lives on
   // the Sozo account — the client secret stays on the server, and a TV signed
   // into the same account inherits the connection without its own sign-in.
-  getIt.registerSingleton<AnilistService>(
-    AnilistService(backendDio: getIt<Dio>(), hive: getIt<HiveService>()),
-  );
   getIt.registerSingleton<AnilistLinkStore>(AnilistLinkStore());
+  getIt.registerSingleton<AnilistService>(
+    AnilistService(
+      backendDio: getIt<Dio>(),
+      hive: getIt<HiveService>(),
+      links: getIt<AnilistLinkStore>(),
+    ),
+  );
   getIt.registerSingleton<AnilistTracker>(
     AnilistTracker(
       service: getIt<AnilistService>(),

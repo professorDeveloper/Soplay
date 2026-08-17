@@ -36,6 +36,25 @@ class AnilistLinkStore {
   Future<void> _write(Map<String, dynamic> map) =>
       _box.put(AppConstants.aniListLinksKey, jsonEncode(map));
 
+  /// Keys unlinked here but not yet accepted by the server.
+  ///
+  /// Removing a row locally leaves nothing to upload, so without recording the
+  /// removal the next sync would see the account's copy as new and put the link
+  /// straight back.
+  Map<String, dynamic> _readTombstones() {
+    final raw = _box.get(AppConstants.aniListLinkTombstonesKey);
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) return decoded.cast<String, dynamic>();
+      } catch (_) {}
+    }
+    return <String, dynamic>{};
+  }
+
+  Future<void> _writeTombstones(Map<String, dynamic> map) =>
+      _box.put(AppConstants.aniListLinkTombstonesKey, jsonEncode(map));
+
   /// The identity of a local title. Trimmed and lowercased so a URL that
   /// differs only in case does not create a second, unlinked entry.
   static String keyFor(String provider, String contentUrl) =>
@@ -53,14 +72,76 @@ class AnilistLinkStore {
 
   Future<void> save(AnilistLink link) async {
     if (link.contentUrl.trim().isEmpty || link.mediaId <= 0) return;
-    final map = _read()..[keyFor(link.provider, link.contentUrl)] = link.toJson();
+    final key = keyFor(link.provider, link.contentUrl);
+    final map = _read()..[key] = link.toJson();
     await _write(map);
+    // A re-link supersedes any pending unlink of the same title.
+    final tombstones = _readTombstones()..remove(key);
+    await _writeTombstones(tombstones);
   }
 
   Future<void> remove(String provider, String contentUrl) async {
-    final map = _read()..remove(keyFor(provider, contentUrl));
+    final key = keyFor(provider, contentUrl);
+    final map = _read()..remove(key);
     await _write(map);
+    final tombstones = _readTombstones()
+      ..[key] = DateTime.now().toUtc().toIso8601String();
+    await _writeTombstones(tombstones);
   }
+
+  /// Everything this device has to tell the account: its links, and its unlinks.
+  List<Map<String, dynamic>> pendingChanges() => [
+        for (final raw in _read().values)
+          if (raw is Map) _toWire(raw.cast<String, dynamic>()),
+        for (final entry in _readTombstones().entries)
+          {'key': entry.key, 'deletedAt': entry.value, 'updatedAt': entry.value},
+      ];
+
+  /// Replaces the local map with the account's merged answer.
+  ///
+  /// Tombstones are dropped only here — they must survive until a sync has
+  /// actually accepted them, or an unlink made offline would be forgotten.
+  Future<void> applyRemote(List<dynamic> items) async {
+    final map = <String, dynamic>{};
+    for (final raw in items) {
+      if (raw is! Map) continue;
+      final item = raw.cast<String, dynamic>();
+      final key = (item['key'] as String?)?.trim().toLowerCase();
+      if (key == null || key.isEmpty) continue;
+      // A tombstone is an instruction to forget, not a row to store.
+      if (item['deletedAt'] != null) continue;
+      map[key] = _fromWire(item);
+    }
+    await _write(map);
+    await _writeTombstones(<String, dynamic>{});
+  }
+
+  Map<String, dynamic> _toWire(Map<String, dynamic> json) => {
+        ...json,
+        'key': keyFor(
+          (json['provider'] ?? '').toString(),
+          (json['contentUrl'] ?? '').toString(),
+        ),
+        'contentId': json['contentUrl'],
+        'updatedAt': DateTime.fromMillisecondsSinceEpoch(
+          (json['linkedAt'] as num?)?.toInt() ?? 0,
+        ).toUtc().toIso8601String(),
+      };
+
+  /// The server speaks `contentId`; this store is keyed by the URL it was built
+  /// from. Named differently because on the TV the same field really is an id.
+  Map<String, dynamic> _fromWire(Map<String, dynamic> item) => {
+        'provider': item['provider'] ?? '',
+        'contentUrl': item['contentId'] ?? '',
+        'mediaId': item['mediaId'] ?? 0,
+        'title': item['title'] ?? '',
+        'coverImage': item['coverImage'],
+        'totalEpisodes': item['totalEpisodes'],
+        'linkedAt': DateTime.tryParse('${item['updatedAt']}')
+                ?.millisecondsSinceEpoch ??
+            0,
+        'auto': item['auto'] ?? false,
+      };
 
   /// Every link, newest first — for a "linked titles" screen and for deciding
   /// whether an auto-match has already been attempted.
@@ -78,7 +159,10 @@ class AnilistLinkStore {
   /// Called on sign-out: these describe what one account watches and where, and
   /// leaving them behind would attribute the next person's viewing to a
   /// stranger's AniList list.
-  Future<void> clear() => _box.delete(AppConstants.aniListLinksKey);
+  Future<void> clear() async {
+    await _box.delete(AppConstants.aniListLinksKey);
+    await _box.delete(AppConstants.aniListLinkTombstonesKey);
+  }
 }
 
 /// One local title tied to one AniList media id.

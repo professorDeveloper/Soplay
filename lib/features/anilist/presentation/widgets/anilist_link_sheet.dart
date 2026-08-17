@@ -136,6 +136,10 @@ class _AnilistLinkSheetState extends State<AnilistLinkSheet> {
         linkedAt: DateTime.now().millisecondsSinceEpoch,
       ),
     );
+    // Push the new association to the account immediately: the TV cannot make
+    // one itself, and waiting for the next app start would leave it untracked
+    // through a whole evening of viewing.
+    unawaited(_service.syncLinks());
     if (!mounted) return;
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -148,6 +152,7 @@ class _AnilistLinkSheetState extends State<AnilistLinkSheet> {
 
   Future<void> _unlink() async {
     await _store.remove(widget.provider, widget.contentUrl);
+    unawaited(_service.syncLinks());
     if (!mounted) return;
     setState(() => _current = null);
   }
