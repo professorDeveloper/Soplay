@@ -6,6 +6,7 @@ import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/history/data/history_service.dart';
+import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/features/history/domain/entities/history_item.dart';
 import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
 
@@ -18,13 +19,18 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
   final HistoryService _historyService = getIt<HistoryService>();
+  final HistorySyncService _syncService = getIt<HistorySyncService>();
   List<HistoryItem> _items = const [];
 
   @override
   void initState() {
     super.initState();
     _historyService.revision.addListener(_reload);
+    // Cached first, then synced. Waiting on the network to draw a list that is
+    // already on disk would leave the screen empty on a slow link; the reload
+    // is driven by the service's own revision notifier once rows land.
     _reload();
+    _syncService.sync();
   }
 
   @override
@@ -67,7 +73,13 @@ class _HistoryPageState extends State<HistoryPage> {
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              _historyService.clearAll();
+              // Tombstone first, then clear: once the rows are gone there is
+              // nothing left to describe the delete, and the next sync would
+              // download the whole list straight back.
+              _syncService
+                  .rememberClearedAll()
+                  .then((_) => _historyService.clearAll())
+                  .then((_) => _syncService.sync());
             },
             child: Text(
               'history.clear'.tr(),
@@ -88,7 +100,10 @@ class _HistoryPageState extends State<HistoryPage> {
         _items = _items.where((e) => e.storageKey != item.storageKey).toList();
       });
     }
-    _historyService.remove(item.storageKey);
+    _syncService
+        .rememberDeleted(item)
+        .then((_) => _historyService.remove(item.storageKey))
+        .then((_) => _syncService.sync());
   }
 
   @override

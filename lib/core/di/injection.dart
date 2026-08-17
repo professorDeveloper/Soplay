@@ -25,6 +25,8 @@ import 'package:soplay/features/watch_party/data/watch_party_remote_data_source.
 import 'package:soplay/features/watch_party/data/watch_party_service.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/history/data/history_service.dart';
+import 'package:soplay/features/history/data/history_sync_remote_data_source.dart';
+import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/features/auth/domain/usecases/register_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/resend_otp_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/verify_otp_usecase.dart';
@@ -167,6 +169,19 @@ Future<void> configureDependencies() async {
     CfBypassInterceptor(dio: dio, service: getIt<CfBypassService>()),
   );
   getIt.registerSingleton<Dio>(dio);
+
+  // Watch history sync. Registered after Dio because it rides the authenticated
+  // client: the bearer token and its silent refresh come from the existing
+  // interceptor rather than being re-implemented here.
+  getIt.registerSingleton<HistorySyncRemoteDataSource>(
+    HistorySyncRemoteDataSource(dio: getIt<Dio>()),
+  );
+  getIt.registerSingleton<HistorySyncService>(
+    HistorySyncService(
+      remote: getIt<HistorySyncRemoteDataSource>(),
+      local: getIt<HistoryService>(),
+    ),
+  );
 
   getIt.registerSingleton<AuthRemoteDataSource>(
     AuthRemoteDataSource(dio: getIt<Dio>()),

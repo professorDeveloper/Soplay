@@ -52,6 +52,7 @@ import 'package:soplay/features/watch_party/presentation/widgets/party_reactions
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:soplay/features/history/data/history_sync_service.dart';
 
 part 'player_page.models.dart';
 part 'player_page.widgets.dart';
@@ -343,6 +344,10 @@ class _PlayerPageState extends State<PlayerPage>
   @override
   void dispose() {
     _saveHistory();
+    // Push the position the viewer just stopped at, so another device can pick
+    // it up. Without this the progress only leaves the phone the next time the
+    // History screen happens to be opened.
+    getIt<HistorySyncService>().sync();
     _partyDispose();
     WidgetsBinding.instance.removeObserver(this);
     _pipChannel.setMethodCallHandler(null);

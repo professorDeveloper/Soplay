@@ -6,6 +6,8 @@ import 'package:soplay/features/auth/domain/entities/auth_token.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/features/history/data/history_sync_service.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remoteDataSource;
@@ -107,10 +109,22 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await _remoteDataSource.logout();
     } on DioException {
-      await _hiveService.clearAuth();
+      await _clearAccountScopedData();
       return;
     }
+    await _clearAccountScopedData();
+  }
+
+  /// Tokens are not the only account-scoped state on the device.
+  ///
+  /// The watch-history sync cursor points at one account's rows; left behind,
+  /// the next sign-in resumes from a stranger's position and uploads this
+  /// person's viewing into their history.
+  Future<void> _clearAccountScopedData() async {
     await _hiveService.clearAuth();
+    if (getIt.isRegistered<HistorySyncService>()) {
+      await getIt<HistorySyncService>().clear();
+    }
   }
 
   String _messageFrom(DioException e) {
