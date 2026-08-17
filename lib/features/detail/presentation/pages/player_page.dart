@@ -21,6 +21,7 @@ import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
@@ -197,6 +198,13 @@ class _PlayerPageState extends State<PlayerPage>
   bool _autoRetrying = false;
   final Stopwatch _playbackWatch = Stopwatch();
   bool _streakPingScheduled = false;
+
+  /// Episode numbers already reported to AniList in this session.
+  ///
+  /// The progress check runs on every position tick, and auto-play means one
+  /// player instance can cover several episodes — a plain bool would report the
+  /// first episode and nothing after it.
+  final Set<int> _anilistReported = <int>{};
 
   bool _wasPlaying = false;
   bool _wasBuffering = false;

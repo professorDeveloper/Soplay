@@ -8,6 +8,8 @@ import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
+import 'package:soplay/features/anilist/data/anilist_link_store.dart';
+import 'package:soplay/features/anilist/data/anilist_service.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remoteDataSource;
@@ -120,10 +122,20 @@ class AuthRepositoryImpl implements AuthRepository {
   /// The watch-history sync cursor points at one account's rows; left behind,
   /// the next sign-in resumes from a stranger's position and uploads this
   /// person's viewing into their history.
+  ///
+  /// The AniList link is account-scoped for the same reason, and worse: its
+  /// token writes to a real third-party list, so a leftover one would file the
+  /// next person's viewing under a stranger's AniList profile.
   Future<void> _clearAccountScopedData() async {
     await _hiveService.clearAuth();
     if (getIt.isRegistered<HistorySyncService>()) {
       await getIt<HistorySyncService>().clear();
+    }
+    if (getIt.isRegistered<AnilistService>()) {
+      await getIt<AnilistService>().forgetLocal();
+    }
+    if (getIt.isRegistered<AnilistLinkStore>()) {
+      await getIt<AnilistLinkStore>().clear();
     }
   }
 

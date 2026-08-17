@@ -16,6 +16,7 @@ import 'package:soplay/features/notifications/data/services/notification_service
 import 'auth_event.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
+import 'package:soplay/features/anilist/data/anilist_service.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LoginUseCase loginUseCase;
@@ -263,6 +264,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _syncHistory() async {
     if (!getIt.isRegistered<HistorySyncService>()) return;
     await getIt<HistorySyncService>().sync();
+    // The AniList link is stored on the account, so signing in on a new device
+    // is exactly when it should reappear — without this, connecting on the
+    // phone would leave every other device looking unconnected.
+    if (getIt.isRegistered<AnilistService>()) {
+      await getIt<AnilistService>().refreshFromAccount();
+    }
   }
 
   String _friendlyError(Object error) {

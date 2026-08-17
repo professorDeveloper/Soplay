@@ -45,6 +45,8 @@ import 'package:soplay/features/detail/presentation/widgets/detail_related.dart'
 import 'package:soplay/features/detail/presentation/widgets/detail_screenshots.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_skeleton.dart';
 import 'package:showcaseview/showcaseview.dart';
+import 'package:soplay/features/anilist/data/anilist_service.dart';
+import 'package:soplay/features/anilist/presentation/widgets/anilist_track_button.dart';
 
 class DetailPage extends StatelessWidget {
   const DetailPage({super.key, required this.args});
@@ -1152,6 +1154,15 @@ class _AnimatedTopBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
+                AnilistTrackButton(
+                  provider: listEntity.provider,
+                  contentUrl: listEntity.contentUrl,
+                  title: listEntity.title,
+                ),
+                // Zero-width when AniList is not connected, so the spacer would
+                // otherwise leave a visible gap for most users.
+                if (getIt<AnilistService>().isConnected)
+                  const SizedBox(width: 8),
                 _CircleIconButton(
                   icon: Icons.travel_explore_rounded,
                   onTap: onFindSources,
