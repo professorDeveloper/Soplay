@@ -639,6 +639,11 @@ extension _PlayerMedia on _PlayerPageState {
     }
 
     if (v.isInitialized && v.duration.inMilliseconds > 0) {
+      if (v.position.inMilliseconds >=
+          v.duration.inMilliseconds * _kAnilistThreshold) {
+        _maybeReportAnilist();
+      }
+
       final remaining = v.duration - v.position;
       final isEnding = remaining <= const Duration(seconds: 2);
       if (isEnding) {

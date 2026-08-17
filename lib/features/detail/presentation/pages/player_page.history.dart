@@ -1,5 +1,11 @@
 part of 'player_page.dart';
 
+/// How far through an episode counts as "watched" for tracking purposes.
+///
+/// 85% is the convention every anime tracker uses, and it exists because
+/// endings and next-episode previews are routinely skipped.
+const double _kAnilistThreshold = 0.85;
+
 extension _PlayerHistory on _PlayerPageState {
   void _scheduleHistorySave() {
     _historyTimer?.cancel();
@@ -68,6 +74,46 @@ extension _PlayerHistory on _PlayerPageState {
         durationMs: 0,
         watchedAt: DateTime.now().millisecondsSinceEpoch,
       ),
+    );
+  }
+
+  /// Reports the episode in progress to AniList once it is far enough through.
+  ///
+  /// Fires at [_kAnilistThreshold] rather than at the very end because a viewer
+  /// who skips the ending, or who closes the player on the credits, has still
+  /// watched the episode — waiting for the last frame loses those entirely.
+  ///
+  /// Everything about this is fire-and-forget: no await on the caller's path,
+  /// no snackbar, no error state. It runs during playback, and a tracker being
+  /// down is not the viewer's problem to see.
+  void _maybeReportAnilist() {
+    final contentUrl = widget.args.contentUrl;
+    if (contentUrl == null || contentUrl.isEmpty) return;
+
+    final tracker = getIt<AnilistTracker>();
+    if (!tracker.isConnected) return;
+
+    // A movie is one episode as far as a tracker is concerned.
+    final int episodeNumber;
+    if (widget.args.isSerial) {
+      if (_episodeIndex < 0 || _episodeIndex >= widget.args.episodes.length) {
+        return;
+      }
+      episodeNumber = widget.args.episodes[_episodeIndex].episode;
+    } else {
+      episodeNumber = 1;
+    }
+    if (episodeNumber <= 0 || !_anilistReported.add(episodeNumber)) return;
+
+    unawaited(
+      tracker
+          .reportEpisode(
+            provider: widget.args.provider,
+            contentUrl: contentUrl,
+            title: widget.args.title,
+            episodeNumber: episodeNumber,
+          )
+          .catchError((Object _) => null),
     );
   }
 

@@ -25,6 +25,14 @@ class StreakService {
       ValueNotifier<StreakState>(StreakState.empty);
   final StreamController<int> milestones = StreamController<int>.broadcast();
 
+  /// True while the first fetch of this session is in flight with nothing
+  /// cached to show.
+  ///
+  /// Without it the screen renders [StreakState.empty] — "0 days" — which is
+  /// not a blank slate but a claim, and the wrong one for anyone who has a
+  /// streak running. A skeleton says "not known yet"; a zero says "you lost it".
+  final ValueNotifier<bool> loading = ValueNotifier<bool>(false);
+
   String? _lastPingDay;
   bool _refreshInFlight = false;
 
@@ -58,6 +66,11 @@ class StreakService {
   Future<void> refresh() async {
     if (!_hive.isLoggedIn || _refreshInFlight) return;
     _refreshInFlight = true;
+    // Only claim to be loading when there is nothing to show. A refresh over
+    // cached data should update in place, not blank the screen the user is
+    // already reading.
+    final blind = state.value.totalDays == 0 && state.value.current == 0;
+    if (blind) loading.value = true;
     try {
       final fresh = await _remote.getMe(_tzOffset());
       state.value = fresh;
@@ -65,6 +78,7 @@ class StreakService {
     } catch (_) {
     } finally {
       _refreshInFlight = false;
+      loading.value = false;
     }
   }
 
@@ -94,6 +108,7 @@ class StreakService {
 
   void dispose() {
     state.dispose();
+    loading.dispose();
     milestones.close();
   }
 }

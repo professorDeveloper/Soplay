@@ -1,14 +1,29 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/anilist/data/anilist_service.dart';
+import 'package:soplay/features/anilist/presentation/controllers/anilist_library_controller.dart';
+import 'package:soplay/features/anilist/presentation/pages/anilist_library_page.dart';
+import 'package:soplay/features/anilist/presentation/pages/upcoming_page.dart';
+import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/tracker/data/follow_service.dart';
 import 'package:soplay/features/tracker/domain/entities/followed_title.dart';
 
-/// Serials the user follows, with a manual "check for new episodes". A check
-/// also runs automatically when the page opens.
+/// Everything the user is keeping track of, in one place.
+///
+/// Three tabs rather than three destinations because they answer one question
+/// at different ranges: what am I following, what airs next, and what does my
+/// AniList list say. Splitting them across the nav bar would make the user
+/// choose a tab before knowing which one holds the answer.
+///
+/// The AniList controller is created HERE and lent to both AniList tabs: the
+/// library is one request that serves both views, and a "+1" on one tab has to
+/// be visible on the other immediately.
 class FollowingPage extends StatefulWidget {
   const FollowingPage({super.key});
 
@@ -16,16 +31,107 @@ class FollowingPage extends StatefulWidget {
   State<FollowingPage> createState() => _FollowingPageState();
 }
 
-class _FollowingPageState extends State<FollowingPage> {
+class _FollowingPageState extends State<FollowingPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final AnilistLibraryController _anilist =
+      AnilistLibraryController(service: getIt<AnilistService>());
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    _anilist.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        titleSpacing: 16,
+        title: Text(
+          'tracker.title'.tr(),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'anilist.connections_title'.tr(),
+            onPressed: () => context.push('/connections'),
+            icon: const Icon(Icons.link_rounded),
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(46),
+          child: Container(
+            alignment: Alignment.centerLeft,
+            decoration: const BoxDecoration(
+              border:
+                  Border(bottom: BorderSide(color: AppColors.divider, width: 0.5)),
+            ),
+            child: TabBar(
+              controller: _tabs,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              dividerColor: Colors.transparent,
+              indicatorColor: AppColors.primary,
+              indicatorSize: TabBarIndicatorSize.label,
+              indicatorWeight: 2.5,
+              labelColor: AppColors.textPrimary,
+              unselectedLabelColor: AppColors.textSecondary,
+              labelStyle:
+                  const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800),
+              unselectedLabelStyle:
+                  const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+              tabs: [
+                Tab(height: 44, text: 'tracker.tab_following'.tr()),
+                Tab(height: 44, text: 'tracker.tab_upcoming'.tr()),
+                const Tab(height: 44, text: 'AniList'),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabs,
+        children: [
+          const FollowedTitlesView(),
+          UpcomingPage(showAppBar: false, controller: _anilist),
+          AnilistLibraryPage(showAppBar: false, controller: _anilist),
+        ],
+      ),
+    );
+  }
+}
+
+/// Serials followed on a source, with a check for new episodes.
+///
+/// A check also runs when the tab first appears; it is bounded and timed inside
+/// the service, so a large follow list cannot hang the screen.
+class FollowedTitlesView extends StatefulWidget {
+  const FollowedTitlesView({super.key});
+
+  @override
+  State<FollowedTitlesView> createState() => _FollowedTitlesViewState();
+}
+
+class _FollowedTitlesViewState extends State<FollowedTitlesView>
+    with AutomaticKeepAliveClientMixin {
   final FollowService _service = getIt<FollowService>();
   List<FollowedTitle> _items = const [];
   bool _checking = false;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
     _items = _service.list();
-    // Auto-check on open (bounded + timed inside the service — safe).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_items.isNotEmpty) _check(silent: true);
     });
@@ -41,9 +147,11 @@ class _FollowingPageState extends State<FollowingPage> {
       if (!silent || grown > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(grown > 0
-                ? '$grown title(s) have new episodes'
-                : 'No new episodes'),
+            content: Text(
+              grown > 0
+                  ? 'tracker.new_episodes_found'.tr(args: ['$grown'])
+                  : 'tracker.no_new_episodes'.tr(),
+            ),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -57,111 +165,195 @@ class _FollowingPageState extends State<FollowingPage> {
     await _service.unfollow(t.contentUrl);
     if (!mounted) return;
     setState(() => _items = _service.list());
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('tracker.unfollowed'.tr(args: [t.title])),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'tracker.undo'.tr(),
+          onPressed: () async {
+            await _service.follow(t);
+            if (mounted) setState(() => _items = _service.list());
+          },
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-        elevation: 0,
-        title: const Text('Following',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-        actions: [
-          if (_items.isNotEmpty)
-            IconButton(
-              onPressed: _checking ? null : () => _check(),
-              tooltip: 'Check for new episodes',
-              icon: _checking
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.refresh_rounded),
+    super.build(context);
+
+    if (_items.isEmpty) {
+      return RefreshIndicator(
+        color: AppColors.primary,
+        backgroundColor: AppColors.surface,
+        onRefresh: () => _check(silent: true),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(height: MediaQuery.sizeOf(context).height * 0.18),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.notifications_none_rounded,
+                      color: AppColors.textHint.withValues(alpha: 0.5),
+                      size: 52,
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'tracker.following_empty'.tr(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: 13.5,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      backgroundColor: AppColors.surface,
+      onRefresh: () => _check(),
+      child: Column(
+        children: [
+          if (_checking)
+            const LinearProgressIndicator(
+              minHeight: 2,
+              backgroundColor: Colors.transparent,
+              valueColor: AlwaysStoppedAnimation(AppColors.primary),
+            ),
+          Expanded(
+            child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
+              itemCount: _items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (_, i) => _FollowTile(
+                title: _items[i],
+                onUnfollow: () => _unfollow(_items[i]),
+              ),
+            ),
+          ),
         ],
       ),
-      body: _items.isEmpty
-          ? _empty()
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-              itemCount: _items.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (_, i) => _tile(_items[i]),
-            ),
     );
   }
+}
 
-  Widget _empty() => Center(
+class _FollowTile extends StatelessWidget {
+  const _FollowTile({required this.title, required this.onUnfollow});
+
+  final FollowedTitle title;
+  final VoidCallback onUnfollow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: title.contentUrl.isEmpty
+            ? null
+            : () => context.push(
+                  '/detail',
+                  extra: DetailArgs(
+                    contentUrl: title.contentUrl,
+                    provider: title.provider,
+                  ),
+                ),
         child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          padding: const EdgeInsets.all(10),
+          child: Row(
             children: [
-              Icon(Icons.notifications_none_rounded,
-                  color: AppColors.textHint.withValues(alpha: 0.5), size: 60),
-              const SizedBox(height: 14),
-              const Text(
-                'Follow a series to get notified when new episodes drop.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textHint, fontSize: 14),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 46,
+                  height: 65,
+                  child: title.thumbnail.isEmpty
+                      ? const _Placeholder()
+                      : CachedNetworkImage(
+                          imageUrl: title.thumbnail,
+                          fit: BoxFit.cover,
+                          placeholder: (_, _) => const _Placeholder(),
+                          errorWidget: (_, _, _) => const _Placeholder(),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        AnilistChip(
+                          label: title.lastEpisodeCount > 0
+                              ? 'tracker.n_episodes'
+                                  .tr(args: ['${title.lastEpisodeCount}'])
+                              : 'tracker.not_checked'.tr(),
+                          color: AppColors.textSecondary,
+                        ),
+                        if (title.provider.isNotEmpty)
+                          AnilistChip(
+                            label: title.provider,
+                            color: AppColors.textHint,
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'tracker.unfollow'.tr(),
+                onPressed: onUnfollow,
+                icon: const Icon(
+                  Icons.notifications_off_outlined,
+                  color: AppColors.textHint,
+                  size: 20,
+                ),
               ),
             ],
           ),
         ),
-      );
-
-  Widget _tile(FollowedTitle t) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: SizedBox(
-            width: 44,
-            height: 60,
-            child: t.thumbnail.isNotEmpty
-                ? Image.network(t.thumbnail,
-                    fit: BoxFit.cover, errorBuilder: (_, _, _) => _ph())
-                : _ph(),
-          ),
-        ),
-        title: Text(t.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-        subtitle: Text(
-          t.lastEpisodeCount > 0
-              ? '${t.lastEpisodeCount} episodes'
-              : 'Not checked yet',
-          style: const TextStyle(color: AppColors.textHint, fontSize: 12),
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.notifications_off_outlined,
-              color: Colors.redAccent),
-          tooltip: 'Unfollow',
-          onPressed: () => _unfollow(t),
-        ),
-        onTap: () {
-          if (t.contentUrl.isEmpty) return;
-          context.push('/detail',
-              extra: DetailArgs(contentUrl: t.contentUrl, provider: t.provider));
-        },
       ),
     );
   }
+}
 
-  Widget _ph() => Container(
+class _Placeholder extends StatelessWidget {
+  const _Placeholder();
+
+  @override
+  Widget build(BuildContext context) => Container(
         color: AppColors.surfaceVariant,
-        child: const Icon(Icons.movie_rounded,
-            color: AppColors.textHint, size: 22),
+        child: const Icon(Icons.movie_rounded, color: AppColors.textHint, size: 20),
       );
 }

@@ -56,6 +56,12 @@ class AppConstants {
   static const String shortsRefreshShowcaseSeenKey =
       'shorts_refresh_showcase_seen';
   static const String aniListTokenKey = 'anilist_token';
+  static const String aniListViewerKey = 'anilist_viewer';
+
+  /// Local title -> AniList media id map. Lives in the SETTINGS box, not the
+  /// auth box: it survives a token refresh and is cleared explicitly on
+  /// sign-out rather than incidentally.
+  static const String aniListLinksKey = 'anilist_links';
   static const String malTokenKey = 'mal_token';
   static const String preferredMediaLangKey = 'preferred_media_lang';
   static const String defaultMediaLang = 'sub';
