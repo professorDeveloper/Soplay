@@ -25,6 +25,25 @@ name: Release → Telegram
 
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Which part of the version to raise'
+        type: choice
+        default: patch
+        options:
+          - patch          # 3.0.2 -> 3.0.3
+          - minor          # 3.0.2 -> 3.1.0
+          - major          # 3.0.2 -> 4.0.0
+          - build-only     # name unchanged, build number +1
+          - none           # build and ship whatever is committed
+      version:
+        description: 'Exact version name, e.g. 3.1.0 (overrides the choice above)'
+        type: string
+        required: false
+      notes:
+        description: 'Release notes for the Telegram message'
+        type: string
+        required: false
   push:
     tags: ['v*']
 
@@ -38,12 +57,154 @@ env:
   CMAKE_POLICY_VERSION_MINIMUM: '3.5'
 
 jobs:
+  # ---------------------------------------------------------------- Version ----
+  # Decides what this release IS, and is the only job allowed to change it.
+  #
+  # Every build job checks out the commit this one produces, so all four
+  # platforms ship the same version — resolving it per job would let a push
+  # landing mid-run give Android one version and Windows another.
+  #
+  # The build number always rises, whatever the name does. It is what Android
+  # compares for "is there an update", and what the backend's AppVersion row
+  # stores; two releases sharing one build number are invisible to the updater.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.resolve.outputs.name }}
+      build: ${{ steps.resolve.outputs.build }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tag push below needs real history, not a shallow clone.
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: resolve
+        env:
+          BUMP: ${{ inputs.bump }}
+          EXPLICIT: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          CURRENT="$(grep -E '^version:' pubspec.yaml | head -1 | sed -E 's/^version:[[:space:]]*//' | tr -d '\r')"
+          case "${CURRENT}" in
+            *+*) ;;
+            *) echo "::error title=Malformed version::pubspec.yaml has 'version: ${CURRENT}' with no +buildNumber. Android needs one."; exit 1 ;;
+          esac
+
+          NAME="${CURRENT%%+*}"
+          BUILD="${CURRENT##*+}"
+          case "${BUILD}" in
+            ''|*[!0-9]*) echo "::error title=Malformed build number::'${BUILD}' is not an integer."; exit 1 ;;
+          esac
+
+          # A tag push ships exactly what is committed. Rewriting the version on
+          # a tag would make the tag name and the built artifact disagree.
+          if [ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]; then
+            echo "Tag build — using the committed version verbatim."
+            NEW_NAME="${NAME}"
+            NEW_BUILD="${BUILD}"
+            BUMPED=no
+          else
+            IFS=. read -r MA MI PA <<< "${NAME}"
+            MA="${MA:-0}"; MI="${MI:-0}"; PA="${PA:-0}"
+            NEW_BUILD="$((BUILD + 1))"
+
+            if [ -n "${EXPLICIT}" ]; then
+              case "${EXPLICIT}" in
+                *[!0-9.]*) echo "::error title=Bad version::'${EXPLICIT}' must be digits and dots only, e.g. 3.1.0"; exit 1 ;;
+              esac
+              NEW_NAME="${EXPLICIT}"
+              BUMPED=yes
+            else
+              case "${BUMP}" in
+                patch)      NEW_NAME="${MA}.${MI}.$((PA + 1))"; BUMPED=yes ;;
+                minor)      NEW_NAME="${MA}.$((MI + 1)).0";     BUMPED=yes ;;
+                major)      NEW_NAME="$((MA + 1)).0.0";         BUMPED=yes ;;
+                build-only) NEW_NAME="${NAME}";                 BUMPED=yes ;;
+                none)       NEW_NAME="${NAME}"; NEW_BUILD="${BUILD}"; BUMPED=no ;;
+                *)          echo "::error title=Unknown bump::'${BUMP}'"; exit 1 ;;
+              esac
+            fi
+          fi
+
+          echo "name=${NEW_NAME}"   >> "$GITHUB_OUTPUT"
+          echo "build=${NEW_BUILD}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${NEW_NAME}"   >> "$GITHUB_OUTPUT"
+          echo "bumped=${BUMPED}"   >> "$GITHUB_OUTPUT"
+          {
+            echo "### Release version"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| was | \`${CURRENT}\` |"
+            echo "| now | \`${NEW_NAME}+${NEW_BUILD}\` |"
+            echo "| tag | \`v${NEW_NAME}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and tag
+        if: steps.resolve.outputs.bumped == 'yes'
+        env:
+          NAME: ${{ steps.resolve.outputs.name }}
+          BUILD: ${{ steps.resolve.outputs.build }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          # Refuse to reuse a tag rather than silently shipping a second, different
+          # build under a name someone has already installed.
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null || \
+             git ls-remote --exit-code --tags origin "${TAG}" >/dev/null 2>&1; then
+            echo "::error title=Tag exists::${TAG} is already published. Pick a different bump, or delete the tag first."
+            exit 1
+          fi
+
+          # python3, not sed -i: BSD and GNU sed disagree on -i, and the BSD
+          # form silently leaves the file untouched. `git commit` would then
+          # fail with "nothing to commit" — an error, but one whose message
+          # points nowhere near the cause.
+          #
+          # Anchored to the line start and capped at one substitution, so a
+          # dependency's own `version:` key is never touched.
+          python3 - "${NAME}+${BUILD}" <<'PY'
+          import re, sys
+          new = sys.argv[1]
+          src = open('pubspec.yaml', encoding='utf-8').read()
+          out, n = re.subn(r'(?m)^version:.*$', f'version: {new}', src, count=1)
+          if n != 1:
+              sys.exit('pubspec.yaml has no top-level version: line')
+          open('pubspec.yaml', 'w', encoding='utf-8').write(out)
+          PY
+          grep -E '^version:' pubspec.yaml
+
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git commit -am "chore: ${NAME}+${BUILD}"
+          git tag "${TAG}"
+
+          # Pushed with GITHUB_TOKEN, which deliberately does NOT re-trigger
+          # workflows. Without that guarantee this tag would start a second run
+          # of this same workflow and ship the release twice.
+          git push origin HEAD:"${GITHUB_REF_NAME}"
+          git push origin "${TAG}"
+
+      - name: Record the commit every build job will use
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   # ---------------------------------------------------------------- Android ----
   android:
+    needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        # The commit the version job just made. Resolving the ref per job would
+        # let a push landing mid-run give Android one version and Windows another.
+        with:
+          ref: ${{ needs.version.outputs.sha }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -171,6 +332,7 @@ jobs:
 
   # ---------------------------------------------------------------- Windows ----
   windows:
+    needs: version
     runs-on: windows-latest
     env:
       # The runner's very new MSVC turns flutter_inappwebview_windows's use of the
@@ -178,6 +340,8 @@ jobs:
       CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -209,9 +373,12 @@ jobs:
 
   # ------------------------------------------------------------------ Linux ----
   linux:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -241,9 +408,12 @@ jobs:
 
   # ------------------------------------------------------------------ macOS ----
   macos:
+    needs: version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -326,7 +496,7 @@ jobs:
 
   # ------------------------------------------------- Deliver (Telegram) --------
   deliver:
-    needs: [android, windows, linux, macos]
+    needs: [version, android, windows, linux, macos]
     # Deliver whatever succeeded, even if one platform's build failed — but not
     # if the run was cancelled.
     if: ${{ always() && !cancelled() }}
@@ -350,7 +520,9 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
-          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          VERSION_NAME: ${{ needs.version.outputs.name }}
+          VERSION_BUILD: ${{ needs.version.outputs.build }}
+          RELEASE_NOTES: ${{ inputs.notes }}
         run: |
           set -uo pipefail
 
@@ -362,12 +534,13 @@ jobs:
           API="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}"
           MAX=$((49 * 1024 * 1024))   # Bot API sendDocument limit is 50 MB
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          if [ "${IS_TAG}" = "true" ]; then
-            HEAD="$(printf '🎬 Sozo %s — yangi build\n\n🧰 Win/Linux/macOS fayllar shu run da (artifacts):\n%s' \
-                    "${GITHUB_REF_NAME}" "${RUN_URL}")"
-          else
-            HEAD="$(printf '🎬 Sozo — build (%s)\n\n🧰 Barcha fayllar shu run da (artifacts):\n%s' \
-                    "${GITHUB_SHA:0:7}" "${RUN_URL}")"
+          # The version job is the single source of this number, so the message
+          # cannot disagree with what is actually inside the APKs.
+          HEAD="$(printf '🎬 Sozo %s (build %s)\n\n🧰 Win/Linux/macOS fayllar shu run da (artifacts):\n%s' \
+                  "${VERSION_NAME}" "${VERSION_BUILD}" "${RUN_URL}")"
+
+          if [ -n "${RELEASE_NOTES}" ]; then
+            HEAD="$(printf '%s\n\n📝 %s' "${HEAD}" "${RELEASE_NOTES}")"
           fi
 
           # macOS is ad-hoc signed (no Apple cert), so first open needs one step.
