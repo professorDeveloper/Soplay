@@ -14,6 +14,8 @@ import 'package:soplay/features/my_list/domain/usecases/sync_favorites_usecase.d
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 
 import 'auth_event.dart';
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/features/history/data/history_sync_service.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LoginUseCase loginUseCase;
@@ -78,6 +80,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
 
     unawaited(syncFavorites());
+    unawaited(_syncHistory());
     unawaited(notificationService.setup());
     add(const AuthProfileRefreshRequested());
   }
@@ -92,6 +95,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       case Success(:final value):
         emit(AuthLoaded(token: value));
         unawaited(syncFavorites());
+        unawaited(_syncHistory());
         unawaited(notificationService.setup());
       case Failure(:final error):
         emit(AuthError(message: _friendlyError(error)));
@@ -137,6 +141,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       case Success(:final value):
         emit(AuthLoaded(token: value));
         unawaited(syncFavorites());
+        unawaited(_syncHistory());
         unawaited(notificationService.setup());
       case Failure(:final error):
         final msg = _friendlyError(error);
@@ -247,6 +252,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           );
         }
     }
+  }
+
+  /// Pull the account's watch history on sign-in.
+  ///
+  /// Alongside syncFavorites rather than inside it: favorites are a curated
+  /// list the user owns, history is written by the player, and the two fail
+  /// independently. Registration is checked because the bloc is constructed in
+  /// tests where the sync service is not wired.
+  Future<void> _syncHistory() async {
+    if (!getIt.isRegistered<HistorySyncService>()) return;
+    await getIt<HistorySyncService>().sync();
   }
 
   String _friendlyError(Object error) {
