@@ -27,6 +27,9 @@ import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/data/history_sync_remote_data_source.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
+import 'package:soplay/features/anilist/data/anilist_link_store.dart';
+import 'package:soplay/features/anilist/data/anilist_service.dart';
+import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/auth/domain/usecases/register_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/resend_otp_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/verify_otp_usecase.dart';
@@ -180,6 +183,24 @@ Future<void> configureDependencies() async {
     HistorySyncService(
       remote: getIt<HistorySyncRemoteDataSource>(),
       local: getIt<HistoryService>(),
+    ),
+  );
+
+  // AniList. Rides the authenticated backend client because the link lives on
+  // the Sozo account — the client secret stays on the server, and a TV signed
+  // into the same account inherits the connection without its own sign-in.
+  getIt.registerSingleton<AnilistLinkStore>(AnilistLinkStore());
+  getIt.registerSingleton<AnilistService>(
+    AnilistService(
+      backendDio: getIt<Dio>(),
+      hive: getIt<HiveService>(),
+      links: getIt<AnilistLinkStore>(),
+    ),
+  );
+  getIt.registerSingleton<AnilistTracker>(
+    AnilistTracker(
+      service: getIt<AnilistService>(),
+      links: getIt<AnilistLinkStore>(),
     ),
   );
 

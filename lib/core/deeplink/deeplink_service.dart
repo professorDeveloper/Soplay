@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/router/app_router.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/anilist/data/anilist_constants.dart';
+import 'package:soplay/features/anilist/data/anilist_service.dart';
 
 class DeeplinkService {
   DeeplinkService({AppLinks? appLinks}) : _appLinks = appLinks ?? AppLinks();
@@ -48,6 +50,18 @@ class DeeplinkService {
     final isCustom = uri.scheme == _scheme;
     if (!isUniversal && !isCustom) {
       debugPrint('$_tag ignoring unknown link');
+      return;
+    }
+
+    // The OAuth redirect is not navigation — it carries a one-time code that
+    // must be exchanged before anything else happens, and it has no route of
+    // its own. Handled here and returned so it never falls through to
+    // _resolveRoute, which would log it as an unknown link.
+    if (isCustom && uri.host == AnilistConstants.callbackHost) {
+      debugPrint('$_tag AniList callback');
+      if (getIt.isRegistered<AnilistService>()) {
+        await getIt<AnilistService>().handleCallback(uri);
+      }
       return;
     }
 

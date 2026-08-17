@@ -41,6 +41,8 @@ import 'package:soplay/features/streak/presentation/widgets/streak_card.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
+import 'package:soplay/features/anilist/data/anilist_service.dart';
+import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -2115,7 +2117,7 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
               const Divider(color: AppColors.divider, height: 1),
               _Tile(
                 icon: Icons.notifications_active_outlined,
-                title: 'Following',
+                title: 'tracker.title'.tr(),
                 trailing: const Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.textHint,
@@ -2123,6 +2125,8 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
                 ),
                 onTap: () => context.push('/following'),
               ),
+              const Divider(color: AppColors.divider, height: 1),
+              _ConnectionsTile(),
               const Divider(color: AppColors.divider, height: 1),
               _Tile(
                 icon: Icons.devices_rounded,
@@ -2142,6 +2146,68 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The Connections row, which shows AniList's state inline.
+///
+/// A tile of its own rather than a plain link: whether a tracker is connected
+/// is the entire question a user opens this row to answer, and making them
+/// navigate to find out defeats the point. Listens to the service so connecting
+/// elsewhere updates it without a manual refresh.
+class _ConnectionsTile extends StatefulWidget {
+  @override
+  State<_ConnectionsTile> createState() => _ConnectionsTileState();
+}
+
+class _ConnectionsTileState extends State<_ConnectionsTile> {
+  final AnilistService _anilist = getIt<AnilistService>();
+
+  @override
+  void initState() {
+    super.initState();
+    _anilist.addListener(_onChange);
+  }
+
+  @override
+  void dispose() {
+    _anilist.removeListener(_onChange);
+    super.dispose();
+  }
+
+  void _onChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final connected = _anilist.isConnected;
+    final name = _anilist.viewer?.name;
+    return _Tile(
+      icon: Icons.link_rounded,
+      title: 'anilist.connections_title'.tr(),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (connected)
+            Text(
+              name != null && name.isNotEmpty ? name : 'AniList',
+              style: const TextStyle(
+                color: kAnilistBlue,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          const SizedBox(width: 6),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: AppColors.textHint,
+            size: 20,
+          ),
+        ],
+      ),
+      onTap: () => context.push('/connections'),
     );
   }
 }

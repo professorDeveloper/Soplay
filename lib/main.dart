@@ -17,6 +17,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/extensions/extension_bridge.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
@@ -88,6 +89,10 @@ void main() async {
     'fcm',
   );
   _fireAndForget(getIt<DeeplinkService>().start(), 'deeplink');
+  // Restores the AniList link from disk, then refreshes it from the account.
+  // Started before the first frame so a title screen already knows whether it
+  // can offer "track this on AniList".
+  _fireAndForget(getIt<AnilistService>().restore(), 'anilist');
   // "Open with Sozo" on an extension index file (index.pb / index.min.json /
   // repo.json). The context is resolved lazily through the router's navigator:
   // this fires over whatever screen the user is on, including a cold start

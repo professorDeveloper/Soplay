@@ -62,6 +62,17 @@ class HiveService {
   Future<void> clearAniListToken() async =>
       _authBox.delete(AppConstants.aniListTokenKey);
 
+  /// The linked AniList account as JSON. Cached beside the token so a screen
+  /// can say "connected as X" while offline, instead of showing a bare
+  /// "connected" that tells the user nothing about which account.
+  String? getAniListViewer() => _authBox.get(AppConstants.aniListViewerKey);
+
+  Future<void> saveAniListViewer(String json) async =>
+      _authBox.put(AppConstants.aniListViewerKey, json);
+
+  Future<void> clearAniListViewer() async =>
+      _authBox.delete(AppConstants.aniListViewerKey);
+
   String? getMalToken() => _authBox.get(AppConstants.malTokenKey);
   bool get isMalConnected => getMalToken() != null;
 

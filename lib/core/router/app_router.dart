@@ -27,6 +27,10 @@ import 'package:soplay/features/manga/presentation/pages/reader_page.dart';
 import 'package:soplay/features/main/presentation/pages/main_page.dart';
 import 'package:soplay/features/network/presentation/pages/no_internet_page.dart';
 import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
+import 'package:soplay/features/anilist/presentation/pages/anilist_library_page.dart';
+import 'package:soplay/features/anilist/presentation/pages/anilist_links_page.dart';
+import 'package:soplay/features/anilist/presentation/pages/connections_page.dart';
+import 'package:soplay/features/anilist/presentation/pages/upcoming_page.dart';
 import 'package:soplay/features/tracker/presentation/pages/following_page.dart';
 import 'package:soplay/features/trivia/domain/entities/cast_person_entity.dart';
 import 'package:soplay/features/trivia/domain/entities/trivia_result_entity.dart';
@@ -172,6 +176,24 @@ class AppRouter {
       GoRoute(
         path: '/following',
         builder: (context, state) => const FollowingPage(),
+      ),
+      GoRoute(
+        path: '/connections',
+        builder: (context, state) => const ConnectionsPage(),
+      ),
+      GoRoute(
+        path: '/upcoming',
+        builder: (context, state) => const UpcomingPage(),
+      ),
+      // Declared before '/anilist' would matter only for a prefix router; go_router
+      // matches full paths, so the order here is just readability.
+      GoRoute(
+        path: '/anilist',
+        builder: (context, state) => const AnilistLibraryPage(),
+      ),
+      GoRoute(
+        path: '/anilist/links',
+        builder: (context, state) => const AnilistLinksPage(),
       ),
       GoRoute(
         path: '/navbar',
