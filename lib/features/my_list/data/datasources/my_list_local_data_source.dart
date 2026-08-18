@@ -108,7 +108,14 @@ class MyListLocalDataSource {
     revision.value++;
   }
 
+  /// Merges the server's list into the local cache.
+  ///
+  /// [revision] is bumped only when something actually changed. It was bumped
+  /// unconditionally, and My List refreshes on every bump — so a refresh wrote
+  /// the same rows back, bumped, and refreshed again. The loop ran as fast as
+  /// the network allowed until the server answered 429.
   Future<void> upsertAll(Iterable<FavoriteEntity> items) async {
+    var changed = false;
     for (final e in items) {
       final key = _key(e.provider, e.contentUrl);
       if (_box.containsKey(key)) {
@@ -120,6 +127,7 @@ class MyListLocalDataSource {
             );
             if (!existing.synced) {
               await _box.put(key, jsonEncode(_withSynced(existing).toJson()));
+              changed = true;
             }
           }
         } catch (_) {}
@@ -137,7 +145,8 @@ class MyListLocalDataSource {
         synced: true,
       );
       await _box.put(key, jsonEncode(model.toJson()));
+      changed = true;
     }
-    revision.value++;
+    if (changed) revision.value++;
   }
 }

@@ -43,6 +43,7 @@ import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
+import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -2184,30 +2185,73 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
   Widget build(BuildContext context) {
     final connected = _anilist.isConnected;
     final name = _anilist.viewer?.name;
-    return _Tile(
-      icon: Icons.link_rounded,
-      title: 'anilist.connections_title'.tr(),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (connected)
-            Text(
-              name != null && name.isNotEmpty ? name : 'AniList',
-              style: const TextStyle(
-                color: kAnilistBlue,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+
+    // A branded row rather than a generic "Connections" line. Connecting a
+    // tracker is the kind of thing people only do if they notice it exists,
+    // and a link icon among a dozen settings rows does not read as an offer.
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.push('/connections'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              const AnilistLogoBadge(size: 38, radius: 10),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'AniList',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      connected && name != null && name.isNotEmpty
+                          ? name
+                          : 'anilist.connect_tagline'.tr(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: connected ? kAnilistBlue : AppColors.textHint,
+                        fontSize: 12.5,
+                        fontWeight:
+                            connected ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          const SizedBox(width: 6),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: AppColors.textHint,
-            size: 20,
+              if (!connected)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: kAnilistBlue.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'anilist.connect_short'.tr(),
+                    style: const TextStyle(
+                      color: kAnilistBlue,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                )
+              else
+                const Icon(Icons.chevron_right_rounded,
+                    color: AppColors.textHint, size: 20),
+            ],
           ),
-        ],
+        ),
       ),
-      onTap: () => context.push('/connections'),
     );
   }
 }

@@ -9,6 +9,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
+import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 
 /// External accounts this app can write to.
 ///
@@ -301,8 +302,7 @@ class _Avatar extends StatelessWidget {
                 color: AppColors.textHint,
               ),
             )
-          : const Icon(Icons.play_circle_outline_rounded,
-              color: Colors.white, size: 24),
+          : const Center(child: AnilistLogo(size: 24, color: Colors.white)),
     );
   }
 }

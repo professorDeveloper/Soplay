@@ -7,6 +7,7 @@ import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
 import 'package:soplay/features/anilist/presentation/controllers/anilist_library_controller.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
+import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_entry_sheet.dart';
 
 /// The viewer's AniList anime list, one tab per status.
@@ -120,8 +121,7 @@ class _AnilistLibraryPageState extends State<AnilistLibraryPage>
         elevation: 0,
         title: Row(
           children: [
-            const Icon(Icons.auto_awesome_motion_rounded,
-                color: kAnilistBlue, size: 20),
+            const AnilistLogo(size: 20),
             const SizedBox(width: 9),
             Text(
               'AniList',

@@ -91,7 +91,12 @@ class _MyListViewState extends State<_MyListView>
   void _onFavoritesChanged() {
     if (!mounted) return;
     final bloc = context.read<MyListBloc>();
+    // A refresh writes the server's rows into the local cache, which is itself
+    // a revision bump — so reacting to one while a refresh is in flight makes
+    // this listener re-trigger the very fetch that woke it.
     if (bloc.state is MyListLoading) return;
+    final current = bloc.state;
+    if (current is MyListLoaded && current.refreshing) return;
     bloc.add(const MyListRefresh());
   }
 

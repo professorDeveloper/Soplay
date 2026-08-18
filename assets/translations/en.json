@@ -353,7 +353,8 @@
     "history": "History",
     "following": "Following",
     "premiere": "Premiere",
-    "buff": "Buff"
+    "buff": "Buff",
+    "anilist": "AniList"
   },
   "premiere": {
     "tab_title": "Premieres",
@@ -930,7 +931,10 @@
     "linked_to": "Linked to {}",
     "tracking_on": "Tracked on AniList",
     "track_on_anilist": "Track on AniList",
-    "n_episodes_short": "{} ep"
+    "n_episodes_short": "{} ep",
+    "open_anilist": "AniList",
+    "connect_tagline": "Track what you watch automatically",
+    "connect_short": "Connect"
   },
   "tracker": {
     "title": "Tracking",
