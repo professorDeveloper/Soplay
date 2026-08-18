@@ -51,7 +51,19 @@
     "welcome_back": "Welcome back",
     "create_account": "Create account",
     "login_subtitle": "Sign in to use your profile and saved data.",
-    "register_subtitle": "Create an account with email, username, and password."
+    "register_subtitle": "Create an account with email, username, and password.",
+    "forgot_password_title": "Reset your password",
+    "forgot_password_subtitle": "Enter the email on your account and we will send a 6-digit code.",
+    "reset_password_subtitle": "We sent a code to {email}. Enter it with your new password.",
+    "send_reset_code": "Send code",
+    "reset_code_sent": "If that email is registered, a code is on its way",
+    "reset_code_hint": "6-digit code",
+    "invalid_reset_code": "Enter the 6-digit code",
+    "new_password_hint": "New password",
+    "confirm_password_hint": "Repeat new password",
+    "reset_password": "Reset password",
+    "resend_code": "Send another code",
+    "resend_in": "Send again in {seconds}s"
   },
   "home": {
     "title": "Home",

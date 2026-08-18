@@ -15,15 +15,8 @@ import 'package:soplay/features/search/domain/services/cross_search_engine.dart'
 import 'package:soplay/features/search/presentation/blocs/cross_search_controller.dart';
 import 'package:soplay/features/search/presentation/widgets/search_result_card.dart';
 import 'package:soplay/features/search/presentation/widgets/search_set_sheet.dart';
-
-/// Search a curated set of providers at once. Results stream in and are merged
-/// into one title per card — freeze-proof (bounded concurrency + per-provider
-/// timeout in the engine), so a large or partly-broken set never blocks the UI.
 class CrossSearchPage extends StatefulWidget {
   const CrossSearchPage({super.key, this.initialQuery});
-
-  /// When set (e.g. opened from a title's "find on other sources"), the page
-  /// starts searching for this immediately and does not steal focus.
   final String? initialQuery;
 
   @override

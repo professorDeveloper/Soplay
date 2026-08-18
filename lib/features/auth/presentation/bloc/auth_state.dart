@@ -78,3 +78,55 @@ class AuthOtpPending extends AuthState {
     error,
   ];
 }
+
+/// Waiting on the code emailed by a password reset.
+///
+/// Separate from [AuthOtpPending] even though both hold an email and a
+/// cooldown: that one means "finish signing up" and the screen behind it only
+/// asks for a code, while this one also collects the new password. Sharing it
+/// would leave the OTP screen unable to tell which it is looking at.
+class AuthPasswordResetPending extends AuthState {
+  final String email;
+  final DateTime cooldownUntil;
+  final bool justSent;
+  final bool submitting;
+  final bool resending;
+  final String? error;
+
+  AuthPasswordResetPending({
+    required this.email,
+    required this.cooldownUntil,
+    this.justSent = false,
+    this.submitting = false,
+    this.resending = false,
+    this.error,
+  });
+
+  AuthPasswordResetPending copyWith({
+    DateTime? cooldownUntil,
+    bool? justSent,
+    bool? submitting,
+    bool? resending,
+    String? error,
+    bool clearError = false,
+  }) {
+    return AuthPasswordResetPending(
+      email: email,
+      cooldownUntil: cooldownUntil ?? this.cooldownUntil,
+      justSent: justSent ?? this.justSent,
+      submitting: submitting ?? this.submitting,
+      resending: resending ?? this.resending,
+      error: clearError ? null : (error ?? this.error),
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    email,
+    cooldownUntil,
+    justSent,
+    submitting,
+    resending,
+    error,
+  ];
+}

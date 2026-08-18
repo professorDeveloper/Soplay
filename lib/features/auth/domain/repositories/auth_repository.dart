@@ -19,6 +19,14 @@ abstract class AuthRepository {
     required String code,
   });
 
+  Future<Result<void>> requestPasswordReset(String email);
+
+  Future<Result<AuthToken>> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  });
+
   Future<Result<UserEntity>> getProfile();
 
   Future<void> logout();

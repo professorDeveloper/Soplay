@@ -94,6 +94,49 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Result<void>> requestPasswordReset(String email) async {
+    try {
+      await _remoteDataSource.requestPasswordReset(email);
+      return const Success(null);
+    } on DioException catch (e) {
+      return Failure(Exception(_messageFrom(e)));
+    } catch (e) {
+      return Failure(Exception(e.toString()));
+    }
+  }
+
+  @override
+  Future<Result<AuthToken>> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    try {
+      final model = await _remoteDataSource.resetPassword(
+        email: email,
+        code: code,
+        newPassword: newPassword,
+      );
+      if (model.accessToken.isEmpty) {
+        return Failure(Exception('Access token topilmadi'));
+      }
+      // Stored exactly like a verified registration: the reset issues a real
+      // session, and not saving it would leave the user staring at a login
+      // screen straight after proving who they are.
+      await _hiveService.saveAuth(
+        accessToken: model.accessToken,
+        refreshToken: model.refreshToken,
+        user: model.user as UserModel,
+      );
+      return Success(model);
+    } on DioException catch (e) {
+      return Failure(Exception(_messageFrom(e)));
+    } catch (e) {
+      return Failure(Exception(e.toString()));
+    }
+  }
+
+  @override
   Future<Result<UserEntity>> getProfile() async {
     try {
       final user = await _remoteDataSource.getProfile();

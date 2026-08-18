@@ -51,7 +51,19 @@
     "welcome_back": "Xush kelibsiz",
     "create_account": "Akkaunt yaratish",
     "login_subtitle": "Profilingiz va saqlangan ma'lumotlaringiz uchun kiring.",
-    "register_subtitle": "Email, username va parol bilan yangi akkaunt oching."
+    "register_subtitle": "Email, username va parol bilan yangi akkaunt oching.",
+    "forgot_password_title": "Parolni tiklash",
+    "forgot_password_subtitle": "Hisobingiz emailini kiriting — 6 xonali kod yuboramiz.",
+    "reset_password_subtitle": "{email} manziliga kod yubordik. Uni yangi parol bilan kiriting.",
+    "send_reset_code": "Kod yuborish",
+    "reset_code_sent": "Agar bu email ro‘yxatdan o‘tgan bo‘lsa, kod yuborildi",
+    "reset_code_hint": "6 xonali kod",
+    "invalid_reset_code": "6 xonali kodni kiriting",
+    "new_password_hint": "Yangi parol",
+    "confirm_password_hint": "Yangi parolni takrorlang",
+    "reset_password": "Parolni tiklash",
+    "resend_code": "Yana kod yuborish",
+    "resend_in": "{seconds} s dan keyin qayta"
   },
   "home": {
     "title": "Bosh sahifa",
