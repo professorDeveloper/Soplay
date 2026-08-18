@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/features/anilist/presentation/widgets/anilist_linked_badge.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
@@ -238,6 +239,11 @@ class _SearchMovieCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+          ),
+          Positioned(
+            top: 6,
+            left: 6,
+            child: AnilistLinkedBadge(contentUrl: movie.url),
           ),
           if (movie.rating != null)
             Positioned(

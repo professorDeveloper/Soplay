@@ -934,7 +934,14 @@
     "n_episodes_short": "{} ep",
     "open_anilist": "AniList",
     "connect_tagline": "Track what you watch automatically",
-    "connect_short": "Connect"
+    "connect_short": "Connect",
+    "calendar_title": "Календарь выхода",
+    "calendar_all": "Все",
+    "calendar_mine": "Мой список",
+    "calendar_episode": "Эпизод {episode}",
+    "calendar_empty": "В этот день ничего не выходит.",
+    "calendar_empty_mine": "В этот день ничего из вашего списка не выходит.",
+    "calendar_open": "Календарь выхода"
   },
   "tracker": {
     "title": "Tracking",

@@ -62,6 +62,40 @@ class AnilistAiring {
 }
 
 /// One anime on AniList.
+/// One episode of one show, at the minute it goes out.
+///
+/// Distinct from [AnilistAiring], which hangs off a media object and only ever
+/// describes that show's NEXT episode. The calendar asks the opposite question
+/// — what airs in this window — so the airing is the subject and the media is
+/// the detail.
+class AnilistScheduledAiring {
+  const AnilistScheduledAiring({
+    required this.media,
+    required this.episode,
+    required this.airingAt,
+  });
+
+  final AnilistMedia media;
+  final int episode;
+  final int airingAt;
+
+  DateTime get airsAt =>
+      DateTime.fromMillisecondsSinceEpoch(airingAt * 1000, isUtc: true).toLocal();
+
+  bool get hasAired => airsAt.isBefore(DateTime.now());
+
+  static AnilistScheduledAiring? fromJson(Map<String, dynamic> json) {
+    final rawMedia = json['media'];
+    final airingAt = (json['airingAt'] as num?)?.toInt();
+    if (rawMedia is! Map || airingAt == null) return null;
+    return AnilistScheduledAiring(
+      media: AnilistMedia.fromJson(rawMedia.cast<String, dynamic>()),
+      episode: (json['episode'] as num?)?.toInt() ?? 0,
+      airingAt: airingAt,
+    );
+  }
+}
+
 class AnilistMedia {
   const AnilistMedia({
     required this.id,
@@ -78,6 +112,7 @@ class AnilistMedia {
     this.status,
     this.siteUrl,
     this.nextAiring,
+    this.isAdult = false,
   });
 
   final int id;
@@ -94,6 +129,7 @@ class AnilistMedia {
   final String? status;
   final String? siteUrl;
   final AnilistAiring? nextAiring;
+  final bool isAdult;
 
   /// Episodes that exist to watch right now.
   ///
@@ -147,6 +183,7 @@ class AnilistMedia {
       nextAiring: AnilistAiring.fromJson(
         (json['nextAiringEpisode'] as Map?)?.cast<String, dynamic>(),
       ),
+      isAdult: json['isAdult'] == true,
     );
   }
 }

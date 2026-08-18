@@ -934,7 +934,14 @@
     "n_episodes_short": "{} ep",
     "open_anilist": "AniList",
     "connect_tagline": "Track what you watch automatically",
-    "connect_short": "Connect"
+    "connect_short": "Connect",
+    "calendar_title": "Efir kalendari",
+    "calendar_all": "Hammasi",
+    "calendar_mine": "Mening ro‘yxatim",
+    "calendar_episode": "{episode}-qism",
+    "calendar_empty": "Bu kuni hech narsa chiqmaydi.",
+    "calendar_empty_mine": "Bu kuni ro‘yxatingizdan hech narsa chiqmaydi.",
+    "calendar_open": "Efir kalendari"
   },
   "tracker": {
     "title": "Tracking",

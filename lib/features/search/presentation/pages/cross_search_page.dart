@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:soplay/features/anilist/presentation/widgets/anilist_linked_badge.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -438,6 +439,16 @@ class _MovieCard extends StatelessWidget {
                                 fontWeight: FontWeight.w700)),
                       ),
                     ),
+                  // Top-right, because the "N sources" pill owns the left and
+                  // a hit can carry both.
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: AnilistLinkedBadge(
+                      contentUrl: movie.url,
+                      provider: provider,
+                    ),
+                  ),
                 ],
               ),
             ),

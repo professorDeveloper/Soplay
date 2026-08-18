@@ -934,7 +934,14 @@
     "n_episodes_short": "{} ep",
     "open_anilist": "AniList",
     "connect_tagline": "Track what you watch automatically",
-    "connect_short": "Connect"
+    "connect_short": "Connect",
+    "calendar_title": "Airing calendar",
+    "calendar_all": "All",
+    "calendar_mine": "My list",
+    "calendar_episode": "Episode {episode}",
+    "calendar_empty": "Nothing airs on this day.",
+    "calendar_empty_mine": "Nothing from your list airs on this day.",
+    "calendar_open": "Airing calendar"
   },
   "tracker": {
     "title": "Tracking",
