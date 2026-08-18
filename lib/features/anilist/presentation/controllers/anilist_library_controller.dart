@@ -74,7 +74,7 @@ class AnilistLibraryController extends ChangeNotifier {
     try {
       _entries = await _service.library();
     } catch (e) {
-      _error = e is AnilistException ? e.message : 'AniList ro\'yxati yuklanmadi';
+      _error = e is AnilistException ? e.message : 'Could not load your AniList list';
     } finally {
       _loading = false;
       notifyListeners();
@@ -92,7 +92,7 @@ class AnilistLibraryController extends ChangeNotifier {
   /// Writes an explicit progress value.
   Future<String?> setProgress(AnilistListEntry entry, int progress) async {
     final token = _service.token;
-    if (token == null) return 'AniList ulanmagan';
+    if (token == null) return 'AniList is not connected';
     if (progress < 0 || _busy.contains(entry.id)) return null;
 
     final previous = entry;
@@ -113,7 +113,7 @@ class AnilistLibraryController extends ChangeNotifier {
       return null;
     } catch (e) {
       _replace(previous);
-      return e is AnilistException ? e.message : 'Saqlanmadi';
+      return e is AnilistException ? e.message : 'Could not save to AniList';
     } finally {
       _busy.remove(entry.id);
       notifyListeners();
@@ -123,7 +123,7 @@ class AnilistLibraryController extends ChangeNotifier {
   /// Moves an entry to another list.
   Future<String?> setStatus(AnilistListEntry entry, AnilistStatus status) async {
     final token = _service.token;
-    if (token == null) return 'AniList ulanmagan';
+    if (token == null) return 'AniList is not connected';
     if (_busy.contains(entry.id)) return null;
 
     final previous = entry;
@@ -142,7 +142,7 @@ class AnilistLibraryController extends ChangeNotifier {
       return null;
     } catch (e) {
       _replace(previous);
-      return e is AnilistException ? e.message : 'Saqlanmadi';
+      return e is AnilistException ? e.message : 'Could not save to AniList';
     } finally {
       _busy.remove(entry.id);
       notifyListeners();
