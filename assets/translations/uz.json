@@ -1022,6 +1022,12 @@
     "back": "Orqaga",
     "home": "Bosh sahifa",
     "open_on_tv": "TVda ko‘rish",
-    "sent_to_tv": "{device} ga yuborildi"
+    "sent_to_tv": "{device} ga yuborildi",
+    "connected_to": "{device} ga ulandi",
+    "not_connected_to": "{device} ulanmagan",
+    "turn_tv_on": "Boshqarish uchun TVda Sozo’ni oching",
+    "retry": "Qayta urinish",
+    "navigation": "NAVIGATSIYA",
+    "playback": "IJRO"
   }
 }

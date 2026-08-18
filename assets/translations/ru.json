@@ -1022,6 +1022,12 @@
     "back": "Назад",
     "home": "Главная",
     "open_on_tv": "Смотреть на ТВ",
-    "sent_to_tv": "Отправлено на {device}"
+    "sent_to_tv": "Отправлено на {device}",
+    "connected_to": "Подключено к {device}",
+    "not_connected_to": "{device} не подключён",
+    "turn_tv_on": "Откройте Sozo на ТВ, чтобы управлять",
+    "retry": "Повторить",
+    "navigation": "НАВИГАЦИЯ",
+    "playback": "ВОСПРОИЗВЕДЕНИЕ"
   }
 }

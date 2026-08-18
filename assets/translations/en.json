@@ -1022,6 +1022,12 @@
     "back": "Back",
     "home": "Home",
     "open_on_tv": "Play on TV",
-    "sent_to_tv": "Sent to {device}"
+    "sent_to_tv": "Sent to {device}",
+    "connected_to": "Connected to {device}",
+    "not_connected_to": "{device} is not connected",
+    "turn_tv_on": "Open Sozo on the TV to control it",
+    "retry": "Try again",
+    "navigation": "NAVIGATION",
+    "playback": "PLAYBACK"
   }
 }
