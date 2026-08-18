@@ -67,6 +67,7 @@ import UIKit
     // "Open with Sozo" on an extension index file. Same channel name and
     // contract as the Android host, so the Flutter side is platform-agnostic.
     RepoFileImport.register(messenger: registrar.messenger())
+    SystemControls.register(with: registrar)
 
     let previewChannel = FlutterMethodChannel(
       name: "soplay/preview",

@@ -89,7 +89,22 @@ class VideoOptionGroups {
         if (part.trim().isNotEmpty) part.trim(),
     ];
     if (parts.length > 1) {
-      return (server: parts.first, quality: parts.skip(1).join(' · '));
+      // Which part is the quality is decided by what it LOOKS like, not by
+      // where it sits. Assuming the host comes first put "480p · 1-server" in
+      // backwards — the settings sheet offered a server called 480p and a
+      // quality called 1-server.
+      final at = parts.indexWhere(_resolution.hasMatch);
+      if (at >= 0) {
+        final host = [...parts.take(at), ...parts.skip(at + 1)].join(' · ');
+        return (
+          server: host.isEmpty ? _fallbackServer : host,
+          quality: parts[at],
+        );
+      }
+      // Nothing resolution-shaped anywhere: the whole label names a host, the
+      // way "SUB · Mp4Upload" does. Taking the first part as the server would
+      // make a language tag into a host and the host into a quality.
+      return (server: text, quality: '');
     }
 
     final words = text.split(_spaces);

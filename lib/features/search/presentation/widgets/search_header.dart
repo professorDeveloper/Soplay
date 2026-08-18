@@ -215,17 +215,27 @@ class _SearchField extends StatelessWidget {
             duration: const Duration(milliseconds: 160),
             curve: Curves.easeOut,
             height: 46,
+            // Focus reads as lit, not as outlined. A saturated red rectangle
+            // around a text field is louder than anything else on the screen
+            // and fights the dark surface it sits on; the brand colour carries
+            // in a soft glow instead, where it says the same thing quietly.
             decoration: BoxDecoration(
               color: focused
                   ? AppColors.surfaceVariant.withValues(alpha: 0.96)
                   : AppColors.surface.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: focused
-                    ? AppColors.primary.withValues(alpha: 0.58)
-                    : Colors.white.withValues(alpha: 0.08),
-                width: focused ? 1.2 : 1,
+                color: Colors.white.withValues(alpha: focused ? 0.16 : 0.08),
               ),
+              boxShadow: focused
+                  ? [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.22),
+                        blurRadius: 14,
+                        spreadRadius: -2,
+                      ),
+                    ]
+                  : null,
             ),
             child: child,
           );
