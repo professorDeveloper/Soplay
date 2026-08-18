@@ -42,6 +42,7 @@ class AnilistApi {
     coverImage { large }
     bannerImage
     description(asHtml: false)
+    isAdult
     nextAiringEpisode { episode airingAt }
   ''';
 
@@ -165,6 +166,64 @@ class AnilistApi {
         .whereType<Map>()
         .map((e) => AnilistMedia.fromJson(e.cast<String, dynamic>()))
         .toList(growable: false);
+  }
+
+  /// Everything airing between [from] and [to].
+  ///
+  /// Paged rather than a single large request: a day of global airings runs to
+  /// a few dozen entries and AniList caps perPage at 50, so asking for one page
+  /// silently truncates the evening. The cap on pages is a safety net against a
+  /// window someone widens later, not a real limit — a day never reaches it.
+  Future<List<AnilistScheduledAiring>> airingSchedule({
+    required DateTime from,
+    required DateTime to,
+    bool includeAdult = false,
+  }) async {
+    final gql = '''
+      query (\$start: Int, \$end: Int, \$page: Int) {
+        Page(page: \$page, perPage: 50) {
+          pageInfo { hasNextPage }
+          airingSchedules(
+            airingAt_greater: \$start
+            airingAt_lesser: \$end
+            sort: TIME
+          ) {
+            episode
+            airingAt
+            media { $_mediaFields }
+          }
+        }
+      }
+    ''';
+
+    final start = from.toUtc().millisecondsSinceEpoch ~/ 1000;
+    final end = to.toUtc().millisecondsSinceEpoch ~/ 1000;
+    final out = <AnilistScheduledAiring>[];
+
+    for (var page = 1; page <= 10; page++) {
+      final data = await _run(
+        gql,
+        variables: {'start': start, 'end': end, 'page': page},
+      );
+      final pageData = data['Page'];
+      if (pageData is! Map) break;
+
+      final schedules = pageData['airingSchedules'];
+      if (schedules is List) {
+        for (final raw in schedules.whereType<Map>()) {
+          final airing =
+              AnilistScheduledAiring.fromJson(raw.cast<String, dynamic>());
+          if (airing == null) continue;
+          if (!includeAdult && airing.media.isAdult) continue;
+          out.add(airing);
+        }
+      }
+
+      final info = pageData['pageInfo'];
+      final hasNext = info is Map && info['hasNextPage'] == true;
+      if (!hasNext) break;
+    }
+    return out;
   }
 
   /// The viewer's own entry for one title, or null if it is not on their list.
