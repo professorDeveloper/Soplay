@@ -85,12 +85,12 @@ class AnilistService extends ChangeNotifier {
     final denied = uri.queryParameters['error']?.trim();
 
     if (denied != null && denied.isNotEmpty) {
-      _lastError = 'AniList ulanish bekor qilindi';
+      _lastError = 'AniList connection was cancelled';
       notifyListeners();
       return;
     }
     if (code == null || code.isEmpty) {
-      _lastError = 'AniList kod qaytarmadi';
+      _lastError = 'AniList returned no authorization code';
       notifyListeners();
       return;
     }
@@ -100,7 +100,7 @@ class AnilistService extends ChangeNotifier {
     try {
       await completeLink(code);
     } catch (e) {
-      _lastError = e is AnilistException ? e.message : 'AniList ulanmadi';
+      _lastError = e is AnilistException ? e.message : 'Could not connect to AniList';
     } finally {
       _linking = false;
       notifyListeners();
@@ -178,11 +178,11 @@ class AnilistService extends ChangeNotifier {
     final data = response.data;
     final link = data is Map ? data['anilist'] : null;
     if (link is! Map) {
-      throw const AnilistException('AniList ulanmadi');
+      throw const AnilistException('Could not connect to AniList');
     }
     await _store(link.cast<String, dynamic>());
     final v = _viewer;
-    if (v == null) throw const AnilistException('AniList hisobi aniqlanmadi');
+    if (v == null) throw const AnilistException('Could not identify the AniList account');
     // Pull whatever links the account already holds, so a phone that connects
     // second inherits every association made on the first.
     unawaited(syncLinks());
@@ -210,7 +210,7 @@ class AnilistService extends ChangeNotifier {
     final token = _token;
     final v = _viewer;
     if (token == null || v == null) {
-      throw const AnilistException('AniList ulanmagan');
+      throw const AnilistException('AniList is not connected');
     }
     return _api.mediaList(token: token, userId: v.id);
   }

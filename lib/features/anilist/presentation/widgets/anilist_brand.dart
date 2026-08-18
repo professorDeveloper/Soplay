@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 
 /// AniList's own blue. Used only for AniList affordances, so a "connect" or
 /// "tracked" badge is never mistaken for a Sozo-native action in red.
@@ -159,24 +160,7 @@ class AnilistConnectPrompt extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 66,
-              height: 66,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [kAnilistBlue, kAnilistBlueDeep],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: kAnilistBlue.withValues(alpha: 0.28),
-                    blurRadius: 22,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.link_rounded, color: Colors.white, size: 30),
-            ),
+            const AnilistLogoBadge(size: 68, radius: 18),
             const SizedBox(height: 18),
             Text(
               message,
