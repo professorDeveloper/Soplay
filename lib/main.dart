@@ -36,19 +36,13 @@ import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Resolve Android TV before any isMobilePlatform branch below: a television
-  // must not take the phone's liquid-glass path. No-op off Android, and any
-  // failure leaves the flag false, i.e. exactly today's phone behaviour.
-  await initTvPlatform();
+   await initTvPlatform();
   if (isDesktopPlatform) {
     MediaKit.ensureInitialized();
     await windowManager.ensureInitialized();
   }
   if (isMobilePlatform) {
-    // Pre-warm the liquid-glass fragment shaders (Impeller) so the glass bottom
-    // nav has no first-frame compile hitch. Guarded so a shader-load failure can
-    // never block startup; never runs on desktop.
-    try {
+     try {
       await LiquidGlassWidgets.initialize();
     } catch (_) {}
   }
@@ -65,11 +59,7 @@ void main() async {
     try {
       await windowManager.setTitleBarStyle(
         native ? TitleBarStyle.normal : TitleBarStyle.hidden,
-        // macOS: keep the native traffic-light buttons visible in BOTH modes —
-        // in custom (hidden) mode they're the only window controls (our strip
-        // draws no buttons on macOS). On Windows/Linux the custom strip draws
-        // its own buttons, so hide the native ones when custom.
-        windowButtonVisibility: Platform.isMacOS ? true : native,
+           windowButtonVisibility: Platform.isMacOS ? true : native,
       );
       await windowManager.setMinimumSize(const Size(800, 560));
     } catch (_) {}
@@ -89,14 +79,7 @@ void main() async {
     'fcm',
   );
   _fireAndForget(getIt<DeeplinkService>().start(), 'deeplink');
-  // Restores the AniList link from disk, then refreshes it from the account.
-  // Started before the first frame so a title screen already knows whether it
-  // can offer "track this on AniList".
   _fireAndForget(getIt<AnilistService>().restore(), 'anilist');
-  // "Open with Sozo" on an extension index file (index.pb / index.min.json /
-  // repo.json). The context is resolved lazily through the router's navigator:
-  // this fires over whatever screen the user is on, including a cold start
-  // where no route exists yet.
   RepoFileImport.start(
     () => AppRouter.router.routerDelegate.navigatorKey.currentContext,
   );

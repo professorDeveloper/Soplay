@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/widgets/app_tab_bar.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
 import 'package:soplay/features/user_lists/domain/repositories/user_lists_repository.dart';
@@ -46,10 +47,10 @@ class _UserListsPageState extends State<UserListsPage>
       appBar: AppBar(
         backgroundColor: AppColors.background,
         title: const Text('My Lists'),
-        bottom: TabBar(
+        bottom: AppTabBar(
           controller: _tabs,
-          indicatorColor: AppColors.primary,
-          tabs: [for (final k in _kinds) Tab(text: k.label)],
+          isScrollable: false,
+          labels: [for (final k in _kinds) k.label],
         ),
       ),
       body: TabBarView(

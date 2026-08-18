@@ -308,6 +308,10 @@ class AppTheme {
           labelColor: AppColors.textPrimary,
           unselectedLabelColor: AppColors.textHint,
           indicatorColor: AppColors.primary,
+          // Material 3 draws a full-width divider under every TabBar, coloured
+          // from the M3 outline role — which lands near-white on this dark
+          // theme. Screens that want a rule draw their own (AppTabBar does).
+          dividerColor: Colors.transparent,
           indicatorSize: TabBarIndicatorSize.label,
           labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           unselectedLabelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
