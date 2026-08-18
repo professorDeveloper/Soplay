@@ -19,6 +19,7 @@ import 'package:soplay/core/network/provider_interceptor.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
 import 'package:soplay/core/player/webview_stream_extractor.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/remote/data/remote_control_service.dart';
 import 'package:soplay/features/streak/data/streak_remote_data_source.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/watch_party/data/watch_party_remote_data_source.dart';
@@ -190,6 +191,9 @@ Future<void> configureDependencies() async {
   // AniList. Rides the authenticated backend client because the link lives on
   // the Sozo account — the client secret stays on the server, and a TV signed
   // into the same account inherits the connection without its own sign-in.
+  getIt.registerLazySingleton<RemoteControlService>(
+    () => RemoteControlService(dio: getIt<Dio>()),
+  );
   getIt.registerSingleton<AnilistLinkStore>(AnilistLinkStore());
   getIt.registerSingleton<AnilistService>(
     AnilistService(

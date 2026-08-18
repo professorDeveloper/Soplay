@@ -1009,5 +1009,19 @@
     "unfollow": "Unfollow",
     "unfollowed": "{} unfollowed",
     "undo": "Undo"
+  },
+  "remote": {
+    "title": "TV remote",
+    "no_devices": "No linked TVs yet. Pair one from the TV app first.",
+    "load_failed": "Couldn't load your TVs.",
+    "tv_offline": "TV is offline",
+    "idle": "Nothing playing",
+    "command_failed": "That didn't reach the TV",
+    "search_on_tv": "SEARCH ON TV",
+    "search_hint": "Type here, search runs on the TV",
+    "back": "Back",
+    "home": "Home",
+    "open_on_tv": "Play on TV",
+    "sent_to_tv": "Sent to {device}"
   }
 }

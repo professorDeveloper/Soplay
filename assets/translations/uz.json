@@ -1009,5 +1009,19 @@
     "unfollow": "Unfollow",
     "unfollowed": "{} unfollowed",
     "undo": "Undo"
+  },
+  "remote": {
+    "title": "TV pulti",
+    "no_devices": "Bog'langan TV yo'q. Avval TV ilovasidan bog'lang.",
+    "load_failed": "TVlaringizni yuklab bo‘lmadi.",
+    "tv_offline": "TV oflayn",
+    "idle": "Hech narsa o‘ynatilmayapti",
+    "command_failed": "Buyruq TVga yetmadi",
+    "search_on_tv": "TVDA QIDIRISH",
+    "search_hint": "Shu yerga yozing — qidiruv TVda ketadi",
+    "back": "Orqaga",
+    "home": "Bosh sahifa",
+    "open_on_tv": "TVda ko‘rish",
+    "sent_to_tv": "{device} ga yuborildi"
   }
 }

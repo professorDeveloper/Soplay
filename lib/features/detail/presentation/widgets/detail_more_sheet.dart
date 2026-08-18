@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import 'package:soplay/features/remote/data/remote_control_service.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
@@ -64,6 +65,83 @@ class _DetailMoreSheet extends StatefulWidget {
 }
 
 class _DetailMoreSheetState extends State<_DetailMoreSheet> {
+  /// Hands this title to a linked TV.
+  ///
+  /// The device list is fetched on tap rather than when the sheet opens: most
+  /// people never press this, and the ones who do can wait for one request
+  /// instead of everyone paying for it on every open.
+  ///
+  /// The TITLE is what travels. The two apps do not share a source registry, so
+  /// this app's contentUrl means nothing to a TV without that provider — the TV
+  /// resolves the title against its own sources.
+  Future<void> _playOnTv() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final service = getIt<RemoteControlService>();
+
+    void say(String message) => messenger.showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+
+    try {
+      final devices = await service.devices();
+      final online = devices.where((d) => d.online).toList();
+
+      if (devices.isEmpty) {
+        say('remote.no_devices'.tr());
+        return;
+      }
+      if (online.isEmpty) {
+        say('remote.tv_offline'.tr());
+        return;
+      }
+
+      // One reachable TV is the normal case; asking which would be a dialog
+      // with a single button in it.
+      final target = online.length == 1
+          ? online.first
+          : await _pickDevice(online);
+      if (target == null) return;
+
+      await service.openOnTv(
+        target.id,
+        title: widget.entity.title,
+        contentUrl: widget.entity.contentUrl,
+        provider: widget.entity.provider,
+      );
+      if (!mounted) return;
+      navigator.pop();
+      say('remote.sent_to_tv'.tr(namedArgs: {'device': target.name}));
+    } on RemoteOfflineException {
+      say('remote.tv_offline'.tr());
+    } catch (_) {
+      say('remote.command_failed'.tr());
+    }
+  }
+
+  Future<RemoteDevice?> _pickDevice(List<RemoteDevice> devices) {
+    return showModalBottomSheet<RemoteDevice>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final device in devices)
+              ListTile(
+                leading: const Icon(Icons.tv_rounded, color: AppColors.textSecondary),
+                title: Text(device.name),
+                onTap: () => Navigator.of(sheetContext).pop(device),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   final UserListSync _listSync = UserListSync();
   late bool _following = widget.isFollowing;
 
@@ -166,6 +244,16 @@ class _DetailMoreSheetState extends State<_DetailMoreSheet> {
               size: 20,
             ),
             onTap: () => _run(widget.onFindSources),
+          ),
+          _SheetRow(
+            icon: Icons.cast_rounded,
+            label: 'remote.open_on_tv'.tr(),
+            trailing: const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textHint,
+              size: 20,
+            ),
+            onTap: _playOnTv,
           ),
           _SheetRow(
             icon: Icons.ios_share_rounded,
