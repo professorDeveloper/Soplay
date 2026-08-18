@@ -1,30 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
-
-/// The AniList mark.
+/// The official AniList logo, from
+/// https://commons.wikimedia.org/wiki/File:AniList_logo.svg
 ///
-/// Drawn from `assets/icons/anilist.svg`, which is a reconstruction of the
-/// official logo rather than the file from AniList's brand kit. Dropping the
-/// real SVG in at that path replaces it everywhere with no code change.
+/// Rendered in its own colours — the artwork includes its dark tile, so tinting
+/// it to a single colour would erase the mark it exists to show.
 class AnilistLogo extends StatelessWidget {
-  const AnilistLogo({super.key, this.size = 20, this.color = kAnilistBlue});
+  const AnilistLogo({super.key, this.size = 20, this.radius = 5});
 
   final double size;
-  final Color color;
+  final double radius;
 
   @override
-  Widget build(BuildContext context) => SvgPicture.asset(
-    'assets/icons/anilist.svg',
-    width: size,
-    height: size,
-    colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(radius),
+    child: SvgPicture.asset('assets/icons/anilist.svg', width: size, height: size),
   );
 }
 
-/// The mark on its brand-blue tile, for places that need a service badge —
-/// a settings row, an empty state, an account card.
+/// The logo at badge size, for a settings row or an empty state.
 class AnilistLogoBadge extends StatelessWidget {
   const AnilistLogoBadge({super.key, this.size = 44, this.radius = 12});
 
@@ -32,28 +27,6 @@ class AnilistLogoBadge extends StatelessWidget {
   final double radius;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [kAnilistBlue, kAnilistBlueDeep],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: kAnilistBlue.withValues(alpha: 0.3),
-            blurRadius: size * 0.4,
-            spreadRadius: -size * 0.08,
-          ),
-        ],
-      ),
-      child: Center(
-        child: AnilistLogo(size: size * 0.52, color: Colors.white),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      AnilistLogo(size: size, radius: radius);
 }
