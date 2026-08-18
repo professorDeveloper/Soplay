@@ -302,7 +302,7 @@ class _Avatar extends StatelessWidget {
                 color: AppColors.textHint,
               ),
             )
-          : const Center(child: AnilistLogo(size: 24, color: Colors.white)),
+          : const Center(child: AnilistLogo(size: 30)),
     );
   }
 }
