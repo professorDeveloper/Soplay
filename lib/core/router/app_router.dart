@@ -46,6 +46,7 @@ import 'package:soplay/features/trivia/presentation/trivia_args.dart';
 import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
 import 'package:soplay/features/user_lists/presentation/pages/user_lists_page.dart';
 import 'package:soplay/features/profile/presentation/pages/player_settings_page.dart';
+import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:soplay/features/private_list/presentation/pages/private_list_page.dart';
@@ -207,6 +208,10 @@ class AppRouter {
       GoRoute(
         path: '/player-settings',
         builder: (context, state) => const PlayerSettingsPage(),
+      ),
+      GoRoute(
+        path: '/providers',
+        builder: (context, state) => const ProvidersPage(),
       ),
       GoRoute(
         path: '/notifications',

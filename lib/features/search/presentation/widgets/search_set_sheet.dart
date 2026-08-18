@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
@@ -98,12 +99,13 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Search sources',
-                              style: TextStyle(
+                          Text('search.search_sources'.tr(),
+                              style: const TextStyle(
                                   color: AppColors.textPrimary,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800)),
-                          Text('${_selected.length} selected',
+                          Text('search.selected_n'
+                              .tr(args: ['${_selected.length}']),
                               style: const TextStyle(
                                   color: AppColors.textHint, fontSize: 12)),
                         ],
@@ -113,7 +115,7 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                       onPressed: _selected.isEmpty
                           ? null
                           : () => setState(_selected.clear),
-                      child: const Text('Clear'),
+                      child: Text('search.clear_filter'.tr()),
                     ),
                   ],
                 ),
@@ -125,7 +127,7 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                   onChanged: (v) => setState(() => _query = v),
                   decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Filter providers…',
+                    hintText: 'search.filter_providers'.tr(),
                     hintStyle: const TextStyle(color: AppColors.textHint),
                     prefixIcon: const Icon(Icons.search,
                         color: AppColors.textHint, size: 20),
@@ -149,8 +151,8 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'Searching ${_selected.length} sources may be slow. '
-                    'The app stays responsive, but fewer is snappier.',
+                    'search.many_sources_warning'
+                        .tr(args: ['${_selected.length}']),
                     style: const TextStyle(
                         color: Colors.orange, fontSize: 11.5, height: 1.3),
                   ),
@@ -214,7 +216,8 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                       style: FilledButton.styleFrom(
                           backgroundColor: AppColors.primary),
                       onPressed: () => Navigator.of(context).pop(_selected),
-                      child: Text('Apply (${_selected.length})'),
+                      child: Text('search.apply_n'
+                          .tr(args: ['${_selected.length}'])),
                     ),
                   ),
                 ),

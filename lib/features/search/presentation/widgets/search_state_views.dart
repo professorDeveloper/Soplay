@@ -1,13 +1,14 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/features/anilist/presentation/widgets/anilist_linked_badge.dart';
-import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
+import 'package:soplay/features/home/presentation/widgets/home_shared_widgets.dart';
+import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
+import 'package:soplay/features/search/presentation/widgets/search_result_card.dart';
 
 class SearchContentView extends StatelessWidget {
   const SearchContentView({
@@ -17,6 +18,11 @@ class SearchContentView extends StatelessWidget {
     required this.topPad,
     required this.bottomPad,
     required this.onRetry,
+    required this.onSuggestion,
+    required this.onGenre,
+    required this.onRemoveRecent,
+    required this.onClearRecents,
+    required this.onTryAllSources,
   });
 
   final SearchState state;
@@ -24,119 +30,203 @@ class SearchContentView extends StatelessWidget {
   final double topPad;
   final double bottomPad;
   final VoidCallback onRetry;
+  final ValueChanged<String> onSuggestion;
+  final ValueChanged<String> onGenre;
+  final ValueChanged<String> onRemoveRecent;
+  final VoidCallback onClearRecents;
+  final VoidCallback onTryAllSources;
 
   @override
   Widget build(BuildContext context) {
-    final currentState = state;
-    if (currentState is SearchLoaded) {
-      return _SearchResultsView(
-        state: currentState,
-        scrollController: scrollController,
-        topPad: topPad,
-        bottomPad: bottomPad,
-      );
-    }
-    if (currentState is SearchLoading) {
-      return _SearchLoadingView(topPad: topPad);
-    }
-    if (currentState is SearchError) {
-      return _SearchErrorView(topPad: topPad, onRetry: onRetry);
-    }
-    return _SearchPlaceholder(topPad: topPad);
-  }
-}
-
-class _SearchPlaceholder extends StatelessWidget {
-  const _SearchPlaceholder({required this.topPad});
-
-  final double topPad;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(top: topPad),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.search_rounded,
-              color: AppColors.textHint.withValues(alpha: 0.45),
-              size: 68,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'search.hint'.tr(),
-              style: const TextStyle(
-                color: AppColors.textHint,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+    return CustomScrollView(
+      controller: scrollController,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      slivers: [
+        SliverToBoxAdapter(child: SizedBox(height: topPad)),
+        if (state.status == SearchStatus.refreshing)
+          const SliverToBoxAdapter(
+            child: SizedBox(
+              height: 2,
+              child: LinearProgressIndicator(
+                minHeight: 2,
+                color: AppColors.primary,
+                backgroundColor: Colors.transparent,
               ),
-              textAlign: TextAlign.center,
             ),
-          ],
-        ),
-      ),
+          ),
+        ..._body(context),
+        SliverToBoxAdapter(child: SizedBox(height: bottomPad + 90)),
+      ],
     );
+  }
+
+  List<Widget> _body(BuildContext context) {
+    switch (state.status) {
+      case SearchStatus.loading:
+        return [const _SearchSkeletonGrid()];
+      case SearchStatus.error:
+        return [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _SearchErrorView(
+              kind: state.errorKind,
+              message: state.errorMessage,
+              onRetry: onRetry,
+            ),
+          ),
+        ];
+      case SearchStatus.empty:
+        return [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _SearchEmptyView(
+              criteria: state.criteria,
+              onTryAllSources: onTryAllSources,
+            ),
+          ),
+        ];
+      case SearchStatus.idle:
+        return [
+          SliverToBoxAdapter(
+            child: _SearchIdleView(
+              recent: state.recent,
+              genres: state.genres,
+              genresLoading: state.genresLoading,
+              onSuggestion: onSuggestion,
+              onGenre: onGenre,
+              onRemoveRecent: onRemoveRecent,
+              onClearRecents: onClearRecents,
+            ),
+          ),
+        ];
+      case SearchStatus.loaded:
+      case SearchStatus.refreshing:
+        return [
+          SearchResultsGrid(items: state.items),
+          if (state.isLoadingMore)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primary,
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
+            ),
+        ];
+    }
   }
 }
 
-class _SearchLoadingView extends StatelessWidget {
-  const _SearchLoadingView({required this.topPad});
+/// The one results grid for the feature. Cross-search's merged view uses it too.
+class SearchResultsGrid extends StatelessWidget {
+  const SearchResultsGrid({super.key, required this.items});
 
-  final double topPad;
+  final List<MovieEntity> items;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(top: topPad),
-      child: const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.primary,
-          strokeWidth: 2,
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      sliver: SliverGrid(
+        delegate: SliverChildBuilderDelegate(
+          (context, i) {
+            final movie = items[i];
+            return SearchResultCard(
+              movie: movie,
+              // Results can carry a provider of their own — opening them
+              // against the app's "current" provider is how a result that
+              // looked fine in the grid failed to load its detail page.
+              provider: movie.provider.isEmpty ? null : movie.provider,
+              onTap: () {
+                if (movie.url.isEmpty) return;
+                context.push(
+                  '/detail',
+                  extra: DetailArgs(
+                    contentUrl: movie.url,
+                    preview: movie,
+                    provider: movie.provider.isEmpty ? null : movie.provider,
+                  ),
+                );
+              },
+            );
+          },
+          childCount: items.length,
         ),
+        gridDelegate: searchGridDelegate(context),
       ),
     );
   }
 }
 
-class _SearchResultsView extends StatelessWidget {
-  const _SearchResultsView({
-    required this.state,
-    required this.scrollController,
-    required this.topPad,
-    required this.bottomPad,
+class _SearchSkeletonGrid extends StatelessWidget {
+  const _SearchSkeletonGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final columns = searchGridColumns(width);
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      sliver: SliverGrid(
+        delegate: SliverChildBuilderDelegate(
+          (context, i) => const ShimmerWrapper(
+            child: HomeSkeletonBox(
+              width: double.infinity,
+              height: double.infinity,
+              radius: 10,
+            ),
+          ),
+          childCount: columns * 3,
+        ),
+        gridDelegate: searchGridDelegate(context),
+      ),
+    );
+  }
+}
+
+class _SearchIdleView extends StatelessWidget {
+  const _SearchIdleView({
+    required this.recent,
+    required this.genres,
+    required this.genresLoading,
+    required this.onSuggestion,
+    required this.onGenre,
+    required this.onRemoveRecent,
+    required this.onClearRecents,
   });
 
-  final SearchLoaded state;
-  final ScrollController scrollController;
-  final double topPad;
-  final double bottomPad;
+  final List<String> recent;
+  final List<GenreEntity> genres;
+  final bool genresLoading;
+  final ValueChanged<String> onSuggestion;
+  final ValueChanged<String> onGenre;
+  final ValueChanged<String> onRemoveRecent;
+  final VoidCallback onClearRecents;
 
   @override
   Widget build(BuildContext context) {
-    if (state.items.isEmpty) {
+    if (recent.isEmpty && genres.isEmpty) {
       return Padding(
-        padding: EdgeInsets.only(top: topPad),
+        padding: const EdgeInsets.only(top: 80),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.search_off_rounded,
-                color: AppColors.textHint,
-                size: 52,
+              Icon(
+                Icons.search_rounded,
+                color: AppColors.textHint.withValues(alpha: 0.45),
+                size: 68,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               Text(
-                'search.no_results_for'.tr(
-                  namedArgs: {
-                    'query': state.query.isNotEmpty ? state.query : state.genre,
-                  },
-                ),
+                'search.hint'.tr(),
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 15,
+                  color: AppColors.textHint,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -146,218 +236,330 @@ class _SearchResultsView extends StatelessWidget {
       );
     }
 
-    return CustomScrollView(
-      controller: scrollController,
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(16, topPad + 8, 16, 8),
-          sliver: SliverGrid(
-            delegate: SliverChildBuilderDelegate(
-              (context, i) => _SearchMovieCard(movie: state.items[i]),
-              childCount: state.items.length,
-            ),
-            gridDelegate: responsiveGridDelegate(
-              mobileCrossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 0.62,
-            ),
-          ),
-        ),
-        if (state.isLoadingMore)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: AppColors.primary,
-                  strokeWidth: 2,
-                ),
-              ),
-            ),
-          ),
-        SliverToBoxAdapter(child: SizedBox(height: bottomPad + 90)),
-      ],
-    );
-  }
-}
-
-class _SearchMovieCard extends StatelessWidget {
-  const _SearchMovieCard({required this.movie});
-
-  final MovieEntity movie;
-
-  @override
-  Widget build(BuildContext context) {
-    return HoverTap(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        if (movie.url.isEmpty) return;
-        context.push(
-          '/detail',
-          extra: DetailArgs(contentUrl: movie.url, preview: movie),
-        );
-      },
-      child: ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: Stack(
-        fit: StackFit.expand,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          movie.thumbnail != null
-              ? Image.network(
-                  movie.thumbnail!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stack) => _placeholder(),
-                )
-              : _placeholder(),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.85),
-                    Colors.transparent,
-                  ],
+          if (recent.isNotEmpty) ...[
+            Row(
+              children: [
+                Expanded(child: _SectionTitle('search.recent'.tr())),
+                _TextAction(
+                  label: 'search.clear_filter'.tr(),
+                  onTap: onClearRecents,
                 ),
-              ),
-              padding: const EdgeInsets.fromLTRB(6, 22, 6, 6),
-              child: Text(
-                movie.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+              ],
             ),
-          ),
-          Positioned(
-            top: 6,
-            left: 6,
-            child: AnilistLinkedBadge(contentUrl: movie.url),
-          ),
-          if (movie.rating != null)
-            Positioned(
-              top: 6,
-              right: 6,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.star_rounded,
-                      color: AppColors.rating,
-                      size: 9,
-                    ),
-                    const SizedBox(width: 2),
-                    Text(
-                      '${movie.rating}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final q in recent)
+                  _Chip(
+                    label: q,
+                    icon: Icons.history_rounded,
+                    onTap: () => onSuggestion(q),
+                    onRemove: () => onRemoveRecent(q),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 26),
+          ],
+          if (genres.isNotEmpty) ...[
+            _SectionTitle('search.categories'.tr()),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final g in genres)
+                  _Chip(
+                    label: g.name.isNotEmpty ? g.name : g.slug,
+                    onTap: () => onGenre(g.slug),
+                  ),
+              ],
+            ),
+          ] else if (genresLoading)
+            const ShimmerWrapper(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  HomeSkeletonBox(width: 92, height: 34, radius: 10),
+                  HomeSkeletonBox(width: 68, height: 34, radius: 10),
+                  HomeSkeletonBox(width: 110, height: 34, radius: 10),
+                  HomeSkeletonBox(width: 80, height: 34, radius: 10),
+                ],
               ),
             ),
         ],
       ),
-    ),
     );
   }
+}
 
-  Widget _placeholder() {
-    return Container(
-      color: AppColors.surfaceVariant,
-      child: const Icon(
-        Icons.movie_rounded,
-        color: AppColors.textHint,
-        size: 32,
+class _SearchEmptyView extends StatelessWidget {
+  const _SearchEmptyView({
+    required this.criteria,
+    required this.onTryAllSources,
+  });
+
+  final SearchCriteria criteria;
+  final VoidCallback onTryAllSources;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 60, 32, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.search_off_rounded,
+            color: AppColors.textHint,
+            size: 52,
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'search.no_results_for'.tr(namedArgs: {'query': criteria.label}),
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
+            textAlign: TextAlign.center,
+          ),
+          if (criteria.text.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _ActionChip(
+              icon: Icons.travel_explore_rounded,
+              label: 'search.try_all_sources'.tr(),
+              onTap: onTryAllSources,
+            ),
+          ],
+        ],
       ),
     );
   }
 }
 
 class _SearchErrorView extends StatelessWidget {
-  const _SearchErrorView({required this.topPad, required this.onRetry});
+  const _SearchErrorView({
+    required this.kind,
+    required this.message,
+    required this.onRetry,
+  });
 
-  final double topPad;
+  final SearchFailureKind kind;
+  final String message;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final retryChip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+    final (icon, title) = switch (kind) {
+      SearchFailureKind.network => (
+          Icons.wifi_off_rounded,
+          'errors.network'.tr(),
+        ),
+      SearchFailureKind.source => (
+          Icons.extension_off_rounded,
+          'search.source_failed'.tr(),
+        ),
+      SearchFailureKind.unknown => (
+          Icons.error_outline_rounded,
+          'search.search_failed'.tr(),
+        ),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 60, 32, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppColors.textHint, size: 52),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
+            textAlign: TextAlign.center,
+          ),
+          if (message.isNotEmpty && kind != SearchFailureKind.network) ...[
+            const SizedBox(height: 8),
+            Text(
+              message,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: AppColors.textHint, fontSize: 12.5),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          const SizedBox(height: 20),
+          _ActionChip(
+            icon: Icons.refresh_rounded,
+            label: 'general.retry'.tr(),
+            onTap: onRetry,
+            autofocus: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+          color: AppColors.textHint,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+        ),
+      );
+}
+
+class _TextAction extends StatelessWidget {
+  const _TextAction({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+    if (isTvPlatform) {
+      return TvFocusable(onPressed: onTap, borderRadius: 8, child: child);
+    }
+    return GestureDetector(onTap: onTap, child: child);
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.onRemove,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final IconData? icon;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: AppColors.textHint),
+            const SizedBox(width: 6),
+          ],
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          if (onRemove != null) ...[
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: onRemove,
+              child: const Icon(
+                Icons.close_rounded,
+                size: 13,
+                color: AppColors.textHint,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (isTvPlatform) {
+      return TvFocusable(onPressed: onTap, borderRadius: 10, child: chip);
+    }
+    return GestureDetector(onTap: onTap, child: chip);
+  }
+}
+
+class _ActionChip extends StatelessWidget {
+  const _ActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.autofocus = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
       ),
-      child: Text(
-        'general.retry'.tr(),
-        style: const TextStyle(
-          color: AppColors.primary,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
 
-    return Padding(
-      padding: EdgeInsets.only(top: topPad),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.wifi_off_rounded,
-                color: AppColors.textHint,
-                size: 52,
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'errors.network'.tr(),
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 15,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              // Android TV: Retry is the only control on this screen; on a bare
-              // GestureDetector a network blip left the remote with no way out.
-              // Off TV the else branch is the original GestureDetector.
-              if (isTvPlatform)
-                TvFocusable(
-                  onPressed: onRetry,
-                  borderRadius: 10,
-                  autofocus: true,
-                  child: retryChip,
-                )
-              else
-                GestureDetector(onTap: onRetry, child: retryChip),
-            ],
-          ),
-        ),
-      ),
-    );
+    // Android TV: this is often the only control on the screen, so it has to be
+    // a focus stop or the remote has no way out.
+    if (isTvPlatform) {
+      return TvFocusable(
+        onPressed: onTap,
+        borderRadius: 10,
+        autofocus: autofocus,
+        child: content,
+      );
+    }
+    return GestureDetector(onTap: onTap, child: content);
   }
 }

@@ -69,8 +69,116 @@ extension _PlayerPanels on _PlayerPageState {
     );
   }
 
+  List<String> get _sourceLabels => [for (final s in _videoSources) s.quality];
+
+  List<String> get _sourceServers => VideoOptionGroups.servers(_sourceLabels);
+
+  /// The host currently playing, or null before the first source resolves.
+  ///
+  /// Nullable on purpose: serverOf('') answers with the "Default" placeholder,
+  /// which the bar and the settings sheet were painting as if it were a real
+  /// host name.
+  String? get _currentServer {
+    final quality = _currentQuality;
+    if (quality == null) return null;
+    return VideoOptionGroups.serverOf(quality);
+  }
+
+  /// Positions in [_videoSources] the current server offers.
+  List<int> get _currentServerSources {
+    final labels = _sourceLabels;
+    final indices = VideoOptionGroups.indicesFor(labels, _currentServer ?? '');
+    // Until the first source resolves there is no current server; offering
+    // everything beats offering nothing.
+    return indices.isEmpty
+        ? [for (var i = 0; i < labels.length; i++) i]
+        : indices;
+  }
+
+  String _qualityLabel(String label) {
+    final quality = VideoOptionGroups.qualityOf(label);
+    return quality.isEmpty ? label : quality;
+  }
+
+  /// [_QualityRow] paints the label verbatim, and every label in a one-server
+  /// list starts with that server's name — so hand it a display-only copy.
+  VideoSourceEntity _resolutionOnly(VideoSourceEntity source) =>
+      VideoSourceEntity(
+        quality: _qualityLabel(source.quality),
+        videoUrl: source.videoUrl,
+        isDefault: source.isDefault,
+        accessible: source.accessible,
+      );
+
+  void _openServerSheet() {
+    final labels = _sourceLabels;
+    final servers = _sourceServers;
+    if (servers.length < 2) return;
+    showAdaptiveModal<void>(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.dns_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'player.server'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: Colors.white12, height: 1),
+              for (final server in servers)
+                _ServerTile(
+                  label: server,
+                  qualities: VideoOptionGroups.qualitiesFor(labels, server)
+                      .join(' · '),
+                  selected: server == _currentServer,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _switchServer(server);
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _switchServer(String server) async {
+    final labels = _sourceLabels;
+    final current =
+        _currentQuality == null ? -1 : labels.indexOf(_currentQuality!);
+    final target = VideoOptionGroups.switchTo(labels, current, server);
+    if (target < 0 || target >= _videoSources.length) return;
+    await _switchQuality(_videoSources[target]);
+  }
+
   void _openSettingsSheet() {
-    final hasQualities = _videoSources.length > 1;
+    final hasServers = _sourceServers.length > 1;
+    final hasQualities = _currentServerSources.length > 1;
     final langs = _availableLangsForCurrentEpisode();
     final hasLangs = langs.length > 1;
     showAdaptiveModal<void>(
@@ -126,11 +234,23 @@ extension _PlayerPanels on _PlayerPageState {
                   _openFitSheet();
                 },
               ),
+              if (hasServers)
+                _SettingsTile(
+                  icon: Icons.dns_outlined,
+                  label: 'player.server'.tr(),
+                  value: _currentServer ?? '—',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _openServerSheet();
+                  },
+                ),
               if (hasQualities)
                 _SettingsTile(
                   icon: Icons.high_quality_rounded,
                   label: 'player.quality'.tr(),
-                  value: _currentQuality ?? '—',
+                  value: _currentQuality == null
+                      ? '—'
+                      : _qualityLabel(_currentQuality!),
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     _openPanel(_SidePanel.quality);
@@ -485,6 +605,7 @@ extension _PlayerPanels on _PlayerPageState {
 
   Widget _buildSidePanel() {
     final isQuality = _panel == _SidePanel.quality;
+    final sources = _currentServerSources;
     return Positioned(
       top: 0,
       bottom: 0,
@@ -529,15 +650,15 @@ extension _PlayerPanels on _PlayerPageState {
                 child: isQuality
                     ? ListView.separated(
                         controller: _tvPanelScroll,
-                        itemCount: _videoSources.length,
+                        itemCount: sources.length,
                         separatorBuilder: (_, _) => Divider(
                           color: Colors.white.withValues(alpha: 0.06),
                           height: 1,
                         ),
                         itemBuilder: (_, i) {
-                          final src = _videoSources[i];
+                          final src = _videoSources[sources[i]];
                           return _QualityRow(
-                            source: src,
+                            source: _resolutionOnly(src),
                             isActive: src.quality == _currentQuality,
                             onTap: () => _switchQuality(src),
                           );
@@ -562,6 +683,75 @@ extension _PlayerPanels on _PlayerPageState {
             ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ServerTile extends StatelessWidget {
+  const _ServerTile({
+    required this.label,
+    required this.qualities,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String qualities;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      autofocus: isTvPlatform && selected,
+      focusColor: _kTvFocusFill,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              selected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: selected ? AppColors.primary : Colors.white54,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected ? Colors.white : Colors.white70,
+                      fontSize: 14,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                  ),
+                  if (qualities.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      qualities,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

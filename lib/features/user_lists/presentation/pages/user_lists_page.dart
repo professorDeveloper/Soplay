@@ -46,10 +46,18 @@ class _UserListsPageState extends State<UserListsPage>
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: const Text('My Lists'),
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        titleSpacing: 16,
+        title: const Text(
+          'My Lists',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+        ),
         bottom: AppTabBar(
-          controller: _tabs,
+          // Two tabs: split the bar rather than hugging the left edge.
           isScrollable: false,
+          controller: _tabs,
           labels: [for (final k in _kinds) k.label],
         ),
       ),

@@ -769,34 +769,49 @@ class _SoplayFloatingNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8),
+    const radius = BorderRadius.all(Radius.circular(9999));
+
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.navBackground,
-        borderRadius: BorderRadius.circular(9999),
+        borderRadius: radius,
         boxShadow: [
+          // `outer` keeps the lift without darkening the content that now
+          // shows through the translucent fill.
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 55,
-            offset: const Offset(0, 20),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.17),
-            blurRadius: 13,
-            offset: const Offset(0, 12),
+            color: Colors.black.withValues(alpha: 0.32),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+            blurStyle: BlurStyle.outer,
           ),
         ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (int i = 0; i < items.length; i++)
-            _NavCircle(
-              item: items[i],
-              selected: index == i,
-              onTap: () => onTap(i),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF262626).withValues(alpha: 0.72),
+              borderRadius: radius,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.10),
+                width: 0.5,
+              ),
             ),
-        ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (int i = 0; i < items.length; i++)
+                  _NavCircle(
+                    item: items[i],
+                    selected: index == i,
+                    onTap: () => onTap(i),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

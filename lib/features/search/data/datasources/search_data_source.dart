@@ -31,10 +31,21 @@ class SearchDataSource {
     return SearchModel.fromJson(response.data);
   }
 
-  Future<SearchModel> searchMovies(String query, {int page = 1}) async {
+  /// [provider] overrides the interceptor's "current provider", which is what
+  /// lets cross-search treat each selected server provider as its own leg
+  /// instead of collapsing them into one.
+  Future<SearchModel> searchMovies(
+    String query, {
+    int page = 1,
+    String? provider,
+  }) async {
     var response = await dio.get(
       '/contents/search',
-      queryParameters: {'q': query, "page": page},
+      queryParameters: {
+        'q': query,
+        'page': page,
+        if (provider != null && provider.isNotEmpty) 'provider': provider,
+      },
     );
     return SearchModel.fromJson(response.data);
   }

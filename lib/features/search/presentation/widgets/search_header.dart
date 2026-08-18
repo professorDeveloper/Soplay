@@ -13,9 +13,11 @@ class SearchStickyHeader extends StatelessWidget {
     required this.controller,
     required this.focus,
     required this.hasActiveFilter,
+    required this.showFilter,
     required this.onFilterTap,
     required this.onMultiSearchTap,
     required this.onQueryChanged,
+    required this.onSubmitted,
     required this.onClear,
   });
 
@@ -24,9 +26,14 @@ class SearchStickyHeader extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focus;
   final bool hasActiveFilter;
+
+  /// Hidden when the current provider exposes no genres — an empty filter
+  /// sheet is worse than no button.
+  final bool showFilter;
   final VoidCallback onFilterTap;
   final VoidCallback onMultiSearchTap;
   final ValueChanged<String> onQueryChanged;
+  final ValueChanged<String> onSubmitted;
   final VoidCallback onClear;
 
   @override
@@ -38,9 +45,10 @@ class SearchStickyHeader extends StatelessWidget {
     final titleHeight = lerpDouble(28, 0, compactProgress)!;
     final titleGap = lerpDouble(14, 8, compactProgress)!;
     final bottomGap = lerpDouble(16, 10, compactProgress)!;
-    final backgroundColor = progress < 0.01
-        ? AppColors.background
-        : const Color(0xFF181818).withValues(alpha: 0.82);
+    final blurred = progress > 0.01;
+    final backgroundColor = blurred
+        ? const Color(0xFF181818).withValues(alpha: 0.82)
+        : AppColors.background;
 
     final inner = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,6 +88,7 @@ class SearchStickyHeader extends StatelessWidget {
                   controller: controller,
                   focus: focus,
                   onChanged: onQueryChanged,
+                  onSubmitted: onSubmitted,
                   onClear: onClear,
                 ),
               ),
@@ -87,148 +96,140 @@ class SearchStickyHeader extends StatelessWidget {
               _HeaderIconButton(
                 icon: Icons.travel_explore_rounded,
                 onTap: onMultiSearchTap,
-                tooltip: 'Search all sources',
+                tooltip: 'search.all_source_search'.tr(),
               ),
-              const SizedBox(width: 10),
-              _FilterButton(active: hasActiveFilter, onTap: onFilterTap),
+              if (showFilter) ...[
+                const SizedBox(width: 10),
+                _FilterButton(active: hasActiveFilter, onTap: onFilterTap),
+              ],
             ],
           ),
         ),
       ],
     );
 
+    final surface = Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.white.withValues(alpha: 0.06 * progress),
+          ),
+        ),
+      ),
+      child: inner,
+    );
+
+    // An unscrolled page needs no save layer: a BackdropFilter at sigma 0 still
+    // allocates one, on the same frames as the debounce and the poster decode.
+    if (!blurred) return surface;
+
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20 * progress, sigmaY: 20 * progress),
-        child: Container(
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            border: Border(
-              bottom: BorderSide(
-                color: Colors.white.withValues(alpha: 0.06 * progress),
-              ),
-            ),
-          ),
-          child: inner,
-        ),
+        child: surface,
       ),
     );
   }
 }
 
-class _SearchField extends StatefulWidget {
+/// Only the pieces that actually change rebuild on a keystroke: the clear icon
+/// listens to the controller, the border listens to the focus node, and the
+/// [TextField] itself is passed through untouched.
+class _SearchField extends StatelessWidget {
   const _SearchField({
     required this.controller,
     required this.focus,
     required this.onChanged,
+    required this.onSubmitted,
     required this.onClear,
   });
 
   final TextEditingController controller;
   final FocusNode focus;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
   final VoidCallback onClear;
 
   @override
-  State<_SearchField> createState() => _SearchFieldState();
-}
-
-class _SearchFieldState extends State<_SearchField> {
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.addListener(_rebuild);
-    widget.focus.addListener(_rebuild);
-  }
-
-  void _rebuild() => setState(() {});
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_rebuild);
-    widget.focus.removeListener(_rebuild);
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final focused = widget.focus.hasFocus;
+    final field = TextField(
+      controller: controller,
+      focusNode: focus,
+      cursorRadius: const Radius.circular(14),
+      textInputAction: TextInputAction.search,
+      style: const TextStyle(
+        color: AppColors.textPrimary,
+        fontSize: 15,
+        height: 1,
+      ),
+      decoration: InputDecoration(
+        hintText: 'search.hint'.tr(),
+        hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 15),
+        prefixIcon: const Icon(
+          Icons.search_rounded,
+          color: AppColors.textHint,
+          size: 20,
+        ),
+        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, _) {
+            if (value.text.isEmpty) return const SizedBox.shrink();
+            const icon = Icon(
+              Icons.close_rounded,
+              color: AppColors.textHint,
+              size: 18,
+            );
+            // Android TV: the clear (X) is the only way to drop a query
+            // without a hardware keyboard, so it needs to be a focus stop.
+            if (isTvPlatform) {
+              return TvFocusable(
+                onPressed: onClear,
+                borderRadius: 9,
+                child: icon,
+              );
+            }
+            return GestureDetector(onTap: onClear, child: icon);
+          },
+        ),
+        border: InputBorder.none,
+        contentPadding: EdgeInsets.zero,
+        isDense: true,
+      ),
+      onChanged: onChanged,
+      onSubmitted: (value) {
+        focus.unfocus();
+        onSubmitted(value);
+      },
+      onTapOutside: (_) => focus.unfocus(),
+    );
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
-          height: 46,
-          decoration: BoxDecoration(
-            color: focused
-                ? AppColors.surfaceVariant.withValues(alpha: 0.96)
-                : AppColors.surface.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
+      child: ListenableBuilder(
+        listenable: focus,
+        child: field,
+        builder: (context, child) {
+          final focused = focus.hasFocus;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            height: 46,
+            decoration: BoxDecoration(
               color: focused
-                  ? AppColors.primary.withValues(alpha: 0.58)
-                  : Colors.white.withValues(alpha: 0.08),
-              width: focused ? 1.2 : 1,
-            ),
-          ),
-          child: TextField(
-            controller: widget.controller,
-            focusNode: widget.focus,
-            cursorRadius: const Radius.circular(14),
-            textInputAction: TextInputAction.search,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-              height: 1,
-            ),
-            decoration: InputDecoration(
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(14)),
+                  ? AppColors.surfaceVariant.withValues(alpha: 0.96)
+                  : AppColors.surface.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: focused
+                    ? AppColors.primary.withValues(alpha: 0.58)
+                    : Colors.white.withValues(alpha: 0.08),
+                width: focused ? 1.2 : 1,
               ),
-              hintText: 'search.hint'.tr(),
-              hintStyle: const TextStyle(
-                color: AppColors.textHint,
-                fontSize: 15,
-              ),
-              prefixIcon: const Icon(
-                Icons.search_rounded,
-                color: AppColors.textHint,
-                size: 20,
-              ),
-              // Android TV: the clear (X) is the only way to drop a query
-              // without a hardware keyboard, so it needs to be a focus stop.
-              // Off TV both branches below are the original GestureDetector.
-              suffixIcon: widget.controller.text.isEmpty
-                  ? null
-                  : (isTvPlatform
-                      ? TvFocusable(
-                          onPressed: widget.onClear,
-                          borderRadius: 9,
-                          child: const Icon(
-                            Icons.close_rounded,
-                            color: AppColors.textHint,
-                            size: 18,
-                          ),
-                        )
-                      : GestureDetector(
-                          onTap: widget.onClear,
-                          child: const Icon(
-                            Icons.close_rounded,
-                            color: AppColors.textHint,
-                            size: 18,
-                          ),
-                        )),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-              isDense: true,
             ),
-            onChanged: widget.onChanged,
-            onTapOutside: (_) => widget.focus.unfocus(),
-          ),
-        ),
+            child: child,
+          );
+        },
       ),
     );
   }
@@ -247,23 +248,15 @@ class _HeaderIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          height: 46,
-          width: 46,
-          decoration: BoxDecoration(
-            color: AppColors.surface.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
-          ),
-          child: Icon(icon, size: 20, color: AppColors.textSecondary),
-        ),
+    final content = Container(
+      height: 46,
+      width: 46,
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
+      child: Icon(icon, size: 20, color: AppColors.textSecondary),
     );
     // Android TV: the search header's action buttons were unreachable by the
     // D-pad. Off TV this is the GestureDetector that was always here.
@@ -282,48 +275,42 @@ class _FilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          height: 46,
-          width: 46,
-          decoration: BoxDecoration(
-            color: active
-                ? AppColors.primary.withValues(alpha: 0.18)
-                : AppColors.surface.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: active
-                  ? AppColors.primary.withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.08),
-            ),
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Icon(
-                Icons.tune_rounded,
-                size: 20,
-                color: active ? AppColors.primary : AppColors.textSecondary,
-              ),
-              if (active)
-                Positioned(
-                  top: 9,
-                  right: 9,
-                  child: Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+    final content = Container(
+      height: 46,
+      width: 46,
+      decoration: BoxDecoration(
+        color: active
+            ? AppColors.primary.withValues(alpha: 0.18)
+            : AppColors.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: active
+              ? AppColors.primary.withValues(alpha: 0.5)
+              : Colors.white.withValues(alpha: 0.08),
         ),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(
+            Icons.tune_rounded,
+            size: 20,
+            color: active ? AppColors.primary : AppColors.textSecondary,
+          ),
+          if (active)
+            Positioned(
+              top: 9,
+              right: 9,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+        ],
       ),
     );
 

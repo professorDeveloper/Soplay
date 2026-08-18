@@ -178,7 +178,8 @@
     "engine_sheet_subtitle": "Pick the engine for this video. You can change it any time in Settings → Player.",
     "engine_sheet_dont_ask": "Don't ask again",
     "engine_sheet_play": "Play",
-    "subtitle_preview_text": "The quick brown fox jumps over the lazy dog"
+    "subtitle_preview_text": "The quick brown fox jumps over the lazy dog",
+    "server": "Server"
   },
   "profile": {
     "title": "Profile",
@@ -315,7 +316,31 @@
     "local_group": "Local",
     "search_in": "Search in",
     "sources_hint": "Search several sources at once. Leave empty to use your current provider.",
-    "searching": "Searching…"
+    "searching": "Searching…",
+    "all_source_search": "All-source search",
+    "cross_hint": "Search across your sources…",
+    "pick_sources": "Pick which sources to search across.",
+    "choose_sources": "Choose sources",
+    "no_sources_selected": "No sources selected — tap to choose",
+    "sources_selected": "{} selected — tap to change",
+    "type_to_search_n": "Type to search {} sources at once.",
+    "found_in": "Found in {} of {} sources",
+    "results_n": "{} results",
+    "waiting_for": "Searching {}…",
+    "no_results_any": "No results in any selected source.",
+    "offline_note": "Offline — only on-device sources can be searched.",
+    "group_by_source": "Group by source",
+    "merge_titles": "Merge titles",
+    "open_from": "Open from",
+    "load_more": "Load more",
+    "search_failed": "Search failed",
+    "source_failed": "This source is unavailable right now",
+    "try_all_sources": "Try all sources",
+    "search_sources": "Search sources",
+    "filter_providers": "Filter providers…",
+    "selected_n": "{} selected",
+    "apply_n": "Apply ({})",
+    "many_sources_warning": "Searching {} sources may be slow. The app stays responsive, but fewer is snappier."
   },
   "movie": {
     "rating": "Rating",
@@ -686,7 +711,13 @@
     "no_cast": "No cast available",
     "no_recommendations": "No recommendations available",
     "untitled": "Untitled",
-    "read": "Read"
+    "read": "Read",
+    "watch_later": "Watch Later",
+    "watched": "Watched",
+    "follow_series": "Follow series",
+    "find_other_sources": "Find other sources",
+    "anilist_track": "Track on AniList",
+    "anilist_tracked": "Tracked on AniList"
   },
   "shorts": {
     "refresh": "Refresh",
@@ -941,7 +972,18 @@
     "calendar_episode": "Episode {episode}",
     "calendar_empty": "Nothing airs on this day.",
     "calendar_empty_mine": "Nothing from your list airs on this day.",
-    "calendar_open": "Airing calendar"
+    "calendar_open": "Airing calendar",
+    "calendar_error": "Could not load the airing schedule.",
+    "calendar_rate_limited": "AniList is busy right now. Try again in a moment.",
+    "calendar_list_error": "Couldn't load your AniList list.",
+    "calendar_now": "now",
+    "calendar_count": "{count} airings",
+    "calendar_count_mine": "{mine} of {total} yours",
+    "calendar_episode_range": "Episodes {from}-{to}",
+    "calendar_add_planning": "Add to Planning",
+    "calendar_added_planning": "Added to your Planning list",
+    "calendar_add_failed": "Could not add this to your list",
+    "calendar_already_on_list": "Already on your list"
   },
   "tracker": {
     "title": "Tracking",

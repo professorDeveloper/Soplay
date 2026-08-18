@@ -10,6 +10,8 @@ import 'package:soplay/features/search/data/datasources/search_data_source.dart'
 import 'package:soplay/features/search/data/model/search_model.dart';
 import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
 
+typedef _Leg = ({List<MovieEntity> items, int page, int totalPages});
+
 /// Fans a query out across a set of providers with **bounded concurrency**, a
 /// **per-provider timeout**, and **incremental** emission — the core reason the
 /// feature never freezes even with a large provider set:
@@ -48,34 +50,18 @@ class CrossSearchEngine {
   /// this ceiling is only ever paid once per source.
   static const Duration channelTimeout = Duration(seconds: 45);
 
-  /// A synthetic id used for the single collapsed backend ("Sozo") search leg.
-  static const String serverId = '__server__';
-
+  /// Every selected provider is its own leg, server providers included: the
+  /// backend takes an explicit `provider`, so collapsing them into one call was
+  /// both a lie in the summary ("1 of 1 sources") and a silent no-op for every
+  /// server provider the user picked beyond the first.
   Stream<ProviderSearchResult> search({
     required List<ProviderRef> set,
     required String query,
+    int page = 1,
     int concurrency = defaultConcurrency,
     Duration perProviderTimeout = defaultTimeout,
   }) {
-    // Collapse every server provider into a single backend call — the backend
-    // search endpoint is provider-agnostic, so N server providers = 1 leg.
-    final tasks = <ProviderRef>[];
-    var hasServer = false;
-    for (final p in set) {
-      if (p.kind == ProviderKind.server) {
-        hasServer = true;
-      } else {
-        tasks.add(p);
-      }
-    }
-    if (hasServer) {
-      tasks.add(const ProviderRef(
-        id: serverId,
-        name: 'Sozo',
-        kind: ProviderKind.server,
-      ));
-    }
-
+    final tasks = List<ProviderRef>.of(set);
     final controller = StreamController<ProviderSearchResult>();
     var cancelled = false;
     controller.onCancel = () => cancelled = true;
@@ -87,7 +73,12 @@ class CrossSearchEngine {
         while (!cancelled) {
           final i = next++;
           if (i >= tasks.length) return;
-          final result = await _searchOne(tasks[i], query, perProviderTimeout);
+          final result = await searchProvider(
+            tasks[i],
+            query,
+            page: page,
+            timeout: perProviderTimeout,
+          );
           if (cancelled || controller.isClosed) return;
           controller.add(result);
         }
@@ -97,28 +88,33 @@ class CrossSearchEngine {
       if (!controller.isClosed) await controller.close();
     }
 
-    // Fire-and-forget; every error is captured inside [_searchOne].
+    // Fire-and-forget; every error is captured inside [searchProvider].
     unawaited(drain());
     return controller.stream;
   }
 
-  Future<ProviderSearchResult> _searchOne(
+  /// One leg on its own — used to retry a single failed source and to page it.
+  Future<ProviderSearchResult> searchProvider(
     ProviderRef ref,
-    String query,
-    Duration timeout,
-  ) async {
+    String query, {
+    int page = 1,
+    Duration timeout = defaultTimeout,
+  }) async {
     // Extension hosts get the longer budget — see [channelTimeout].
     final effective =
         ref.kind == ProviderKind.channel && timeout < channelTimeout
             ? channelTimeout
             : timeout;
     try {
-      final items = await _dispatch(ref, query).timeout(effective);
+      final leg = await _dispatch(ref, query, page).timeout(effective);
       return ProviderSearchResult(
         provider: ref,
-        items: items,
-        status:
-            items.isEmpty ? ProviderSearchStatus.empty : ProviderSearchStatus.ok,
+        items: leg.items,
+        page: leg.page,
+        totalPages: leg.totalPages,
+        status: leg.items.isEmpty
+            ? ProviderSearchStatus.empty
+            : ProviderSearchStatus.ok,
       );
     } on TimeoutException {
       return ProviderSearchResult(
@@ -126,11 +122,12 @@ class CrossSearchEngine {
         items: const [],
         status: ProviderSearchStatus.timeout,
       );
-    } catch (_) {
+    } catch (e) {
       return ProviderSearchResult(
         provider: ref,
         items: const [],
         status: ProviderSearchStatus.error,
+        message: e.toString().replaceFirst('Exception: ', ''),
       );
     }
   }
@@ -141,40 +138,55 @@ class CrossSearchEngine {
   /// or an `error` field from the host) so the leg is reported as `error`
   /// rather than `empty` — "this source is down" and "no match here" look
   /// identical to the user otherwise, and only one of them is worth retrying.
-  List<MovieEntity> _unwrap(Map<String, dynamic> map, String label) {
+  _Leg _unwrap(Map<String, dynamic> map, String label) {
     if (map.isEmpty) throw Exception('$label: source unavailable');
     final model = SearchModel.fromJson(map);
     final error = (map['error'] as String?)?.trim();
     if (model.items.isEmpty && error != null && error.isNotEmpty) {
       throw Exception('$label: $error');
     }
-    return model.items;
+    return (items: model.items, page: model.page, totalPages: model.totalPages);
   }
 
-  Future<List<MovieEntity>> _dispatch(ProviderRef ref, String query) async {
+  Future<_Leg> _dispatch(ProviderRef ref, String query, int page) async {
     final id = ref.id;
     if (id.startsWith('cs:')) {
       return _unwrap(
-          await CloudStreamChannel.search(id.substring(3), query), ref.name);
+        await CloudStreamChannel.search(id.substring(3), query, page: page),
+        ref.name,
+      );
     }
     if (id.startsWith('an:')) {
       return _unwrap(
-          await AniyomiChannel.search(id.substring(3), query), ref.name);
+        await AniyomiChannel.search(id.substring(3), query, page: page),
+        ref.name,
+      );
     }
     if (id.startsWith('mn:')) {
       return _unwrap(
-          await MangaChannel.search(id.substring(3), query), ref.name);
+        await MangaChannel.search(id.substring(3), query, page: page),
+        ref.name,
+      );
     }
     if (id.startsWith('my:')) {
       return _unwrap(
-          await mangayomi.search(id.substring(3), query), ref.name);
+        await mangayomi.search(id.substring(3), query, page: page),
+        ref.name,
+      );
     }
     if (ref.kind == ProviderKind.js) {
-      final map = await jsRuntime.trySearch(id, query, 1);
-      return map == null ? const [] : SearchModel.fromJson(map).items;
+      final map = await jsRuntime.trySearch(id, query, page);
+      // A null response means the extractor is missing or failed to load. That
+      // is a broken source, not "no match here" — reporting it as empty is the
+      // one place this engine used to invert its own distinction.
+      if (map == null) throw Exception('${ref.name}: source unavailable');
+      return _unwrap(map, ref.name);
     }
-    // server — provider-agnostic backend search.
-    final model = await dataSource.searchMovies(query);
-    return model.items;
+    final model = await dataSource.searchMovies(
+      query,
+      page: page,
+      provider: ref.id,
+    );
+    return (items: model.items, page: model.page, totalPages: model.totalPages);
   }
 }

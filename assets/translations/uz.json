@@ -178,7 +178,8 @@
     "engine_sheet_subtitle": "Shu video uchun pleyerni tanlang. Istalgan vaqt Sozlamalar → Pleyer bo‘limidan o‘zgartirasiz.",
     "engine_sheet_dont_ask": "Boshqa so‘ralmasin",
     "engine_sheet_play": "Ijro etish",
-    "subtitle_preview_text": "Tez qo’ng’ir tulki yalqov itning ustidan sakraydi"
+    "subtitle_preview_text": "Tez qo’ng’ir tulki yalqov itning ustidan sakraydi",
+    "server": "Server"
   },
   "profile": {
     "title": "Profil",
@@ -315,7 +316,31 @@
     "local_group": "Lokal",
     "search_in": "Qidirish manbalari",
     "sources_hint": "Bir vaqtning o'zida bir nechta manbada qidiring. Joriy provayderdan foydalanish uchun bo'sh qoldiring.",
-    "searching": "Qidirilmoqda…"
+    "searching": "Qidirilmoqda…",
+    "all_source_search": "Barcha manbalarda qidiruv",
+    "cross_hint": "Manbalaringiz bo'ylab qidiring…",
+    "pick_sources": "Qidiriladigan manbalarni tanlang.",
+    "choose_sources": "Manbalarni tanlash",
+    "no_sources_selected": "Manba tanlanmagan — tanlash uchun bosing",
+    "sources_selected": "{} ta tanlandi — o'zgartirish uchun bosing",
+    "type_to_search_n": "So'rov kiriting — {} ta manbada birdan qidiriladi.",
+    "found_in": "{} / {} manbada topildi",
+    "results_n": "{} ta natija",
+    "waiting_for": "{} da qidirilmoqda…",
+    "no_results_any": "Tanlangan manbalarning hech birida natija yo'q.",
+    "offline_note": "Oflayn — faqat qurilmadagi manbalarda qidirish mumkin.",
+    "group_by_source": "Manba bo'yicha guruhlash",
+    "merge_titles": "Bir xil nomlarni birlashtirish",
+    "open_from": "Qayerdan ochish",
+    "load_more": "Yana yuklash",
+    "search_failed": "Qidiruv bajarilmadi",
+    "source_failed": "Bu manba hozir mavjud emas",
+    "try_all_sources": "Barcha manbalarda qidirish",
+    "search_sources": "Qidiruv manbalari",
+    "filter_providers": "Provayderlarni filtrlash…",
+    "selected_n": "{} ta tanlandi",
+    "apply_n": "Qo'llash ({})",
+    "many_sources_warning": "{} ta manbada qidiruv sekin bo'lishi mumkin. Ilova qotmaydi, lekin manbalar kamroq bo'lsa tezroq."
   },
   "movie": {
     "rating": "Reyting",
@@ -686,7 +711,13 @@
     "no_cast": "Aktyorlar haqida ma'lumot yo'q",
     "no_recommendations": "Tavsiyalar mavjud emas",
     "untitled": "Nomsiz",
-    "read": "O‘qish"
+    "read": "O‘qish",
+    "watch_later": "Keyinroq ko'rish",
+    "watched": "Ko'rilgan",
+    "follow_series": "Seriyani kuzatish",
+    "find_other_sources": "Boshqa manbalardan izlash",
+    "anilist_track": "AniList'da kuzatish",
+    "anilist_tracked": "AniList'da kuzatilmoqda"
   },
   "shorts": {
     "refresh": "Yangilash",
@@ -941,7 +972,18 @@
     "calendar_episode": "{episode}-qism",
     "calendar_empty": "Bu kuni hech narsa chiqmaydi.",
     "calendar_empty_mine": "Bu kuni ro‘yxatingizdan hech narsa chiqmaydi.",
-    "calendar_open": "Efir kalendari"
+    "calendar_open": "Efir kalendari",
+    "calendar_error": "Efir jadvalini yuklab bo'lmadi.",
+    "calendar_rate_limited": "AniList hozir band. Bir ozdan so'ng qayta urinib ko'ring.",
+    "calendar_list_error": "AniList ro'yxatingizni yuklab bo'lmadi.",
+    "calendar_now": "hozir",
+    "calendar_count": "{count} ta epizod",
+    "calendar_count_mine": "{total} tadan {mine} tasi sizniki",
+    "calendar_episode_range": "{from}-{to}-epizodlar",
+    "calendar_add_planning": "«Rejada»ga qo'shish",
+    "calendar_added_planning": "«Rejada» ro'yxatiga qo'shildi",
+    "calendar_add_failed": "Ro'yxatga qo'shib bo'lmadi",
+    "calendar_already_on_list": "Allaqachon ro'yxatingizda"
   },
   "tracker": {
     "title": "Tracking",

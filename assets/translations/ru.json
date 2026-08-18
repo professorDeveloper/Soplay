@@ -178,7 +178,8 @@
     "engine_sheet_subtitle": "Выберите плеер для этого видео. Изменить можно в Настройках → Плеер.",
     "engine_sheet_dont_ask": "Больше не спрашивать",
     "engine_sheet_play": "Смотреть",
-    "subtitle_preview_text": "Съешь ещё этих мягких французских булок"
+    "subtitle_preview_text": "Съешь ещё этих мягких французских булок",
+    "server": "Сервер"
   },
   "profile": {
     "title": "Профиль",
@@ -315,7 +316,31 @@
     "local_group": "Локальные",
     "search_in": "Искать в",
     "sources_hint": "Ищите сразу в нескольких источниках. Оставьте пустым, чтобы использовать текущего провайдера.",
-    "searching": "Поиск…"
+    "searching": "Поиск…",
+    "all_source_search": "Поиск по всем источникам",
+    "cross_hint": "Поиск по вашим источникам…",
+    "pick_sources": "Выберите источники для поиска.",
+    "choose_sources": "Выбрать источники",
+    "no_sources_selected": "Источники не выбраны — нажмите, чтобы выбрать",
+    "sources_selected": "Выбрано: {} — нажмите, чтобы изменить",
+    "type_to_search_n": "Введите запрос — поиск сразу по {} источникам.",
+    "found_in": "Найдено в {} из {} источников",
+    "results_n": "{} результатов",
+    "waiting_for": "Ищем в {}…",
+    "no_results_any": "Ни в одном выбранном источнике ничего не найдено.",
+    "offline_note": "Нет сети — доступны только источники на устройстве.",
+    "group_by_source": "Группировать по источникам",
+    "merge_titles": "Объединять одинаковые",
+    "open_from": "Открыть из",
+    "load_more": "Показать ещё",
+    "search_failed": "Не удалось выполнить поиск",
+    "source_failed": "Этот источник сейчас недоступен",
+    "try_all_sources": "Искать во всех источниках",
+    "search_sources": "Источники поиска",
+    "filter_providers": "Фильтр провайдеров…",
+    "selected_n": "Выбрано: {}",
+    "apply_n": "Применить ({})",
+    "many_sources_warning": "Поиск по {} источникам может быть медленным. Приложение не зависнет, но с меньшим числом источников быстрее."
   },
   "movie": {
     "rating": "Рейтинг",
@@ -686,7 +711,13 @@
     "no_cast": "Нет информации об актёрах",
     "no_recommendations": "Нет рекомендаций",
     "untitled": "Без названия",
-    "read": "Читать"
+    "read": "Читать",
+    "watch_later": "Смотреть позже",
+    "watched": "Просмотрено",
+    "follow_series": "Следить за сериалом",
+    "find_other_sources": "Найти в других источниках",
+    "anilist_track": "Отслеживать в AniList",
+    "anilist_tracked": "Отслеживается в AniList"
   },
   "shorts": {
     "refresh": "Обновить",
@@ -941,7 +972,18 @@
     "calendar_episode": "Эпизод {episode}",
     "calendar_empty": "В этот день ничего не выходит.",
     "calendar_empty_mine": "В этот день ничего из вашего списка не выходит.",
-    "calendar_open": "Календарь выхода"
+    "calendar_open": "Календарь выхода",
+    "calendar_error": "Не удалось загрузить расписание выхода.",
+    "calendar_rate_limited": "AniList сейчас перегружен. Попробуйте через минуту.",
+    "calendar_list_error": "Не удалось загрузить ваш список AniList.",
+    "calendar_now": "сейчас",
+    "calendar_count": "серий: {count}",
+    "calendar_count_mine": "{mine} из {total} ваших",
+    "calendar_episode_range": "Серии {from}-{to}",
+    "calendar_add_planning": "В «Запланировано»",
+    "calendar_added_planning": "Добавлено в «Запланировано»",
+    "calendar_add_failed": "Не удалось добавить в список",
+    "calendar_already_on_list": "Уже в вашем списке"
   },
   "tracker": {
     "title": "Tracking",

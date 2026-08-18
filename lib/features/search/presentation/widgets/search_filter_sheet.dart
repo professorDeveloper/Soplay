@@ -91,7 +91,9 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                     options: widget.genres
                         .map(
                           (genre) => SearchFilterOption(
-                            label: genre.slug,
+                            label: genre.name.isNotEmpty
+                                ? genre.name
+                                : genre.slug,
                             value: genre.slug,
                           ),
                         )

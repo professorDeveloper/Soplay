@@ -84,7 +84,11 @@ class SearchRepositoryImp extends SearchRepository {
   }
 
   @override
-  Future<Result<SearchModel>> searchMovies(String query, {int page = 1}) async  {
+  Future<Result<SearchModel>> searchMovies(
+    String query, {
+    int page = 1,
+    String? genre,
+  }) async {
     final js = jsRuntime;
     final provider = _currentProvider;
     if (provider != null && provider.startsWith('cs:')) {
