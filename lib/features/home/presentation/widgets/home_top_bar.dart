@@ -79,6 +79,13 @@ class HomeTopBar extends StatelessWidget {
             child: const AnilistLogo(size: 19, radius: 5),
             onTap: () => context.push('/anilist'),
           ),
+          // Live TV was reachable only through the profile, which is where
+          // things go to be forgotten. It is a line-up you open and leave, not
+          // a setting.
+          _TopBarIcon(
+            icon: Icons.live_tv_rounded,
+            onTap: () => context.push('/live-tv'),
+          ),
           _DownloadIndicator(),
           const _NotificationsIndicator(),
         ],

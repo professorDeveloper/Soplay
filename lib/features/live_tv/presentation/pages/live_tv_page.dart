@@ -15,7 +15,12 @@ import 'package:soplay/features/live_tv/data/live_tv_service.dart';
 /// screen is built for scanning — logo-forward cards, categories across the
 /// top, and the ones you actually watch pinned above everything else.
 class LiveTvPage extends StatefulWidget {
-  const LiveTvPage({super.key});
+  /// True when mounted as a tab rather than pushed: a tab is already at the
+  /// root of its stack, so it gets no back arrow and keeps its own bottom
+  /// padding clear of the nav bar.
+  const LiveTvPage({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   State<LiveTvPage> createState() => _LiveTvPageState();
@@ -27,6 +32,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
 
   List<LiveCategory> _all = const [];
   Set<String> _favourites = <String>{};
+  List<String> _recent = const [];
   String _category = '';
   String _query = '';
   bool _loading = true;
@@ -36,6 +42,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
   void initState() {
     super.initState();
     _favourites = _readFavourites();
+    _recent = getIt<HiveService>().getLiveTvRecent();
     _load();
   }
 
@@ -87,6 +94,10 @@ class _LiveTvPageState extends State<LiveTvPage> {
   }
 
   void _play(LiveChannel channel) {
+    getIt<HiveService>().pushLiveTvRecent(channel.id);
+    setState(() {
+      _recent = [channel.id, ..._recent.where((e) => e != channel.id)].take(12).toList();
+    });
     context.push(
       '/player',
       extra: PlayerArgs(
@@ -125,9 +136,18 @@ class _LiveTvPageState extends State<LiveTvPage> {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
-        title: Text(
-          'live_tv.title'.tr(),
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+        automaticallyImplyLeading: !widget.embedded,
+        titleSpacing: widget.embedded ? 18 : null,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'live_tv.title'.tr(),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(width: 8),
+            const _LivePill(),
+          ],
         ),
       ),
       body: SafeArea(child: _body()),
@@ -158,6 +178,15 @@ class _LiveTvPageState extends State<LiveTvPage> {
         .toList(growable: false);
     final showFavourites =
         favourites.isNotEmpty && _query.isEmpty && _category.isEmpty;
+
+    // Ordered by when it was watched, not by where it sits in the line-up, and
+    // never repeating what is already pinned right above it.
+    final byId = {for (final c in _flat) c.id: c};
+    final recent = [
+      for (final id in _recent)
+        if (byId[id] != null && !_favourites.contains(id)) byId[id]!,
+    ];
+    final showRecent = recent.isNotEmpty && _query.isEmpty && _category.isEmpty;
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -198,6 +227,14 @@ class _LiveTvPageState extends State<LiveTvPage> {
             ),
           ),
 
+          if (showRecent) ...[
+            _Header(label: 'live_tv.recent'.tr()),
+            _RecentRow(
+              channels: recent,
+              onPlay: _play,
+            ),
+          ],
+
           if (showFavourites) ...[
             _Header(label: 'live_tv.favourites'.tr()),
             _Grid(
@@ -228,8 +265,130 @@ class _LiveTvPageState extends State<LiveTvPage> {
             ),
           ],
 
-          const SliverToBoxAdapter(child: SizedBox(height: 28)),
+          SliverToBoxAdapter(child: SizedBox(height: widget.embedded ? 96 : 28)),
         ],
+      ),
+    );
+  }
+}
+
+/// The one thing that makes this screen read as live rather than as a grid of
+/// logos: it is on now, and there is nothing to resume to.
+class _LivePill extends StatelessWidget {
+  const _LivePill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            'LIVE',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.9,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The last few channels, as a rail rather than a grid.
+///
+/// A rail because this is a shortcut, not a section to browse: four or five
+/// entries wide is the whole of it, and it should never push the line-up itself
+/// off the first screen.
+class _RecentRow extends StatelessWidget {
+  const _RecentRow({required this.channels, required this.onPlay});
+
+  final List<LiveChannel> channels;
+  final ValueChanged<LiveChannel> onPlay;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 62,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          itemCount: channels.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, i) {
+            final channel = channels[i];
+            return Material(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => onPlay(channel),
+                child: Container(
+                  width: 148,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 34,
+                        height: 34,
+                        child: channel.logoUrl == null
+                            ? Icon(
+                                Icons.live_tv_rounded,
+                                size: 18,
+                                color: AppColors.textHint,
+                              )
+                            : CachedNetworkImage(
+                                imageUrl: channel.logoUrl!,
+                                fit: BoxFit.contain,
+                                errorWidget: (_, _, _) => Icon(
+                                  Icons.live_tv_rounded,
+                                  size: 18,
+                                  color: AppColors.textHint,
+                                ),
+                              ),
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          channel.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            height: 1.15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

@@ -10,11 +10,12 @@ import 'package:soplay/features/download/presentation/pages/downloads_page.dart'
 import 'package:soplay/features/history/presentation/pages/history_page.dart';
 import 'package:soplay/features/tracker/presentation/pages/following_page.dart';
 import 'package:soplay/features/trivia/presentation/pages/buff_hub_page.dart';
+import 'package:soplay/features/live_tv/presentation/pages/live_tv_page.dart';
 
 /// Stable, persisted key for every navigable tab. Add a value here + one
 /// registry entry + a `navigation.<name>` translation to introduce a new tab
 /// (Premiere, Buff, ...). `.name` is what gets stored in Hive.
-enum TabId { home, search, shorts, myList, profile, downloads, history, following, buff }
+enum TabId { home, search, shorts, myList, profile, downloads, history, following, buff, liveTv }
 
 /// Per-tab runtime state only the shell can supply. Shorts needs to know whether
 /// it is the visible tab (autoplay pause) and the refresh tick; every other
@@ -56,6 +57,7 @@ Widget _downloadsBuilder(TabBuildContext _) => const DownloadsPage();
 Widget _historyBuilder(TabBuildContext _) => const HistoryPage();
 Widget _followingBuilder(TabBuildContext _) => const FollowingPage();
 Widget _buffBuilder(TabBuildContext _) => const BuffHubPage();
+Widget _liveTvBuilder(TabBuildContext _) => const LiveTvPage(embedded: true);
 
 /// Single source of truth — replaces the old body list AND the metadata list.
 const Map<TabId, AppTabDef> kTabRegistry = {
@@ -117,6 +119,12 @@ const Map<TabId, AppTabDef> kTabRegistry = {
       activeIcon: CupertinoIcons.film_fill,
       labelKey: 'navigation.buff',
       builder: _buffBuilder),
+  TabId.liveTv: AppTabDef(
+      id: TabId.liveTv,
+      icon: CupertinoIcons.tv,
+      activeIcon: CupertinoIcons.tv_fill,
+      labelKey: 'navigation.live_tv',
+      builder: _liveTvBuilder),
 };
 
 /// Default = the current shipped 5-tab order → this IS the back-compat contract.

@@ -418,7 +418,8 @@
     "following": "Following",
     "premiere": "Premiere",
     "buff": "Buff",
-    "anilist": "AniList"
+    "anilist": "AniList",
+    "live_tv": "Live TV"
   },
   "premiere": {
     "tab_title": "Premieres",
@@ -1086,7 +1087,8 @@
     "no_match": "No channel matches that.",
     "empty": "No channels yet.",
     "load_failed": "Couldn't load the channels.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "recent": "RECENTLY WATCHED"
   },
   "time": {
     "now": "just now",
