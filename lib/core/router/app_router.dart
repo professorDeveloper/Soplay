@@ -48,6 +48,7 @@ import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
 import 'package:soplay/features/user_lists/presentation/pages/user_lists_page.dart';
 import 'package:soplay/features/profile/presentation/pages/player_settings_page.dart';
 import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
+import 'package:soplay/features/live_tv/presentation/pages/live_tv_page.dart';
 import 'package:soplay/features/remote/presentation/pages/tv_remote_page.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
@@ -180,6 +181,10 @@ class AppRouter {
       GoRoute(
         path: '/following',
         builder: (context, state) => const FollowingPage(),
+      ),
+      GoRoute(
+        path: '/live-tv',
+        builder: (context, state) => const LiveTvPage(),
       ),
       GoRoute(
         path: '/tv-remote',

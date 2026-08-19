@@ -1029,5 +1029,16 @@
     "retry": "Qayta urinish",
     "navigation": "NAVIGATSIYA",
     "playback": "IJRO"
+  },
+  "live_tv": {
+    "title": "Jonli TV",
+    "all": "Hammasi",
+    "favourites": "TANLANGANLAR",
+    "all_channels": "BARCHA KANALLAR",
+    "search_hint": "Kanal nomi…",
+    "no_match": "Mos kanal topilmadi.",
+    "empty": "Hozircha kanal yo‘q.",
+    "load_failed": "Kanallarni yuklab bo‘lmadi.",
+    "retry": "Qayta urinish"
   }
 }

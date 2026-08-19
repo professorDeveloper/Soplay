@@ -1136,9 +1136,20 @@ class _ConnectionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: _SectionCard(children: [_ConnectionsTile()]),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: _SectionCard(
+        children: [
+          const _ConnectionsTile(),
+          _Tile(
+            icon: Icons.live_tv_rounded,
+            title: 'live_tv.title'.tr(),
+            trailing: Icon(Icons.chevron_right_rounded,
+                color: AppColors.textHint, size: 20),
+            onTap: () => context.push('/live-tv'),
+          ),
+        ],
+      ),
     );
   }
 }

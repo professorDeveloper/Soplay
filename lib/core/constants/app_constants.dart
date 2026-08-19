@@ -43,6 +43,7 @@ class AppConstants {
   static const String themeModeKey = 'theme_mode';
   static const String languageKey = 'language';
   static const String currentProviderKey = 'current_provider';
+  static const String liveTvFavouritesKey = 'live_tv_favourites';
 
   /// Provider used until the real list arrives and ProviderBloc persists a
   /// choice. Without it a fresh install races: HomeBloc reads the current

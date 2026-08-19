@@ -342,6 +342,19 @@ class HiveService {
     await _settingsBox.put(AppConstants.longPressBoostKey, rate);
   }
 
+  /// Channels the user pinned to the top of Live TV.
+  ///
+  /// Ids rather than whole channels: the line-up comes from the server and a
+  /// stored copy would go stale the first time a channel is renamed.
+  List<String> getLiveTvFavourites() {
+    final raw = _settingsBox.get(AppConstants.liveTvFavouritesKey);
+    if (raw is! List) return const [];
+    return raw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+  }
+
+  Future<void> setLiveTvFavourites(List<String> ids) =>
+      _settingsBox.put(AppConstants.liveTvFavouritesKey, ids);
+
   bool get brightnessGestureEnabled {
     return _settingsBox.get(
           AppConstants.brightnessGestureKey,
