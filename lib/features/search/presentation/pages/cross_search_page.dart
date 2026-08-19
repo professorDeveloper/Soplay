@@ -163,11 +163,18 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
       _push(title.hits.first);
       return;
     }
+    // Scrollable and height-capped: the list is as long as the number of sources that
+    // matched, which is exactly what all-source search is for, and a fixed Column ran off
+    // the bottom of the sheet as soon as it found more than a handful.
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
       ),
       builder: (_) => SafeArea(
         child: Column(
@@ -185,23 +192,33 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
                 ),
               ),
             ),
-            for (final hit in title.hits)
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.play_circle_outline,
-                    color: AppColors.primary, size: 20),
-                title: Text(hit.provider.name,
-                    style: const TextStyle(color: Colors.white, fontSize: 14)),
-                subtitle: Text(hit.item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: AppColors.textHint, fontSize: 12)),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _push(hit);
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.only(bottom: 8),
+                itemCount: title.hits.length,
+                itemBuilder: (_, i) {
+                  final hit = title.hits[i];
+                  return ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.play_circle_outline,
+                        color: AppColors.primary, size: 20),
+                    title: Text(hit.provider.name,
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 14)),
+                    subtitle: Text(hit.item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: AppColors.textHint, fontSize: 12)),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _push(hit);
+                    },
+                  );
                 },
               ),
+            ),
           ],
         ),
       ),
