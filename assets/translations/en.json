@@ -98,7 +98,11 @@
     "view_all": "View all",
     "remove_from_continue": "Remove from continue watching",
     "ep_number": "EP {}",
-    "untitled": "Untitled"
+    "untitled": "Untitled",
+    "empty_title": "Nothing here yet",
+    "empty_subtitle": "Pick another source, or pull to refresh.",
+    "list_empty_title": "This list is empty",
+    "list_empty_subtitle": "Nothing to show for this section right now."
   },
   "player": {
     "play": "Play",
@@ -300,7 +304,11 @@
     "volume_gesture_desc": "Swipe up and down on the right side",
     "seconds_short": "{}s",
     "subtitle_style_note": "These apply to every video. Subtitle timing stays per episode and is set inside the player.",
-    "searching_all_sources": "searching all sources"
+    "searching_all_sources": "searching all sources",
+    "section_connections": "CONNECTIONS",
+    "section_extensions": "SOURCES",
+    "section_settings": "SETTINGS",
+    "remove_favorite": "Remove from favourites"
   },
   "search": {
     "title": "Search",
@@ -352,7 +360,26 @@
     "filter_providers": "Filter providers…",
     "selected_n": "{} selected",
     "apply_n": "Apply ({})",
-    "many_sources_warning": "Searching {} sources may be slow. The app stays responsive, but fewer is snappier."
+    "many_sources_warning": "Searching {} sources may be slow. The app stays responsive, but fewer is snappier.",
+    "all_sources_n": "All sources ({})",
+    "more_sources": "More…",
+    "select_all_sources": "Select all",
+    "search_all_sources": "Search all sources",
+    "apply_all": "Search all sources",
+    "selected_n_of_m": "{} of {} sources",
+    "loading_sources": "Loading your sources…",
+    "no_sources_available": "No sources available. Add or enable a source to search.",
+    "min_query_n": "Type at least {} characters.",
+    "retry_failed": "Retry failed",
+    "status_searching": "Searching…",
+    "status_searching_n": "{} searching",
+    "status_with_results_n": "{} with results",
+    "status_no_match_n": "{} no match",
+    "status_timed_out_n": "{} timed out",
+    "status_failed_n": "{} failed",
+    "all_sources_failed": "All {} sources failed to answer. This is not an empty result — try again.",
+    "no_results_with_failures": "No matches from the sources that answered ({}). {} could not be reached.",
+    "all_sources_failed_one": "The source you searched failed to answer. This is not an empty result — try again."
   },
   "movie": {
     "rating": "Rating",
@@ -729,7 +756,12 @@
     "follow_series": "Follow series",
     "find_other_sources": "Find other sources",
     "anilist_track": "Track on AniList",
-    "anilist_tracked": "Tracked on AniList"
+    "anilist_tracked": "Tracked on AniList",
+    "following_on": "Following",
+    "following_off": "Not following",
+    "no_screenshots": "No screenshots",
+    "show_more": "Show more",
+    "show_less": "Show less"
   },
   "shorts": {
     "refresh": "Refresh",
@@ -1006,7 +1038,11 @@
     "episodes_count": "{count} eps",
     "reminder_body": "Episode {episode} airs in 10 minutes",
     "reminders_on": "Remind me before episodes air",
-    "reminders_off": "Episode reminders are off"
+    "reminders_off": "Episode reminders are off",
+    "connect_first": "Connect AniList first",
+    "save_failed": "Couldn't save to AniList",
+    "search_in_source": "SEARCH IN ONE SOURCE",
+    "no_sources": "No sources installed yet"
   },
   "tracker": {
     "title": "Tracking",
@@ -1051,5 +1087,17 @@
     "empty": "No channels yet.",
     "load_failed": "Couldn't load the channels.",
     "retry": "Try again"
+  },
+  "time": {
+    "now": "just now",
+    "minutes": "{} min ago",
+    "hours": "{} h ago",
+    "days": "{} d ago"
+  },
+  "user_lists": {
+    "title": "My Lists",
+    "remove": "Remove",
+    "empty_title": "Nothing saved yet",
+    "empty_subtitle": "Titles you save show up here."
   }
 }

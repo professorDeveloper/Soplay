@@ -3,35 +3,34 @@ import 'package:flutter/material.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
+import 'package:soplay/features/search/domain/entities/cross_search_scope.dart';
 
-/// Multi-select for the cross-search provider set. Returns the chosen ids via
-/// `Navigator.pop(context, Set<String>)`, or `null` if dismissed.
+/// The full source list, for narrowing when the chip rail on the page is not
+/// enough — a couple of hundred providers need a filter box.
 ///
-/// Kept deliberately explicit: with 200+ installed providers, searching all
-/// would be slow, so the user curates a small set here.
+/// Returns a [CrossSearchScope] via `Navigator.pop`, or `null` if dismissed.
+/// Selecting nothing is not "search nothing": it resolves back to every source,
+/// which is the default this feature is supposed to have.
 class SearchSetSheet extends StatefulWidget {
   const SearchSetSheet({
     super.key,
     required this.providers,
-    required this.initialSelected,
+    required this.scope,
   });
 
   final List<ProviderEntity> providers;
-  final Set<String> initialSelected;
+  final CrossSearchScope scope;
 
-  static Future<Set<String>?> show(
+  static Future<CrossSearchScope?> show(
     BuildContext context, {
     required List<ProviderEntity> providers,
-    required Set<String> initialSelected,
+    required CrossSearchScope scope,
   }) {
-    return showModalBottomSheet<Set<String>>(
+    return showModalBottomSheet<CrossSearchScope>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => SearchSetSheet(
-        providers: providers,
-        initialSelected: initialSelected,
-      ),
+      builder: (_) => SearchSetSheet(providers: providers, scope: scope),
     );
   }
 
@@ -40,8 +39,15 @@ class SearchSetSheet extends StatefulWidget {
 }
 
 class _SearchSetSheetState extends State<SearchSetSheet> {
-  late final Set<String> _selected = {...widget.initialSelected};
+  late final Set<String> _selected = {
+    if (!widget.scope.isAll) ...widget.scope.ids!,
+  };
   String _query = '';
+
+  bool get _isAll => _selected.isEmpty || _selected.length == widget.providers.length;
+
+  CrossSearchScope get _result =>
+      _isAll ? const CrossSearchScope.all() : CrossSearchScope.only(_selected);
 
   static const int _softCap = 15;
 
@@ -66,7 +72,8 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final items = _filtered;
-    final overCap = _selected.length > _softCap;
+    final effective = _isAll ? widget.providers.length : _selected.length;
+    final overCap = effective > _softCap;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
@@ -104,18 +111,22 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                                   color: AppColors.textPrimary,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800)),
-                          Text('search.selected_n'
-                              .tr(args: ['${_selected.length}']),
+                          Text(
+                              _isAll
+                                  ? 'search.all_sources_n'
+                                      .tr(args: ['${widget.providers.length}'])
+                                  : 'search.selected_n_of_m'.tr(args: [
+                                      '${_selected.length}',
+                                      '${widget.providers.length}',
+                                    ]),
                               style: const TextStyle(
                                   color: AppColors.textHint, fontSize: 12)),
                         ],
                       ),
                     ),
                     TextButton(
-                      onPressed: _selected.isEmpty
-                          ? null
-                          : () => setState(_selected.clear),
-                      child: Text('search.clear_filter'.tr()),
+                      onPressed: _isAll ? null : () => setState(_selected.clear),
+                      child: Text('search.select_all_sources'.tr()),
                     ),
                   ],
                 ),
@@ -151,8 +162,7 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'search.many_sources_warning'
-                        .tr(args: ['${_selected.length}']),
+                    'search.many_sources_warning'.tr(args: ['$effective']),
                     style: const TextStyle(
                         color: Colors.orange, fontSize: 11.5, height: 1.3),
                   ),
@@ -164,14 +174,22 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                   itemCount: items.length,
                   itemBuilder: (_, i) {
                     final p = items[i];
-                    final on = _selected.contains(p.id);
+                    final on = _isAll || _selected.contains(p.id);
                     return CheckboxListTile(
                       value: on,
                       dense: true,
                       controlAffinity: ListTileControlAffinity.leading,
                       activeColor: AppColors.primary,
                       onChanged: (_) => setState(() {
-                        if (on) {
+                        // Unchecking a row while every source is in scope has
+                        // to materialise the full set first, or it would read
+                        // as a no-op.
+                        if (_isAll) {
+                          _selected
+                            ..clear()
+                            ..addAll(widget.providers.map((e) => e.id))
+                            ..remove(p.id);
+                        } else if (on) {
                           _selected.remove(p.id);
                         } else {
                           _selected.add(p.id);
@@ -215,9 +233,10 @@ class _SearchSetSheetState extends State<SearchSetSheet> {
                     child: FilledButton(
                       style: FilledButton.styleFrom(
                           backgroundColor: AppColors.primary),
-                      onPressed: () => Navigator.of(context).pop(_selected),
-                      child: Text('search.apply_n'
-                          .tr(args: ['${_selected.length}'])),
+                      onPressed: () => Navigator.of(context).pop(_result),
+                      child: Text(_isAll
+                          ? 'search.apply_all'.tr()
+                          : 'search.apply_n'.tr(args: ['${_selected.length}'])),
                     ),
                   ),
                 ),
