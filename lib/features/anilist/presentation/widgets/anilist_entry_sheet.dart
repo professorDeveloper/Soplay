@@ -96,128 +96,133 @@ class _AnilistEntrySheetState extends State<AnilistEntrySheet> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),
         padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
+        // Scrolls rather than clips: six status pills, a three-line title and a
+        // large text scale together outrun the height a sheet is given, and a
+        // landscape phone outruns it on its own.
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AnilistCover(url: media.coverImage, width: 68),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        media.displayTitle,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          height: 1.25,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          AnilistChip(
-                            label: (AnilistStatus.fromValue(entry.status) ??
-                                    AnilistStatus.current)
-                                .labelKey
-                                .tr(),
+              const SizedBox(height: 18),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AnilistCover(url: media.coverImage, width: 68),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          media.displayTitle,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            height: 1.25,
                           ),
-                          if (media.format != null)
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
                             AnilistChip(
-                              label: media.format!,
-                              color: AppColors.textSecondary,
+                              label: (AnilistStatus.fromValue(entry.status) ??
+                                      AnilistStatus.current)
+                                  .labelKey
+                                  .tr(),
                             ),
-                          if (media.averageScore != null)
-                            AnilistChip(
-                              label: '${media.averageScore}%',
-                              icon: Icons.star_rounded,
-                              color: AppColors.rating,
-                            ),
-                        ],
-                      ),
-                    ],
+                            if (media.format != null)
+                              AnilistChip(
+                                label: media.format!,
+                                color: AppColors.textSecondary,
+                              ),
+                            if (media.averageScore != null)
+                              AnilistChip(
+                                label: '${media.averageScore}%',
+                                icon: Icons.star_rounded,
+                                color: AppColors.rating,
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _ProgressRow(
-              progress: entry.progress,
-              total: total,
-              busy: busy,
-              canDecrement: entry.progress > 0,
-              canIncrement: next != null,
-              onDecrement: () => _run(_c.setProgress(entry, entry.progress - 1)),
-              onIncrement: () => _run(_c.bumpEpisode(entry)),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'anilist.status_label'.tr(),
-              style: const TextStyle(
-                color: AppColors.textHint,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.7,
+                ],
               ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final status in AnilistStatus.values)
-                  _StatusPill(
-                    label: status.labelKey.tr(),
-                    selected: entry.status == status.value,
-                    onTap: busy || entry.status == status.value
-                        ? null
-                        : () => _run(_c.setStatus(entry, status)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Divider(color: AppColors.divider, height: 1),
-            const SizedBox(height: 8),
-            _Action(
-              icon: Icons.travel_explore_rounded,
-              label: 'anilist.find_in_sources'.tr(),
-              subtitle: 'anilist.find_in_sources_hint'.tr(),
-              onTap: () {
-                Navigator.of(context).pop();
-                context.push('/cross-search', extra: media.displayTitle);
-              },
-            ),
-            _Action(
-              icon: Icons.open_in_new_rounded,
-              label: 'anilist.open_on_anilist'.tr(),
-              onTap: media.siteUrl == null
-                  ? null
-                  : () => launchUrl(
-                        Uri.parse(media.siteUrl!),
-                        mode: LaunchMode.externalApplication,
-                      ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              _ProgressRow(
+                progress: entry.progress,
+                total: total,
+                busy: busy,
+                canDecrement: entry.progress > 0,
+                canIncrement: next != null,
+                onDecrement: () => _run(_c.setProgress(entry, entry.progress - 1)),
+                onIncrement: () => _run(_c.bumpEpisode(entry)),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'anilist.status_label'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.7,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final status in AnilistStatus.values)
+                    _StatusPill(
+                      label: status.labelKey.tr(),
+                      selected: entry.status == status.value,
+                      onTap: busy || entry.status == status.value
+                          ? null
+                          : () => _run(_c.setStatus(entry, status)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Divider(color: AppColors.divider, height: 1),
+              const SizedBox(height: 8),
+              _Action(
+                icon: Icons.travel_explore_rounded,
+                label: 'anilist.find_in_sources'.tr(),
+                subtitle: 'anilist.find_in_sources_hint'.tr(),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  context.push('/cross-search', extra: media.displayTitle);
+                },
+              ),
+              _Action(
+                icon: Icons.open_in_new_rounded,
+                label: 'anilist.open_on_anilist'.tr(),
+                onTap: media.siteUrl == null
+                    ? null
+                    : () => launchUrl(
+                          Uri.parse(media.siteUrl!),
+                          mode: LaunchMode.externalApplication,
+                        ),
+              ),
+            ],
+          ),
         ),
       ),
     );

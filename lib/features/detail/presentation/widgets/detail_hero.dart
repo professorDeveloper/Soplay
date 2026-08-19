@@ -97,23 +97,37 @@ class _ThumbnailImage extends StatelessWidget {
         ),
       );
     }
-    return Image.network(
-      url!,
-      fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => Container(
-        color: AppColors.surfaceVariant,
-        child: const Center(
-          child: Icon(
-            Icons.broken_image_outlined,
-            color: AppColors.textHint,
-            size: 64,
+    // Placeholder underneath rather than swapped in by loadingBuilder: the
+    // artwork used to cut in hard over a flat grey block, and the hard cut is
+    // the most visible thing on the page while it happens.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: AppColors.surfaceVariant),
+        Image.network(
+          url!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => Container(
+            color: AppColors.surfaceVariant,
+            child: const Center(
+              child: Icon(
+                Icons.broken_image_outlined,
+                color: AppColors.textHint,
+                size: 64,
+              ),
+            ),
           ),
+          frameBuilder: (_, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded) return child;
+            return AnimatedOpacity(
+              opacity: frame == null ? 0 : 1,
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOut,
+              child: child,
+            );
+          },
         ),
-      ),
-      loadingBuilder: (_, child, chunk) {
-        if (chunk == null) return child;
-        return Container(color: AppColors.surfaceVariant);
-      },
+      ],
     );
   }
 }

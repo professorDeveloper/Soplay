@@ -18,6 +18,12 @@ class FavoriteCard extends StatelessWidget {
 
   final bool synced;
 
+  static const double titleFontSize = 12;
+  static const double titleLineHeight = 1.18;
+  static const double metaFontSize = 10.5;
+  static const double metaLineHeight = 1.2;
+  static const double metaGap = 3;
+
   @override
   Widget build(BuildContext context) {
     final title =
@@ -107,31 +113,40 @@ class FavoriteCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 7),
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1.18,
-            ),
-          ),
-          if (meta.isNotEmpty) ...[
-            const SizedBox(height: 3),
-            Text(
-              meta,
-              maxLines: 1,
+          FixedTextLines(
+            fontSize: titleFontSize,
+            lineHeight: titleLineHeight,
+            lines: 2,
+            child: Text(
+              title,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w500,
-                height: 1.2,
+                color: AppColors.textPrimary,
+                fontSize: titleFontSize,
+                fontWeight: FontWeight.w700,
+                height: titleLineHeight,
               ),
             ),
-          ],
+          ),
+          const SizedBox(height: metaGap),
+          FixedTextLines(
+            fontSize: metaFontSize,
+            lineHeight: metaLineHeight,
+            child: meta.isEmpty
+                ? null
+                : Text(
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: metaFontSize,
+                      fontWeight: FontWeight.w500,
+                      height: metaLineHeight,
+                    ),
+                  ),
+          ),
         ],
       ),
     );

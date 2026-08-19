@@ -120,8 +120,41 @@ class HomeImagePlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: AppColors.surfaceVariant,
-      child: Center(child: Icon(icon, color: AppColors.textHint, size: 28)),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Icon(icon, color: AppColors.textHint, size: 28),
+        ),
+      ),
     );
+  }
+}
+
+/// Reserves the vertical space of [lines] text lines whether or not [child]
+/// has anything to draw.
+///
+/// Poster rails size their cover with an [Expanded], so a card whose caption
+/// happens to be one line shorter than its neighbour's silently gets a TALLER
+/// poster — the row ends up ragged. Reserving the caption box keeps every
+/// poster in a rail identical, and scales with the user's text size.
+class FixedTextLines extends StatelessWidget {
+  const FixedTextLines({
+    super.key,
+    required this.fontSize,
+    required this.lineHeight,
+    this.lines = 1,
+    this.child,
+  });
+
+  final double fontSize;
+  final double lineHeight;
+  final int lines;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scaled = MediaQuery.textScalerOf(context).scale(fontSize);
+    return SizedBox(height: scaled * lineHeight * lines, child: child);
   }
 }
 

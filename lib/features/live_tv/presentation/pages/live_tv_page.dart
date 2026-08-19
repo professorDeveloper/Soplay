@@ -66,6 +66,16 @@ class _LiveTvPageState extends State<LiveTvPage> {
         _loading = false;
         _error = 'live_tv.load_failed'.tr();
       });
+      // A failed pull-to-refresh keeps the line-up on screen, so the failure
+      // has to be said somewhere other than the error state.
+      if (_all.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_error!),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -125,10 +135,12 @@ class _LiveTvPageState extends State<LiveTvPage> {
   }
 
   Widget _body() {
-    if (_loading) {
+    // Gated on there being nothing to show: a refresh over a loaded line-up
+    // used to swap the whole screen for a spinner and back again.
+    if (_loading && _all.isEmpty) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2.5));
     }
-    if (_error != null) {
+    if (_error != null && _all.isEmpty) {
       return _Empty(
         icon: Icons.cloud_off_rounded,
         text: _error!,
@@ -271,27 +283,31 @@ class _CategoryBar extends StatelessWidget {
           final value = i == 0 ? '' : categories[i - 1];
           final label = i == 0 ? 'live_tv.all'.tr() : value;
           final active = value == selected;
-          return GestureDetector(
-            onTap: () => onSelect(value),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: active
-                    ? AppColors.primary.withValues(alpha: 0.16)
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: active ? AppColors.primary : Colors.transparent,
-                  width: 1.2,
+          return Material(
+            color: active
+                ? AppColors.primary.withValues(alpha: 0.16)
+                : AppColors.surface,
+            borderRadius: BorderRadius.circular(18),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => onSelect(value),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: active ? AppColors.primary : Colors.transparent,
+                    width: 1.2,
+                  ),
                 ),
-              ),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: active ? AppColors.primary : AppColors.textSecondary,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: active ? AppColors.primary : AppColors.textSecondary,
+                  ),
                 ),
               ),
             ),
@@ -319,22 +335,30 @@ class _Grid extends StatelessWidget {
   Widget build(BuildContext context) {
     // Channel logos are wide, not poster-shaped, so the cell is landscape and
     // the count follows the width rather than a fixed number.
+    const gutter = 14.0;
+    const spacing = 10.0;
     final width = MediaQuery.sizeOf(context).width;
     final columns = width >= 900 ? 5 : (width >= 620 ? 4 : 3);
+    final cell = (width - gutter * 2 - spacing * (columns - 1)) / columns;
+    final caption = _ChannelCard.reserveCaption(context);
 
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: gutter),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: columns,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 0.92,
+          mainAxisSpacing: spacing,
+          crossAxisSpacing: spacing,
+          // The logo box is what the cell is for, so the caption's two lines
+          // are added to it rather than taken out of it — a fixed ratio let a
+          // long name eat the logo, and a one-line name grow it.
+          childAspectRatio: cell / (cell * 0.73 + caption + 9),
         ),
         delegate: SliverChildBuilderDelegate(
           (context, i) => _ChannelCard(
             channel: channels[i],
             favourite: favourites.contains(channels[i].id),
+            captionHeight: caption,
             onPlay: () => onPlay(channels[i]),
             onFavourite: () => onFavourite(channels[i]),
           ),
@@ -349,82 +373,102 @@ class _ChannelCard extends StatelessWidget {
   const _ChannelCard({
     required this.channel,
     required this.favourite,
+    required this.captionHeight,
     required this.onPlay,
     required this.onFavourite,
   });
 
+  static const double _fontSize = 11.5;
+  static const double _lineHeight = 1.2;
+
+  /// Two lines, always. Channel names run from "TV1" to "Discovery Science HD",
+  /// and letting the caption size itself left every logo in a row at a
+  /// different scale.
+  static double reserveCaption(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(_fontSize) * _lineHeight * 2;
+
   final LiveChannel channel;
   final bool favourite;
+  final double captionHeight;
   final VoidCallback onPlay;
   final VoidCallback onFavourite;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPlay,
-      onLongPress: onFavourite,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: favourite
-                ? AppColors.primary.withValues(alpha: 0.45)
-                : Colors.white.withValues(alpha: 0.06),
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPlay,
+        onLongPress: onFavourite,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: favourite
+                  ? AppColors.primary.withValues(alpha: 0.45)
+                  : Colors.white.withValues(alpha: 0.06),
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: channel.logoUrl == null
-                          ? _Fallback(name: channel.name)
-                          : CachedNetworkImage(
-                              imageUrl: channel.logoUrl!,
-                              fit: BoxFit.contain,
-                              // Logos come from wherever the playlist points,
-                              // and a dead one is common — the initial reads
-                              // better than a broken-image glyph.
-                              errorWidget: (_, _, _) =>
-                                  _Fallback(name: channel.name),
-                              placeholder: (_, _) =>
-                                  _Fallback(name: channel.name),
-                            ),
-                    ),
-                  ),
-                  if (favourite)
-                    const Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Icon(
-                        Icons.star_rounded,
-                        size: 15,
-                        color: AppColors.primary,
+          child: Column(
+            children: [
+              Expanded(
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: channel.logoUrl == null
+                            ? _Fallback(name: channel.name)
+                            : CachedNetworkImage(
+                                imageUrl: channel.logoUrl!,
+                                fit: BoxFit.contain,
+                                // Logos come from wherever the playlist points,
+                                // and a dead one is common — the initial reads
+                                // better than a broken-image glyph.
+                                errorWidget: (_, _, _) =>
+                                    _Fallback(name: channel.name),
+                                placeholder: (_, _) =>
+                                    _Fallback(name: channel.name),
+                              ),
                       ),
                     ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 9),
-              child: Text(
-                channel.name,
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  height: 1.2,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                    if (favourite)
+                      const Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Icon(
+                          Icons.star_rounded,
+                          size: 15,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 9),
+                child: SizedBox(
+                  height: captionHeight,
+                  child: Center(
+                    child: Text(
+                      channel.name,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: _fontSize,
+                        height: _lineHeight,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

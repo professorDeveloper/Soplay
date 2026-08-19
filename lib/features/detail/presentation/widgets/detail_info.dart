@@ -157,7 +157,13 @@ class _MetaLine extends StatelessWidget {
         widgets.add(const _Dot());
       }
     }
-    return Row(children: widgets);
+    // Wrap, not Row: a long country or runtime string overflowed the line on
+    // narrow phones.
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      runSpacing: 4,
+      children: widgets,
+    );
   }
 }
 
@@ -197,8 +203,8 @@ class _GenresRow extends StatelessWidget {
             .map(
               (g) => Padding(
                 padding: const EdgeInsets.only(right: 6),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(6),
+                child: _Chip(
+                  label: g,
                   onTap: () {
                     final slug = _slugify(g);
                     if (slug.isEmpty) return;
@@ -207,7 +213,6 @@ class _GenresRow extends StatelessWidget {
                       extra: ViewAllEntity(type: 'genre', slug: slug),
                     );
                   },
-                  child: _Chip(label: g),
                 ),
               ),
             )
@@ -218,23 +223,30 @@ class _GenresRow extends StatelessWidget {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.label});
+  const _Chip({required this.label, required this.onTap});
   final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+    // Material owns the fill so the ink lands on top of it; on the bare
+    // Container the splash painted under an opaque chip and was invisible.
+    return Material(
+      color: AppColors.surfaceVariant,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       ),
     );
@@ -250,22 +262,63 @@ class _ExpandableDescription extends StatefulWidget {
 }
 
 class _ExpandableDescriptionState extends State<_ExpandableDescription> {
+  static const int _collapsedLines = 3;
+  static const TextStyle _style = TextStyle(
+    color: AppColors.textSecondary,
+    fontSize: 13,
+    height: 1.5,
+  );
+
   bool _expanded = false;
+
+  bool _overflows(BuildContext context, double maxWidth) {
+    final painter = TextPainter(
+      text: TextSpan(text: widget.text, style: _style),
+      maxLines: _collapsedLines,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: maxWidth);
+    final exceeded = painter.didExceedMaxLines;
+    painter.dispose();
+    return exceeded;
+  }
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => _build(context, constraints.maxWidth),
+    );
+  }
+
+  Widget _build(BuildContext context, double maxWidth) {
+    // Without this the synopsis was clamped to three lines with an ellipsis and
+    // nothing said it could be opened, so most of the plot was unreachable.
+    final clamped = maxWidth.isFinite && _overflows(context, maxWidth);
     final body = AnimatedSize(
       duration: const Duration(milliseconds: 180),
       alignment: Alignment.topCenter,
-      child: Text(
-        widget.text,
-        maxLines: _expanded ? null : 3,
-        overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 13,
-          height: 1.5,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            widget.text,
+            maxLines: _expanded ? null : _collapsedLines,
+            overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+            style: _style,
+          ),
+          if (clamped || _expanded) ...[
+            const SizedBox(height: 4),
+            Text(
+              _expanded ? 'detail.show_less'.tr() : 'detail.show_more'.tr(),
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
       ),
     );
 

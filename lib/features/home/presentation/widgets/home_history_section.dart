@@ -35,59 +35,55 @@ class HistorySection extends StatelessWidget {
     final filtered = _continueWatching();
     if (filtered.isEmpty) return const SizedBox.shrink();
     final visible = filtered.length > 20 ? filtered.sublist(0, 20) : filtered;
+    final showViewAll =
+        filtered.length > visible.length || filtered.length >= 3;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(17, 18, 12, 14),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.history_rounded,
-                  color: AppColors.textSecondary,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'home.continue_watching'.tr(),
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      height: 1.1,
-                    ),
+          // Whole header strip is the target, like every other rail: the old
+          // "View all" TextButton was a ~26dp tap target squeezed into the row.
+          InkWell(
+            onTap: showViewAll ? () => context.push('/history') : null,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.history_rounded,
+                    color: AppColors.textSecondary,
+                    size: 18,
                   ),
-                ),
-                if (filtered.length > visible.length || filtered.length >= 3)
-                  TextButton(
-                    onPressed: () => context.push('/history'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'home.continue_watching'.tr(),
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
                       ),
-                      minimumSize: const Size(0, 0),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'home.view_all'.tr(),
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right_rounded, size: 18),
-                      ],
                     ),
                   ),
-              ],
+                  if (showViewAll) ...[
+                    Text(
+                      'home.view_all'.tr(),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.textSecondary,
+                      size: 18,
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
           SizedBox(
@@ -205,6 +201,10 @@ class _HistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final label = item.episodeLabel?.trim();
+    final episodeLabel = (item.isSerial && label != null && label.isNotEmpty)
+        ? label
+        : null;
     return HoverTap(
       onTap: () => _openDetail(context),
       onLongPress: () => _showActions(context),
@@ -309,30 +309,37 @@ class _HistoryCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  height: 1.25,
-                ),
-              ),
-              if (item.isSerial &&
-                  item.episodeLabel != null &&
-                  item.episodeLabel!.trim().isNotEmpty)
-                Text(
-                  item.episodeLabel!,
+              FixedTextLines(
+                fontSize: 11.5,
+                lineHeight: 1.25,
+                child: Text(
+                  item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 10,
-                    height: 1.3,
+                    color: AppColors.textPrimary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
                   ),
                 ),
+              ),
+              FixedTextLines(
+                fontSize: 10,
+                lineHeight: 1.3,
+                child: episodeLabel == null
+                    ? null
+                    : Text(
+                        episodeLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
+                          height: 1.3,
+                        ),
+                      ),
+              ),
             ],
           ),
         ),

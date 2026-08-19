@@ -106,39 +106,22 @@ class _UpcomingPageState extends State<UpcomingPage> {
     Future<void> refresh() => _controller.load(force: true);
 
     if (entries.isEmpty) {
+      // A load failure and an empty schedule are not the same state: the old
+      // shape put the error text under a "nothing airs" icon with no way back.
+      final error = _controller.error;
       return RefreshIndicator(
         color: kAnilistBlue,
         backgroundColor: AppColors.surface,
         onRefresh: refresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SizedBox(height: MediaQuery.sizeOf(context).height * 0.18),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.event_available_rounded,
-                      size: 46,
-                      color: AppColors.textHint.withValues(alpha: 0.6),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      _controller.error ?? 'anilist.upcoming_empty'.tr(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.textHint,
-                        fontSize: 13.5,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        child: AnilistScrollableMessage(
+          message: AnilistStateMessage(
+            icon: error != null
+                ? Icons.cloud_off_rounded
+                : Icons.event_available_rounded,
+            text: error ?? 'anilist.upcoming_empty'.tr(),
+            actionLabel: error == null ? null : 'anilist.retry'.tr(),
+            onAction: error == null ? null : refresh,
+          ),
         ),
       );
     }
@@ -267,7 +250,7 @@ class _UpcomingCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                DateFormat.Hm().format(airing.airsAt),
+                DateFormat.Hm(context.locale.toString()).format(airing.airsAt),
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,

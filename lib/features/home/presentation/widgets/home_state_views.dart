@@ -25,22 +25,27 @@ class HomeSkeleton extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(child: HomeBannerSkeleton(topPadding: topPad)),
+          // Geometry mirrors the loaded sections exactly (see MovieSection and
+          // _GenreSection); when it did not, every rail nudged sideways and
+          // downwards the moment the data landed.
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+              padding: const EdgeInsets.only(bottom: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const HomeSkeletonBox(width: 80, height: 15, radius: 4),
-                  const SizedBox(height: 12),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(17, 18, 16, 14),
+                    child: HomeSkeletonBox(width: 80, height: 19, radius: 4),
+                  ),
                   SizedBox(
                     height: 72,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.zero,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       itemCount: 6,
                       itemBuilder: (_, _) => const Padding(
-                        padding: EdgeInsets.only(right: 8),
+                        padding: EdgeInsets.symmetric(horizontal: 4),
                         child: HomeSkeletonBox(
                           width: 110,
                           height: 72,
@@ -56,30 +61,33 @@ class HomeSkeleton extends StatelessWidget {
           for (int i = 0; i < 3; i++) ...[
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+                padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
                 child: Row(
                   children: [
                     HomeSkeletonBox(
                       width: 100 + (i * 24).toDouble(),
-                      height: 15,
+                      height: 19,
                       radius: 4,
                     ),
                     const Spacer(),
-                    const HomeSkeletonBox(width: 18, height: 15, radius: 4),
+                    const HomeSkeletonBox(width: 22, height: 19, radius: 4),
                   ],
                 ),
               ),
             ),
             SliverToBoxAdapter(
-              child: SizedBox(
-                height: 195,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: 6,
-                  itemBuilder: (_, _) => const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4),
-                    child: _SkeletonCard(),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: SizedBox(
+                  height: 195,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: 6,
+                    itemBuilder: (_, _) => const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: _SkeletonCard(),
+                    ),
                   ),
                 ),
               ),
@@ -87,7 +95,7 @@ class HomeSkeleton extends StatelessWidget {
           ],
           SliverToBoxAdapter(
             child: SizedBox(
-              height: MediaQuery.paddingOf(context).bottom + 16,
+              height: MediaQuery.paddingOf(context).bottom + 88,
             ),
           ),
         ],
@@ -101,6 +109,8 @@ class _SkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Two caption lines, matching _MovieCard — a third line here made the
+    // skeleton poster ~13px shorter than the real one.
     return const SizedBox(
       width: 118,
       child: Padding(
@@ -116,11 +126,16 @@ class _SkeletonCard extends StatelessWidget {
               ),
             ),
             SizedBox(height: 6),
-            HomeSkeletonBox(width: 90, height: 11, radius: 3),
-            SizedBox(height: 4),
-            HomeSkeletonBox(width: 60, height: 11, radius: 3),
-            SizedBox(height: 5),
-            HomeSkeletonBox(width: 32, height: 10, radius: 3),
+            FixedTextLines(
+              fontSize: 11.5,
+              lineHeight: 1.25,
+              child: HomeSkeletonBox(width: 90, height: 11, radius: 3),
+            ),
+            FixedTextLines(
+              fontSize: 10,
+              lineHeight: 1.3,
+              child: HomeSkeletonBox(width: 40, height: 10, radius: 3),
+            ),
           ],
         ),
       ),
@@ -143,9 +158,11 @@ class HomeErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showCloudflare = isCloudflareError(message);
+    // Scrollable: with a long diagnostic and the extra Cloudflare button this
+    // column is taller than a short phone in landscape.
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -231,6 +248,73 @@ class HomeErrorView extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when the feed loaded successfully but carries nothing at all — no
+/// hero, no history, no genres, no sections. That state used to render a bare
+/// black screen under the top bar, which is indistinguishable from a hang.
+class HomeEmptyView extends StatelessWidget {
+  const HomeEmptyView({super.key, required this.onRefresh});
+
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              ),
+              child: const Icon(
+                Icons.movie_filter_outlined,
+                color: AppColors.textSecondary,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'home.empty_title'.tr(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'home.empty_subtitle'.tr(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: 156,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: onRefresh,
+                child: Text('general.retry'.tr()),
+              ),
+            ),
           ],
         ),
       ),

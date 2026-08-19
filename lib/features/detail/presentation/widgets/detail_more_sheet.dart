@@ -29,6 +29,12 @@ Future<void> showDetailMoreSheet(
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,
+    // Without this the sheet is capped at 9/16 of the screen and the last rows
+    // (Find other sources, Open on TV, Share) fell off a short phone entirely.
+    isScrollControlled: true,
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+    ),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -74,7 +80,10 @@ class _DetailMoreSheetState extends State<_DetailMoreSheet> {
   /// The TITLE is what travels. The two apps do not share a source registry, so
   /// this app's contentUrl means nothing to a TV without that provider — the TV
   /// resolves the title against its own sources.
+  bool _sendingToTv = false;
+
   Future<void> _playOnTv() async {
+    if (_sendingToTv) return;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final service = getIt<RemoteControlService>();
@@ -83,6 +92,7 @@ class _DetailMoreSheetState extends State<_DetailMoreSheet> {
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
 
+    setState(() => _sendingToTv = true);
     try {
       final devices = await service.devices();
       final online = devices.where((d) => d.online).toList();
@@ -116,6 +126,8 @@ class _DetailMoreSheetState extends State<_DetailMoreSheet> {
       say('remote.tv_offline'.tr());
     } catch (_) {
       say('remote.command_failed'.tr());
+    } finally {
+      if (mounted) setState(() => _sendingToTv = false);
     }
   }
 
@@ -126,17 +138,29 @@ class _DetailMoreSheetState extends State<_DetailMoreSheet> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+      ),
       builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final device in devices)
-              ListTile(
-                leading: const Icon(Icons.tv_rounded, color: AppColors.textSecondary),
-                title: Text(device.name),
-                onTap: () => Navigator.of(sheetContext).pop(device),
-              ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              for (final device in devices)
+                ListTile(
+                  leading: const Icon(Icons.tv_rounded,
+                      color: AppColors.textSecondary),
+                  title: Text(
+                    device.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () => Navigator.of(sheetContext).pop(device),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -195,77 +219,102 @@ class _DetailMoreSheetState extends State<_DetailMoreSheet> {
               ),
             ),
           ),
-          UserListToggle(
-            kind: UserListKind.watchLater,
-            entity: widget.entity,
-            sync: _listSync,
-            builder: (_, active, toggle) => _SheetRow(
-              icon: active
-                  ? Icons.watch_later_rounded
-                  : Icons.watch_later_outlined,
-              label: 'detail.watch_later'.tr(),
-              active: active,
-              onTap: toggle,
+          // The title stays pinned and only the actions scroll, so a short
+          // screen or a large system font never hides which title this is.
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  UserListToggle(
+                    kind: UserListKind.watchLater,
+                    entity: widget.entity,
+                    sync: _listSync,
+                    builder: (_, active, toggle) => _SheetRow(
+                      icon: active
+                          ? Icons.watch_later_rounded
+                          : Icons.watch_later_outlined,
+                      label: 'detail.watch_later'.tr(),
+                      active: active,
+                      onTap: toggle,
+                    ),
+                  ),
+                  UserListToggle(
+                    kind: UserListKind.watched,
+                    entity: widget.entity,
+                    sync: _listSync,
+                    builder: (_, active, toggle) => _SheetRow(
+                      icon: active
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_outlined,
+                      label: 'detail.watched'.tr(),
+                      active: active,
+                      onTap: toggle,
+                    ),
+                  ),
+                  if (widget.showFollow)
+                    _SheetRow(
+                      icon: _following
+                          ? Icons.notifications_active_rounded
+                          : Icons.notifications_none_rounded,
+                      label: 'detail.follow_series'.tr(),
+                      active: _following,
+                      onTap: _toggleFollow,
+                    ),
+                  if (anilistReady) _AnilistRow(entity: widget.entity),
+                  const Divider(
+                    color: AppColors.divider,
+                    height: 17,
+                    indent: 18,
+                    endIndent: 18,
+                  ),
+                  _SheetRow(
+                    icon: Icons.travel_explore_rounded,
+                    label: 'detail.find_other_sources'.tr(),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.textHint,
+                      size: 20,
+                    ),
+                    onTap: () => _run(widget.onFindSources),
+                  ),
+                  _SheetRow(
+                    icon: Icons.cast_rounded,
+                    label: 'remote.open_on_tv'.tr(),
+                    // Looking up the linked TVs is a network round trip; without
+                    // a spinner the row looked dead until the picker appeared.
+                    trailing: _sendingToTv
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.textSecondary,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColors.textHint,
+                            size: 20,
+                          ),
+                    onTap: _sendingToTv ? null : _playOnTv,
+                  ),
+                  _SheetRow(
+                    icon: Icons.ios_share_rounded,
+                    label: 'movie.share'.tr(),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.textHint,
+                      size: 20,
+                    ),
+                    onTap: () => _run(widget.onShare),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           ),
-          UserListToggle(
-            kind: UserListKind.watched,
-            entity: widget.entity,
-            sync: _listSync,
-            builder: (_, active, toggle) => _SheetRow(
-              icon: active ? Icons.visibility_rounded : Icons.visibility_outlined,
-              label: 'detail.watched'.tr(),
-              active: active,
-              onTap: toggle,
-            ),
-          ),
-          if (widget.showFollow)
-            _SheetRow(
-              icon: _following
-                  ? Icons.notifications_active_rounded
-                  : Icons.notifications_none_rounded,
-              label: 'detail.follow_series'.tr(),
-              active: _following,
-              onTap: _toggleFollow,
-            ),
-          if (anilistReady) _AnilistRow(entity: widget.entity),
-          const Divider(
-            color: AppColors.divider,
-            height: 17,
-            indent: 18,
-            endIndent: 18,
-          ),
-          _SheetRow(
-            icon: Icons.travel_explore_rounded,
-            label: 'detail.find_other_sources'.tr(),
-            trailing: const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textHint,
-              size: 20,
-            ),
-            onTap: () => _run(widget.onFindSources),
-          ),
-          _SheetRow(
-            icon: Icons.cast_rounded,
-            label: 'remote.open_on_tv'.tr(),
-            trailing: const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textHint,
-              size: 20,
-            ),
-            onTap: _playOnTv,
-          ),
-          _SheetRow(
-            icon: Icons.ios_share_rounded,
-            label: 'movie.share'.tr(),
-            trailing: const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textHint,
-              size: 20,
-            ),
-            onTap: () => _run(widget.onShare),
-          ),
-          const SizedBox(height: 8),
         ],
       ),
     );
@@ -407,52 +456,56 @@ class _SheetRow extends StatelessWidget {
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool active;
   final Color accent;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: active
-                    ? accent.withValues(alpha: 0.16)
-                    : Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(
-                icon,
-                size: 19,
-                color: active ? accent : AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w600,
+    return Opacity(
+      opacity: onTap == null ? 0.5 : 1,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: active
+                      ? accent.withValues(alpha: 0.16)
+                      : Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(
+                  icon,
+                  size: 19,
+                  color: active ? accent : AppColors.textPrimary,
                 ),
               ),
-            ),
-            trailing ??
-                (active
-                    ? Icon(Icons.check_rounded, size: 20, color: accent)
-                    : const SizedBox.shrink()),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              trailing ??
+                  (active
+                      ? Icon(Icons.check_rounded, size: 20, color: accent)
+                      : const SizedBox.shrink()),
+            ],
+          ),
         ),
       ),
     );

@@ -21,6 +21,7 @@ import 'package:soplay/features/home/presentation/bloc/home/home_event.dart';
 import 'package:soplay/features/home/presentation/widgets/home_banner.dart';
 import 'package:soplay/features/home/presentation/widgets/home_history_section.dart';
 import 'package:soplay/features/home/presentation/widgets/home_movie_section.dart';
+import 'package:soplay/features/home/presentation/widgets/home_state_views.dart';
 import 'package:soplay/features/search/domain/entities/genre_entity.dart';
 
 import '../bloc/home/home_state.dart';
@@ -171,6 +172,27 @@ class _HomeContentBody extends StatelessWidget {
                   ),
                 ),
           ];
+
+          final isEmpty = !showHero &&
+              historyItems.isEmpty &&
+              state.genres.isEmpty &&
+              sectionSlivers.isEmpty;
+          if (isEmpty) {
+            return CustomScrollView(
+              controller: scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: topPad + 56),
+                    child: HomeEmptyView(onRefresh: onRefresh),
+                  ),
+                ),
+              ],
+            );
+          }
+
           // Sponsor/CMS banner strip mid-feed (home_middle placement). It
           // self-collapses when the placement has no active banners, and its
           // view/click tracking is guest-safe (no auth required).
@@ -246,7 +268,7 @@ class _GenreSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(17, 18, 16, 12),
+            padding: const EdgeInsets.fromLTRB(17, 18, 16, 14),
             child: Text(
               "home.genres".tr(),
               style: const TextStyle(
@@ -261,6 +283,8 @@ class _GenreSection extends StatelessWidget {
             height: isDesktopPlatform ? 90 : 72,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
+              // Don't clip the hover scale on desktop, as MovieSection does.
+              clipBehavior: isDesktopPlatform ? Clip.none : Clip.hardEdge,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               itemCount: genres.length,
               itemBuilder: (_, i) => GenreCard(genre: genres[i]),

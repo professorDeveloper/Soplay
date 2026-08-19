@@ -95,6 +95,12 @@ class ViewAllGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
+    // A loaded-but-empty list used to render a bare page with only a title on
+    // it, which reads as a screen that failed to finish loading.
+    if (state.items.isEmpty) {
+      return ViewAllEmptyView(topPadding: appBarH);
+    }
+
     return CustomScrollView(
       controller: scroll,
       slivers: [
@@ -211,26 +217,36 @@ class ViewAllMovieCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 5),
-          Text(
-            movieTitle(movie),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              height: 1.25,
-            ),
-          ),
-          if (movie.year != null)
-            Text(
-              movie.year.toString(),
+          FixedTextLines(
+            fontSize: 11,
+            lineHeight: 1.25,
+            lines: 2,
+            child: Text(
+              movieTitle(movie),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 10,
-                height: 1.3,
+                color: AppColors.textPrimary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                height: 1.25,
               ),
             ),
+          ),
+          FixedTextLines(
+            fontSize: 10,
+            lineHeight: 1.3,
+            child: movie.year == null
+                ? null
+                : Text(
+                    movie.year.toString(),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 10,
+                      height: 1.3,
+                    ),
+                  ),
+          ),
         ],
       ),
     );
@@ -275,6 +291,8 @@ class _SkeletonGridCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Caption block reserves exactly what ViewAllMovieCard reserves, so the
+    // poster does not resize when the real cards replace these.
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -286,9 +304,17 @@ class _SkeletonGridCard extends StatelessWidget {
           ),
         ),
         SizedBox(height: 5),
-        HomeSkeletonBox(width: double.infinity, height: 10, radius: 3),
-        SizedBox(height: 3),
-        HomeSkeletonBox(width: 50, height: 10, radius: 3),
+        FixedTextLines(
+          fontSize: 11,
+          lineHeight: 1.25,
+          lines: 2,
+          child: HomeSkeletonBox(width: double.infinity, height: 10, radius: 3),
+        ),
+        FixedTextLines(
+          fontSize: 10,
+          lineHeight: 1.3,
+          child: HomeSkeletonBox(width: 50, height: 10, radius: 3),
+        ),
       ],
     );
   }
@@ -303,9 +329,10 @@ class ViewAllErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reason = message.trim();
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -346,6 +373,21 @@ class ViewAllErrorView extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
+            // The reason was passed in and then dropped on the floor, so every
+            // failure looked like "you are offline". Matches HomeErrorView.
+            if (reason.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              SelectableText(
+                reason,
+                maxLines: 4,
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
             const SizedBox(height: 24),
             SizedBox(
               width: 156,
@@ -356,6 +398,67 @@ class ViewAllErrorView extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Loaded, but the list came back with nothing in it.
+class ViewAllEmptyView extends StatelessWidget {
+  const ViewAllEmptyView({super.key, required this.topPadding});
+
+  final double topPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(top: topPadding),
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.movie_filter_outlined,
+                  color: AppColors.textSecondary,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'home.list_empty_title'.tr(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'home.list_empty_subtitle'.tr(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

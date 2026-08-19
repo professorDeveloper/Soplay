@@ -50,6 +50,18 @@ class _NotificationsViewState extends State<_NotificationsView> {
     }
   }
 
+  /// Held open until the fetch settles: returning straight away snapped the
+  /// pull-to-refresh spinner shut while the request was still running.
+  Future<void> _refresh() async {
+    final bloc = context.read<NotificationsBloc>();
+    final done = bloc.stream.firstWhere((s) => !s.loading);
+    bloc.add(const NotificationsRefresh());
+    await done.timeout(
+      const Duration(seconds: 20),
+      onTimeout: () => bloc.state,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -99,53 +111,74 @@ class _NotificationsViewState extends State<_NotificationsView> {
               child: CircularProgressIndicator(color: AppColors.primary),
             );
           }
-          if (state.error != null && state.items.isEmpty) {
-            return _ErrorView(
-              message: state.error!,
-              onRetry: () => context
-                  .read<NotificationsBloc>()
-                  .add(const NotificationsRefresh()),
-            );
-          }
-          if (state.isEmpty) {
-            return const _EmptyView();
-          }
+          // The empty and error states are scrollable too: off desktop the
+          // refresh button is hidden, so a pull is the only way back.
           return RefreshIndicator(
             color: AppColors.primary,
             backgroundColor: AppColors.surface,
-            onRefresh: () async {
-              context.read<NotificationsBloc>().add(const NotificationsRefresh());
-            },
-            child: MaxWidthBox(
-              maxWidth: 560,
-              child: ListView.separated(
-              controller: _scroll,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: state.items.length + (state.hasMore ? 1 : 0),
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                if (index >= state.items.length) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
-                    ),
-                  );
-                }
-                final item = state.items[index];
-                return _NotificationTile(
-                  item: item,
-                  onTap: () => context
-                      .read<NotificationsBloc>()
-                      .add(NotificationsMarkRead(item.id)),
-                  onDelete: () => context
-                      .read<NotificationsBloc>()
-                      .add(NotificationsDelete(item.id)),
-                );
-              },
-            )),
+            onRefresh: _refresh,
+            child: _body(context, state),
           );
         },
+      ),
+    );
+  }
+
+  Widget _body(BuildContext context, NotificationsState state) {
+    if (state.error != null && state.items.isEmpty) {
+      return _ScrollableFill(
+        child: _ErrorView(message: state.error!, onRetry: _refresh),
+      );
+    }
+    if (state.isEmpty) return const _ScrollableFill(child: _EmptyView());
+
+    return MaxWidthBox(
+      maxWidth: 560,
+      child: ListView.separated(
+        controller: _scroll,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: state.items.length + (state.hasMore ? 1 : 0),
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          if (index >= state.items.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            );
+          }
+          final item = state.items[index];
+          return _NotificationTile(
+            item: item,
+            onTap: () => context
+                .read<NotificationsBloc>()
+                .add(NotificationsMarkRead(item.id)),
+            onDelete: () => context
+                .read<NotificationsBloc>()
+                .add(NotificationsDelete(item.id)),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ScrollableFill extends StatelessWidget {
+  const _ScrollableFill({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: child,
+        ),
       ),
     );
   }
@@ -169,9 +202,10 @@ class _NotificationTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
+        onLongPress: isDesktopPlatform ? null : () => _showActions(context),
         child: item.imageUrl != null && item.imageUrl!.isNotEmpty
-            ? _buildImageCard()
-            : _buildTextRow(),
+            ? _buildImageCard(context)
+            : _buildTextRow(context),
       ),
     );
 
@@ -204,19 +238,97 @@ class _NotificationTile extends StatelessWidget {
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
           color: AppColors.error,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(Icons.delete_outline, color: Colors.white),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.delete_outline_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'general.delete'.tr(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
       onDismissed: (_) => onDelete(),
       child: tile,
     );
   }
 
-  Widget _buildImageCard() {
+  /// The swipe is invisible until it is already under way; long-press exposes
+  /// the same delete for anyone who never discovers it.
+  Future<void> _showActions(BuildContext context) async {
+    final remove = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textSecondary.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+              ),
+              title: Text(
+                'general.delete'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () => Navigator.of(sheetCtx).pop(true),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (remove ?? false) onDelete();
+  }
+
+  Widget _buildImageCard(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -228,6 +340,9 @@ class _NotificationTile extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: item.imageUrl!,
                 fit: BoxFit.cover,
+                placeholder: (_, _) => const ColoredBox(
+                  color: AppColors.surfaceVariant,
+                ),
                 errorWidget: (_, _, _) => const ColoredBox(
                   color: AppColors.surfaceVariant,
                 ),
@@ -274,7 +389,7 @@ class _NotificationTile extends StatelessWidget {
               ],
               const SizedBox(height: 6),
               Text(
-                _formatDate(item.createdAt),
+                _formatDate(context, item.createdAt),
                 style: const TextStyle(
                   color: AppColors.textHint,
                   fontSize: 11,
@@ -287,7 +402,7 @@ class _NotificationTile extends StatelessWidget {
     );
   }
 
-  Widget _buildTextRow() {
+  Widget _buildTextRow(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(14),
       child: Row(
@@ -328,7 +443,7 @@ class _NotificationTile extends StatelessWidget {
                 ],
                 const SizedBox(height: 6),
                 Text(
-                  _formatDate(item.createdAt),
+                  _formatDate(context, item.createdAt),
                   style: const TextStyle(
                     color: AppColors.textHint,
                     fontSize: 11,
@@ -342,20 +457,16 @@ class _NotificationTile extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return 'notifications.time_now'.tr();
-    if (diff.inHours < 1) {
-      return 'notifications.time_minutes'.tr(args: ['${diff.inMinutes}']);
-    }
-    if (diff.inDays < 1) {
-      return 'notifications.time_hours'.tr(args: ['${diff.inHours}']);
-    }
-    if (diff.inDays < 7) {
-      return 'notifications.time_days'.tr(args: ['${diff.inDays}']);
-    }
-    return '${dt.day}.${dt.month}.${dt.year}';
+  /// Shared wording with the history list, and a locale-aware date past the
+  /// relative window — `3.4.2026` reads as two different days depending on
+  /// where you live.
+  String _formatDate(BuildContext context, DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'time.now'.tr();
+    if (diff.inHours < 1) return 'time.minutes'.tr(args: ['${diff.inMinutes}']);
+    if (diff.inDays < 1) return 'time.hours'.tr(args: ['${diff.inHours}']);
+    if (diff.inDays < 7) return 'time.days'.tr(args: ['${diff.inDays}']);
+    return DateFormat.yMMMd(context.locale.toString()).format(dt);
   }
 }
 

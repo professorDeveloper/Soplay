@@ -480,12 +480,28 @@ class _AvatarRing extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: image.isNotEmpty
-            ? Image.network(
-                image,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _AvatarInitials(initials: initials),
-                loadingBuilder: (_, child, chunk) =>
-                    chunk == null ? child : _AvatarInitials(initials: initials),
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  _AvatarInitials(initials: initials),
+                  Image.network(
+                    image,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) =>
+                        _AvatarInitials(initials: initials),
+                    // Initials snapping to a photo at 132px is the loudest
+                    // thing on the screen; fade instead.
+                    frameBuilder: (_, child, frame, wasSynchronouslyLoaded) {
+                      if (wasSynchronouslyLoaded) return child;
+                      return AnimatedOpacity(
+                        opacity: frame == null ? 0 : 1,
+                        duration: const Duration(milliseconds: 240),
+                        curve: Curves.easeOut,
+                        child: child,
+                      );
+                    },
+                  ),
+                ],
               )
             : _AvatarInitials(initials: initials),
       ),
@@ -566,15 +582,31 @@ class _ActorTopBar extends StatelessWidget {
             height: kToolbarHeight - 12,
             child: Row(
               children: [
-                IconButton(
-                  onPressed: onBack,
-                  icon: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white,
-                    size: 20,
+                // The hero behind this bar is tinted from the actor's photo and
+                // can come out pale, which left a bare white glyph with nothing
+                // to sit on. The disc keeps it readable whatever the palette.
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Material(
+                    color: Colors.black.withValues(alpha: 0.42 * (1 - solid)),
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: onBack,
+                      customBorder: const CircleBorder(),
+                      child: const SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Opacity(
                     opacity: titleOp,
@@ -687,15 +719,17 @@ class _ActorMovieCard extends StatelessWidget {
               height: 1.25,
             ),
           ),
-          if (movie.year != null)
-            Text(
-              movie.year.toString(),
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 10,
-                height: 1.3,
-              ),
+          // Always laid out: the poster is the Expanded child, so a missing
+          // year made that card's artwork taller than the rest of the row.
+          Text(
+            movie.year?.toString() ?? '',
+            maxLines: 1,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 10,
+              height: 1.3,
             ),
+          ),
         ],
       ),
     );

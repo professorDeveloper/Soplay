@@ -150,72 +150,48 @@ class _DownloadsPageState extends State<DownloadsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final topPad = MediaQuery.paddingOf(context).top;
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: SizedBox(height: topPad + 8)),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      if (context.canPop()) context.pop();
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: const BoxDecoration(
-                        color: AppColors.surface,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white,
-                        size: 16,
-                      ),
+          // Pinned: "Clear all" and the back button are the only controls on
+          // this screen, and a long queue scrolled them out of reach.
+          SliverAppBar(
+            pinned: true,
+            automaticallyImplyLeading: false,
+            backgroundColor: AppColors.background,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            titleSpacing: 16,
+            title: Row(
+              children: [
+                _CircleBackButton(
+                  onTap: () => context.canPop()
+                      ? context.pop()
+                      : context.go('/main'),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'navigation.downloads'.tr(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'navigation.downloads'.tr(),
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                ),
+                if (_items.isNotEmpty)
+                  _PillButton(
+                    label: 'downloads.clear_all'.tr(),
+                    onTap: _clearAll,
                   ),
-                  if (_items.isNotEmpty)
-                    GestureDetector(
-                      onTap: _clearAll,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          'downloads.clear_all'.tr(),
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
@@ -256,6 +232,63 @@ class _DownloadsPageState extends State<DownloadsPage> {
   }
 }
 
+class _CircleBackButton extends StatelessWidget {
+  const _CircleBackButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: const SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.textPrimary,
+            size: 16,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PillButton extends StatelessWidget {
+  const _PillButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DownloadRow extends StatelessWidget {
   const _DownloadRow({
     required this.item,
@@ -269,10 +302,71 @@ class _DownloadRow extends StatelessWidget {
   final VoidCallback onRemove;
   final VoidCallback onRetry;
 
+  /// Swiping is the only way to drop a download on a phone, and nothing on
+  /// screen advertises it — a queued or failed row has no button at all.
+  Future<void> _showActions(BuildContext context) async {
+    final remove = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textSecondary.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+              ),
+              title: Text(
+                'downloads.remove'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () => Navigator.of(sheetCtx).pop(true),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (remove ?? false) onRemove();
+  }
+
   @override
   Widget build(BuildContext context) {
     final row = InkWell(
         onTap: item.status == DownloadStatus.completed ? onTap : null,
+        onLongPress: isDesktopPlatform ? null : () => _showActions(context),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
@@ -462,16 +556,7 @@ class _DownloadRow extends StatelessWidget {
       key: ValueKey(item.id),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => onRemove(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: AppColors.primary.withValues(alpha: 0.15),
-        child: const Icon(
-          Icons.delete_outline_rounded,
-          color: AppColors.primary,
-          size: 22,
-        ),
-      ),
+      background: _SwipeToRemoveBackground(label: 'downloads.remove'.tr()),
       child: row,
     );
   }
@@ -481,6 +566,36 @@ class _DownloadRow extends StatelessWidget {
   String _mb(int bytes) {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+}
+
+class _SwipeToRemoveBackground extends StatelessWidget {
+  const _SwipeToRemoveBackground({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      color: AppColors.error,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 22),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

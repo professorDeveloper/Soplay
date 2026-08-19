@@ -335,13 +335,15 @@ extension _PlayerControls on _PlayerPageState {
   }
 
   Widget _buildSpeedBoostBadge() {
+    // Clears the status bar / cutout: in portrait the badge landed under it.
+    final topInset = MediaQuery.paddingOf(context).top;
     return ValueListenableBuilder<bool>(
       valueListenable: _speedBoost,
       builder: (_, active, _) {
         return AnimatedPositioned(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
-          top: active ? 24 : -80,
+          top: active ? topInset + 24 : -80,
           left: 0,
           right: 0,
           child: IgnorePointer(
@@ -566,6 +568,8 @@ extension _PlayerControls on _PlayerPageState {
   }
 
   Widget _buildSwipeIndicator() {
+    // In landscape the display cutout is on one of these two edges.
+    final insets = MediaQuery.paddingOf(context);
     return ValueListenableBuilder<_SwipeIndicator?>(
       valueListenable: _swipeIndicator,
       builder: (_, indicator, _) {
@@ -574,8 +578,8 @@ extension _PlayerControls on _PlayerPageState {
         return Positioned(
           top: 0,
           bottom: 0,
-          left: isBrightness ? 48 : null,
-          right: isBrightness ? null : 48,
+          left: isBrightness ? 48 + insets.left : null,
+          right: isBrightness ? null : 48 + insets.right,
           child: Center(
             child: Container(
               width: 40,
@@ -728,117 +732,133 @@ extension _PlayerControls on _PlayerPageState {
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
+                            shadows: _kControlShadow,
                           ),
                         ),
                       ),
-                      if (hasLangSwitcher) ...[
-                        _LangPill(
-                          label: (_currentLang ?? _kSubLang).toUpperCase(),
-                          onTap: _openLangSheet,
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      // CloudStream (cs:) sources are excluded from Watch2Gether
-                      // for now (they need an on-device plugin per peer).
-                      if (_inParty || !widget.args.provider.startsWith('cs:')) ...[
-                        _IconButton(
-                          icon: _inParty
-                              ? Icons.groups_rounded
-                              : Icons.groups_2_outlined,
-                          color: _inParty ? AppColors.primary : null,
-                          onTap: _openWatchParty,
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      // TV drops three phone-only affordances outright rather
-                      // than adapting them: orientation lock is meaningless on
-                      // a fixed landscape panel, PiP semantics differ on
-                      // leanback, and the touch lock swaps in an overlay whose
-                      // only escape is a non-focusable tap target — on a remote
-                      // that is an unrecoverable state.
-                      if (isTvPlatform) ...[
-                        _IconButton(
-                          icon: Icons.subtitles_outlined,
-                          onTap: _openSubtitleSheet,
-                        ),
-                        const SizedBox(width: 8),
-                        if (canDownload) ...[
-                          _IconButton(
-                            icon: Icons.download_rounded,
-                            onTap: _startDownload,
+                      // The action set outgrows a portrait phone (lang pill +
+                      // download + the full icon row), which used to squeeze the
+                      // title to nothing and then overflow. Half the bar each,
+                      // right-anchored, and the surplus scrolls instead.
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          reverse: true,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (hasLangSwitcher) ...[
+                                _LangPill(
+                                  label: (_currentLang ?? _kSubLang).toUpperCase(),
+                                  onTap: _openLangSheet,
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              // CloudStream (cs:) sources are excluded from Watch2Gether
+                              // for now (they need an on-device plugin per peer).
+                              if (_inParty || !widget.args.provider.startsWith('cs:')) ...[
+                                _IconButton(
+                                  icon: _inParty
+                                      ? Icons.groups_rounded
+                                      : Icons.groups_2_outlined,
+                                  color: _inParty ? AppColors.primary : null,
+                                  onTap: _openWatchParty,
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              // TV drops three phone-only affordances outright rather
+                              // than adapting them: orientation lock is meaningless on
+                              // a fixed landscape panel, PiP semantics differ on
+                              // leanback, and the touch lock swaps in an overlay whose
+                              // only escape is a non-focusable tap target — on a remote
+                              // that is an unrecoverable state.
+                              if (isTvPlatform) ...[
+                                _IconButton(
+                                  icon: Icons.subtitles_outlined,
+                                  onTap: _openSubtitleSheet,
+                                ),
+                                const SizedBox(width: 8),
+                                if (canDownload) ...[
+                                  _IconButton(
+                                    icon: Icons.download_rounded,
+                                    onTap: _startDownload,
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                _IconButton(
+                                  icon: Icons.settings_outlined,
+                                  onTap: _openSettingsSheet,
+                                ),
+                                if (hasServers) ...[
+                                  const SizedBox(width: 8),
+                                  _IconButton(
+                                    icon: Icons.dns_outlined,
+                                    onTap: _openServerSheet,
+                                  ),
+                                ],
+                                if (hasEpisodes || hasQualities) ...[
+                                  const SizedBox(width: 8),
+                                  _IconButton(
+                                    icon: hasEpisodes
+                                        ? Icons.video_library_rounded
+                                        : Icons.high_quality_rounded,
+                                    onTap: () => _openPanel(
+                                      hasEpisodes
+                                          ? _SidePanel.episodes
+                                          : _SidePanel.quality,
+                                    ),
+                                  ),
+                                ],
+                              ] else if (!isDesktopPlatform) ...[
+                                _IconButton(
+                                  icon: _isPortrait
+                                      ? Icons.screen_lock_landscape_rounded
+                                      : Icons.screen_lock_portrait_rounded,
+                                  onTap: _toggleOrientation,
+                                ),
+                                const SizedBox(width: 8),
+                                _IconButton(
+                                  icon: Icons.lock_outline_rounded,
+                                  onTap: () => setState(() {
+                                    _locked = true;
+                                    _controlsVisible = false;
+                                    _controlsAnimation.reverse();
+                                    _hideTimer?.cancel();
+                                  }),
+                                ),
+                                const SizedBox(width: 8),
+                                _IconButton(
+                                  icon: Icons.picture_in_picture_alt_rounded,
+                                  onTap: _enterPip,
+                                ),
+                                const SizedBox(width: 8),
+                                if (canDownload) ...[
+                                  _IconButton(
+                                    icon: Icons.download_rounded,
+                                    onTap: _startDownload,
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                _IconButton(
+                                  icon: Icons.settings_outlined,
+                                  onTap: _openSettingsSheet,
+                                ),
+                                const SizedBox(width: 8),
+                                _IconButton(
+                                  icon: hasEpisodes
+                                      ? Icons.video_library_rounded
+                                      : Icons.high_quality_rounded,
+                                  onTap: hasEpisodes
+                                      ? () => _openPanel(_SidePanel.episodes)
+                                      : hasQualities
+                                          ? () => _openPanel(_SidePanel.quality)
+                                          : _openSettingsSheet,
+                                ),
+                              ],
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                        ],
-                        _IconButton(
-                          icon: Icons.settings_outlined,
-                          onTap: _openSettingsSheet,
                         ),
-                        if (hasServers) ...[
-                          const SizedBox(width: 8),
-                          _IconButton(
-                            icon: Icons.dns_outlined,
-                            onTap: _openServerSheet,
-                          ),
-                        ],
-                        if (hasEpisodes || hasQualities) ...[
-                          const SizedBox(width: 8),
-                          _IconButton(
-                            icon: hasEpisodes
-                                ? Icons.video_library_rounded
-                                : Icons.high_quality_rounded,
-                            onTap: () => _openPanel(
-                              hasEpisodes
-                                  ? _SidePanel.episodes
-                                  : _SidePanel.quality,
-                            ),
-                          ),
-                        ],
-                      ] else if (!isDesktopPlatform) ...[
-                        _IconButton(
-                          icon: _isPortrait
-                              ? Icons.screen_lock_landscape_rounded
-                              : Icons.screen_lock_portrait_rounded,
-                          onTap: _toggleOrientation,
-                        ),
-                        const SizedBox(width: 8),
-                        _IconButton(
-                          icon: Icons.lock_outline_rounded,
-                          onTap: () => setState(() {
-                            _locked = true;
-                            _controlsVisible = false;
-                            _controlsAnimation.reverse();
-                            _hideTimer?.cancel();
-                          }),
-                        ),
-                        const SizedBox(width: 8),
-                        _IconButton(
-                          icon: Icons.picture_in_picture_alt_rounded,
-                          onTap: _enterPip,
-                        ),
-                        const SizedBox(width: 8),
-                        if (canDownload) ...[
-                          _IconButton(
-                            icon: Icons.download_rounded,
-                            onTap: _startDownload,
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        _IconButton(
-                          icon: Icons.settings_outlined,
-                          onTap: _openSettingsSheet,
-                        ),
-                        const SizedBox(width: 8),
-                        _IconButton(
-                          icon: hasEpisodes
-                              ? Icons.video_library_rounded
-                              : Icons.high_quality_rounded,
-                          onTap: hasEpisodes
-                              ? () => _openPanel(_SidePanel.episodes)
-                              : hasQualities
-                                  ? () => _openPanel(_SidePanel.quality)
-                                  : _openSettingsSheet,
-                        ),
-                      ],
+                      ),
                       if (isDesktopPlatform)
                         ValueListenableBuilder<bool>(
                           valueListenable: DesktopWindow.immersive,
@@ -851,19 +871,7 @@ extension _PlayerControls on _PlayerPageState {
                 ),
               ),
             ),
-            if (initialized && !isBuffering && !isDesktopPlatform)
-              _buildCenterPlayCluster(c),
-            if (isBuffering)
-              const Center(
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2.8,
-                  ),
-                ),
-              ),
+            if (initialized && !isDesktopPlatform) _buildCenterPlayCluster(c),
             if (initialized)
               _buildBottomBar(c, hasEpisodes, hasServers, hasQualities),
           ],
@@ -871,10 +879,36 @@ extension _PlayerControls on _PlayerPageState {
       ),
     );
 
-    if (!isTvPlatform) return overlay;
     // IgnorePointer stops taps but leaves every button focusable, so on a
     // D-pad an invisible control would still take focus and fire on OK.
-    return ExcludeFocus(excluding: !_controlsVisible, child: overlay);
+    final gated = isTvPlatform
+        ? ExcludeFocus(excluding: !_controlsVisible, child: overlay)
+        : overlay;
+
+    if (!isBuffering) return gated;
+    // A stall while the controls are hidden used to show nothing at all — the
+    // spinner lived inside the overlay and faded out with it. This one sits
+    // outside the fade and cross-fades against it, so exactly one buffering
+    // indicator is on screen: this, or the ring on the play button.
+    Widget spinner = const IgnorePointer(
+      child: Center(
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 2.8,
+          ),
+        ),
+      ),
+    );
+    if (!isDesktopPlatform) {
+      spinner = FadeTransition(
+        opacity: ReverseAnimation(_controlsAnimation),
+        child: spinner,
+      );
+    }
+    return Stack(fit: StackFit.expand, children: [gated, spinner]);
   }
 
   Widget _buildCenterPlayCluster(PlayerController c) {
@@ -899,6 +933,7 @@ extension _PlayerControls on _PlayerPageState {
                   : Icons.play_arrow_rounded,
               onTap: _togglePlay,
               large: true,
+              busy: value.isBuffering,
               // Named so the remote can be parked here whenever the overlay
               // reappears; null off TV, i.e. the node is never even created.
               focusNode: isTvPlatform ? _tvPlayFocus : null,
@@ -1054,6 +1089,139 @@ extension _PlayerControls on _PlayerPageState {
     );
   }
 
+  /// Keeps the elapsed label as wide as the total one, so the bar does not jump
+  /// sideways the moment playback crosses an hour.
+  String _positionLabel(Duration position, Duration total) =>
+      total.inHours > 0 && position.inHours == 0
+          ? '00:${_formatDuration(position)}'
+          : _formatDuration(position);
+
+  /// End of the buffered range covering the playhead, or null when the engine
+  /// reports no ranges (media_kit does not publish them).
+  double? _bufferedMs(VideoPlayerValue value, double maxMs) {
+    final position = value.position.inMilliseconds;
+    var end = -1;
+    for (final range in value.buffered) {
+      if (range.start.inMilliseconds <= position &&
+          range.end.inMilliseconds > end) {
+        end = range.end.inMilliseconds;
+      }
+    }
+    return end < 0 ? null : end.toDouble().clamp(0.0, maxMs);
+  }
+
+  Widget? _buildScrubPreviewCard(Duration position) {
+    final thumb = _thumbnailAt(position);
+    final Widget? image = thumb != null
+        ? _buildThumbnailImage(thumb)
+        : _canGeneratePreview
+            ? _GeneratedFramePreview(
+                url: _videoUrl!,
+                headers: _headers,
+                positionMs: position.inMilliseconds,
+              )
+            : null;
+    if (image == null) return null;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ClipRRect(borderRadius: BorderRadius.circular(6), child: image),
+        const SizedBox(height: 4),
+        Text(
+          _formatDuration(position),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            shadows: _kControlShadow,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The seek bar, with the scrub preview floating above it.
+  ///
+  /// The preview is positioned out of the bar's own box instead of being a
+  /// sibling in the column: as a sibling it grew the bottom bar and shoved the
+  /// whole thing upward the instant a drag began — out from under the finger
+  /// holding the thumb. Measuring inside the bar's box also lines the popup up
+  /// with the thumb, which the previous guess at the label widths did not.
+  Widget _buildSeekBar({
+    required VideoPlayerValue value,
+    required double sliderVal,
+    required double maxMs,
+    required bool scrubbing,
+    required Duration previewPosition,
+  }) {
+    final Widget bar = isTvPlatform
+        ? _TvSeekBar(
+            focusNode: _tvSeekFocus,
+            positionMs: sliderVal,
+            durationMs: maxMs,
+            scrubbing: scrubbing,
+          )
+        : SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 4,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+              activeTrackColor: AppColors.primary,
+              inactiveTrackColor: Colors.white24,
+              secondaryActiveTrackColor: Colors.white38,
+              thumbColor: Colors.white,
+              overlayColor: AppColors.primary.withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: sliderVal,
+              min: 0,
+              max: maxMs,
+              secondaryTrackValue: _bufferedMs(value, maxMs),
+              onChangeStart: (v) {
+                _sliderDragValue.value = v;
+                _hideTimer?.cancel();
+              },
+              onChanged: (v) {
+                _sliderDragValue.value = v;
+                _hideTimer?.cancel();
+              },
+              onChangeEnd: (v) {
+                final target = Duration(milliseconds: v.toInt());
+                _seekTo(target);
+                _clearDragAfterSeek(target);
+              },
+            ),
+          );
+
+    final preview = scrubbing && (_hasThumbnails || _canGeneratePreview)
+        ? _buildScrubPreviewCard(previewPosition)
+        : null;
+
+    // The wrapper is unconditional: swapping it in when the preview appears
+    // would rebuild the slider mid-drag and drop the gesture.
+    return LayoutBuilder(
+      builder: (context, box) {
+        const previewWidth = 160.0;
+        // Each bar insets its track by its own overlay allowance.
+        final inset = isTvPlatform ? 24.0 : 16.0;
+        final track = (box.maxWidth - inset * 2).clamp(0.0, double.infinity);
+        final fraction = maxMs > 0 ? (sliderVal / maxMs).clamp(0.0, 1.0) : 0.0;
+        final left = (inset + fraction * track - previewWidth / 2).clamp(
+          0.0,
+          (box.maxWidth - previewWidth).clamp(0.0, double.infinity),
+        );
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            bar,
+            if (preview != null)
+              Positioned(left: left, bottom: 46, child: preview),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildBottomBar(
     PlayerController c,
     bool hasEpisodes,
@@ -1081,6 +1249,7 @@ extension _PlayerControls on _PlayerPageState {
                   return ValueListenableBuilder<VideoPlayerValue>(
                     valueListenable: c,
                     builder: (_, value, _) {
+                      if (_isLive) return _buildLiveBar();
                       final duration = value.duration.inMilliseconds == 0
                           ? Duration.zero
                           : value.duration;
@@ -1097,134 +1266,34 @@ extension _PlayerControls on _PlayerPageState {
                           ? Duration(milliseconds: dragVal.toInt())
                           : value.position;
 
-                      return LayoutBuilder(
-                        builder: (context, constraints) {
-                        const sliderPad = 24.0;
-                        const thumbW = 160.0;
-                        final trackWidth =
-                            constraints.maxWidth - 80 - sliderPad * 2;
-                        final fraction = maxMs > 0
-                            ? (sliderVal / maxMs).clamp(0.0, 1.0)
-                            : 0.0;
-                        final thumbCenter =
-                            40 + sliderPad + fraction * trackWidth;
-                        final popupLeft = (thumbCenter - thumbW / 2)
-                            .clamp(0.0, constraints.maxWidth - thumbW);
-
-                        return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: _isLive
-                            ? [_buildLiveBar()]
-                            : [
-                          if (dragVal != null && (_hasThumbnails || _canGeneratePreview))
-                            Builder(builder: (_) {
-                              final thumb = _thumbnailAt(displayPos);
-                              final Widget? img = thumb != null
-                                  ? _buildThumbnailImage(thumb)
-                                  : (_canGeneratePreview
-                                      ? _GeneratedFramePreview(
-                                          url: _videoUrl!,
-                                          headers: _headers,
-                                          positionMs: displayPos.inMilliseconds,
-                                        )
-                                      : null);
-                              if (img == null) {
-                                return const SizedBox.shrink();
-                              }
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                    left: popupLeft, bottom: 6),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius:
-                                            BorderRadius.circular(6),
-                                        child: img,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _formatDuration(displayPos),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }),
-                          Row(
-                            children: [
-                              Text(
-                                _formatDuration(displayPos),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Expanded(
-                                child: isTvPlatform
-                                    ? _TvSeekBar(
-                                        focusNode: _tvSeekFocus,
-                                        positionMs: sliderVal.clamp(0.0, maxMs),
-                                        durationMs: maxMs,
-                                        scrubbing: dragVal != null,
-                                      )
-                                    : SliderTheme(
-                                  data: SliderTheme.of(context).copyWith(
-                                    trackHeight: 3,
-                                    thumbShape: const RoundSliderThumbShape(
-                                      enabledThumbRadius: 7,
-                                    ),
-                                    overlayShape:
-                                        const RoundSliderOverlayShape(
-                                      overlayRadius: 14,
-                                    ),
-                                    activeTrackColor: AppColors.primary,
-                                    inactiveTrackColor: Colors.white24,
-                                    thumbColor: Colors.white,
-                                    overlayColor: AppColors.primary.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                  ),
-                                  child: Slider(
-                                    value: sliderVal.clamp(0.0, maxMs),
-                                    min: 0,
-                                    max: maxMs,
-                                    onChangeStart: (v) {
-                                      _sliderDragValue.value = v;
-                                      _hideTimer?.cancel();
-                                    },
-                                    onChanged: (v) {
-                                      _sliderDragValue.value = v;
-                                      _hideTimer?.cancel();
-                                    },
-                                    onChangeEnd: (v) {
-                                      final target = Duration(
-                                          milliseconds: v.toInt());
-                                      _seekTo(target);
-                                      _clearDragAfterSeek(target);
-                                    },
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                _formatDuration(duration),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
+                      return Row(
+                        children: [
+                          Text(
+                            _positionLabel(displayPos, duration),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              shadows: _kControlShadow,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildSeekBar(
+                              value: value,
+                              sliderVal: sliderVal.clamp(0.0, maxMs),
+                              maxMs: maxMs,
+                              scrubbing: dragVal != null,
+                              previewPosition: displayPos,
+                            ),
+                          ),
+                          Text(
+                            _formatDuration(duration),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              shadows: _kControlShadow,
+                            ),
                           ),
                         ],
-                      );
-                        },
                       );
                     },
                   );

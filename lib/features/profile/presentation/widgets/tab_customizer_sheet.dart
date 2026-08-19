@@ -64,10 +64,8 @@ class _TabCustomizerSheetState extends State<_TabCustomizerSheet> {
     setState(() => _draft.remove(id));
   }
 
-  void _reorder(int oldI, int newI) => setState(() {
-        if (newI > oldI) newI -= 1;
-        _draft.insert(newI, _draft.removeAt(oldI));
-      });
+  void _reorder(int oldI, int newI) =>
+      setState(() => _draft.insert(newI, _draft.removeAt(oldI)));
 
   Future<void> _save() async {
     if (!_valid) {
@@ -114,7 +112,7 @@ class _TabCustomizerSheetState extends State<_TabCustomizerSheet> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             buildDefaultDragHandles: false,
-            onReorder: _reorder,
+            onReorderItem: _reorder,
             proxyDecorator: (child, i, anim) =>
                 Material(color: Colors.transparent, child: child),
             children: [
@@ -191,16 +189,19 @@ class _PinnedTile extends StatelessWidget {
                   fontSize: 15,
                   fontWeight: FontWeight.w600)),
         ),
+        // Same 40px box the remove button occupies, so the drag handles stay in
+        // one column whether or not a tab is locked.
         if (def.mandatory)
-          const Padding(
-            padding: EdgeInsets.only(right: 6),
+          const SizedBox(
+            width: 40,
+            height: 40,
             child: Icon(Icons.lock_rounded, color: AppColors.textHint, size: 18),
           )
         else
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.remove_circle_rounded,
-                color: Color(0xFFE53935), size: 22),
+                color: AppColors.error, size: 22),
             onPressed: onRemove,
           ),
         ReorderableDragStartListener(

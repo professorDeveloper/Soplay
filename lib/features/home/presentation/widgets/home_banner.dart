@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -54,6 +55,10 @@ class _HomeBannerState extends State<HomeBanner> {
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || widget.slides.length < 2) return;
+      if (!_ctrl.hasClients) return;
+      // Auto-advancing on top of a drag or a fling yanked the slide out from
+      // under the finger; skip this tick and take the next one instead.
+      if (_ctrl.position.isScrollingNotifier.value) return;
       final next = (_page + 1) % widget.slides.length;
       _ctrl.animateToPage(
         next,
@@ -93,7 +98,9 @@ class _HomeBannerState extends State<HomeBanner> {
   Widget build(BuildContext context) {
     if (widget.slides.isEmpty) {
       return widget.showSkeleton
-          ? HomeBannerSkeleton(topPadding: widget.topPadding)
+          ? ShimmerWrapper(
+              child: HomeBannerSkeleton(topPadding: widget.topPadding),
+            )
           : const SizedBox.shrink();
     }
 
@@ -106,13 +113,8 @@ class _HomeBannerState extends State<HomeBanner> {
       );
     }
 
-    final height = (MediaQuery.of(context).size.height * 0.63).clamp(
-      440.0,
-      480.0,
-    );
-
     return SizedBox(
-      height: height,
+      height: mobileHeroHeight(context),
       child: Stack(
         children: [
           PageView.builder(
@@ -249,9 +251,10 @@ class _BannerSlide extends StatelessWidget {
         CachedNetworkImage(
           imageUrl: banner.imageUrl,
           fit: BoxFit.cover,
-          errorWidget: (_, _, _) => const ColoredBox(
-            color: AppColors.surfaceVariant,
-          ),
+          placeholder: (_, _) =>
+              const HomeImagePlaceholder(icon: Icons.image_outlined),
+          errorWidget: (_, _, _) =>
+              const HomeImagePlaceholder(icon: Icons.image_not_supported_outlined),
         ),
         const _SlideOverlays(),
         Positioned(
@@ -339,16 +342,21 @@ class _MovieInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final meta = movieMetaLabels(movie);
+    final description = movieDescription(movie);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (meta.isNotEmpty)
+        // Gaps ride with their content: unconditional ones left a hole above
+        // the title on slides with no chips, so titles sat at different
+        // heights as the hero paged.
+        if (meta.isNotEmpty) ...[
           Wrap(
             spacing: 6,
             runSpacing: 6,
             children: meta.take(4).map((m) => _MetaChip(label: m)).toList(),
           ),
-        const SizedBox(height: 10),
+          const SizedBox(height: 10),
+        ],
         Text(
           movieTitle(movie),
           maxLines: 1,
@@ -368,19 +376,21 @@ class _MovieInfo extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          movieDescription(movie),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            height: 1.08,
-            letterSpacing: -0.3,
+        if (description.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            description,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 1.08,
+              letterSpacing: -0.3,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -464,8 +474,8 @@ class _MetaChip extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────
 // Desktop banner — Sozo-Desktop / Akuse style: rounded 450px card, blurred
-// Ken Burns backdrop, crisp right poster, Play + More Info buttons, dot
-// indicators. Both movie and CMS-banner slides are supported.
+// Ken Burns backdrop, crisp right poster, Play + More Info buttons. Both
+// movie and CMS-banner slides are supported.
 // ─────────────────────────────────────────────────────────────────────────
 
 const double _kDesktopBannerHeight = 450.0;
@@ -793,14 +803,14 @@ class _DesktopSlideState extends State<_DesktopSlide>
             Row(
               children: [
                 _BannerButton(
-                  label: 'Play',
+                  label: 'player.play'.tr(),
                   icon: Icons.play_arrow_rounded,
                   primary: true,
                   onTap: () => _openMovie(context, movie),
                 ),
                 const SizedBox(width: 10),
                 _BannerButton(
-                  label: 'More info',
+                  label: 'home.more_info'.tr(),
                   icon: Icons.info_outline_rounded,
                   primary: false,
                   onTap: () => _openMovie(context, movie),
@@ -844,7 +854,7 @@ class _DesktopSlideState extends State<_DesktopSlide>
             ],
             const SizedBox(height: 18),
             _BannerButton(
-              label: 'More info',
+              label: 'home.more_info'.tr(),
               icon: Icons.open_in_new_rounded,
               primary: true,
               onTap: () => widget.onBannerTap(banner),
@@ -1008,6 +1018,12 @@ class _BannerButtonState extends State<_BannerButton> {
   }
 }
 
+/// Height of the mobile hero. The skeleton MUST use the same number: it used
+/// to clamp to 460–580 against the real 440–480, so the whole feed jumped by up
+/// to 100px the moment the banners arrived.
+double mobileHeroHeight(BuildContext context) =>
+    (MediaQuery.sizeOf(context).height * 0.63).clamp(440.0, 480.0);
+
 class HomeBannerSkeleton extends StatelessWidget {
   const HomeBannerSkeleton({super.key, required this.topPadding});
 
@@ -1015,14 +1031,23 @@ class HomeBannerSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final height = (MediaQuery.of(context).size.height * 0.63).clamp(
-      460.0,
-      580.0,
-    );
-    return SizedBox(
-      height: height,
+    if (isDesktopPlatform) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(24, topPadding + 72, 24, 22),
+        child: const HomeSkeletonBox(
+          width: double.infinity,
+          height: _kDesktopBannerHeight,
+          radius: _kDesktopBannerRadius,
+        ),
+      );
+    }
+
+    // Was a box painted in the page background colour — indistinguishable from
+    // an empty screen, so the load read as "nothing is happening".
+    return HomeSkeletonBox(
       width: double.infinity,
-      child: const ColoredBox(color: AppColors.background),
+      height: mobileHeroHeight(context),
+      radius: 0,
     );
   }
 }

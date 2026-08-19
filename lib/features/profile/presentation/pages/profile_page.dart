@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,7 +20,6 @@ import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
 import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
 import 'package:soplay/core/manga/manga_channel.dart';
-import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/nav_prefs.dart';
@@ -151,161 +151,9 @@ class _ProfileViewState extends State<_ProfileView> {
                   child: _Reveal(order: 3, child: _ProvidersSection()),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                if (BridgeControl.canHost && CloudStreamChannel.isSupported) ...[
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Material(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        child: ListTile(
-                          leading: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTRzeluIShlMnhgHeVHgTSkvsthvQEK2xaS5A&s',
-                              width: 28,
-                              height: 28,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => const Icon(
-                                  Icons.extension_outlined,
-                                  color: AppColors.primary),
-                            ),
-                          ),
-                          title: Text('profile.cloudstream_sources'.tr(),
-                              style: const TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.chevron_right,
-                              color: AppColors.textHint),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const CloudStreamSourcesPage(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                ],
-                if (BridgeControl.canHost && AniyomiChannel.isSupported) ...[
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Material(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        child: ListTile(
-                          leading: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s',
-                              width: 28,
-                              height: 28,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => const Icon(
-                                  Icons.play_circle_outline,
-                                  color: AppColors.textHint),
-                            ),
-                          ),
-                          title: Text('profile.aniyomi_sources'.tr(),
-                              style: const TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.chevron_right,
-                              color: AppColors.textHint),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const AniyomiSourcesPage(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                ],
-                if (BridgeControl.canHost && MangaChannel.isSupported) ...[
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Material(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        child: ListTile(
-                          leading: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s',
-                              width: 28,
-                              height: 28,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => const Icon(
-                                  Icons.menu_book_outlined,
-                                  color: AppColors.textHint),
-                            ),
-                          ),
-                          title: Text('manga.sources_title'.tr(),
-                              style: const TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.chevron_right,
-                              color: AppColors.textHint),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const MangaSourcesPage(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                ],
-                // Not gated on BridgeControl.canHost / a platform channel: these
-                // extensions are JavaScript, so this entry is valid on iOS,
-                // macOS and Windows as well as Android — the only extension
-                // ecosystem that is.
-                if (MangayomiRuntime.isSupported) ...[
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Material(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        child: ListTile(
-                          leading: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              'https://raw.githubusercontent.com/kodjodevf/mangayomi/main/assets/app_icons/icon-red.png',
-                              width: 28,
-                              height: 28,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => const Icon(
-                                  Icons.javascript_outlined,
-                                  color: AppColors.textHint),
-                            ),
-                          ),
-                          title: const Text('Mangayomi Sources',
-                              style: TextStyle(color: Colors.white)),
-                          subtitle: const Text('JavaScript · works on iOS too',
-                              style: TextStyle(
-                                  color: AppColors.textHint, fontSize: 11)),
-                          trailing: const Icon(Icons.chevron_right,
-                              color: AppColors.textHint),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const MangayomiSourcesPage(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                ],
+                const SliverToBoxAdapter(
+                  child: _Reveal(order: 4, child: _ExtensionSourcesSection()),
+                ),
                 // Signed-in only: approving a TV pairing binds it to an account, so
                 // there is nothing this can do for a guest.
                 SliverToBoxAdapter(
@@ -322,19 +170,15 @@ class _ProfileViewState extends State<_ProfileView> {
                   ),
                 ),
                 const SliverToBoxAdapter(
-                  child: _Reveal(order: 4, child: _WatchHistorySection()),
+                  child: _Reveal(order: 5, child: _WatchHistorySection()),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(
-                  child: _Reveal(order: 5, child: _SecuritySection()),
+                  child: _Reveal(order: 6, child: _SecuritySection()),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(
-                  child: _Reveal(order: 6, child: _AppearanceEntry()),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                const SliverToBoxAdapter(
-                  child: _Reveal(order: 7, child: _PlayerEntry()),
+                  child: _Reveal(order: 7, child: _SettingsEntriesSection()),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
                 const SliverToBoxAdapter(
@@ -852,12 +696,15 @@ class _LogoutButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Tinted, not neutral: signing out is the one destructive control on this
+    // screen and it was indistinguishable from an ordinary icon button.
     return IconButton(
       onPressed: () => _confirmLogout(context),
       icon: const Icon(Icons.logout_rounded, size: 20),
-      color: AppColors.textSecondary,
+      color: AppColors.error,
+      tooltip: 'profile.sign_out'.tr(),
       style: IconButton.styleFrom(
-        backgroundColor: AppColors.surfaceVariant,
+        backgroundColor: AppColors.error.withValues(alpha: 0.12),
         fixedSize: const Size(40, 40),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -897,7 +744,7 @@ class _LogoutButton extends StatelessWidget {
             child: Text(
               'profile.sign_out'.tr(),
               style: const TextStyle(
-                color: AppColors.primary,
+                color: AppColors.error,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -920,7 +767,6 @@ class _ProvidersSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionLabel('profile.section_providers'.tr()),
-          const SizedBox(height: 8),
           BlocBuilder<ProviderBloc, ProviderState>(
             builder: (context, state) {
               final loaded = state is ProviderLoaded ? state : null;
@@ -943,12 +789,16 @@ class _ProvidersSection extends StatelessWidget {
                             padding: const EdgeInsets.only(right: 8),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(6),
-                              child: Image.network(
-                                currentProvider.image,
+                              child: CachedNetworkImage(
+                                imageUrl: currentProvider.image,
                                 width: 22,
                                 height: 22,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, e, s) =>
+                                // Holds the slot while loading so the name next
+                                // to it does not slide sideways when it lands.
+                                placeholder: (_, _) =>
+                                    const SizedBox(width: 22, height: 22),
+                                errorWidget: (_, _, _) =>
                                     const SizedBox.shrink(),
                               ),
                             ),
@@ -976,11 +826,7 @@ class _ProvidersSection extends StatelessWidget {
                             ),
                           ),
                         const SizedBox(width: 4),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.textHint,
-                          size: 20,
-                        ),
+                        const _TileChevron(),
                       ],
                     ),
                     onTap: () => context.push('/providers'),
@@ -1043,7 +889,6 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionLabel('profile.section_activity'.tr()),
-          const SizedBox(height: 8),
           _SectionCard(
             children: [
               _Tile(
@@ -1061,16 +906,12 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
                         ),
                       ),
                     const SizedBox(width: 4),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.textHint,
-                      size: 20,
-                    ),
+                    const _TileChevron(),
                   ],
                 ),
                 onTap: () => context.push('/history'),
               ),
-              const Divider(color: AppColors.divider, height: 1),
+              const _TileDivider(),
               _Tile(
                 icon: Icons.download_rounded,
                 title: 'profile.downloads'.tr(),
@@ -1086,27 +927,19 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
                         ),
                       ),
                     const SizedBox(width: 4),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.textHint,
-                      size: 20,
-                    ),
+                    const _TileChevron(),
                   ],
                 ),
                 onTap: () => context.push('/downloads'),
               ),
-              const Divider(color: AppColors.divider, height: 1),
+              const _TileDivider(),
               _Tile(
                 icon: Icons.notifications_active_outlined,
                 title: 'tracker.title'.tr(),
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textHint,
-                  size: 20,
-                ),
+                trailing: const _TileChevron(),
                 onTap: () => context.push('/following'),
               ),
-              const Divider(color: AppColors.divider, height: 1),
+              const _TileDivider(),
               _Tile(
                 icon: Icons.devices_rounded,
                 title: BridgeControl.canHost
@@ -1114,11 +947,7 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
                     : Platform.isIOS
                         ? 'ios.sources_title'.tr()
                         : 'profile.desktop_sources'.tr(),
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textHint,
-                  size: 20,
-                ),
+                trailing: const _TileChevron(),
                 onTap: () => context.push('/desktop-share'),
               ),
             ],
@@ -1138,15 +967,21 @@ class _ConnectionsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _ConnectionsTile(),
-          _Tile(
-            icon: Icons.live_tv_rounded,
-            title: 'live_tv.title'.tr(),
-            trailing: Icon(Icons.chevron_right_rounded,
-                color: AppColors.textHint, size: 20),
-            onTap: () => context.push('/live-tv'),
+          _SectionLabel('profile.section_connections'.tr()),
+          _SectionCard(
+            children: [
+              const _ConnectionsTile(),
+              const _TileDivider(),
+              _Tile(
+                icon: Icons.live_tv_rounded,
+                title: 'live_tv.title'.tr(),
+                trailing: const _TileChevron(),
+                onTap: () => context.push('/live-tv'),
+              ),
+            ],
           ),
         ],
       ),
@@ -1199,11 +1034,11 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
       child: InkWell(
         onTap: () => context.push('/connections'),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.fromLTRB(16, 11, 12, 11),
           child: Row(
             children: [
-              const AnilistLogoBadge(size: 38, radius: 10),
-              const SizedBox(width: 13),
+              const AnilistLogoBadge(size: 34, radius: 10),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1251,8 +1086,7 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
                   ),
                 )
               else
-                const Icon(Icons.chevron_right_rounded,
-                    color: AppColors.textHint, size: 20),
+                const _TileChevron(),
             ],
           ),
         ),
@@ -1280,7 +1114,6 @@ class _SecuritySectionState extends State<_SecuritySection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionLabel('app_lock.section_label'.tr()),
-          const SizedBox(height: 8),
           _SectionCard(
             children: [
               _Tile(
@@ -1302,11 +1135,7 @@ class _SecuritySectionState extends State<_SecuritySection> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.textHint,
-                      size: 20,
-                    ),
+                    const _TileChevron(),
                   ],
                 ),
                 onTap: () async {
@@ -1314,15 +1143,11 @@ class _SecuritySectionState extends State<_SecuritySection> {
                   if (mounted) setState(() {});
                 },
               ),
-              const Divider(color: AppColors.divider, height: 1),
+              const _TileDivider(),
               _Tile(
                 icon: Icons.folder_special_rounded,
                 title: 'app_lock.private_list'.tr(),
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textHint,
-                  size: 20,
-                ),
+                trailing: const _TileChevron(),
                 onTap: () async {
                   final unlocked = await requestPrivateUnlock(context);
                   if (unlocked && context.mounted) {
@@ -1494,7 +1319,6 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
         children: [
           if (widget.showLabel) ...[
             _SectionLabel('profile.section_appearance'.tr()),
-            const SizedBox(height: 8),
           ],
           _SectionCard(
             children: [
@@ -1562,8 +1386,7 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                       subtitle: Text('nav_customize.entry_subtitle'.tr(),
                           style: const TextStyle(
                               color: AppColors.textHint, fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right,
-                          color: AppColors.textHint),
+                      trailing: const _TileChevron(),
                       onTap: () => showTabCustomizer(context),
                     ),
                   ),
@@ -1601,51 +1424,43 @@ class NavbarPage extends StatelessWidget {
   }
 }
 
-/// Compact Profile entry (matches the security tiles) → opens [AppearancePage].
-class _AppearanceEntry extends StatelessWidget {
-  const _AppearanceEntry();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: _SectionCard(
-        children: [
-          _Tile(
-            icon: Icons.view_week_rounded,
-            title: 'profile.nav_style'.tr(),
-            trailing: const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textHint, size: 20),
-            onTap: () => context.push('/navbar'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Compact Profile entry → [PlayerSettingsPage].
+/// The two rows that open a settings sub-page ([NavbarPage],
+/// [PlayerSettingsPage]).
 ///
-/// Unconditional, unlike the engine picker it replaced: that was Android-only
-/// because every other platform is pinned to one backend, but the page now
-/// also owns playback defaults and subtitle appearance, which apply
-/// everywhere. The engine block inside is still gated on
-/// [canChoosePlayerEngine].
-class _PlayerEntry extends StatelessWidget {
-  const _PlayerEntry();
+/// One labelled card rather than two unlabelled single-row cards: floating
+/// alone between the labelled Security and About sections, they read as
+/// leftovers rather than as a group.
+///
+/// The Player row is unconditional — the page behind it owns playback defaults
+/// and subtitle appearance, which apply everywhere; only its engine block is
+/// platform-gated.
+class _SettingsEntriesSection extends StatelessWidget {
+  const _SettingsEntriesSection();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Tile(
-            icon: Icons.play_circle_outline_rounded,
-            title: 'profile.section_player'.tr(),
-            trailing: const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textHint, size: 20),
-            onTap: () => context.push('/player-settings'),
+          _SectionLabel('profile.section_settings'.tr()),
+          _SectionCard(
+            children: [
+              _Tile(
+                icon: Icons.view_week_rounded,
+                title: 'profile.nav_style'.tr(),
+                trailing: const _TileChevron(),
+                onTap: () => context.push('/navbar'),
+              ),
+              const _TileDivider(),
+              _Tile(
+                icon: Icons.play_circle_outline_rounded,
+                title: 'profile.section_player'.tr(),
+                trailing: const _TileChevron(),
+                onTap: () => context.push('/player-settings'),
+              ),
+            ],
           ),
         ],
       ),
@@ -1655,6 +1470,10 @@ class _PlayerEntry extends StatelessWidget {
 
 class _AboutSection extends StatelessWidget {
   const _AboutSection();
+
+  /// Resolved once. Rebuilt per build() it dropped the version row back to "…"
+  /// on every rebuild of the list.
+  static final Future<PackageInfo> _packageInfo = PackageInfo.fromPlatform();
 
   Future<void> _open(String url) async {
     final uri = Uri.parse(url);
@@ -1786,14 +1605,13 @@ class _AboutSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionLabel('profile.section_about'.tr()),
-          const SizedBox(height: 8),
           _SectionCard(
             children: [
               _Tile(
                 icon: Icons.info_outline_rounded,
                 title: 'Sozo',
                 trailing: FutureBuilder<PackageInfo>(
-                  future: PackageInfo.fromPlatform(),
+                  future: _packageInfo,
                   builder: (_, snap) => Text(
                     snap.hasData
                         ? 'v${snap.data!.version} (${snap.data!.buildNumber})'
@@ -1804,7 +1622,7 @@ class _AboutSection extends StatelessWidget {
                 ),
                 onTap: null,
               ),
-              Divider(color: AppColors.divider, height: 1),
+              const _TileDivider(),
               _Tile(
                 icon: Icons.person_outline_rounded,
                 title: 'profile.developer'.tr(),
@@ -1817,16 +1635,12 @@ class _AboutSection extends StatelessWidget {
                           TextStyle(color: AppColors.textSecondary, fontSize: 13),
                     ),
                     SizedBox(width: 4),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.textHint,
-                      size: 20,
-                    ),
+                    _TileChevron(),
                   ],
                 ),
                 onTap: () => _showDeveloper(context),
               ),
-              Divider(color: AppColors.divider, height: 1),
+              const _TileDivider(),
               const _ServerCountdownTile(),
             ],
           ),
@@ -1946,56 +1760,131 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+/// A Profile row. Metrics are the ones in `settings_tiles.dart` so a row here
+/// and a row on the page it opens sit on the same grid.
 class _Tile extends StatelessWidget {
   const _Tile({
-    required this.icon,
+    this.icon,
+    this.leading,
     required this.title,
     required this.trailing,
     required this.onTap,
+    this.subtitle,
   });
 
-  final IconData icon;
+  final IconData? icon;
+
+  /// Drawn in place of the icon chip, in the same 34px box so the column of
+  /// leading marks does not shift between rows.
+  final Widget? leading;
   final String title;
+  final String? subtitle;
   final Widget trailing;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final sub = subtitle;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppColors.textSecondary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: AppColors.textSecondary, size: 18),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+          padding: const EdgeInsets.fromLTRB(16, 11, 12, 11),
+          child: LayoutBuilder(
+            builder: (context, constraints) => Row(
+              children: [
+                _TileLeading(icon: icon, child: leading),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (sub != null && sub.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          sub,
+                          style: const TextStyle(
+                            color: AppColors.textHint,
+                            fontSize: 11.5,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-              ),
-              trailing,
-            ],
+                const SizedBox(width: 8),
+                // Half the row at most: past that the value wins the tug of
+                // war with the title and pushes it into a wrapped column.
+                ConstrainedBox(
+                  constraints:
+                      BoxConstraints(maxWidth: constraints.maxWidth * 0.5),
+                  child: trailing,
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _TileLeading extends StatelessWidget {
+  const _TileLeading({this.icon, this.child});
+
+  final IconData? icon;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final custom = child;
+    if (custom != null) {
+      return SizedBox(width: 34, height: 34, child: custom);
+    }
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: AppColors.textSecondary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: icon == null
+          ? null
+          : Icon(icon, color: AppColors.textSecondary, size: 18),
+    );
+  }
+}
+
+/// Inset to the title column, like [SettingsDivider] on the sub-pages.
+class _TileDivider extends StatelessWidget {
+  const _TileDivider();
+
+  @override
+  Widget build(BuildContext context) =>
+      const Divider(color: AppColors.divider, height: 1, indent: 64);
+}
+
+/// Chevron used by every row that opens something.
+class _TileChevron extends StatelessWidget {
+  const _TileChevron();
+
+  @override
+  Widget build(BuildContext context) => const Icon(
+        Icons.chevron_right_rounded,
+        color: AppColors.textHint,
+        size: 20,
+      );
 }
 
 class _Avatar extends StatelessWidget {
@@ -2118,62 +2007,35 @@ class _ServerCountdownTileState extends State<_ServerCountdownTile> {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _showSupportSheet(context),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppColors.textSecondary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.dns_outlined,
-                  color: AppColors.textSecondary,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  'profile.server'.tr(),
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+    return _Tile(
+      icon: Icons.dns_outlined,
+      title: 'profile.server'.tr(),
+      onTap: () => _showSupportSheet(context),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: ValueListenableBuilder<Duration>(
+              valueListenable: _remaining,
+              builder: (_, rem, _) {
+                return Text(
+                  rem == Duration.zero ? 'profile.expired'.tr() : _fmt(rem),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: rem == Duration.zero
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                    fontSize: 13,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
-                ),
-              ),
-              ValueListenableBuilder<Duration>(
-                valueListenable: _remaining,
-                builder: (_, rem, _) {
-                  return Text(
-                    rem == Duration.zero ? 'profile.expired'.tr() : _fmt(rem),
-                    style: TextStyle(
-                      color: rem == Duration.zero
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
-                      fontSize: 13,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.textHint,
-                size: 20,
-              ),
-            ],
+                );
+              },
+            ),
           ),
-        ),
+          const SizedBox(width: 4),
+          const _TileChevron(),
+        ],
       ),
     );
   }
@@ -2354,23 +2216,132 @@ class _LinkTvTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Material(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        child: ListTile(
-          leading: const Icon(Icons.cast_connected, color: AppColors.primary),
-          title: Text('link_tv.title'.tr(),
-              style: const TextStyle(color: Colors.white)),
-          subtitle: Text('link_tv.tile_subtitle'.tr(),
-              style: const TextStyle(color: AppColors.textHint, fontSize: 11)),
-          trailing:
-              const Icon(Icons.chevron_right, color: AppColors.textHint),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+      child: _SectionCard(
+        children: [
+          _Tile(
+            icon: Icons.cast_connected,
+            title: 'link_tv.title'.tr(),
+            subtitle: 'link_tv.tile_subtitle'.tr(),
+            trailing: const _TileChevron(),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const LinkTvPage()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The installable-extension entries, in one card instead of four free-standing
+/// ones. Which of them exist depends on the platform, so the card builds itself
+/// out of whatever is supported and disappears entirely when nothing is.
+class _ExtensionSourcesSection extends StatelessWidget {
+  const _ExtensionSourcesSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <Widget>[
+      if (BridgeControl.canHost && CloudStreamChannel.isSupported)
+        _Tile(
+          leading: const _TileLogo(
+            url:
+                'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTRzeluIShlMnhgHeVHgTSkvsthvQEK2xaS5A&s',
+            fallback: Icons.extension_outlined,
+          ),
+          title: 'profile.cloudstream_sources'.tr(),
+          trailing: const _TileChevron(),
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const LinkTvPage()),
+            MaterialPageRoute(builder: (_) => const CloudStreamSourcesPage()),
           ),
         ),
+      if (BridgeControl.canHost && AniyomiChannel.isSupported)
+        _Tile(
+          leading: const _TileLogo(
+            url:
+                'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s',
+            fallback: Icons.play_circle_outline,
+          ),
+          title: 'profile.aniyomi_sources'.tr(),
+          trailing: const _TileChevron(),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AniyomiSourcesPage()),
+          ),
+        ),
+      if (BridgeControl.canHost && MangaChannel.isSupported)
+        _Tile(
+          leading: const _TileLogo(
+            url:
+                'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShNP_m0078YcYRUbudCuZhohC2U143Re4MfQ&s',
+            fallback: Icons.menu_book_outlined,
+          ),
+          title: 'manga.sources_title'.tr(),
+          trailing: const _TileChevron(),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const MangaSourcesPage()),
+          ),
+        ),
+      // Not gated on BridgeControl.canHost / a platform channel: these
+      // extensions are JavaScript, so this entry is valid on iOS, macOS and
+      // Windows as well as Android — the only extension ecosystem that is.
+      if (MangayomiRuntime.isSupported)
+        _Tile(
+          leading: const _TileLogo(
+            url:
+                'https://raw.githubusercontent.com/kodjodevf/mangayomi/main/assets/app_icons/icon-red.png',
+            fallback: Icons.javascript_outlined,
+          ),
+          title: 'Mangayomi Sources',
+          trailing: const _TileChevron(),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const MangayomiSourcesPage()),
+          ),
+        ),
+    ];
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionLabel('profile.section_extensions'.tr()),
+          _SectionCard(
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0) const _TileDivider(),
+                rows[i],
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Remote logo in the leading slot. Shows the plain icon chip while loading and
+/// if the load fails, so the row never has a hole where its mark should be.
+class _TileLogo extends StatelessWidget {
+  const _TileLogo({required this.url, required this.fallback});
+
+  final String url;
+  final IconData fallback;
+
+  @override
+  Widget build(BuildContext context) {
+    final cache = (34 * MediaQuery.devicePixelRatioOf(context)).round();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: CachedNetworkImage(
+        imageUrl: url,
+        width: 34,
+        height: 34,
+        fit: BoxFit.cover,
+        memCacheWidth: cache,
+        memCacheHeight: cache,
+        placeholder: (_, _) => _TileLeading(icon: fallback),
+        errorWidget: (_, _, _) => _TileLeading(icon: fallback),
       ),
     );
   }

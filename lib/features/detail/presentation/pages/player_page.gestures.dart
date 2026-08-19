@@ -90,9 +90,9 @@ extension _PlayerGestures on _PlayerPageState {
 
   void _showSeekRipple(int direction) {
     if (_seekRippleDirection != direction) {
-      _seekRippleSeconds = 10;
+      _seekRippleSeconds = _seekSeconds;
     } else {
-      _seekRippleSeconds += 10;
+      _seekRippleSeconds += _seekSeconds;
     }
     setState(() => _seekRippleDirection = direction);
     _seekRippleController.forward(from: 0);

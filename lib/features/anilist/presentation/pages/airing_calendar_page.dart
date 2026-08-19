@@ -292,10 +292,25 @@ class _AiringCalendarPageState extends State<AiringCalendarPage>
               separatorBuilder: (_, _) => const SizedBox(height: 9),
               itemBuilder: (context, i) {
                 final row = rows[i];
-                final card = _AiringCard(
-                  row: row,
-                  mine: _calendar.isMine(row.airing.media.id),
-                  onTap: () => _openRow(row),
+                // The label is printed once per clock time. A column repeating
+                // 18:00 down six rows is noise; the line is what carries them.
+                final previous = i == 0 ? null : rows[i - 1].airing.airsAt;
+                final at = row.airing.airsAt;
+                final startsTime = previous == null ||
+                    previous.hour != at.hour ||
+                    previous.minute != at.minute;
+
+                final card = _TimeRailRow(
+                  at: at,
+                  showTime: startsTime,
+                  aired: row.airing.hasAired,
+                  first: i == 0,
+                  last: i == rows.length - 1,
+                  child: _AiringCard(
+                    row: row,
+                    mine: _calendar.isMine(row.airing.media.id),
+                    onTap: () => _openRow(row),
+                  ),
                 );
                 if (i != nowAt) return card;
                 return Column(
@@ -333,52 +348,20 @@ class _AiringCalendarPageState extends State<AiringCalendarPage>
           : 'anilist.calendar_empty'.tr();
     }
     final failed = error != null || listFailed;
+    final VoidCallback retry =
+        listFailed ? () => _library.load(force: true) : refresh;
 
     return RefreshIndicator(
       color: kAnilistBlue,
       backgroundColor: AppColors.surface,
       onRefresh: refresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          SizedBox(height: MediaQuery.sizeOf(context).height * 0.12),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                children: [
-                  Icon(
-                    failed ? Icons.cloud_off_rounded : Icons.event_busy_rounded,
-                    size: 46,
-                    color: AppColors.textHint.withValues(alpha: 0.6),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.textHint,
-                      fontSize: 13.5,
-                      height: 1.5,
-                    ),
-                  ),
-                  if (failed) ...[
-                    const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: listFailed
-                          ? () => _library.load(force: true)
-                          : refresh,
-                      style: TextButton.styleFrom(
-                        foregroundColor: kAnilistBlue,
-                      ),
-                      child: Text('anilist.retry'.tr()),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
+      child: AnilistScrollableMessage(
+        message: AnilistStateMessage(
+          icon: failed ? Icons.cloud_off_rounded : Icons.event_busy_rounded,
+          text: message,
+          actionLabel: failed ? 'anilist.retry'.tr() : null,
+          onAction: failed ? retry : null,
+        ),
       ),
     );
   }
@@ -401,6 +384,7 @@ class _AiringCalendarPageState extends State<AiringCalendarPage>
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (_) => _MediaActions(
         media: media,
         onAdd: _service.isConnected ? () => _addToPlanning(media) : null,
@@ -452,7 +436,9 @@ class _DayStrip extends StatelessWidget {
     final days = controller.days;
 
     return SizedBox(
-      height: 76,
+      // The pill holds two stacked labels at a fixed height, so the height has
+      // to follow the text size the user chose or they overlap.
+      height: MediaQuery.textScalerOf(context).scale(52) + 24,
       child: ListView.separated(
         controller: scrollController,
         scrollDirection: Axis.horizontal,
@@ -471,6 +457,10 @@ class _DayStrip extends StatelessWidget {
             button: true,
             selected: selected,
             label: DateFormat.yMMMMEEEEd(locale).format(day),
+            // ExcludeSemantics below drops the InkWell's own tap action along
+            // with its labels, which would leave the pill unusable by a screen
+            // reader.
+            onTap: () => controller.select(day),
             child: ExcludeSemantics(
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
@@ -802,6 +792,112 @@ class _DaySkeleton extends StatelessWidget {
   }
 }
 
+/// The clock gutter beside a day's entries.
+///
+/// A day is a sequence in time, and a column of cards each carrying its own
+/// time pill did not say so — the reader had to compare numbers to work out the
+/// order. A continuous line with the hour printed where it changes reads as one
+/// descending timeline instead.
+class _TimeRailRow extends StatelessWidget {
+  const _TimeRailRow({
+    required this.at,
+    required this.showTime,
+    required this.aired,
+    required this.first,
+    required this.last,
+    required this.child,
+  });
+
+  final DateTime at;
+  final bool showTime;
+  final bool aired;
+  final bool first;
+  final bool last;
+  final Widget child;
+
+  static const double _railWidth = 52;
+  static const double _dotAt = 22;
+
+  @override
+  Widget build(BuildContext context) {
+    final colour = aired ? AppColors.textHint : kAnilistBlue;
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: _railWidth,
+            child: Stack(
+              children: [
+                // Two segments rather than one line: the run has to stop at the
+                // first and last entry, or it hangs off both ends of the day.
+                Positioned(
+                  left: _railWidth - 13,
+                  top: 0,
+                  height: _dotAt,
+                  child: _Segment(visible: !first),
+                ),
+                Positioned(
+                  left: _railWidth - 13,
+                  top: _dotAt,
+                  bottom: -9,
+                  child: _Segment(visible: !last),
+                ),
+                Positioned(
+                  left: _railWidth - 16,
+                  top: _dotAt - 3,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colour,
+                    ),
+                  ),
+                ),
+                if (showTime)
+                  Positioned(
+                    left: 0,
+                    right: 18,
+                    top: _dotAt - 8,
+                    child: Text(
+                      DateFormat.Hm(context.locale.toString()).format(at),
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: colour,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class _Segment extends StatelessWidget {
+  const _Segment({required this.visible});
+
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      color: visible
+          ? AppColors.textHint.withValues(alpha: 0.28)
+          : Colors.transparent,
+    );
+  }
+}
+
 class _AiringCard extends StatelessWidget {
   const _AiringCard({
     required this.row,
@@ -817,7 +913,6 @@ class _AiringCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final airing = row.airing;
     final media = airing.media;
-    final time = DateFormat.Hm(context.locale.toString()).format(airing.airsAt);
     final aired = airing.hasAired;
     final episode = row.isRange
         ? 'anilist.calendar_episode_range'.tr(
@@ -892,27 +987,6 @@ class _AiringCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 9,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: aired
-                      ? AppColors.surfaceVariant
-                      : kAnilistBlue.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Text(
-                  time,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: aired ? AppColors.textHint : kAnilistBlue,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -943,72 +1017,76 @@ class _MediaActions extends StatelessWidget {
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),
         padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AnilistCover(url: media.coverImage, width: 54),
-                const SizedBox(width: 13),
-                Expanded(
-                  child: Text(
-                    media.displayTitle,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
-                    ),
+        // Scrolls rather than clips: a three-line title, a large text scale or
+        // a landscape phone all put this past the height a sheet is given.
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(color: AppColors.divider, height: 1),
-            _SheetAction(
-              icon: Icons.travel_explore_rounded,
-              label: 'anilist.find_in_sources'.tr(),
-              subtitle: 'anilist.find_in_sources_hint'.tr(),
-              onTap: () {
-                Navigator.of(context).pop();
-                context.push('/cross-search', extra: media.displayTitle);
-              },
-            ),
-            if (onAdd != null)
+              ),
+              const SizedBox(height: 18),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AnilistCover(url: media.coverImage, width: 54),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Text(
+                      media.displayTitle,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(color: AppColors.divider, height: 1),
               _SheetAction(
-                icon: Icons.bookmark_add_outlined,
-                label: 'anilist.calendar_add_planning'.tr(),
+                icon: Icons.travel_explore_rounded,
+                label: 'anilist.find_in_sources'.tr(),
+                subtitle: 'anilist.find_in_sources_hint'.tr(),
                 onTap: () {
                   Navigator.of(context).pop();
-                  onAdd!();
+                  context.push('/cross-search', extra: media.displayTitle);
                 },
               ),
-            _SheetAction(
-              icon: Icons.open_in_new_rounded,
-              label: 'anilist.open_on_anilist'.tr(),
-              onTap: siteUrl == null
-                  ? null
-                  : () => launchUrl(
-                      Uri.parse(siteUrl),
-                      mode: LaunchMode.externalApplication,
-                    ),
-            ),
-          ],
+              if (onAdd != null)
+                _SheetAction(
+                  icon: Icons.bookmark_add_outlined,
+                  label: 'anilist.calendar_add_planning'.tr(),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    onAdd!();
+                  },
+                ),
+              _SheetAction(
+                icon: Icons.open_in_new_rounded,
+                label: 'anilist.open_on_anilist'.tr(),
+                onTap: siteUrl == null
+                    ? null
+                    : () => launchUrl(
+                        Uri.parse(siteUrl),
+                        mode: LaunchMode.externalApplication,
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );

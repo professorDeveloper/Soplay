@@ -135,6 +135,99 @@ class AnilistProgressBar extends StatelessWidget {
   }
 }
 
+/// "Nothing here" and "that failed", in the one shape every AniList screen
+/// uses. Each screen had grown its own icon, its own retry button and its own
+/// vertical offset for the same two states.
+class AnilistStateMessage extends StatelessWidget {
+  const AnilistStateMessage({
+    super.key,
+    required this.icon,
+    required this.text,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 46, color: AppColors.textHint.withValues(alpha: 0.6)),
+          const SizedBox(height: 14),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textHint,
+              fontSize: 13.5,
+              height: 1.5,
+            ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: onAction,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: kAnilistBlue,
+                side: BorderSide(color: kAnilistBlue.withValues(alpha: 0.5)),
+                // The app's outlined buttons are full-width page actions; this
+                // one sits under a paragraph and should read as an aside.
+                minimumSize: const Size(0, 42),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(actionLabel!),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// [AnilistStateMessage] centred in a scroll view, so a screen with nothing in
+/// it can still be pulled to refresh and still be dragged where the scrollable
+/// drives a sheet.
+///
+/// Centres on the viewport rather than on a fraction of the screen height: the
+/// lists this replaces sit under a tab bar, a day strip or a filter row, and a
+/// screen fraction put the message somewhere different on each of them.
+class AnilistScrollableMessage extends StatelessWidget {
+  const AnilistScrollableMessage({
+    super.key,
+    required this.message,
+    this.controller,
+  });
+
+  final AnilistStateMessage message;
+  final ScrollController? controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => ListView(
+        controller: controller,
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(child: message),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// The block shown wherever a screen needs an AniList connection it does not
 /// have. One widget so the message and the button never drift apart between
 /// the library, the upcoming list and the title screen.

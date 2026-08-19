@@ -97,15 +97,18 @@ class _RelatedCard extends StatelessWidget {
               height: 1.25,
             ),
           ),
-          if (item.year != null)
-            Text(
-              item.year.toString(),
-              style: const TextStyle(
-                color: AppColors.textHint,
-                fontSize: 11,
-                height: 1.3,
-              ),
+          // Always laid out, even with no year: the poster is the Expanded
+          // child, so dropping this line made those cards' artwork taller than
+          // their neighbours' and the titles no longer lined up across a row.
+          Text(
+            item.year?.toString() ?? '',
+            maxLines: 1,
+            style: const TextStyle(
+              color: AppColors.textHint,
+              fontSize: 11,
+              height: 1.3,
             ),
+          ),
         ],
       ),
     );

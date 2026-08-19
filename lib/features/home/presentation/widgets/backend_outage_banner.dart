@@ -72,8 +72,8 @@ class _BackendOutageBannerState extends State<BackendOutageBanner> {
                 if (localCount > 0)
                   TextButton(
                     style: TextButton.styleFrom(
-                      minimumSize: const Size(0, 30),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       foregroundColor: Colors.orange,
                     ),
                     onPressed: () => openProviderPicker(
@@ -89,8 +89,8 @@ class _BackendOutageBannerState extends State<BackendOutageBanner> {
                 else
                   TextButton(
                     style: TextButton.styleFrom(
-                      minimumSize: const Size(0, 30),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       foregroundColor: Colors.orange,
                     ),
                     onPressed: () =>
@@ -103,7 +103,13 @@ class _BackendOutageBannerState extends State<BackendOutageBanner> {
                   ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints(),
+                  // Was an unconstrained 4dp pad around a 15dp icon: a ~23dp
+                  // target for the only way to get rid of this banner. 48 and
+                  // not 44 because compact density takes 4 back off.
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
                   padding: const EdgeInsets.all(4),
                   icon: const Icon(Icons.close_rounded,
                       size: 15, color: Colors.orange),
