@@ -134,6 +134,11 @@ class _AnilistLibraryPageState extends State<AnilistLibraryPage>
           // Offered signed out too: the schedule is public, and it is the one
           // part of AniList that is worth something without an account.
           IconButton(
+            tooltip: 'anilist.browse_title'.tr(),
+            onPressed: () => context.push('/anilist/browse'),
+            icon: const Icon(Icons.explore_rounded),
+          ),
+          IconButton(
             tooltip: 'anilist.calendar_title'.tr(),
             onPressed: () => context.push('/anilist/calendar'),
             icon: const Icon(Icons.calendar_month_rounded),

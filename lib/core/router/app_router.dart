@@ -28,6 +28,7 @@ import 'package:soplay/features/manga/presentation/pages/reader_page.dart';
 import 'package:soplay/features/main/presentation/pages/main_page.dart';
 import 'package:soplay/features/network/presentation/pages/no_internet_page.dart';
 import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
+import 'package:soplay/features/anilist/presentation/pages/anilist_browse_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/airing_calendar_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_library_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_links_page.dart';
@@ -48,6 +49,7 @@ import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
 import 'package:soplay/features/user_lists/presentation/pages/user_lists_page.dart';
 import 'package:soplay/features/profile/presentation/pages/player_settings_page.dart';
 import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
+import 'package:soplay/features/live_tv/presentation/pages/live_tv_page.dart';
 import 'package:soplay/features/remote/presentation/pages/tv_remote_page.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
@@ -182,6 +184,10 @@ class AppRouter {
         builder: (context, state) => const FollowingPage(),
       ),
       GoRoute(
+        path: '/live-tv',
+        builder: (context, state) => const LiveTvPage(),
+      ),
+      GoRoute(
         path: '/tv-remote',
         builder: (context, state) => const TvRemotePage(),
       ),
@@ -198,6 +204,10 @@ class AppRouter {
       GoRoute(
         path: '/anilist',
         builder: (context, state) => const AnilistLibraryPage(),
+      ),
+      GoRoute(
+        path: '/anilist/browse',
+        builder: (context, state) => const AnilistBrowsePage(),
       ),
       GoRoute(
         path: '/anilist/calendar',
