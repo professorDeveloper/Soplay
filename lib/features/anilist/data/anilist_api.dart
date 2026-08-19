@@ -25,6 +25,30 @@ class AnilistApi {
 
   final Dio _dio;
 
+  /// When the next request may be sent, after AniList answered 429.
+  ///
+  /// AniList's budget is small and enforced hard, and the calendar spends
+  /// several requests per day tapped — flicking across the strip trips it.
+  /// Failing fast until the window reopens beats firing a request that is
+  /// certain to be rejected.
+  DateTime? _throttledUntil;
+
+  static const String _rateLimitMessage = 'AniList is rate limiting requests';
+
+  static Duration _retryAfter(Response<dynamic>? response) {
+    final headers = response?.headers;
+    final retryAfter = int.tryParse(headers?.value('retry-after') ?? '');
+    if (retryAfter != null && retryAfter > 0) {
+      return Duration(seconds: retryAfter.clamp(1, 300));
+    }
+    final reset = int.tryParse(headers?.value('x-ratelimit-reset') ?? '');
+    if (reset != null) {
+      final left = reset - DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      if (left > 0) return Duration(seconds: left.clamp(1, 300));
+    }
+    return const Duration(seconds: 60);
+  }
+
   /// The media selection every query shares.
   ///
   /// One constant rather than a copy per query: the entity parses these fields
@@ -42,7 +66,26 @@ class AnilistApi {
     coverImage { large }
     bannerImage
     description(asHtml: false)
+    isAdult
     nextAiringEpisode { episode airingAt }
+  ''';
+
+  /// The lean selection the airing calendar uses.
+  ///
+  /// A global day runs to a hundred-odd airings over several pages, and the
+  /// heavy fields above — description most of all — cost a few hundred KB per
+  /// day tapped for values the calendar never renders. Named next to
+  /// [_mediaFields] rather than inlined so both selections stay visible
+  /// together when a field is added.
+  static const String _airingMediaFields = '''
+    id
+    episodes
+    format
+    status
+    siteUrl
+    title { romaji english native }
+    coverImage { large }
+    isAdult
   ''';
 
   /// Runs [query]. [token] is optional: search and media lookups are public,
@@ -52,13 +95,28 @@ class AnilistApi {
     Map<String, dynamic> variables = const {},
     String? token,
   }) async {
-    final response = await _dio.post(
-      AnilistConstants.graphqlEndpoint,
-      data: {'query': query, 'variables': variables},
-      options: Options(
-        headers: {if (token != null) 'Authorization': 'Bearer $token'},
-      ),
-    );
+    final until = _throttledUntil;
+    if (until != null && DateTime.now().isBefore(until)) {
+      throw const AnilistException(_rateLimitMessage, rateLimited: true);
+    }
+
+    final Response<dynamic> response;
+    try {
+      response = await _dio.post(
+        AnilistConstants.graphqlEndpoint,
+        data: {'query': query, 'variables': variables},
+        options: Options(
+          headers: {if (token != null) 'Authorization': 'Bearer $token'},
+        ),
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 429) {
+        _throttledUntil = DateTime.now().add(_retryAfter(e.response));
+        throw const AnilistException(_rateLimitMessage, rateLimited: true);
+      }
+      rethrow;
+    }
+    _throttledUntil = null;
 
     final body = response.data;
     if (body is! Map) throw const AnilistException('Unexpected AniList reply');
@@ -167,6 +225,68 @@ class AnilistApi {
         .toList(growable: false);
   }
 
+  /// Everything airing between [from] and [to].
+  ///
+  /// Paged rather than a single large request: a day of global airings runs to
+  /// a few dozen entries and AniList caps perPage at 50, so asking for one page
+  /// silently truncates the evening. The cap on pages is a safety net against a
+  /// window someone widens later, not a real limit — a day never reaches it.
+  Future<List<AnilistScheduledAiring>> airingSchedule({
+    required DateTime from,
+    required DateTime to,
+    bool includeAdult = false,
+  }) async {
+    final gql = '''
+      query (\$start: Int, \$end: Int, \$page: Int) {
+        Page(page: \$page, perPage: 50) {
+          pageInfo { hasNextPage }
+          airingSchedules(
+            airingAt_greater: \$start
+            airingAt_lesser: \$end
+            sort: TIME
+          ) {
+            episode
+            airingAt
+            media { $_airingMediaFields }
+          }
+        }
+      }
+    ''';
+
+    // `airingAt_greater` is strictly greater, so the one-second nudge is what
+    // keeps an episode airing exactly at midnight from falling between two
+    // days — excluded from this one for equalling its start, and from the
+    // previous one for that day's inclusive `airingAt_lesser`.
+    final start = from.toUtc().millisecondsSinceEpoch ~/ 1000 - 1;
+    final end = to.toUtc().millisecondsSinceEpoch ~/ 1000;
+    final out = <AnilistScheduledAiring>[];
+
+    for (var page = 1; page <= 10; page++) {
+      final data = await _run(
+        gql,
+        variables: {'start': start, 'end': end, 'page': page},
+      );
+      final pageData = data['Page'];
+      if (pageData is! Map) break;
+
+      final schedules = pageData['airingSchedules'];
+      if (schedules is List) {
+        for (final raw in schedules.whereType<Map>()) {
+          final airing =
+              AnilistScheduledAiring.fromJson(raw.cast<String, dynamic>());
+          if (airing == null) continue;
+          if (!includeAdult && airing.media.isAdult) continue;
+          out.add(airing);
+        }
+      }
+
+      final info = pageData['pageInfo'];
+      final hasNext = info is Map && info['hasNextPage'] == true;
+      if (!hasNext) break;
+    }
+    return out;
+  }
+
   /// The viewer's own entry for one title, or null if it is not on their list.
   ///
   /// Read before every automatic write so progress is never moved BACKWARDS:
@@ -196,6 +316,26 @@ class AnilistApi {
     );
   }
 
+  /// Puts a title on the viewer's list, leaving an existing entry alone.
+  ///
+  /// SaveMediaListEntry is an UPSERT. Sending progress 0 and PLANNING for a
+  /// media the viewer is already twelve episodes into would reset both — on
+  /// their real account, with no undo. So this reads first and refuses to
+  /// write over an entry that exists, and never sends progress at all: the
+  /// caller's own "is it on the list" check can be stale or, worse, false
+  /// simply because the library failed to load.
+  ///
+  /// Returns null when the title was already there.
+  Future<AnilistSaveResult?> addToList({
+    required String token,
+    required int mediaId,
+    AnilistStatus status = AnilistStatus.planning,
+  }) async {
+    final existing = await entryState(token: token, mediaId: mediaId);
+    if (existing != null) return null;
+    return saveProgress(token: token, mediaId: mediaId, status: status.value);
+  }
+
   /// Writes progress back to AniList.
   ///
   /// [progress] is an episode COUNT, not an index — AniList means "episodes
@@ -209,7 +349,10 @@ class AnilistApi {
   Future<AnilistSaveResult> saveProgress({
     required String token,
     required int mediaId,
-    required int progress,
+    // Optional so a status-only write leaves the viewer's position untouched.
+    // The mutation omits the argument entirely rather than sending null, which
+    // AniList would take as "set it to nothing".
+    int? progress,
     String? status,
   }) async {
     const mutation = '''
@@ -225,15 +368,17 @@ class AnilistApi {
       mutation,
       variables: {
         'mediaId': mediaId,
-        'progress': progress,
+        'progress': ?progress,
         'status': ?status,
       },
       token: token,
     );
     final saved = data['SaveMediaListEntry'];
-    if (saved is! Map) throw const AnilistException('AniList saqlamadi');
+    if (saved is! Map) {
+      throw const AnilistException('AniList did not save the change');
+    }
     return AnilistSaveResult(
-      progress: (saved['progress'] as num?)?.toInt() ?? progress,
+      progress: (saved['progress'] as num?)?.toInt() ?? progress ?? 0,
       status: saved['status'] as String? ?? status ?? AnilistStatus.current.value,
     );
   }
@@ -262,8 +407,13 @@ class AnilistEntryState {
 }
 
 class AnilistException implements Exception {
-  const AnilistException(this.message);
+  const AnilistException(this.message, {this.rateLimited = false});
   final String message;
+
+  /// AniList refused on its request budget, not because anything is wrong.
+  /// Callers can say "try again in a moment" rather than "it failed".
+  final bool rateLimited;
+
   @override
   String toString() => message;
 }

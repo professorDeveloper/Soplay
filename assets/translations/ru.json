@@ -51,7 +51,19 @@
     "welcome_back": "С возвращением",
     "create_account": "Создать аккаунт",
     "login_subtitle": "Войдите, чтобы использовать профиль и сохраненные данные.",
-    "register_subtitle": "Создайте аккаунт с email, именем пользователя и паролем."
+    "register_subtitle": "Создайте аккаунт с email, именем пользователя и паролем.",
+    "forgot_password_title": "Сброс пароля",
+    "forgot_password_subtitle": "Введите email вашего аккаунта — мы отправим 6-значный код.",
+    "reset_password_subtitle": "Код отправлен на {email}. Введите его и новый пароль.",
+    "send_reset_code": "Отправить код",
+    "reset_code_sent": "Если такой email зарегистрирован, код уже в пути",
+    "reset_code_hint": "6-значный код",
+    "invalid_reset_code": "Введите 6-значный код",
+    "new_password_hint": "Новый пароль",
+    "confirm_password_hint": "Повторите новый пароль",
+    "reset_password": "Сбросить пароль",
+    "resend_code": "Отправить ещё раз",
+    "resend_in": "Повторно через {seconds} с"
   },
   "home": {
     "title": "Главная",
@@ -178,7 +190,8 @@
     "engine_sheet_subtitle": "Выберите плеер для этого видео. Изменить можно в Настройках → Плеер.",
     "engine_sheet_dont_ask": "Больше не спрашивать",
     "engine_sheet_play": "Смотреть",
-    "subtitle_preview_text": "Съешь ещё этих мягких французских булок"
+    "subtitle_preview_text": "Съешь ещё этих мягких французских булок",
+    "server": "Сервер"
   },
   "profile": {
     "title": "Профиль",
@@ -315,7 +328,31 @@
     "local_group": "Локальные",
     "search_in": "Искать в",
     "sources_hint": "Ищите сразу в нескольких источниках. Оставьте пустым, чтобы использовать текущего провайдера.",
-    "searching": "Поиск…"
+    "searching": "Поиск…",
+    "all_source_search": "Поиск по всем источникам",
+    "cross_hint": "Поиск по вашим источникам…",
+    "pick_sources": "Выберите источники для поиска.",
+    "choose_sources": "Выбрать источники",
+    "no_sources_selected": "Источники не выбраны — нажмите, чтобы выбрать",
+    "sources_selected": "Выбрано: {} — нажмите, чтобы изменить",
+    "type_to_search_n": "Введите запрос — поиск сразу по {} источникам.",
+    "found_in": "Найдено в {} из {} источников",
+    "results_n": "{} результатов",
+    "waiting_for": "Ищем в {}…",
+    "no_results_any": "Ни в одном выбранном источнике ничего не найдено.",
+    "offline_note": "Нет сети — доступны только источники на устройстве.",
+    "group_by_source": "Группировать по источникам",
+    "merge_titles": "Объединять одинаковые",
+    "open_from": "Открыть из",
+    "load_more": "Показать ещё",
+    "search_failed": "Не удалось выполнить поиск",
+    "source_failed": "Этот источник сейчас недоступен",
+    "try_all_sources": "Искать во всех источниках",
+    "search_sources": "Источники поиска",
+    "filter_providers": "Фильтр провайдеров…",
+    "selected_n": "Выбрано: {}",
+    "apply_n": "Применить ({})",
+    "many_sources_warning": "Поиск по {} источникам может быть медленным. Приложение не зависнет, но с меньшим числом источников быстрее."
   },
   "movie": {
     "rating": "Рейтинг",
@@ -686,7 +723,13 @@
     "no_cast": "Нет информации об актёрах",
     "no_recommendations": "Нет рекомендаций",
     "untitled": "Без названия",
-    "read": "Читать"
+    "read": "Читать",
+    "watch_later": "Смотреть позже",
+    "watched": "Просмотрено",
+    "follow_series": "Следить за сериалом",
+    "find_other_sources": "Найти в других источниках",
+    "anilist_track": "Отслеживать в AniList",
+    "anilist_tracked": "Отслеживается в AniList"
   },
   "shorts": {
     "refresh": "Обновить",
@@ -934,7 +977,25 @@
     "n_episodes_short": "{} ep",
     "open_anilist": "AniList",
     "connect_tagline": "Track what you watch automatically",
-    "connect_short": "Connect"
+    "connect_short": "Connect",
+    "calendar_title": "Календарь выхода",
+    "calendar_all": "Все",
+    "calendar_mine": "Мой список",
+    "calendar_episode": "Эпизод {episode}",
+    "calendar_empty": "В этот день ничего не выходит.",
+    "calendar_empty_mine": "В этот день ничего из вашего списка не выходит.",
+    "calendar_open": "Календарь выхода",
+    "calendar_error": "Не удалось загрузить расписание выхода.",
+    "calendar_rate_limited": "AniList сейчас перегружен. Попробуйте через минуту.",
+    "calendar_list_error": "Не удалось загрузить ваш список AniList.",
+    "calendar_now": "сейчас",
+    "calendar_count": "серий: {count}",
+    "calendar_count_mine": "{mine} из {total} ваших",
+    "calendar_episode_range": "Серии {from}-{to}",
+    "calendar_add_planning": "В «Запланировано»",
+    "calendar_added_planning": "Добавлено в «Запланировано»",
+    "calendar_add_failed": "Не удалось добавить в список",
+    "calendar_already_on_list": "Уже в вашем списке"
   },
   "tracker": {
     "title": "Tracking",
@@ -948,5 +1009,25 @@
     "unfollow": "Unfollow",
     "unfollowed": "{} unfollowed",
     "undo": "Undo"
+  },
+  "remote": {
+    "title": "Пульт для ТВ",
+    "no_devices": "Нет привязанных ТВ. Сначала свяжите его в приложении на ТВ.",
+    "load_failed": "Не удалось загрузить ваши ТВ.",
+    "tv_offline": "ТВ не в сети",
+    "idle": "Ничего не воспроизводится",
+    "command_failed": "Команда не дошла до ТВ",
+    "search_on_tv": "ПОИСК НА ТВ",
+    "search_hint": "Печатайте здесь — поиск идёт на ТВ",
+    "back": "Назад",
+    "home": "Главная",
+    "open_on_tv": "Смотреть на ТВ",
+    "sent_to_tv": "Отправлено на {device}",
+    "connected_to": "Подключено к {device}",
+    "not_connected_to": "{device} не подключён",
+    "turn_tv_on": "Откройте Sozo на ТВ, чтобы управлять",
+    "retry": "Повторить",
+    "navigation": "НАВИГАЦИЯ",
+    "playback": "ВОСПРОИЗВЕДЕНИЕ"
   }
 }

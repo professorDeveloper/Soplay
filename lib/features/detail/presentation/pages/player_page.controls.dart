@@ -683,7 +683,8 @@ extension _PlayerControls on _PlayerPageState {
     final c = _controller;
     final initialized = c != null && c.value.isInitialized;
     final hasEpisodes = widget.args.isSerial && widget.args.episodes.isNotEmpty;
-    final hasQualities = _videoSources.length > 1;
+    final hasServers = _sourceServers.length > 1;
+    final hasQualities = _currentServerSources.length > 1;
     final hasLangSwitcher = _availableLangsForCurrentEpisode().length > 1;
     // Same gate the settings-sheet entry uses (player_page.panels.dart): the
     // top bar only promotes the action, it does not widen who can download.
@@ -772,6 +773,13 @@ extension _PlayerControls on _PlayerPageState {
                           icon: Icons.settings_outlined,
                           onTap: _openSettingsSheet,
                         ),
+                        if (hasServers) ...[
+                          const SizedBox(width: 8),
+                          _IconButton(
+                            icon: Icons.dns_outlined,
+                            onTap: _openServerSheet,
+                          ),
+                        ],
                         if (hasEpisodes || hasQualities) ...[
                           const SizedBox(width: 8),
                           _IconButton(
@@ -856,7 +864,8 @@ extension _PlayerControls on _PlayerPageState {
                   ),
                 ),
               ),
-            if (initialized) _buildBottomBar(c, hasEpisodes, hasQualities),
+            if (initialized)
+              _buildBottomBar(c, hasEpisodes, hasServers, hasQualities),
           ],
         ),
       ),
@@ -911,6 +920,7 @@ extension _PlayerControls on _PlayerPageState {
   Widget _buildDesktopControlRow(
     PlayerController c,
     bool hasEpisodes,
+    bool hasServers,
     bool hasQualities,
     bool hasPrev,
     bool hasNext,
@@ -1006,6 +1016,13 @@ extension _PlayerControls on _PlayerPageState {
                       icon: Icons.settings_outlined,
                       onTap: _openSettingsSheet,
                     ),
+                    if (hasServers) ...[
+                      const SizedBox(width: 4),
+                      _IconButton(
+                        icon: Icons.dns_outlined,
+                        onTap: _openServerSheet,
+                      ),
+                    ],
                     if (hasQualities) ...[
                       const SizedBox(width: 4),
                       _IconButton(
@@ -1040,6 +1057,7 @@ extension _PlayerControls on _PlayerPageState {
   Widget _buildBottomBar(
     PlayerController c,
     bool hasEpisodes,
+    bool hasServers,
     bool hasQualities,
   ) {
     final hasNext =
@@ -1215,7 +1233,7 @@ extension _PlayerControls on _PlayerPageState {
               const SizedBox(height: 4),
               if (isDesktopPlatform)
                 _buildDesktopControlRow(
-                    c, hasEpisodes, hasQualities, hasPrev, hasNext)
+                    c, hasEpisodes, hasServers, hasQualities, hasPrev, hasNext)
               else
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -1242,10 +1260,19 @@ extension _PlayerControls on _PlayerPageState {
                       enabled: true,
                       onTap: _openSpeedSheet,
                     ),
+                    if (hasServers)
+                      _BottomTextButton(
+                        icon: Icons.dns_outlined,
+                        label: _currentServer ?? '—',
+                        enabled: true,
+                        onTap: _openServerSheet,
+                      ),
                     if (hasQualities)
                       _BottomTextButton(
                         icon: Icons.high_quality_rounded,
-                        label: _currentQuality ?? 'player.quality'.tr(),
+                        label: _currentQuality == null
+                            ? 'player.quality'.tr()
+                            : _qualityLabel(_currentQuality!),
                         enabled: true,
                         onTap: () => _openPanel(_SidePanel.quality),
                       ),

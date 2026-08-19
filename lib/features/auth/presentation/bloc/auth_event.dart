@@ -62,6 +62,34 @@ class AuthOtpReset extends AuthEvent {
   const AuthOtpReset();
 }
 
+/// Ask for a reset code. Also the resend, since the server treats a second
+/// forgot-password call as one — there is no separate resend endpoint for this
+/// flow and inventing a client-side one would just drift.
+class AuthPasswordResetRequested extends AuthEvent {
+  final String email;
+  final bool isResend;
+
+  const AuthPasswordResetRequested({required this.email, this.isResend = false});
+
+  @override
+  List<Object?> get props => [email, isResend];
+}
+
+class AuthPasswordResetSubmitted extends AuthEvent {
+  final String email;
+  final String code;
+  final String newPassword;
+
+  const AuthPasswordResetSubmitted({
+    required this.email,
+    required this.code,
+    required this.newPassword,
+  });
+
+  @override
+  List<Object?> get props => [email, code, newPassword];
+}
+
 class AuthLogoutRequested extends AuthEvent {
   const AuthLogoutRequested();
 }

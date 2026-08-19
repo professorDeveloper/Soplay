@@ -37,6 +37,17 @@ class AnilistLibraryController extends ChangeNotifier {
     return out;
   }
 
+  /// The viewer's entry for one title, or null when it is not on their list.
+  ///
+  /// Keyed by media rather than entry id because the airing calendar only ever
+  /// holds a media — it starts from the schedule, not from the library.
+  AnilistListEntry? entryForMedia(int mediaId) {
+    for (final e in _entries) {
+      if (e.media.id == mediaId) return e;
+    }
+    return null;
+  }
+
   int countOf(AnilistStatus status) =>
       _entries.where((e) => e.status == status.value).length;
 

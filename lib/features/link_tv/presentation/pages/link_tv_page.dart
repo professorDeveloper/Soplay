@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -112,6 +113,15 @@ class _LinkTvViewState extends State<_LinkTvView> {
             title: Text('link_tv.title'.tr(),
                 style: const TextStyle(color: AppColors.textPrimary)),
             iconTheme: const IconThemeData(color: AppColors.textPrimary),
+            actions: [
+              // Reached from here because this is where the TVs are: pairing
+              // one and then driving it are the same errand.
+              IconButton(
+                tooltip: 'remote.title'.tr(),
+                onPressed: () => context.push('/tv-remote'),
+                icon: const Icon(Icons.settings_remote_rounded),
+              ),
+            ],
           ),
           body: RefreshIndicator(
             color: AppColors.primary,

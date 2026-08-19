@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -130,6 +131,13 @@ class _AnilistLibraryPageState extends State<AnilistLibraryPage>
           ],
         ),
         actions: [
+          // Offered signed out too: the schedule is public, and it is the one
+          // part of AniList that is worth something without an account.
+          IconButton(
+            tooltip: 'anilist.calendar_title'.tr(),
+            onPressed: () => context.push('/anilist/calendar'),
+            icon: const Icon(Icons.calendar_month_rounded),
+          ),
           if (connected)
             IconButton(
               tooltip: 'anilist.refresh'.tr(),

@@ -5,6 +5,7 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/auth/domain/entities/auth_token.dart';
 import 'package:soplay/features/auth/domain/repositories/auth_repository.dart';
+import 'package:soplay/features/auth/domain/usecases/forgot_password_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/login_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/register_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/resend_otp_usecase.dart';
@@ -23,6 +24,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final RegisterUseCase registerUseCase;
   final VerifyOtpUseCase verifyOtpUseCase;
   final ResendOtpUseCase resendOtpUseCase;
+  final RequestPasswordResetUseCase requestPasswordResetUseCase;
+  final ResetPasswordUseCase resetPasswordUseCase;
   final AuthRepository authRepository;
   final HiveService hiveService;
   final NotificationService notificationService;
@@ -35,6 +38,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.registerUseCase,
     required this.verifyOtpUseCase,
     required this.resendOtpUseCase,
+    required this.requestPasswordResetUseCase,
+    required this.resetPasswordUseCase,
     required this.authRepository,
     required this.hiveService,
     required this.notificationService,
@@ -46,6 +51,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthOtpVerifyRequested>(_onVerifyOtp);
     on<AuthOtpResendRequested>(_onResendOtp);
     on<AuthOtpReset>((_, emit) => emit(AuthInitial()));
+    on<AuthPasswordResetRequested>(_onPasswordResetRequested);
+    on<AuthPasswordResetSubmitted>(_onPasswordResetSubmitted);
     on<AuthLogoutRequested>(_onLogout);
     on<AuthSessionExpired>(_onSessionExpired);
     on<AuthProfileRefreshRequested>(_onProfileRefresh);
@@ -151,6 +158,82 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         } else {
           emit(AuthError(message: msg));
         }
+    }
+  }
+
+  Future<void> _onPasswordResetRequested(
+    AuthPasswordResetRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    final current = state;
+    if (event.isResend && current is AuthPasswordResetPending) {
+      if (DateTime.now().isBefore(current.cooldownUntil)) return;
+      emit(current.copyWith(resending: true, clearError: true));
+    } else if (!event.isResend) {
+      emit(AuthLoading());
+    }
+
+    final result = await requestPasswordResetUseCase(event.email);
+    final pending = state;
+    switch (result) {
+      case Success():
+        // The server answers the same way whether or not the address exists, so
+        // this screen must too — telling the user "no such account" here is how
+        // an app leaks which emails are registered.
+        emit(
+          pending is AuthPasswordResetPending
+              ? pending.copyWith(
+                  resending: false,
+                  justSent: true,
+                  cooldownUntil: DateTime.now().add(_resendCooldown),
+                  clearError: true,
+                )
+              : AuthPasswordResetPending(
+                  email: event.email,
+                  cooldownUntil: DateTime.now().add(_resendCooldown),
+                  justSent: true,
+                ),
+        );
+      case Failure(:final error):
+        final msg = _friendlyError(error);
+        emit(
+          pending is AuthPasswordResetPending
+              ? pending.copyWith(resending: false, error: msg)
+              : AuthError(message: msg),
+        );
+    }
+  }
+
+  Future<void> _onPasswordResetSubmitted(
+    AuthPasswordResetSubmitted event,
+    Emitter<AuthState> emit,
+  ) async {
+    final current = state;
+    if (current is AuthPasswordResetPending) {
+      emit(current.copyWith(submitting: true, clearError: true));
+    }
+
+    final result = await resetPasswordUseCase(
+      email: event.email,
+      code: event.code,
+      newPassword: event.newPassword,
+    );
+    // Re-read after the await, exactly as the register flow does: a resend may
+    // have replaced the pending state while this was in flight.
+    final pending = state;
+    switch (result) {
+      case Success(:final value):
+        emit(AuthLoaded(token: value));
+        unawaited(syncFavorites());
+        unawaited(_syncHistory());
+        unawaited(notificationService.setup());
+      case Failure(:final error):
+        final msg = _friendlyError(error);
+        emit(
+          pending is AuthPasswordResetPending
+              ? pending.copyWith(submitting: false, error: msg)
+              : AuthError(message: msg),
+        );
     }
   }
 

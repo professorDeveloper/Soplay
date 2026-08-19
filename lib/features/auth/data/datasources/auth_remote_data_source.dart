@@ -44,6 +44,32 @@ class AuthRemoteDataSource {
     return AuthModel.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// Asks the server to email a reset code.
+  ///
+  /// Answers the same way whether or not the address exists — the server
+  /// decides that, and it deliberately does not say, so this must not treat a
+  /// missing account as an error either.
+  Future<void> requestPasswordReset(String email) async {
+    await dio.post('/auth/forgot-password', data: {'email': email});
+  }
+
+  /// Sets the new password and returns the session it issues.
+  ///
+  /// The server signs the user in as part of the reset, so there is no second
+  /// login round trip — and no window where they know the new password but the
+  /// app still holds the old session.
+  Future<AuthModel> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final response = await dio.post(
+      '/auth/reset-password',
+      data: {'email': email, 'otp': code, 'newPassword': newPassword},
+    );
+    return AuthModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<UserModel> getProfile() async {
     final response = await dio.get('/auth/profile');
     final data = response.data as Map<String, dynamic>;

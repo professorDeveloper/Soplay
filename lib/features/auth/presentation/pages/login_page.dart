@@ -117,7 +117,24 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               validator: _validatePassword,
                             ),
-                            const SizedBox(height: 20),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                // Carries whatever was typed, so the reset page
+                                // does not ask for an address the user just gave.
+                                onPressed: () => context.push(
+                                  '/forgot-password',
+                                  extra: _identifierController.text.contains('@')
+                                      ? _identifierController.text.trim()
+                                      : null,
+                                ),
+                                child: Text(
+                                  'auth.forgot_password'.tr(),
+                                  style: const TextStyle(fontSize: 12.5),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
                             BlocBuilder<AuthBloc, AuthState>(
                               builder: (context, state) {
                                 final loading = state is AuthLoading;
