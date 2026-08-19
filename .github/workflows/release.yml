@@ -1,4 +1,6 @@
 name: Release → Telegram
+run-name: >-
+  Release ${{ inputs.version != '' && inputs.version || inputs.bump || github.ref_name }}
 
 # Builds ALL FOUR platforms (Android / Windows / Linux / macOS) when you cut a
 # version, and hands them off. It NEVER touches GitHub Releases at all — you cut
@@ -98,6 +100,8 @@ jobs:
             *) echo "::error title=Malformed version::pubspec.yaml has 'version: ${CURRENT}' with no +buildNumber. Android needs one."; exit 1 ;;
           esac
 
+          echo "::notice title=Current version::${CURRENT}"
+
           NAME="${CURRENT%%+*}"
           BUILD="${CURRENT##*+}"
           case "${BUILD}" in
@@ -146,7 +150,11 @@ jobs:
             echo "| was | \`${CURRENT}\` |"
             echo "| now | \`${NEW_NAME}+${NEW_BUILD}\` |"
             echo "| tag | \`v${NEW_NAME}\` |"
+            echo ""
+            echo "Latest released version is now **${NEW_NAME}+${NEW_BUILD}**."
           } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "::notice title=Releasing::${NEW_NAME}+${NEW_BUILD} (tag v${NEW_NAME})"
 
       - name: Commit and tag
         if: steps.resolve.outputs.bumped == 'yes'
