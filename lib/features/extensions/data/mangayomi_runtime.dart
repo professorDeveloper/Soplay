@@ -7,6 +7,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'package:soplay/core/js/dart_fetch.dart';
 import 'package:soplay/core/js/js_log.dart';
+import 'package:soplay/core/js/js_timeouts.dart';
 import 'package:soplay/core/system/webview_env.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
 import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
@@ -260,8 +261,12 @@ class MangayomiRuntime {
     JsLog.req(tag, method);
     await ensureReady();
 
+    // Bounded, and bounded INSIDE the lock. Every call queues behind _gate, so a
+    // single extension that never answers — a Cloudflare solve that never
+    // resolves, most often — used to hold every later call behind it forever,
+    // which is a screen left shimmering with nothing to time out.
     final result = await _locked(() async {
-      await _ensureExtension(source);
+      await _ensureExtension(source).timeout(kJsCallTimeout);
       final r = await _controller!.callAsyncJavaScript(
         functionBody: r'''
           const p = globalThis.__sozoProvider;
@@ -276,7 +281,7 @@ class MangayomiRuntime {
           return out === undefined ? null : JSON.stringify(out);
         ''',
         arguments: {'fnName': method, 'fnArgs': args},
-      );
+      ).timeout(kJsCallTimeout);
       await _flushPrefs(source);
       return r;
     });
