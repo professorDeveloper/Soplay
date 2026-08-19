@@ -58,11 +58,13 @@ class DetailCastTab extends StatelessWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: cast.length,
+              // 0.78 left the cell exactly as tall as its contents, so any
+              // two-line name or a bumped system font size overflowed it.
               gridDelegate: responsiveGridDelegate(
                 mobileCrossAxisCount: 3,
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 14,
-                childAspectRatio: 0.78,
+                childAspectRatio: 0.70,
               ),
               itemBuilder: (_, i) => _CastGridCard(cast: cast[i]),
             ),
@@ -93,12 +95,16 @@ class _DirectorTile extends StatelessWidget {
             size: 18,
           ),
           const SizedBox(width: 10),
-          Text(
-            'movie.director'.tr(),
-            style: const TextStyle(
-              color: AppColors.textHint,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              'movie.director'.tr(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textHint,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -146,16 +152,18 @@ class _CastGridCard extends StatelessWidget {
           children: [
             _CastAvatar(name: cast.name, imageUrl: cast.image),
             const SizedBox(height: 8),
-            Text(
-              cast.name.trim().isNotEmpty ? cast.name : '—',
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
+            Flexible(
+              child: Text(
+                cast.name.trim().isNotEmpty ? cast.name : '—',
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
               ),
             ),
             const SizedBox(height: 2),

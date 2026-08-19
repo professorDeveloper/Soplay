@@ -108,7 +108,6 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final topPad = MediaQuery.paddingOf(context).top;
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
@@ -116,67 +115,42 @@ class _HistoryPageState extends State<HistoryPage> {
       body: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          SliverToBoxAdapter(child: SizedBox(height: topPad + 8)),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      if (context.canPop()) {
-                        context.pop();
-                      }
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white,
-                        size: 16,
-                      ),
+          // Pinned: "Clear all" and the back button are the only controls on
+          // this screen, and a long history scrolled them out of reach.
+          SliverAppBar(
+            pinned: true,
+            automaticallyImplyLeading: false,
+            backgroundColor: AppColors.background,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            titleSpacing: 16,
+            title: Row(
+              children: [
+                _CircleBackButton(
+                  onTap: () => context.canPop()
+                      ? context.pop()
+                      : context.go('/main'),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'profile.watch_history'.tr(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'profile.watch_history'.tr(),
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                ),
+                if (_items.isNotEmpty)
+                  _PillButton(
+                    label: 'history.clear_all'.tr(),
+                    onTap: _clearHistory,
                   ),
-                  if (_items.isNotEmpty)
-                    GestureDetector(
-                      onTap: _clearHistory,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          'history.clear_all'.tr(),
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
@@ -216,6 +190,63 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 }
 
+class _CircleBackButton extends StatelessWidget {
+  const _CircleBackButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: const SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.textPrimary,
+            size: 16,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PillButton extends StatelessWidget {
+  const _PillButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({
     required this.item,
@@ -227,10 +258,71 @@ class _HistoryRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDismissed;
 
+  /// Swiping is the only way to delete a row on a phone, and nothing on screen
+  /// advertises it. Long-press offers the same action out in the open.
+  Future<void> _showActions(BuildContext context) async {
+    final remove = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textSecondary.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+              ),
+              title: Text(
+                'history.remove'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () => Navigator.of(sheetCtx).pop(true),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (remove ?? false) onDismissed();
+  }
+
   @override
   Widget build(BuildContext context) {
     final row = InkWell(
         onTap: onTap,
+        onLongPress: isDesktopPlatform ? null : () => _showActions(context),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
@@ -321,7 +413,7 @@ class _HistoryRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _timeAgo(item.watchedAt),
+                      _watchedAgo(context, item.watchedAt),
                       style: const TextStyle(
                         color: AppColors.textHint,
                         fontSize: 10,
@@ -368,16 +460,7 @@ class _HistoryRow extends StatelessWidget {
       key: ValueKey(item.storageKey),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => onDismissed(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: AppColors.primary.withValues(alpha: 0.15),
-        child: const Icon(
-          Icons.delete_outline_rounded,
-          color: AppColors.primary,
-          size: 22,
-        ),
-      ),
+      background: _SwipeToRemoveBackground(label: 'history.remove'.tr()),
       child: row,
     );
   }
@@ -397,16 +480,46 @@ class _HistoryRow extends StatelessWidget {
     return '${two(m)}:${two(s)}';
   }
 
-  String _timeAgo(int ms) {
-    final diff = DateTime.now().millisecondsSinceEpoch - ms;
-    final minutes = diff ~/ 60000;
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return '${minutes}m ago';
-    final hours = minutes ~/ 60;
-    if (hours < 24) return '${hours}h ago';
-    final days = hours ~/ 24;
-    if (days < 7) return '${days}d ago';
-    return '${days ~/ 7}w ago';
+  /// Same shape as the notifications list, which is the app's only other
+  /// timestamped feed — the two used to disagree, in English only.
+  String _watchedAgo(BuildContext context, int ms) {
+    final at = DateTime.fromMillisecondsSinceEpoch(ms);
+    final diff = DateTime.now().difference(at);
+    if (diff.inMinutes < 1) return 'time.now'.tr();
+    if (diff.inHours < 1) return 'time.minutes'.tr(args: ['${diff.inMinutes}']);
+    if (diff.inDays < 1) return 'time.hours'.tr(args: ['${diff.inHours}']);
+    if (diff.inDays < 7) return 'time.days'.tr(args: ['${diff.inDays}']);
+    return DateFormat.yMMMd(context.locale.toString()).format(at);
+  }
+}
+
+class _SwipeToRemoveBackground extends StatelessWidget {
+  const _SwipeToRemoveBackground({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      color: AppColors.error,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 22),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

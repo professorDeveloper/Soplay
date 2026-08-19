@@ -51,17 +51,9 @@ class _AnilistLinksPageState extends State<AnilistLinksPage> {
       ),
       body: _items.isEmpty
           ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(
-                  'anilist.linked_titles_none'.tr(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.textHint,
-                    fontSize: 13.5,
-                    height: 1.5,
-                  ),
-                ),
+              child: AnilistStateMessage(
+                icon: Icons.link_off_rounded,
+                text: 'anilist.linked_titles_none'.tr(),
               ),
             )
           : ListView.separated(

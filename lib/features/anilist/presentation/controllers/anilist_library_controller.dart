@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:soplay/features/anilist/data/anilist_api.dart';
@@ -85,7 +86,9 @@ class AnilistLibraryController extends ChangeNotifier {
     try {
       _entries = await _service.library();
     } catch (e) {
-      _error = e is AnilistException ? e.message : 'Could not load your AniList list';
+      _error = e is AnilistException
+          ? e.message
+          : 'anilist.calendar_list_error'.tr();
     } finally {
       _loading = false;
       notifyListeners();
@@ -103,7 +106,7 @@ class AnilistLibraryController extends ChangeNotifier {
   /// Writes an explicit progress value.
   Future<String?> setProgress(AnilistListEntry entry, int progress) async {
     final token = _service.token;
-    if (token == null) return 'AniList is not connected';
+    if (token == null) return 'anilist.connect_first'.tr();
     if (progress < 0 || _busy.contains(entry.id)) return null;
 
     final previous = entry;
@@ -124,7 +127,7 @@ class AnilistLibraryController extends ChangeNotifier {
       return null;
     } catch (e) {
       _replace(previous);
-      return e is AnilistException ? e.message : 'Could not save to AniList';
+      return e is AnilistException ? e.message : 'anilist.save_failed'.tr();
     } finally {
       _busy.remove(entry.id);
       notifyListeners();
@@ -134,7 +137,7 @@ class AnilistLibraryController extends ChangeNotifier {
   /// Moves an entry to another list.
   Future<String?> setStatus(AnilistListEntry entry, AnilistStatus status) async {
     final token = _service.token;
-    if (token == null) return 'AniList is not connected';
+    if (token == null) return 'anilist.connect_first'.tr();
     if (_busy.contains(entry.id)) return null;
 
     final previous = entry;
@@ -153,7 +156,7 @@ class AnilistLibraryController extends ChangeNotifier {
       return null;
     } catch (e) {
       _replace(previous);
-      return e is AnilistException ? e.message : 'Could not save to AniList';
+      return e is AnilistException ? e.message : 'anilist.save_failed'.tr();
     } finally {
       _busy.remove(entry.id);
       notifyListeners();

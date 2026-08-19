@@ -1,5 +1,12 @@
 part of 'player_page.dart';
 
+/// The controls sit directly on the frame, so a white-on-video label can land
+/// on a blown-out highlight and disappear. A tight drop shadow restores the
+/// edge without putting a container behind the control.
+const List<Shadow> _kControlShadow = <Shadow>[
+  Shadow(color: Color(0xB3000000), blurRadius: 6, offset: Offset(0, 1)),
+];
+
 class _LiveDot extends StatefulWidget {
   const _LiveDot();
 
@@ -120,14 +127,17 @@ class _ControlsScrim extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
+          // The bottom band has to cover the whole seek row *and* the action
+          // row beneath it, which reach ~30% up the screen in landscape — the
+          // old 0.82 stop left both of them sitting on bare video.
           colors: [
-            Color(0xCC000000),
-            Color(0x33000000),
+            Color(0xD9000000),
+            Color(0x4D000000),
             Color(0x00000000),
-            Color(0x33000000),
-            Color(0xCC000000),
+            Color(0x59000000),
+            Color(0xE6000000),
           ],
-          stops: [0.0, 0.18, 0.5, 0.82, 1.0],
+          stops: [0.0, 0.20, 0.46, 0.70, 1.0],
         ),
       ),
     );
@@ -261,7 +271,12 @@ class _IconButton extends StatelessWidget {
           child: SizedBox(
             width: 38,
             height: 38,
-            child: Icon(icon, color: color ?? Colors.white, size: 18),
+            child: Icon(
+              icon,
+              color: color ?? Colors.white,
+              size: 18,
+              shadows: _kControlShadow,
+            ),
           ),
         ),
       ),
@@ -329,7 +344,11 @@ class _LangPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    // Every one of its neighbours in the top bar draws a focus ring; without
+    // one this pill took D-pad focus with nothing to show for it.
+    return _tvRing(
+      radius: 20,
+      Material(
       color: Colors.black.withValues(alpha: 0.35),
       shape: const StadiumBorder(),
       child: InkWell(
@@ -359,6 +378,7 @@ class _LangPill extends StatelessWidget {
           ),
         ),
       ),
+      ),
     );
   }
 }
@@ -368,11 +388,17 @@ class _CenterIconButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.large = false,
+    this.busy = false,
     this.focusNode,
   });
   final IconData icon;
   final VoidCallback onTap;
   final bool large;
+
+  /// Draws the buffering ring on the button's own rim. Swapping the whole
+  /// cluster out for a spinner made the controls jump on every micro-stall and,
+  /// on TV, unmounted the node the remote was parked on.
+  final bool busy;
 
   /// Supplied only on TV, so the remote can be parked on this button whenever
   /// the overlay reappears. Null everywhere else — the InkWell then manages its
@@ -386,7 +412,9 @@ class _CenterIconButton extends StatelessWidget {
     return _tvRing(
       circle: true,
       Material(
-        color: Colors.black.withValues(alpha: 0.32),
+        // These buttons sit at the vertical centre, where the scrim is fully
+        // transparent — 32% black left a white glyph invisible on a bright shot.
+        color: Colors.black.withValues(alpha: 0.45),
         shape: const CircleBorder(),
         child: InkWell(
           onTap: onTap,
@@ -395,7 +423,24 @@ class _CenterIconButton extends StatelessWidget {
           child: SizedBox(
             width: size,
             height: size,
-            child: Icon(icon, color: Colors.white, size: iconSize),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: Colors.white,
+                  size: iconSize,
+                  shadows: _kControlShadow,
+                ),
+                if (busy)
+                  const Positioned.fill(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white70,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -426,11 +471,11 @@ class _BottomTextButton extends StatelessWidget {
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(6),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: 18),
+              Icon(icon, color: color, size: 18, shadows: _kControlShadow),
               const SizedBox(width: 4),
               Text(
                 label,
@@ -438,6 +483,7 @@ class _BottomTextButton extends StatelessWidget {
                   color: color,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
+                  shadows: _kControlShadow,
                 ),
               ),
             ],
@@ -558,9 +604,9 @@ class _QualityRow extends StatelessWidget {
                   color: AppColors.primary.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
-                  'Default',
-                  style: TextStyle(
+                child: Text(
+                  'player.default'.tr(),
+                  style: const TextStyle(
                     color: AppColors.primaryLight,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -602,29 +648,37 @@ class _SettingsTile extends StatelessWidget {
               size: 20,
             ),
             const SizedBox(width: 14),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: disabled ? Colors.white54 : Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 12),
+            // Both halves flex: a fixed-width label overflowed the row as soon
+            // as a translation ran long, and took the value with it.
             Expanded(
+              flex: 3,
               child: Text(
-                value,
+                label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.right,
                 style: TextStyle(
-                  color: disabled ? Colors.white38 : Colors.white70,
-                  fontSize: 13,
+                  color: disabled ? Colors.white54 : Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
+            if (value.isNotEmpty) ...[
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: disabled ? Colors.white38 : Colors.white70,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
             if (!disabled) ...[
               const SizedBox(width: 6),
               const Icon(

@@ -11,6 +11,7 @@ import 'dart_fetch.dart';
 import 'extractor_cache.dart';
 import 'extractor_remote.dart';
 import 'js_log.dart';
+import 'js_timeouts.dart';
 import 'provider_registry.dart';
 
 class JsRuntimeService {
@@ -164,12 +165,13 @@ class JsRuntimeService {
     final sw = Stopwatch()..start();
     JsLog.req(tag, '$fn(${_summarizeArgs(args)})');
     try {
-      await ensureReady();
+      await ensureReady().timeout(kJsCallTimeout);
       // Serialize extractor-swap + call: concurrent cross-search legs share one
       // webview and one globalThis.Provider, so without this a second leg could
       // swap Provider between this leg's setup and its call — returning one
       // provider's results under another's name.
-      await _ensureExtractor(extractor.name, extractor.version);
+      await _ensureExtractor(extractor.name, extractor.version)
+          .timeout(kJsCallTimeout);
       // Unlocked on purpose. The provider is looked up by name, so several
       // cross-search legs can be in flight at once and their network waits
       // overlap instead of queueing — which is what made searching several
@@ -193,7 +195,7 @@ class JsRuntimeService {
           'fnName': fn,
           'fnArgs': args,
         },
-      );
+      ).timeout(kJsCallTimeout);
 
       if (result == null) {
         JsLog.err(tag, '$fn returned null result');

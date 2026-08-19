@@ -1,12 +1,10 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/system/responsive.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../search/domain/entities/genre_entity.dart';
 import '../../domain/entities/view_all.dart';
+import 'home_shared_widgets.dart';
 
 class GenreCard extends StatelessWidget {
   const GenreCard({super.key, required this.genre});
@@ -40,15 +38,11 @@ class GenreCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                genre.image.isNotEmpty
-                    ? Image.network(
-                  genre.image,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => ColoredBox(
-                    color: AppColors.surfaceVariant,
-                  ),
-                )
-                    : ColoredBox(color: AppColors.surfaceVariant),
+                HomeNetworkImage(
+                  url: genre.image,
+                  borderRadius: BorderRadius.zero,
+                  placeholderIcon: Icons.category_outlined,
+                ),
                 DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(

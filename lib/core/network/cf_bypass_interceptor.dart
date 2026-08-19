@@ -1,3 +1,4 @@
+import 'package:soplay/core/network/user_agent.dart';
 import 'package:dio/dio.dart';
 
 import 'cf_bypass_service.dart';
@@ -31,7 +32,7 @@ class CfBypassInterceptor extends Interceptor {
     final host = (data['host'] as String?)?.trim();
     final url  = (data['url']  as String?)?.trim();
     final ua   = (data['userAgent'] as String?)?.trim() ??
-        'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36';
+        kSozoUserAgent;
     if (host == null || host.isEmpty || url == null || url.isEmpty) {
       handler.next(err);
       return;

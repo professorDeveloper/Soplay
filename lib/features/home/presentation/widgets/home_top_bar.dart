@@ -1,3 +1,4 @@
+import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 import 'dart:async';
 import 'dart:ui';
 
@@ -70,6 +71,13 @@ class HomeTopBar extends StatelessWidget {
           _TopBarIcon(
             icon: Icons.search_rounded,
             onTap: () => getIt<NavController>().goToId(TabId.search),
+          ),
+          // AniList lived four taps deep behind the profile. Discovery and the
+          // airing calendar are things people open daily, and a tracker nobody
+          // can find is a tracker nobody connects.
+          _TopBarIcon.custom(
+            child: const AnilistLogo(size: 19, radius: 5),
+            onTap: () => context.push('/anilist'),
           ),
           _DownloadIndicator(),
           const _NotificationsIndicator(),
@@ -387,6 +395,8 @@ class _ProviderLogo extends StatelessWidget {
               height: size,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => fallback,
+              loadingBuilder: (_, child, chunk) =>
+                  chunk == null ? child : fallback,
             ),
     );
   }
@@ -495,7 +505,7 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
           _refresh(force: true);
         },
         child: Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           child: SizedBox(
             width: 24,
             height: 24,
@@ -548,9 +558,15 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
 }
 
 class _TopBarIcon extends StatelessWidget {
-  const _TopBarIcon({required this.icon, required this.onTap});
+  const _TopBarIcon({required IconData this.icon, required this.onTap})
+    : child = null;
 
-  final IconData icon;
+  /// For a brand mark, which is an image rather than an icon font glyph.
+  const _TopBarIcon.custom({required Widget this.child, required this.onTap})
+    : icon = null;
+
+  final IconData? icon;
+  final Widget? child;
   final VoidCallback onTap;
 
   @override
@@ -561,8 +577,15 @@ class _TopBarIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Icon(icon, color: Colors.white, size: 24),
+          // Vertical 10 (not 8): a 40dp target was under the minimum, and
+          // widening it instead would overflow the row on a small phone.
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          // Sized to match the icons beside it, so the row stays even.
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: child ?? Icon(icon, color: Colors.white, size: 24),
+          ),
         ),
       ),
     );
@@ -627,7 +650,7 @@ class _DownloadIndicatorState extends State<_DownloadIndicator>
         borderRadius: BorderRadius.circular(24),
         onTap: () => context.push('/downloads'),
         child: Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           child: SizedBox(
             width: 24,
             height: 24,
@@ -649,19 +672,23 @@ class _DownloadIndicatorState extends State<_DownloadIndicator>
                   right: 0,
                   top: 0,
                   child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: const BoxDecoration(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    constraints: const BoxConstraints(
+                      minWidth: 12,
+                      minHeight: 12,
+                    ),
+                    decoration: BoxDecoration(
                       color: AppColors.primary,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Center(
                       child: Text(
-                        '$_activeCount',
+                        _activeCount > 9 ? '9+' : '$_activeCount',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 7,
                           fontWeight: FontWeight.w900,
+                          height: 1,
                         ),
                       ),
                     ),

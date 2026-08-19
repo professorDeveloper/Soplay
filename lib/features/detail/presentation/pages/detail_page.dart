@@ -190,6 +190,12 @@ class _DetailViewState extends State<_DetailView>
   late final TabController _tabController;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _bodyPlayKey = GlobalKey();
+  final GlobalKey _tabStripKey = GlobalKey();
+
+  /// Scroll offset at which the tab strip reaches the app bar and pins.
+  /// Measured while scrolling; stays infinite until then so that a tab switch
+  /// before any scrolling never moves the page.
+  double _tabsPinOffset = double.infinity;
 
   final GlobalKey _listActionShowcaseKey = GlobalKey();
   late final String _showcaseScope = 'detail-private-${identityHashCode(this)}';
@@ -265,6 +271,22 @@ class _DetailViewState extends State<_DetailView>
   void _onTabChanged() {
     if (!_tabController.indexIsChanging) return;
     if (mounted) setState(() {});
+    _settleOnTabs();
+  }
+
+  /// Tabs differ wildly in height — thirty related posters against an empty
+  /// cast list. Switching while scrolled deep into a tall tab left the scroll
+  /// position past the end of the short one, and the viewport snapped. Riding
+  /// back to the tab strip lands on a position every tab can hold.
+  void _settleOnTabs() {
+    if (!_scrollController.hasClients) return;
+    if (!_tabsPinOffset.isFinite) return;
+    if (_scrollController.offset <= _tabsPinOffset) return;
+    _scrollController.animateTo(
+      _tabsPinOffset,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   double _swipeAccum = 0;
@@ -298,12 +320,19 @@ class _DetailViewState extends State<_DetailView>
       _collapse.value = v;
     }
 
+    final pinLine = MediaQuery.paddingOf(context).top + kToolbarHeight;
+    final stripBox =
+        _tabStripKey.currentContext?.findRenderObject() as RenderBox?;
+    if (stripBox != null && stripBox.hasSize) {
+      final top = stripBox.localToGlobal(Offset.zero).dy;
+      if (top > pinLine) _tabsPinOffset = offset + (top - pinLine);
+    }
+
     final renderBox =
         _bodyPlayKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox != null && renderBox.hasSize) {
       final pos = renderBox.localToGlobal(Offset.zero);
-      final topThreshold =
-          MediaQuery.paddingOf(context).top + kToolbarHeight - 4;
+      final topThreshold = pinLine - 4;
       final hidden = (pos.dy + renderBox.size.height) < topThreshold;
       if (hidden != _showPill.value) {
         _showPill.value = hidden;
@@ -531,8 +560,8 @@ class _DetailViewState extends State<_DetailView>
     if (!mounted) return;
     setState(() => _isFollowing = !_isFollowing);
     _showSnack(_isFollowing
-        ? 'Following — you\'ll be notified of new episodes'
-        : 'Unfollowed');
+        ? 'detail.following_on'.tr()
+        : 'detail.following_off'.tr());
   }
 
   void _onShare() {
@@ -829,7 +858,8 @@ class _DetailViewState extends State<_DetailView>
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _TabBarDelegate(
-                  TabBar(
+                  stripKey: _tabStripKey,
+                  tabBar: TabBar(
                     controller: _tabController,
                     isScrollable: true,
                     tabAlignment: TabAlignment.start,
@@ -1147,10 +1177,12 @@ class _CircleIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onTap != null;
     return HoverTap(
       onTap: onTap,
       onLongPress: onLongPress,
       onSecondaryTap: onLongPress,
+      scale: enabled ? 1.04 : 1.0,
       child: ClipOval(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
@@ -1158,7 +1190,11 @@ class _CircleIconButton extends StatelessWidget {
             width: 36,
             height: 36,
             color: Colors.black.withValues(alpha: 0.42),
-            child: Icon(icon, color: iconColor, size: 18),
+            child: Icon(
+              icon,
+              color: enabled ? iconColor : iconColor.withValues(alpha: 0.38),
+              size: 18,
+            ),
           ),
         ),
       ),
@@ -1224,8 +1260,9 @@ class _ActionPill extends StatelessWidget {
 }
 
 class _TabBarDelegate extends SliverPersistentHeaderDelegate {
-  const _TabBarDelegate(this.tabBar);
+  const _TabBarDelegate({required this.tabBar, required this.stripKey});
   final TabBar tabBar;
+  final GlobalKey stripKey;
 
   @override
   Widget build(
@@ -1234,6 +1271,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Container(
+      key: stripKey,
       color: AppColors.background,
       child: Column(
         children: [
@@ -1367,6 +1405,10 @@ class _ErrorView extends StatelessWidget {
             child: Text(
               message,
               textAlign: TextAlign.center,
+              // Provider errors can be paragraphs long; unbounded they pushed
+              // Retry off the bottom of the Column.
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,

@@ -53,11 +53,12 @@ class _DownloadsSectionState extends State<DownloadsSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(17, 18, 16, 14),
-            child: InkWell(
-              onTap: () => context.push('/downloads'),
-              borderRadius: BorderRadius.circular(8),
+          // Padding inside the InkWell — outside it the tap target was only as
+          // tall as the title text.
+          InkWell(
+            onTap: () => context.push('/downloads'),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
               child: Row(
                 children: [
                   const Icon(

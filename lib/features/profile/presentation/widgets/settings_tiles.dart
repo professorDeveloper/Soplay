@@ -161,12 +161,16 @@ class SettingsDropdownTile<T> extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              labelOf(value),
-              style: TextStyle(
-                color: enabled ? AppColors.primary : AppColors.textHint,
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                labelOf(value),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: enabled ? AppColors.primary : AppColors.textHint,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             const SizedBox(width: 2),
@@ -216,6 +220,9 @@ class SettingsSwitchTile extends StatelessWidget {
         onChanged: enabled ? onChanged : null,
         activeThumbColor: Colors.white,
         activeTrackColor: AppColors.primary,
+        // The row is the tap target, so the switch's own 48px material one only
+        // ever made switch rows taller than the dropdown rows beside them.
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );
   }
@@ -250,49 +257,57 @@ class _SettingsRow extends StatelessWidget {
           opacity: enabled ? 1 : 0.45,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 11, 12, 11),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: AppColors.textSecondary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+            child: LayoutBuilder(
+              builder: (context, constraints) => Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: AppColors.textSecondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child:
+                        Icon(icon, color: AppColors.textSecondary, size: 18),
                   ),
-                  child:
-                      Icon(icon, color: AppColors.textSecondary, size: 18),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      if (sub != null && sub.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         Text(
-                          sub,
+                          title,
                           style: const TextStyle(
-                            color: AppColors.textHint,
-                            fontSize: 11.5,
-                            height: 1.3,
+                            color: AppColors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
+                        if (sub != null && sub.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            sub,
+                            style: const TextStyle(
+                              color: AppColors.textHint,
+                              fontSize: 11.5,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                trailing,
-              ],
+                  const SizedBox(width: 8),
+                  // Half the row at most: past that the value wins the tug of
+                  // war with the title and pushes it into a wrapped column.
+                  ConstrainedBox(
+                    constraints:
+                        BoxConstraints(maxWidth: constraints.maxWidth * 0.5),
+                    child: trailing,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

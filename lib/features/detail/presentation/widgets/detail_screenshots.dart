@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -13,21 +14,24 @@ class DetailScreenshotsSection extends StatelessWidget {
         .where((s) => s.thumb.isNotEmpty || s.full.isNotEmpty)
         .toList();
     if (valid.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 40),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.image_outlined,
                 color: AppColors.textHint,
                 size: 48,
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text(
-                'No screenshots available',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                'detail.no_screenshots'.tr(),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                ),
               ),
             ],
           ),

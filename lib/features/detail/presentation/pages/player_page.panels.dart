@@ -345,7 +345,7 @@ extension _PlayerPanels on _PlayerPageState {
               _SettingsTile(
                 icon: Icons.bug_report_outlined,
                 label: 'player.diagnostics_logs'.tr(),
-                value: _isLive ? 'live' : '',
+                value: '',
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   LogViewerSheet.show(context);
@@ -616,6 +616,9 @@ extension _PlayerPanels on _PlayerPageState {
       child: Material(
         color: Colors.black.withValues(alpha: 0.92),
         child: SafeArea(
+          // The panel hugs the right edge, so the left cutout inset is not its
+          // to pay — honouring it just narrowed every row by ~44dp.
+          left: false,
           // Its own focus scope so _openPanel can hand the remote over and
           // _closePanel can hand it back — see [_tvPanelFocus].
           child: FocusScope(
