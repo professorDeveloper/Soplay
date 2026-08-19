@@ -1,3 +1,4 @@
+import 'package:soplay/core/network/user_agent.dart';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -39,7 +40,7 @@ class MangayomiRepoStore {
       responseType: ResponseType.plain,
       headers: const {
         'User-Agent':
-            'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36',
+            kSozoUserAgent,
       },
       // GitHub raw serves 404s for missing sibling indexes; treat any status as
       // a response so a missing anime_index.json isn't an exception.

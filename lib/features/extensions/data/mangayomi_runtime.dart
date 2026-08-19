@@ -190,12 +190,31 @@ class MangayomiRuntime {
     _loaded[source.id] = source.version;
   }
 
+  /// Keys extensions conventionally read their host from.
+  ///
+  /// Mangayomi has no schema for this — each extension picks a name — so this
+  /// is the observed set, and an extension using another name still falls back
+  /// to whatever the user has set.
+  static const List<String> _domainKeys = [
+    'domain_url',
+    'overrideBaseUrl',
+    'baseUrl',
+    'preferred_domain',
+  ];
+
   Future<void> _seedPrefs(MangayomiSource source) async {
     final values = <String, dynamic>{};
-    // Defaults declared by the extension itself come first, then anything the
-    // user has overridden. Without the defaults, `preference.get('domain_url')`
-    // returns '' on a fresh install and sources that build their base url from
-    // it silently request the wrong host.
+    // The comment here used to promise defaults and the body never wrote any,
+    // so on a fresh install `preference.get('domain_url')` returned '' and the
+    // extension built a RELATIVE url. That reaches Dio with no host, throws
+    // "No host specified in URI", is caught, and comes back as zero results —
+    // indistinguishable from a title genuinely not being there.
+    if (source.baseUrl.isNotEmpty) {
+      for (final key in _domainKeys) {
+        values[key] = source.baseUrl;
+      }
+    }
+    // The user's own choices still win.
     values.addAll(store.prefs(source.id));
     await _controller!.evaluateJavascript(
       source: 'globalThis.__sozoPrefs = ${jsonEncode(values)};'

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
+import 'package:soplay/core/network/user_agent.dart';
 
 import '../network/cf_bypass_service.dart';
 import 'js_log.dart';
@@ -14,6 +15,22 @@ class DartFetch {
   final Dio? _backendDio;
 
   final Map<String, String> _savedCookies = {};
+
+  /// The last request the network refused outright.
+  ///
+  /// Extensions parse whatever body they are handed, so a 403 or an unsolved
+  /// challenge page reaches them as "nothing matched" rather than as a failure.
+  /// Remembering it here is the only place that can still tell the two apart by
+  /// the time a caller sees an empty list.
+  String? _lastBlock;
+
+  String? takeBlock() {
+    final block = _lastBlock;
+    _lastBlock = null;
+    return block;
+  }
+
+  void clearBlock() => _lastBlock = null;
 
   DartFetch._(this._dio, this._cfService, this._backendDio);
 
@@ -29,6 +46,9 @@ class DartFetch {
         maxRedirects: 10,
         validateStatus: (_) => true,
         responseType: ResponseType.plain,
+        // Without this dart:io stamps `Dart/3.x (dart:io)` on every extension
+        // request, which Cloudflare refuses outright.
+        headers: const {'User-Agent': kSozoUserAgent},
       ),
     )..interceptors.add(SafeCookieManager(CookieJar()));
     return DartFetch._(dio, cfService, backendDio);
@@ -82,18 +102,32 @@ class DartFetch {
           cf != null &&
           _looksLikeCfChallenge(status, headers, response.data)) {
         JsLog.req('fetch', 'CF challenge on $host — solving …');
+        final solveAgent = req.headers['User-Agent'] ??
+            req.headers['user-agent'] ??
+            kSozoUserAgent;
         final cookieHeader = await cf.solve(
           host: host,
           url: req.url,
-          userAgent: req.headers['User-Agent'] ??
-              req.headers['user-agent'] ??
-              'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36',
+          userAgent: solveAgent,
         );
         if (cookieHeader != null) {
           _savedCookies[host] = cookieHeader;
           unawaited(_pushCookiesToBackend(host, cookieHeader, req.headers));
-          return _send(req, allowCfRetry: false);
+          // Replay under the SAME agent that earned the clearance. Sending a
+          // different one makes Cloudflare reissue the challenge, and with
+          // allowCfRetry false there is no third attempt — the challenge HTML
+          // goes to the extension, which parses nothing out of it.
+          return _send(
+            req.copyWithHeader('User-Agent', solveAgent),
+            allowCfRetry: false,
+          );
         }
+      }
+
+      if (_looksLikeCfChallenge(status, headers, response.data)) {
+        _lastBlock = '${host ?? 'server'} is behind a Cloudflare challenge';
+      } else if (status >= 400) {
+        _lastBlock = '${host ?? 'server'} refused the request ($status)';
       }
 
       JsLog.res(
@@ -109,15 +143,43 @@ class DartFetch {
       };
     } catch (e) {
       JsLog.err('fetch', '${req.method} ${_shortUrl(req.url)} — $e');
+      _lastBlock = '${host ?? 'network'}: ${_shortError(e)}';
       return const {'status': 0, 'data': null, 'headers': {}};
     }
+  }
+
+  static String _shortError(Object e) {
+    if (e is DioException) {
+      return switch (e.type) {
+        DioExceptionType.connectionTimeout ||
+        DioExceptionType.sendTimeout ||
+        DioExceptionType.receiveTimeout => 'timed out',
+        DioExceptionType.connectionError => 'unreachable',
+        DioExceptionType.badCertificate => 'bad certificate',
+        _ => e.message ?? 'request failed',
+      };
+    }
+    return '$e';
   }
 
   bool _looksLikeCfChallenge(int status, Map<String, String> headers, String? body) {
     if (status == 428 && body != null && body.contains('cfChallenge')) {
       return true;
     }
-    if (status != 403 && status != 503) return false;
+    // Cloudflare sets this whenever it interfered, whatever the status.
+    if (headers['cf-mitigated']?.isNotEmpty ?? false) return true;
+    // A managed challenge is routinely served as 200 or 429. Gating the body
+    // sniff on 403/503 alone let those through as a successful response, and
+    // the extension then parsed the challenge page and found nothing in it.
+    if (status != 403 && status != 503 && status != 429 && status != 200) {
+      return false;
+    }
+    if (status == 200 || status == 429) {
+      if (body == null) return false;
+      return body.contains('cdn-cgi/challenge-platform') ||
+          body.contains('__cf_chl_') ||
+          body.contains('Just a moment...');
+    }
     final server = (headers['server'] ?? '').toLowerCase();
     if (server.contains('cloudflare')) return true;
     if (body == null) return false;
@@ -206,4 +268,13 @@ class _Request {
     required this.headers,
     this.body,
   });
+
+  /// The same request with one header set. Used to replay a Cloudflare-blocked
+  /// call under the agent that solved the challenge.
+  _Request copyWithHeader(String name, String value) => _Request(
+    method: method,
+    url: url,
+    headers: {...headers, name: value},
+    body: body,
+  );
 }
