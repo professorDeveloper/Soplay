@@ -79,6 +79,10 @@ jobs:
         with:
           # The tag push below needs real history, not a shallow clone.
           fetch-depth: 0
+          # The default GITHUB_TOKEN is not an admin, so the version bump is
+          # rejected by the branch protection on the default branch. A
+          # RELEASE_PAT that belongs to somebody who can push is what gets it in.
+          token: ${{ secrets.RELEASE_PAT || github.token }}
 
       - name: Resolve version
         id: resolve
@@ -187,7 +191,14 @@ jobs:
           # Pushed with GITHUB_TOKEN, which deliberately does NOT re-trigger
           # workflows. Without that guarantee this tag would start a second run
           # of this same workflow and ship the release twice.
-          git push origin HEAD:"${GITHUB_REF_NAME}"
+          #
+          # A RELEASE_PAT does re-trigger, so the tag is pushed only after the
+          # branch push succeeds — a tag with no bump behind it is worse than
+          # no tag.
+          if ! git push origin HEAD:"${GITHUB_REF_NAME}"; then
+            echo "::error title=Push rejected::The default branch is protected and this run is not an admin. Add a RELEASE_PAT secret (a fine-grained PAT with Contents: read and write) so the version bump can land. Nothing was tagged."
+            exit 1
+          fi
           git push origin "${TAG}"
 
       - name: Record the commit every build job will use
