@@ -505,7 +505,23 @@
       }
     }
 
+    // Kept so switching back to a source already seen is a pointer assignment
+    // instead of another new Function(code) compile. A cross-search touching
+    // six sources used to recompile all six on every query.
+    const registry = globalThis.__sozoProviders || (globalThis.__sozoProviders = {});
+    if (source && source.id != null) registry[String(source.id)] = instance;
+
     globalThis.__sozoProvider = instance;
+    return true;
+  };
+
+  /** Makes an already-loaded extension current. False when it is not loaded. */
+  globalThis.__sozoActivateMangayomi = function (id) {
+    const registry = globalThis.__sozoProviders || {};
+    const instance = registry[String(id)];
+    if (!instance) return false;
+    globalThis.__sozoProvider = instance;
+    globalThis.__sozoSource = instance.source || globalThis.__sozoSource;
     return true;
   };
 

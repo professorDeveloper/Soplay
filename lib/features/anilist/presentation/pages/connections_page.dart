@@ -237,8 +237,15 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
               ],
             ),
           ),
+          // Outside the `connected` block on purpose: the schedule is public.
+          const SizedBox(height: 12),
+          _Row(
+            icon: Icons.calendar_month_rounded,
+            title: 'anilist.calendar_open'.tr(),
+            onTap: () => context.push('/anilist/calendar'),
+          ),
           if (connected) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             _Row(
               icon: Icons.auto_awesome_motion_rounded,
               title: 'anilist.open_library'.tr(),
@@ -302,7 +309,7 @@ class _Avatar extends StatelessWidget {
                 color: AppColors.textHint,
               ),
             )
-          : const Center(child: AnilistLogo(size: 24, color: Colors.white)),
+          : const Center(child: AnilistLogo(size: 30)),
     );
   }
 }

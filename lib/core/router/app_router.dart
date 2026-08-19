@@ -9,6 +9,7 @@ import 'package:soplay/features/app_lock/presentation/pages/app_lock_settings_pa
 import 'package:soplay/features/app_lock/presentation/pages/pin_setup_page.dart';
 import 'package:soplay/features/app_lock/presentation/pages/pin_verify_page.dart';
 import 'package:soplay/features/desktop_share/presentation/pages/desktop_share_page.dart';
+import 'package:soplay/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:soplay/features/auth/presentation/pages/login_page.dart';
 import 'package:soplay/features/auth/presentation/pages/otp_verify_page.dart';
 import 'package:soplay/features/auth/presentation/pages/register_page.dart';
@@ -27,6 +28,7 @@ import 'package:soplay/features/manga/presentation/pages/reader_page.dart';
 import 'package:soplay/features/main/presentation/pages/main_page.dart';
 import 'package:soplay/features/network/presentation/pages/no_internet_page.dart';
 import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
+import 'package:soplay/features/anilist/presentation/pages/airing_calendar_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_library_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_links_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/connections_page.dart';
@@ -45,6 +47,8 @@ import 'package:soplay/features/trivia/presentation/trivia_args.dart';
 import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
 import 'package:soplay/features/user_lists/presentation/pages/user_lists_page.dart';
 import 'package:soplay/features/profile/presentation/pages/player_settings_page.dart';
+import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
+import 'package:soplay/features/remote/presentation/pages/tv_remote_page.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:soplay/features/private_list/presentation/pages/private_list_page.dart';
@@ -178,6 +182,10 @@ class AppRouter {
         builder: (context, state) => const FollowingPage(),
       ),
       GoRoute(
+        path: '/tv-remote',
+        builder: (context, state) => const TvRemotePage(),
+      ),
+      GoRoute(
         path: '/connections',
         builder: (context, state) => const ConnectionsPage(),
       ),
@@ -192,6 +200,10 @@ class AppRouter {
         builder: (context, state) => const AnilistLibraryPage(),
       ),
       GoRoute(
+        path: '/anilist/calendar',
+        builder: (context, state) => const AiringCalendarPage(),
+      ),
+      GoRoute(
         path: '/anilist/links',
         builder: (context, state) => const AnilistLinksPage(),
       ),
@@ -202,6 +214,10 @@ class AppRouter {
       GoRoute(
         path: '/player-settings',
         builder: (context, state) => const PlayerSettingsPage(),
+      ),
+      GoRoute(
+        path: '/providers',
+        builder: (context, state) => const ProvidersPage(),
       ),
       GoRoute(
         path: '/notifications',
@@ -230,6 +246,11 @@ class AppRouter {
       GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
       GoRoute(path: '/main', builder: (context, state) => const MainPage()),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) =>
+            ForgotPasswordPage(initialEmail: state.extra as String?),
+      ),
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterPage(),

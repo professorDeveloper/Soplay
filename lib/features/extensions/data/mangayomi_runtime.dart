@@ -37,6 +37,9 @@ class MangayomiRuntime {
   String? _activeId;
   String? _activeVersion;
 
+  /// Version of each extension compiled into the page this session, by id.
+  final Map<String, String> _loaded = <String, String>{};
+
   /// Serialises "swap the extension, then call it". Without this, two
   /// concurrent cross-search legs would race on the single `__sozoProvider`
   /// global and one source's results would be returned under another's name.
@@ -153,6 +156,25 @@ class MangayomiRuntime {
       await _seedPrefs(source);
       return;
     }
+
+    // Already compiled this session — swapping back is a pointer assignment.
+    // Reloading meant re-running new Function(code) on every source switch,
+    // which a cross-search does once per source per query.
+    if (_loaded[source.id] == source.version) {
+      await _seedPrefs(source);
+      final activated = await _controller!.callAsyncJavaScript(
+        functionBody: r'return __sozoActivateMangayomi(id);',
+        arguments: {'id': source.id},
+      );
+      if (activated?.value == true) {
+        _activeId = source.id;
+        _activeVersion = source.version;
+        return;
+      }
+      // The page was reloaded underneath us; fall through and compile again.
+      _loaded.remove(source.id);
+    }
+
     final code = await store.code(source);
     await _seedPrefs(source);
     final result = await _controller!.callAsyncJavaScript(
@@ -165,6 +187,7 @@ class MangayomiRuntime {
     }
     _activeId = source.id;
     _activeVersion = source.version;
+    _loaded[source.id] = source.version;
   }
 
   Future<void> _seedPrefs(MangayomiSource source) async {
@@ -265,6 +288,14 @@ class MangayomiRuntime {
   /// Drops the loaded extension so the next call re-reads its code. Used after
   /// an update or a preference change that alters the base url.
   void invalidate([String? sourceId]) {
+    // Must drop the compiled instance too, not just the active pointer: the
+    // whole point of this call is to make the next one re-read the code, and a
+    // cached instance would be handed straight back instead.
+    if (sourceId == null) {
+      _loaded.clear();
+    } else {
+      _loaded.remove(sourceId);
+    }
     if (sourceId == null || sourceId == _activeId) {
       _activeId = null;
       _activeVersion = null;
@@ -282,5 +313,6 @@ class MangayomiRuntime {
     _ready = null;
     _activeId = null;
     _activeVersion = null;
+    _loaded.clear();
   }
 }

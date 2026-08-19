@@ -23,11 +23,21 @@ class JsRuntimeService {
   InAppWebViewController? _controller;
   Future<void>? _ready;
   ExtractorManifest? _manifest;
-  String? _activeExtractor;
-  int? _activeVersion;
+  /// Extractors already evaluated into the page, keyed `name@version`.
+  ///
+  /// Each is registered ONCE per session. The previous design kept a single
+  /// mutable `globalThis.Provider` and re-evaluated the whole extractor source
+  /// whenever a different provider was asked for — so a cross-search over six
+  /// providers re-parsed six scripts, in sequence, on every query.
+  final Set<String> _registered = <String>{};
 
-  // Serializes the extractor-swap + JS call critical section: every provider
-  // shares one webview and a single mutable globalThis.Provider.
+  /// Registrations in flight, so two legs racing for the same provider fetch
+  /// and evaluate it once rather than twice.
+  final Map<String, Future<void>> _registering = <String, Future<void>>{};
+
+  // Serializes registration only. Calls no longer need a gate: they resolve
+  // their provider from a registry rather than a shared mutable global, so a
+  // second leg can no longer swap it out mid-flight.
   Future<void> _jsGate = Future<void>.value();
 
   static const String _runtimeName = '__runtime__';
@@ -159,23 +169,31 @@ class JsRuntimeService {
       // webview and one globalThis.Provider, so without this a second leg could
       // swap Provider between this leg's setup and its call — returning one
       // provider's results under another's name.
-      final result = await _locked(() async {
-        await _ensureExtractor(extractor.name, extractor.version);
-        return _controller!.callAsyncJavaScript(
-          functionBody: r'''
-            const __fn = (typeof Provider !== 'undefined') ? Provider[fnName] : null;
+      await _ensureExtractor(extractor.name, extractor.version);
+      // Unlocked on purpose. The provider is looked up by name, so several
+      // cross-search legs can be in flight at once and their network waits
+      // overlap instead of queueing — which is what made searching several
+      // sources feel frozen.
+      final result = await _controller!.callAsyncJavaScript(
+        functionBody: r'''
+            const __registry = (globalThis.__sozo || {}).providers || {};
+            const __p = __registry[providerName];
+            if (!__p) {
+              throw new Error('Provider "' + providerName + '" is not loaded');
+            }
+            const __fn = __p[fnName];
             if (typeof __fn !== 'function') {
               throw new Error('Provider.' + fnName + ' is not implemented');
             }
-            const __r = await __fn.apply(Provider, fnArgs);
+            const __r = await __fn.apply(__p, fnArgs);
             return __r === undefined ? null : __r;
           ''',
-          arguments: {
-            'fnName': fn,
-            'fnArgs': args,
-          },
-        );
-      });
+        arguments: {
+          'providerName': extractor.name,
+          'fnName': fn,
+          'fnArgs': args,
+        },
+      );
 
       if (result == null) {
         JsLog.err(tag, '$fn returned null result');
@@ -324,11 +342,22 @@ class JsRuntimeService {
     await _controller!.evaluateJavascript(source: code);
   }
 
-  Future<void> _ensureExtractor(String name, int wantedVersion) async {
+  /// Evaluates [name] into the page if it is not already there.
+  ///
+  /// Returns as soon as the extractor is registered; repeat calls are free.
+  Future<void> _ensureExtractor(String name, int wantedVersion) {
+    final pending = _registering[name];
+    if (pending != null) return pending;
+    final run = _registerExtractor(name, wantedVersion);
+    _registering[name] = run;
+    return run.whenComplete(() => _registering.remove(name));
+  }
+
+  Future<void> _registerExtractor(String name, int wantedVersion) async {
     final manifest = _manifest ??= await remote.fetchManifest();
     final entry = manifest.byName(name);
     final version = entry?.version ?? wantedVersion;
-    if (_activeExtractor == name && _activeVersion == version) return;
+    if (_registered.contains('$name@$version')) return;
 
     final cachedVersion = cache.readVersion(name);
     String? code;
@@ -346,18 +375,24 @@ class JsRuntimeService {
       );
     }
     if (code.isEmpty) throw StateError('Extractor "$name" JS is empty');
+    // Each extractor keeps its own slot. `Provider` stays lexically scoped to
+    // this IIFE, so an extractor's own methods referring to it by name still
+    // resolve to their own object rather than to whoever registered last.
+    final slot = jsonEncode(name);
     final wrapped = '''
 (function(){
-  try { delete globalThis.Provider; } catch (e) {}
+  const __sozo = globalThis.__sozo || (globalThis.__sozo = {});
+  const __providers = __sozo.providers || (__sozo.providers = {});
   $code
   if (typeof Provider !== 'undefined') {
-    globalThis.Provider = Provider;
+    __providers[$slot] = Provider;
   }
 })();
 ''';
-    await _controller!.evaluateJavascript(source: wrapped);
-    _activeExtractor = name;
-    _activeVersion = version;
+    // Evaluation mutates the shared page, so one at a time — but only the
+    // evaluation, which now happens once per extractor instead of once per call.
+    await _locked(() => _controller!.evaluateJavascript(source: wrapped));
+    _registered.add('$name@$version');
   }
 
   Future<void> dispose() async {
@@ -369,7 +404,7 @@ class JsRuntimeService {
     _webView = null;
     _controller = null;
     _ready = null;
-    _activeExtractor = null;
-    _activeVersion = null;
+    _registered.clear();
+    _registering.clear();
   }
 }

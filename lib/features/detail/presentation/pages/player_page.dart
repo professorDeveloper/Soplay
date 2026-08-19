@@ -34,6 +34,7 @@ import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/domain/entities/thumbnails_entity.dart';
 import 'package:soplay/core/preview/frame_preview_service.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
+import 'package:soplay/features/detail/domain/video_option_groups.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';

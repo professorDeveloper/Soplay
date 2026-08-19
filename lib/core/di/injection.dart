@@ -19,6 +19,7 @@ import 'package:soplay/core/network/provider_interceptor.dart';
 import 'package:soplay/core/player/local_hls_proxy.dart';
 import 'package:soplay/core/player/webview_stream_extractor.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/remote/data/remote_control_service.dart';
 import 'package:soplay/features/streak/data/streak_remote_data_source.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/watch_party/data/watch_party_remote_data_source.dart';
@@ -30,6 +31,7 @@ import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
+import 'package:soplay/features/auth/domain/usecases/forgot_password_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/register_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/resend_otp_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/verify_otp_usecase.dart';
@@ -189,6 +191,9 @@ Future<void> configureDependencies() async {
   // AniList. Rides the authenticated backend client because the link lives on
   // the Sozo account — the client secret stays on the server, and a TV signed
   // into the same account inherits the connection without its own sign-in.
+  getIt.registerLazySingleton<RemoteControlService>(
+    () => RemoteControlService(dio: getIt<Dio>()),
+  );
   getIt.registerSingleton<AnilistLinkStore>(AnilistLinkStore());
   getIt.registerSingleton<AnilistService>(
     AnilistService(
@@ -512,6 +517,12 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<VerifyOtpUseCase>(
     VerifyOtpUseCase(getIt<AuthRepository>()),
   );
+  getIt.registerSingleton<RequestPasswordResetUseCase>(
+    RequestPasswordResetUseCase(getIt<AuthRepository>()),
+  );
+  getIt.registerSingleton<ResetPasswordUseCase>(
+    ResetPasswordUseCase(getIt<AuthRepository>()),
+  );
   getIt.registerSingleton<ResendOtpUseCase>(
     ResendOtpUseCase(getIt<AuthRepository>()),
   );
@@ -532,6 +543,8 @@ Future<void> configureDependencies() async {
       registerUseCase: getIt<RegisterUseCase>(),
       verifyOtpUseCase: getIt<VerifyOtpUseCase>(),
       resendOtpUseCase: getIt<ResendOtpUseCase>(),
+      requestPasswordResetUseCase: getIt<RequestPasswordResetUseCase>(),
+      resetPasswordUseCase: getIt<ResetPasswordUseCase>(),
       authRepository: getIt<AuthRepository>(),
       hiveService: getIt<HiveService>(),
       notificationService: getIt<NotificationService>(),

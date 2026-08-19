@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/widgets/app_tab_bar.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/presentation/controllers/anilist_library_controller.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_library_page.dart';
@@ -65,35 +66,13 @@ class _FollowingPageState extends State<FollowingPage>
             icon: const Icon(Icons.link_rounded),
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(46),
-          child: Container(
-            alignment: Alignment.centerLeft,
-            decoration: const BoxDecoration(
-              border:
-                  Border(bottom: BorderSide(color: AppColors.divider, width: 0.5)),
-            ),
-            child: TabBar(
-              controller: _tabs,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              dividerColor: Colors.transparent,
-              indicatorColor: AppColors.primary,
-              indicatorSize: TabBarIndicatorSize.label,
-              indicatorWeight: 2.5,
-              labelColor: AppColors.textPrimary,
-              unselectedLabelColor: AppColors.textSecondary,
-              labelStyle:
-                  const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800),
-              unselectedLabelStyle:
-                  const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
-              tabs: [
-                Tab(height: 44, text: 'tracker.tab_following'.tr()),
-                Tab(height: 44, text: 'tracker.tab_upcoming'.tr()),
-                const Tab(height: 44, text: 'AniList'),
-              ],
-            ),
-          ),
+        bottom: AppTabBar(
+          controller: _tabs,
+          labels: [
+            'tracker.tab_following'.tr(),
+            'tracker.tab_upcoming'.tr(),
+            'AniList',
+          ],
         ),
       ),
       body: TabBarView(

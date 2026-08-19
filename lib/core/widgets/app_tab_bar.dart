@@ -151,7 +151,7 @@ class _AppTabBarState extends State<AppTabBar>
           if (widget.showDivider)
             Container(
               height: AppTabBar._dividerHeight,
-              color: AppColors.divider,
+              color: AppColors.divider.withValues(alpha: 0.55),
             ),
         ],
       ),
