@@ -439,7 +439,7 @@ class _SubtitleColorRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(16, 11, 12, 11),
       child: Row(
         children: [
           Container(
@@ -495,7 +495,7 @@ class _SubtitleOpacityRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
       child: Row(
         children: [
           Container(

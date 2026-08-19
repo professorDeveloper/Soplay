@@ -1,3 +1,4 @@
+import 'package:soplay/core/network/user_agent.dart';
 import 'dart:async';
 import 'dart:io';
 

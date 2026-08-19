@@ -1,3 +1,4 @@
+import 'package:soplay/core/network/user_agent.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,9 +10,11 @@ class ShimmerWrapper extends StatelessWidget {
   const ShimmerWrapper({super.key, required this.child});
   final Widget child;
 
-  // Subtle sweep tuned for the dark surface — low contrast, slow period.
-  static const _base = Color(0xFF202020);
-  static const _highlight = Color(0xFF2B2B2B);
+  // Subtle, but not invisible: eleven levels of separation on a dark panel read
+  // as a frozen screen rather than as loading, which is the one thing a skeleton
+  // exists to avoid.
+  static const _base = Color(0xFF1E1E1E);
+  static const _highlight = Color(0xFF333333);
 
   @override
   Widget build(BuildContext context) => Shimmer.fromColors(
@@ -44,9 +47,10 @@ class HomeNetworkImage extends StatelessWidget {
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
     return {
       'Referer': '${uri.scheme}://${uri.host}/',
-      'User-Agent':
-          'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) '
-              'Chrome/124.0 Mobile Safari/537.36',
+      // Must be the app's one agent: a cf_clearance cookie is bound to the exact
+      // agent that earned it, so a poster asking under a different one is
+      // challenged and never loads.
+      'User-Agent': kSozoUserAgent,
     };
   }
 
@@ -120,8 +124,41 @@ class HomeImagePlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: AppColors.surfaceVariant,
-      child: Center(child: Icon(icon, color: AppColors.textHint, size: 28)),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Icon(icon, color: AppColors.textHint, size: 28),
+        ),
+      ),
     );
+  }
+}
+
+/// Reserves the vertical space of [lines] text lines whether or not [child]
+/// has anything to draw.
+///
+/// Poster rails size their cover with an [Expanded], so a card whose caption
+/// happens to be one line shorter than its neighbour's silently gets a TALLER
+/// poster — the row ends up ragged. Reserving the caption box keeps every
+/// poster in a rail identical, and scales with the user's text size.
+class FixedTextLines extends StatelessWidget {
+  const FixedTextLines({
+    super.key,
+    required this.fontSize,
+    required this.lineHeight,
+    this.lines = 1,
+    this.child,
+  });
+
+  final double fontSize;
+  final double lineHeight;
+  final int lines;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scaled = MediaQuery.textScalerOf(context).scale(fontSize);
+    return SizedBox(height: scaled * lineHeight * lines, child: child);
   }
 }
 

@@ -338,10 +338,12 @@ class _EpisodesPageState extends State<EpisodesPage> {
                       ),
                       SliverList.separated(
                         itemCount: _episodes.length,
+                        // Indents line up with where the row's label starts:
+                        // 16 + 88 thumb + 12, or 16 + 44 number + 12.
                         separatorBuilder: (_, _) => Divider(
                           color: AppColors.divider,
                           height: 1,
-                          indent: _showImages ? 116 : 76,
+                          indent: _showImages ? 116 : 72,
                         ),
                         itemBuilder: (_, i) {
                           final isCurrent = _historyItem != null &&

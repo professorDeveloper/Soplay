@@ -98,7 +98,11 @@
     "view_all": "Barchasini ko'rish",
     "remove_from_continue": "Ko'rishni davom ettirishdan olib tashlash",
     "ep_number": "EP {}",
-    "untitled": "Nomsiz"
+    "untitled": "Nomsiz",
+    "empty_title": "Bu yerda hozircha bo‘sh",
+    "empty_subtitle": "Boshqa manba tanlang yoki yangilash uchun torting.",
+    "list_empty_title": "Bu ro‘yxat bo‘sh",
+    "list_empty_subtitle": "Bu bo‘lim uchun hozircha hech narsa yo‘q."
   },
   "player": {
     "play": "O'ynash",
@@ -300,7 +304,11 @@
     "volume_gesture_desc": "O‘ng tomonda yuqoriga-pastga surish",
     "seconds_short": "{} s",
     "subtitle_style_note": "Bular barcha videolarga tegishli. Subtitr vaqti esa har bir qism uchun alohida va pleyer ichida sozlanadi.",
-    "searching_all_sources": "barcha manbalar bo‘yicha qidirilmoqda"
+    "searching_all_sources": "barcha manbalar bo‘yicha qidirilmoqda",
+    "section_connections": "ULANISHLAR",
+    "section_extensions": "MANBALAR",
+    "section_settings": "SOZLAMALAR",
+    "remove_favorite": "Sevimlilardan olib tashlash"
   },
   "search": {
     "title": "Qidirish",
@@ -352,7 +360,26 @@
     "filter_providers": "Provayderlarni filtrlash…",
     "selected_n": "{} ta tanlandi",
     "apply_n": "Qo'llash ({})",
-    "many_sources_warning": "{} ta manbada qidiruv sekin bo'lishi mumkin. Ilova qotmaydi, lekin manbalar kamroq bo'lsa tezroq."
+    "many_sources_warning": "{} ta manbada qidiruv sekin bo'lishi mumkin. Ilova qotmaydi, lekin manbalar kamroq bo'lsa tezroq.",
+    "all_sources_n": "Barcha manbalar ({})",
+    "more_sources": "Yana…",
+    "select_all_sources": "Barchasini tanlash",
+    "search_all_sources": "Barcha manbalarda qidirish",
+    "apply_all": "Barcha manbalarda qidirish",
+    "selected_n_of_m": "{} / {} manba",
+    "loading_sources": "Manbalar yuklanmoqda…",
+    "no_sources_available": "Mavjud manba yo‘q. Manba qo‘shing yoki yoqing.",
+    "min_query_n": "Kamida {} ta belgi kiriting.",
+    "retry_failed": "Xatolarni qayta urinish",
+    "status_searching": "Qidirilmoqda…",
+    "status_searching_n": "{} qidirilmoqda",
+    "status_with_results_n": "{} natijali",
+    "status_no_match_n": "{} mos kelmadi",
+    "status_timed_out_n": "{} vaqti tugadi",
+    "status_failed_n": "{} xato",
+    "all_sources_failed": "Barcha {} manba javob bermadi. Bu bo‘sh natija emas — qayta urinib ko‘ring.",
+    "no_results_with_failures": "Javob bergan manbalarda ({}) moslik yo‘q. Ulanib bo‘lmadi: {}.",
+    "all_sources_failed_one": "Manba javob bermadi. Bu bo‘sh natija emas — qayta urinib ko‘ring."
   },
   "movie": {
     "rating": "Reyting",
@@ -729,7 +756,12 @@
     "follow_series": "Seriyani kuzatish",
     "find_other_sources": "Boshqa manbalardan izlash",
     "anilist_track": "AniList'da kuzatish",
-    "anilist_tracked": "AniList'da kuzatilmoqda"
+    "anilist_tracked": "AniList'da kuzatilmoqda",
+    "following_on": "Kuzatilyapti",
+    "following_off": "Kuzatilmayapti",
+    "no_screenshots": "Kadrlar yo‘q",
+    "show_more": "Ko‘proq",
+    "show_less": "Yig‘ish"
   },
   "shorts": {
     "refresh": "Yangilash",
@@ -1006,7 +1038,11 @@
     "episodes_count": "{count} qism",
     "reminder_body": "{episode}-qism 10 daqiqadan keyin chiqadi",
     "reminders_on": "Qism chiqishidan oldin eslatilsin",
-    "reminders_off": "Eslatmalar o‘chiq"
+    "reminders_off": "Eslatmalar o‘chiq",
+    "connect_first": "Avval AniList’ni ulang",
+    "save_failed": "AniList’ga saqlab bo‘lmadi",
+    "search_in_source": "BITTA MANBADA QIDIRISH",
+    "no_sources": "Hali manba o‘rnatilmagan"
   },
   "tracker": {
     "title": "Tracking",
@@ -1051,5 +1087,17 @@
     "empty": "Hozircha kanal yo‘q.",
     "load_failed": "Kanallarni yuklab bo‘lmadi.",
     "retry": "Qayta urinish"
+  },
+  "time": {
+    "now": "hozirgina",
+    "minutes": "{} daqiqa oldin",
+    "hours": "{} soat oldin",
+    "days": "{} kun oldin"
+  },
+  "user_lists": {
+    "title": "Ro‘yxatlarim",
+    "remove": "O‘chirish",
+    "empty_title": "Hozircha hech narsa yo‘q",
+    "empty_subtitle": "Saqlaganlaringiz shu yerda ko‘rinadi."
   }
 }

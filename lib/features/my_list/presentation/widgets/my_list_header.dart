@@ -56,7 +56,7 @@ class MyListHeader extends StatelessWidget {
           // on their own page rather than as modes of this one — see
           // UserListsPage — so this is the only way in.
           IconButton(
-            tooltip: 'My Lists',
+            tooltip: 'user_lists.title'.tr(),
             icon: const Icon(
               Icons.playlist_add_check_rounded,
               color: AppColors.textSecondary,

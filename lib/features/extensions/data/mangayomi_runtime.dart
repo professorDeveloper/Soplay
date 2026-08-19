@@ -7,6 +7,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'package:soplay/core/js/dart_fetch.dart';
 import 'package:soplay/core/js/js_log.dart';
+import 'package:soplay/core/js/js_timeouts.dart';
 import 'package:soplay/core/system/webview_env.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
 import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
@@ -190,12 +191,31 @@ class MangayomiRuntime {
     _loaded[source.id] = source.version;
   }
 
+  /// Keys extensions conventionally read their host from.
+  ///
+  /// Mangayomi has no schema for this — each extension picks a name — so this
+  /// is the observed set, and an extension using another name still falls back
+  /// to whatever the user has set.
+  static const List<String> _domainKeys = [
+    'domain_url',
+    'overrideBaseUrl',
+    'baseUrl',
+    'preferred_domain',
+  ];
+
   Future<void> _seedPrefs(MangayomiSource source) async {
     final values = <String, dynamic>{};
-    // Defaults declared by the extension itself come first, then anything the
-    // user has overridden. Without the defaults, `preference.get('domain_url')`
-    // returns '' on a fresh install and sources that build their base url from
-    // it silently request the wrong host.
+    // The comment here used to promise defaults and the body never wrote any,
+    // so on a fresh install `preference.get('domain_url')` returned '' and the
+    // extension built a RELATIVE url. That reaches Dio with no host, throws
+    // "No host specified in URI", is caught, and comes back as zero results —
+    // indistinguishable from a title genuinely not being there.
+    if (source.baseUrl.isNotEmpty) {
+      for (final key in _domainKeys) {
+        values[key] = source.baseUrl;
+      }
+    }
+    // The user's own choices still win.
     values.addAll(store.prefs(source.id));
     await _controller!.evaluateJavascript(
       source: 'globalThis.__sozoPrefs = ${jsonEncode(values)};'
@@ -241,8 +261,12 @@ class MangayomiRuntime {
     JsLog.req(tag, method);
     await ensureReady();
 
+    // Bounded, and bounded INSIDE the lock. Every call queues behind _gate, so a
+    // single extension that never answers — a Cloudflare solve that never
+    // resolves, most often — used to hold every later call behind it forever,
+    // which is a screen left shimmering with nothing to time out.
     final result = await _locked(() async {
-      await _ensureExtension(source);
+      await _ensureExtension(source).timeout(kJsCallTimeout);
       final r = await _controller!.callAsyncJavaScript(
         functionBody: r'''
           const p = globalThis.__sozoProvider;
@@ -257,7 +281,7 @@ class MangayomiRuntime {
           return out === undefined ? null : JSON.stringify(out);
         ''',
         arguments: {'fnName': method, 'fnArgs': args},
-      );
+      ).timeout(kJsCallTimeout);
       await _flushPrefs(source);
       return r;
     });

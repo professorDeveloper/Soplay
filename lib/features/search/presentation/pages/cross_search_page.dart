@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,13 +13,24 @@ import 'package:soplay/features/profile/domain/entities/provider_entity.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/search/domain/entities/cross_search_result.dart';
+import 'package:soplay/features/search/domain/entities/cross_search_scope.dart';
 import 'package:soplay/features/search/domain/services/cross_search_engine.dart';
 import 'package:soplay/features/search/presentation/blocs/cross_search_controller.dart';
+import 'package:soplay/features/search/presentation/blocs/search_query_policy.dart';
 import 'package:soplay/features/search/presentation/widgets/search_result_card.dart';
 import 'package:soplay/features/search/presentation/widgets/search_set_sheet.dart';
+import 'package:soplay/features/search/presentation/widgets/source_scope_bar.dart';
+
 class CrossSearchPage extends StatefulWidget {
-  const CrossSearchPage({super.key, this.initialQuery});
+  const CrossSearchPage({super.key, this.initialQuery, this.initialProviderIds});
+
   final String? initialQuery;
+
+  /// Start narrowed to these sources. Used when the caller already knows which
+  /// one it wants — picking a source on an AniList title, say. It is a starting
+  /// point, not a setting: it is never persisted, and the "All sources" chip
+  /// sits next to it so widening back is one tap.
+  final Set<String>? initialProviderIds;
 
   @override
   State<CrossSearchPage> createState() => _CrossSearchPageState();
@@ -27,19 +40,30 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
   final _textController = TextEditingController();
   late final CrossSearchController _controller;
 
-  Set<String> _selectedIds = {};
+  CrossSearchScope _scope = const CrossSearchScope.all();
   List<ProviderEntity> _providers = const [];
+
+  /// Chip order, recomputed only when the provider list or the picker changes
+  /// it — never on a chip tap, so a chip cannot move out from under the finger.
+  List<String> _railOrder = const [];
   bool _offline = false;
+  bool _loadingProviders = true;
   bool _grouped = false;
+
+  /// Searching every source can mean hundreds of legs, so the per-source list
+  /// is only built while it is open.
+  bool _statusOpen = false;
 
   @override
   void initState() {
     super.initState();
-    _providers = _providersOf(context.read<ProviderBloc>().state);
-    _selectedIds = _initialSelection(_providers);
+    final state = context.read<ProviderBloc>().state;
+    _adoptProviders(state);
+    _scope = _initialScope(_providers);
+    _railOrder = _orderedIds(_providers, _scope);
     _controller = CrossSearchController(
       engine: getIt<CrossSearchEngine>(),
-      set: _buildRefs(_providers, _selectedIds),
+      set: _refs(),
     );
     final q = widget.initialQuery?.trim() ?? '';
     if (q.isNotEmpty) {
@@ -60,62 +84,78 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
   List<ProviderEntity> _providersOf(ProviderState state) =>
       state is ProviderLoaded ? state.usableProviders : const [];
 
+  void _adoptProviders(ProviderState state) {
+    _providers = _providersOf(state);
+    _offline = state is ProviderLoaded && state.offline;
+    _loadingProviders = state is! ProviderLoaded && state is! ProviderError;
+  }
+
   /// The page used to snapshot ProviderBloc once in initState, so opening it
   /// before the providers had loaded left it permanently empty.
   void _syncProviders(ProviderState state) {
-    final providers = _providersOf(state);
+    final next = _providersOf(state);
+    final sameList = next.length == _providers.length &&
+        next.every((p) => _providers.any((e) => e.id == p.id));
     final offline = state is ProviderLoaded && state.offline;
-    if (providers.length == _providers.length &&
-        offline == _offline &&
-        providers.every((p) => _providers.any((e) => e.id == p.id))) {
-      return;
-    }
-    final wasEmpty = _providers.isEmpty;
-    _providers = providers;
-    _offline = offline;
-    if (wasEmpty || _selectedIds.isEmpty) {
-      _selectedIds = _initialSelection(providers);
-    } else {
-      _selectedIds = _selectedIds
-          .where((id) => providers.any((p) => p.id == id))
-          .toSet();
-    }
+    final loading = state is! ProviderLoaded && state is! ProviderError;
+    if (sameList && offline == _offline && loading == _loadingProviders) return;
+
+    final hadNone = _providers.isEmpty;
+    _adoptProviders(state);
+    // The stored scope can only be read once the list it refers to exists;
+    // before that a "these three sources" choice would prune away to nothing.
+    _scope = hadNone ? _initialScope(_providers) : _scope.pruned(_providers);
+    _railOrder = _orderedIds(_providers, _scope);
     setState(() {});
-    _controller.setProviderSet(_buildRefs(providers, _selectedIds));
+    _controller.setProviderSet(_refs());
   }
 
-  Set<String> _initialSelection(List<ProviderEntity> providers) {
-    final hive = getIt<HiveService>();
-    final existing = providers.map((p) => p.id).toSet();
-    var ids = hive.getCrossSearchProviders().where(existing.contains).toSet();
-    if (ids.isEmpty) {
-      ids = hive.getFavoriteProviders().where(existing.contains).toSet();
+  /// Every usable source, unless the user (or the caller) narrowed it.
+  ///
+  /// The old chain fell back to the favourites list and then to the single
+  /// "current" provider, so a user who had never opened the picker searched one
+  /// source and was told "Found in 0 of 1" — which reads as an empty internet
+  /// rather than as a scope of one.
+  CrossSearchScope _initialScope(List<ProviderEntity> providers) {
+    final requested = widget.initialProviderIds
+        ?.where((id) => providers.any((p) => p.id == id));
+    if (requested != null && requested.isNotEmpty) {
+      return CrossSearchScope.only(requested);
     }
-    if (ids.isEmpty) {
-      final current = hive.getCurrentProvider();
-      if (current.isNotEmpty && existing.contains(current)) ids = {current};
-    }
-    return ids;
+    final stored =
+        CrossSearchScope.fromStored(getIt<HiveService>().getCrossSearchProviders());
+    return providers.isEmpty ? stored : stored.pruned(providers);
   }
 
-  List<ProviderRef> _buildRefs(List<ProviderEntity> providers, Set<String> ids) {
-    return providers
-        .where((p) => ids.contains(p.id))
-        .map(ProviderRef.fromEntity)
-        .toList();
+  List<String> _orderedIds(List<ProviderEntity> providers, CrossSearchScope scope) {
+    final selected = <String>[];
+    final rest = <String>[];
+    for (final p in providers) {
+      (!scope.isAll && scope.includes(p.id) ? selected : rest).add(p.id);
+    }
+    return [...selected, ...rest];
+  }
+
+  List<ProviderRef> _refs() =>
+      _scope.resolve(_providers).map(ProviderRef.fromEntity).toList();
+
+  void _applyScope(CrossSearchScope scope, {bool reorder = false}) {
+    if (scope == _scope) return;
+    _scope = scope;
+    if (reorder) _railOrder = _orderedIds(_providers, scope);
+    unawaited(getIt<HiveService>().setCrossSearchProviders(scope.toStored()));
+    setState(() {});
+    _controller.setProviderSet(_refs());
   }
 
   Future<void> _openSetSheet() async {
     final result = await SearchSetSheet.show(
       context,
       providers: _providers,
-      initialSelected: _selectedIds,
+      scope: _scope,
     );
     if (result == null || !mounted) return;
-    _selectedIds = result;
-    await getIt<HiveService>().setCrossSearchProviders(result.toList());
-    _controller.setProviderSet(_buildRefs(_providers, result));
-    setState(() {});
+    _applyScope(result, reorder: true);
   }
 
   void _openDetail(MergedSearchTitle title) {
@@ -123,11 +163,18 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
       _push(title.hits.first);
       return;
     }
+    // Scrollable and height-capped: the list is as long as the number of sources that
+    // matched, which is exactly what all-source search is for, and a fixed Column ran off
+    // the bottom of the sheet as soon as it found more than a handful.
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
       ),
       builder: (_) => SafeArea(
         child: Column(
@@ -145,23 +192,33 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
                 ),
               ),
             ),
-            for (final hit in title.hits)
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.play_circle_outline,
-                    color: AppColors.primary, size: 20),
-                title: Text(hit.provider.name,
-                    style: const TextStyle(color: Colors.white, fontSize: 14)),
-                subtitle: Text(hit.item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: AppColors.textHint, fontSize: 12)),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _push(hit);
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.only(bottom: 8),
+                itemCount: title.hits.length,
+                itemBuilder: (_, i) {
+                  final hit = title.hits[i];
+                  return ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.play_circle_outline,
+                        color: AppColors.primary, size: 20),
+                    title: Text(hit.provider.name,
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 14)),
+                    subtitle: Text(hit.item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: AppColors.textHint, fontSize: 12)),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _push(hit);
+                    },
+                  );
                 },
               ),
+            ),
           ],
         ),
       ),
@@ -220,7 +277,17 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _searchField(),
-            _sourcesBar(),
+            SourceScopeBar(
+              providers: _providers,
+              order: _railOrder,
+              scope: _scope,
+              loading: _loadingProviders && _providers.isEmpty,
+              onToggle: (id) => _applyScope(_scope.toggle(id)),
+              onSelectAll: () =>
+                  _applyScope(const CrossSearchScope.all(), reorder: true),
+              onOpenPicker: _openSetSheet,
+            ),
+            const SizedBox(height: 10),
             const Divider(height: 1, color: Colors.white10),
             Expanded(
               child: AnimatedBuilder(
@@ -278,60 +345,34 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
     );
   }
 
-  Widget _sourcesBar() {
-    final label = _selectedIds.isEmpty
-        ? 'search.no_sources_selected'.tr()
-        : 'search.sources_selected'.tr(args: ['${_selectedIds.length}']);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: Material(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: _openSetSheet,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                const Icon(Icons.tune, size: 16, color: AppColors.primary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 13),
-                  ),
-                ),
-                const Icon(Icons.chevron_right_rounded,
-                    size: 18, color: AppColors.textHint),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _body() {
-    if (_selectedIds.isEmpty) {
-      return _centered(
-        icon: Icons.tune,
-        text: 'search.pick_sources'.tr(),
-        action: FilledButton(
-          onPressed: _openSetSheet,
-          child: Text('search.choose_sources'.tr()),
-        ),
-      );
+    if (_providers.isEmpty) {
+      return _loadingProviders
+          ? _centered(
+              icon: Icons.travel_explore,
+              text: 'search.loading_sources'.tr(),
+              action: const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : _centered(
+              icon: Icons.tune,
+              text: 'search.no_sources_available'.tr(),
+            );
     }
     if (_controller.query.isEmpty) {
       return _centered(
         icon: Icons.travel_explore,
         text: 'search.type_to_search_n'
             .tr(args: ['${_controller.expectedLegs}']),
+      );
+    }
+    if (_controller.awaitingLongerQuery) {
+      return _centered(
+        icon: Icons.keyboard,
+        text: 'search.min_query_n'.tr(args: ['${SearchQueryPolicy.minLength}']),
       );
     }
 
@@ -345,13 +386,7 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
         if (_offline)
           SliverToBoxAdapter(child: _note('search.offline_note'.tr())),
         if (merged.isEmpty && done)
-          SliverToBoxAdapter(
-            child: _centered(
-              icon: Icons.search_off,
-              text: 'search.no_results_any'.tr(),
-              padded: false,
-            ),
-          )
+          SliverToBoxAdapter(child: _emptyResults())
         else if (_grouped)
           SliverList(
             delegate: SliverChildBuilderDelegate(
@@ -411,41 +446,138 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
     );
   }
 
+  /// Progress first, then one pill per outcome.
+  ///
+  /// The old single line collapsed four outcomes into "found in X of Y", so a
+  /// source that crashed, a source that timed out and a source that genuinely
+  /// had nothing were all reported as the same missing Y.
   Widget _summary() {
-    final pending = _controller.pendingSources;
-    final searching = _controller.searching;
-    final text = searching
-        ? (pending.isEmpty
+    final c = _controller;
+    final headline = c.searching
+        ? (c.pendingSources.isEmpty
             ? 'search.searching'.tr()
-            : 'search.waiting_for'.tr(args: [pending.take(2).join(', ')]))
+            : 'search.waiting_for'.tr(args: [c.pendingSources.take(2).join(', ')]))
         : 'search.found_in'.tr(args: [
-            '${_controller.sourcesWithResults}',
-            '${_controller.expectedLegs}',
+            '${c.sourcesWithResults}',
+            '${c.expectedLegs}',
           ]);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (searching) ...[
-            const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Text(
-              '$text · ${'search.results_n'.tr(args: ['${_controller.totalItems}'])}',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  color: AppColors.textSecondary, fontSize: 12.5),
-            ),
+          Row(
+            children: [
+              if (c.searching) ...[
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(
+                  '$headline · ${'search.results_n'.tr(args: ['${c.totalItems}'])}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 12.5),
+                ),
+              ),
+              if (c.failedLegs.isNotEmpty && !c.searching)
+                TextButton(
+                  onPressed: _controller.retryFailed,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  child: Text('search.retry_failed'.tr()),
+                ),
+            ],
           ),
+          _statusPills(c),
         ],
       ),
+    );
+  }
+
+  Widget _statusPills(CrossSearchController c) {
+    final pills = <Widget>[
+      if (c.runningSources > 0)
+        _pill('search.status_searching_n'.tr(args: ['${c.runningSources}']),
+            AppColors.textSecondary),
+      if (c.sourcesWithResults > 0)
+        _pill('search.status_with_results_n'.tr(args: ['${c.sourcesWithResults}']),
+            AppColors.success),
+      if (c.emptySources > 0)
+        _pill('search.status_no_match_n'.tr(args: ['${c.emptySources}']),
+            AppColors.textHint),
+      if (c.timedOutSources > 0)
+        _pill('search.status_timed_out_n'.tr(args: ['${c.timedOutSources}']),
+            Colors.orange),
+      if (c.erroredSources > 0)
+        _pill('search.status_failed_n'.tr(args: ['${c.erroredSources}']),
+            AppColors.error),
+    ];
+    if (pills.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Wrap(spacing: 6, runSpacing: 6, children: pills),
+    );
+  }
+
+  Widget _pill(String text, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(text,
+            style: TextStyle(
+                color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+      );
+
+  /// Nothing to show — but *why* nothing decides what the user should do next.
+  Widget _emptyResults() {
+    final c = _controller;
+    final broken = c.brokenSources;
+    final String text;
+    if (c.everySourceBroken) {
+      text = broken == 1
+          ? 'search.all_sources_failed_one'.tr()
+          : 'search.all_sources_failed'.tr(args: ['$broken']);
+    } else if (broken > 0) {
+      text = 'search.no_results_with_failures'
+          .tr(args: ['${c.emptySources}', '$broken']);
+    } else {
+      text = 'search.no_results_any'.tr();
+    }
+
+    // Both offers can apply at once: a narrowed search whose only source broke
+    // is exactly the case the user reads as "the app found nothing".
+    final buttons = <Widget>[
+      if (broken > 0)
+        FilledButton.tonal(
+          onPressed: c.retryFailed,
+          child: Text('search.retry_failed'.tr()),
+        ),
+      if (!_scope.isAll)
+        FilledButton(
+          onPressed: () =>
+              _applyScope(const CrossSearchScope.all(), reorder: true),
+          child: Text('search.search_all_sources'.tr()),
+        ),
+    ];
+
+    return _centered(
+      icon: broken > 0 ? Icons.cloud_off : Icons.search_off,
+      text: text,
+      action: buttons.isEmpty
+          ? null
+          : Wrap(spacing: 10, runSpacing: 8, children: buttons),
+      padded: false,
     );
   }
 
@@ -512,17 +644,35 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
   /// Every leg by name with what it did, and a Retry for the ones that failed.
   Widget _sourceStatusList() {
     final legs = _controller.results;
-    if (legs.isEmpty) return const SizedBox.shrink();
+    final pending = _controller.pendingSources;
+    if (legs.isEmpty && pending.isEmpty) return const SizedBox.shrink();
+    final hasFailures = _controller.failedLegs.isNotEmpty;
+    final open = _statusOpen || hasFailures;
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
-        initiallyExpanded: _controller.failedLegs.isNotEmpty,
+        // ExpansionTile reads initiallyExpanded once, at mount. A leg that
+        // fails after the first build would otherwise leave the tile collapsed
+        // over rows that were built and never shown — the failure detail
+        // present in the tree and invisible on screen.
+        key: ValueKey('src-status-$hasFailures'),
+        initiallyExpanded: open,
+        onExpansionChanged: (v) => setState(() => _statusOpen = v),
         tilePadding: const EdgeInsets.symmetric(horizontal: 16),
         title: Text(
           'search.sources'.tr(),
           style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
-        children: [
+        children: open ? _statusRows(legs, pending) : const [],
+      ),
+    );
+  }
+
+  List<Widget> _statusRows(
+    List<ProviderSearchResult> legs,
+    List<String> pending,
+  ) {
+    return [
           for (final leg in legs)
             ListTile(
               dense: true,
@@ -535,9 +685,10 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
                 _statusLabel(leg),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AppColors.textHint, fontSize: 11.5),
+                style: TextStyle(color: _statusColor(leg), fontSize: 11.5),
               ),
-              trailing: leg.status == ProviderSearchStatus.ok
+              trailing: leg.status == ProviderSearchStatus.ok ||
+                      leg.status == ProviderSearchStatus.empty
                   ? null
                   : _controller.isRetrying(leg.provider.id)
                       ? const SizedBox(
@@ -551,9 +702,26 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
                           child: Text('general.retry'.tr()),
                         ),
             ),
-        ],
-      ),
-    );
+          // Legs that have not answered are listed too: an absent row is what
+          // made a still-running source look like a source with no results.
+          for (final name in pending)
+            ListTile(
+              dense: true,
+              contentPadding: const EdgeInsets.only(left: 16, right: 8),
+              title: Text(name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 13)),
+              subtitle: Text('search.status_searching'.tr(),
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 11.5)),
+              trailing: const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+    ];
   }
 
   String _statusLabel(ProviderSearchResult leg) => switch (leg.status) {
@@ -564,6 +732,13 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
         ProviderSearchStatus.error => leg.message.isEmpty
             ? 'search.source_failed'.tr()
             : leg.message,
+      };
+
+  Color _statusColor(ProviderSearchResult leg) => switch (leg.status) {
+        ProviderSearchStatus.ok => AppColors.success,
+        ProviderSearchStatus.empty => AppColors.textHint,
+        ProviderSearchStatus.timeout => Colors.orange,
+        ProviderSearchStatus.error => AppColors.error,
       };
 
   Widget _note(String text) => Container(
@@ -604,4 +779,16 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
       child: Padding(padding: const EdgeInsets.all(32), child: content),
     );
   }
+}
+
+/// What to search, and where.
+///
+/// A record rather than more positional route arguments: `/cross-search` is
+/// pushed from several screens and a bare String had no room for the source a
+/// caller already decided on.
+class CrossSearchRequest {
+  const CrossSearchRequest({required this.query, this.providerIds});
+
+  final String query;
+  final Set<String>? providerIds;
 }

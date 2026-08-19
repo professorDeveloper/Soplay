@@ -176,8 +176,17 @@ class AppRouter {
       ),
       GoRoute(
         path: '/cross-search',
-        builder: (context, state) =>
-            CrossSearchPage(initialQuery: state.extra as String?),
+        builder: (context, state) {
+          // Either a bare query, or a query with the sources to search.
+          final extra = state.extra;
+          if (extra is CrossSearchRequest) {
+            return CrossSearchPage(
+              initialQuery: extra.query,
+              initialProviderIds: extra.providerIds,
+            );
+          }
+          return CrossSearchPage(initialQuery: extra as String?);
+        },
       ),
       GoRoute(
         path: '/following',

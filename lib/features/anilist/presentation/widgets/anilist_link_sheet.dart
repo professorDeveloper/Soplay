@@ -119,7 +119,8 @@ class _AnilistLinkSheetState extends State<AnilistLinkSheet> {
       if (!mounted || token != _token) return;
       setState(() {
         _searching = false;
-        _error = e is AnilistException ? e.message : 'anilist.retry'.tr();
+        _error =
+            e is AnilistException ? e.message : 'anilist.browse_failed'.tr();
       });
     }
   }
@@ -263,13 +264,36 @@ class _AnilistLinkSheetState extends State<AnilistLinkSheet> {
     );
   }
 
+  /// Every branch hands the sheet's controller to a scrollable, including the
+  /// ones with nothing to scroll: that controller is what drives the drag, and
+  /// without it the sheet cannot be resized or flung shut at all.
   Widget _buildResults(ScrollController scrollController) {
     if (_error != null) {
-      return _centered(_error!, action: () => _search(_query.text));
+      return AnilistScrollableMessage(
+        controller: scrollController,
+        message: AnilistStateMessage(
+          icon: Icons.cloud_off_rounded,
+          text: _error!,
+          actionLabel: 'anilist.retry'.tr(),
+          onAction: () => _search(_query.text),
+        ),
+      );
     }
     if (_results.isEmpty) {
-      if (_searching) return const SizedBox.shrink();
-      return _centered('anilist.link_no_results'.tr());
+      if (_searching) {
+        return ListView(
+          controller: scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [],
+        );
+      }
+      return AnilistScrollableMessage(
+        controller: scrollController,
+        message: AnilistStateMessage(
+          icon: Icons.search_off_rounded,
+          text: 'anilist.link_no_results'.tr(),
+        ),
+      );
     }
 
     return ListView.separated(
@@ -284,37 +308,6 @@ class _AnilistLinkSheetState extends State<AnilistLinkSheet> {
       ),
     );
   }
-
-  Widget _centered(String text, {VoidCallback? action}) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                text,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.textHint,
-                  fontSize: 13.5,
-                  height: 1.5,
-                ),
-              ),
-              if (action != null) ...[
-                const SizedBox(height: 14),
-                OutlinedButton(
-                  onPressed: action,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: kAnilistBlue,
-                    side: BorderSide(color: kAnilistBlue.withValues(alpha: 0.5)),
-                  ),
-                  child: Text('anilist.retry'.tr()),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
 }
 
 class _CurrentLink extends StatelessWidget {

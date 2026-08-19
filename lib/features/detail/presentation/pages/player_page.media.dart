@@ -370,7 +370,7 @@ extension _PlayerMedia on _PlayerPageState {
       if (!isLoopback) {
         mergedHeaders.addAll(<String, String>{
           'User-Agent':
-              'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+              kSozoUserAgent,
           'Accept': '*/*',
           'Accept-Language': 'uz,ru;q=0.9,en;q=0.8',
         });

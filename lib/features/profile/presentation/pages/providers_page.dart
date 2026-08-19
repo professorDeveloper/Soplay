@@ -703,7 +703,9 @@ class _ProviderListTile extends StatelessWidget {
                     minWidth: 34,
                     minHeight: 34,
                   ),
-                  tooltip: 'profile.add_favorite'.tr(),
+                  tooltip: isFavorite
+                      ? 'profile.remove_favorite'.tr()
+                      : 'profile.add_favorite'.tr(),
                 ),
                 const SizedBox(width: 2),
                 if (selected)

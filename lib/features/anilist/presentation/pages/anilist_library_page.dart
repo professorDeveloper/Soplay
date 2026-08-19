@@ -219,11 +219,18 @@ class _StatusList extends StatelessWidget {
 
     final error = controller.error;
     if (error != null && controller.entries.isEmpty) {
-      return _Message(
-        icon: Icons.cloud_off_rounded,
-        text: error,
-        actionLabel: 'anilist.retry'.tr(),
-        onAction: onRefresh,
+      return RefreshIndicator(
+        color: kAnilistBlue,
+        backgroundColor: AppColors.surface,
+        onRefresh: onRefresh,
+        child: AnilistScrollableMessage(
+          message: AnilistStateMessage(
+            icon: Icons.cloud_off_rounded,
+            text: error,
+            actionLabel: 'anilist.retry'.tr(),
+            onAction: onRefresh,
+          ),
+        ),
       );
     }
 
@@ -233,16 +240,12 @@ class _StatusList extends StatelessWidget {
         color: kAnilistBlue,
         backgroundColor: AppColors.surface,
         onRefresh: onRefresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SizedBox(height: MediaQuery.sizeOf(context).height * 0.16),
-            _Message(
-              icon: Icons.inbox_rounded,
-              text: 'anilist.empty_status'
-                  .tr(args: [status.labelKey.tr().toLowerCase()]),
-            ),
-          ],
+        child: AnilistScrollableMessage(
+          message: AnilistStateMessage(
+            icon: Icons.inbox_rounded,
+            text: 'anilist.empty_status'
+                .tr(args: [status.labelKey.tr().toLowerCase()]),
+          ),
         ),
       );
     }
@@ -424,64 +427,13 @@ class _LoadingList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
       itemCount: 6,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
+      // Matches the real card: 10 of padding either side of a 54-wide 2:3
+      // cover. A skeleton of a different height defeats its own purpose.
       itemBuilder: (_, _) => Container(
-        height: 91,
+        height: 54 * 3 / 2 + 20,
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(14),
-        ),
-      ),
-    );
-  }
-}
-
-class _Message extends StatelessWidget {
-  const _Message({
-    required this.icon,
-    required this.text,
-    this.actionLabel,
-    this.onAction,
-  });
-
-  final IconData icon;
-  final String text;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 46, color: AppColors.textHint.withValues(alpha: 0.6)),
-            const SizedBox(height: 14),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textHint,
-                fontSize: 13.5,
-                height: 1.5,
-              ),
-            ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 16),
-              OutlinedButton(
-                onPressed: onAction,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: kAnilistBlue,
-                  side: BorderSide(color: kAnilistBlue.withValues(alpha: 0.5)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(actionLabel!),
-              ),
-            ],
-          ],
         ),
       ),
     );

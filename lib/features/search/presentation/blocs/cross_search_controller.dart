@@ -45,9 +45,33 @@ class CrossSearchController extends ChangeNotifier {
   List<ProviderRef> get providerSet => _set;
 
   int get expectedLegs => _set.length;
-  int get completedLegs => _results.length;
+  int get completedLegs => results.length;
   int get totalItems => _results.values.fold(0, (s, r) => s + r.items.length);
   int get sourcesWithResults => _results.values.where((r) => r.hasItems).length;
+
+  /// The four outcomes kept apart, because "searched and found nothing",
+  /// "blew up", "took too long" and "has not answered yet" are four different
+  /// answers and the summary used to render all of them as a missing source.
+  int get emptySources => _countStatus(ProviderSearchStatus.empty);
+  int get erroredSources => _countStatus(ProviderSearchStatus.error);
+  int get timedOutSources => _countStatus(ProviderSearchStatus.timeout);
+  int get brokenSources => erroredSources + timedOutSources;
+  int get runningSources => expectedLegs - completedLegs;
+
+  int _countStatus(ProviderSearchStatus status) =>
+      results.where((r) => r.status == status).length;
+
+  /// Nothing answered usefully and every leg that did answer broke — the state
+  /// that must never be reported as "no results".
+  bool get everySourceBroken =>
+      _phase == CrossSearchPhase.done &&
+      expectedLegs > 0 &&
+      brokenSources == expectedLegs;
+
+  /// A query the user is still typing that is too short to fan out on. Without
+  /// this the page showed a finished-looking "0 results" for a single letter.
+  bool get awaitingLongerQuery =>
+      _phase == CrossSearchPhase.idle && _query.isNotEmpty;
 
   /// Every leg in the selected order — answered or not.
   List<ProviderSearchResult> get results => [
@@ -115,13 +139,30 @@ class CrossSearchController extends ChangeNotifier {
   }
 
   void setProviderSet(List<ProviderRef> set) {
+    if (_sameSet(set)) return;
     _set = set;
-    _cache.clear();
+    _results.clear();
+    _retrying.clear();
+    _merged = const [];
     if (_query.isEmpty) {
+      _phase = CrossSearchPhase.idle;
       notifyListeners();
       return;
     }
+    _cancel();
+    // The cache is keyed by set + query, so toggling a source off and back on
+    // is instant instead of re-running every other leg from scratch.
+    if (_restoreFromCache(_query)) return;
+    _debouncer.reset();
     _run(_query);
+  }
+
+  bool _sameSet(List<ProviderRef> set) {
+    if (set.length != _set.length) return false;
+    for (var i = 0; i < set.length; i++) {
+      if (set[i].id != _set[i].id) return false;
+    }
+    return true;
   }
 
   /// Re-runs a single source. A first-ever extension search has to download and
@@ -142,6 +183,13 @@ class CrossSearchController extends ChangeNotifier {
     _results[ref.id] = result;
     _remerge();
     notifyListeners();
+  }
+
+  /// Every leg that failed or timed out, at once.
+  Future<void> retryFailed() async {
+    final ids = [for (final leg in failedLegs) leg.provider.id];
+    if (ids.isEmpty) return;
+    await Future.wait(ids.map(retryProvider));
   }
 
   /// Whether a [loadMore] is in flight, so the button can say so and refuse a
@@ -228,6 +276,10 @@ class CrossSearchController extends ChangeNotifier {
   void _remerge() => _merged = mergeSearchResults(results);
 
   void _store(String q) {
+    // Never replay a run that contains a failure: retyping the query is how a
+    // user asks for another attempt, and serving them the cached failure for
+    // the next five minutes is indistinguishable from the app being broken.
+    if (failedLegs.isNotEmpty) return;
     _cache.remove(_cacheKey(q));
     _cache[_cacheKey(q)] = _CachedRun(
       at: DateTime.now(),

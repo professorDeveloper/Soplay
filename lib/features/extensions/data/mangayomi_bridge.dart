@@ -148,6 +148,7 @@ class MangayomiBridge {
     final sections = <Map<String, dynamic>>[];
     final banner = <Map<String, dynamic>>[];
     String? error;
+    runtime.dartFetch.clearBlock();
 
     // Popular and latest are independent calls, but the runtime serialises them
     // anyway (one shared JS context), so issue them in sequence and let one
@@ -187,6 +188,8 @@ class MangayomiBridge {
       if (!_isNotImplemented(e)) error ??= 'getLatestUpdates: $e';
     }
 
+    if (sections.isEmpty) error ??= runtime.dartFetch.takeBlock();
+
     return {
       'provider': src.providerId,
       'banner': banner,
@@ -224,16 +227,22 @@ class MangayomiBridge {
     if (src == null) {
       return {'provider': 'my:$id', 'items': const [], 'error': 'source not installed'};
     }
+    runtime.dartFetch.clearBlock();
     try {
       // Third arg is the filter list; every extension accepts an empty one.
       final raw = await runtime.call(id, 'search', args: [query, page, const []]);
       final items = _cards(raw, src);
+      // An extension parses whatever body it gets, so a blocked request comes
+      // back as an empty list and not as a throw. Empty because nothing matched
+      // and empty because the site never answered are worth telling apart.
+      final blocked = items.isEmpty ? runtime.dartFetch.takeBlock() : null;
       return {
         'provider': src.providerId,
         'items': items,
         'query': query,
         'page': page,
         'totalPages': _hasNext(raw) ? page + 1 : page,
+        'error': ?blocked,
       };
     } catch (e) {
       return {

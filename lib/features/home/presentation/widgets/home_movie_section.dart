@@ -33,28 +33,23 @@ class MovieSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(13, 18, 16, 14),
-            child: InkWell(
-              borderRadius: BorderRadius.only(
-                topRight: Radius.circular(8),
-                bottomRight: Radius.circular(8),
-              ),
-              onTap: () {
-                if (onSeeAll != null) {
-                  onSeeAll!();
-                  return;
-                }
-                context.push(
-                  '/view-all',
-                  extra: ViewAllEntity(type: type, slug: slug, name: title),
-                );
-              },
+          // The padding is INSIDE the InkWell: outside it, the tappable strip
+          // was only as tall as the title text (~19dp).
+          InkWell(
+            onTap: () {
+              if (onSeeAll != null) {
+                onSeeAll!();
+                return;
+              }
+              context.push(
+                '/view-all',
+                extra: ViewAllEntity(type: type, slug: slug, name: title),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
               child: Row(
-                mainAxisSize: MainAxisSize.max,
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  SizedBox(width: 4),
                   if (isHighlighted) ...[
                     Container(
                       width: 3,
@@ -84,7 +79,6 @@ class MovieSection extends StatelessWidget {
                     color: AppColors.textHint,
                     size: 22,
                   ),
-                  SizedBox(width: 4),
                 ],
               ),
             ),
@@ -223,43 +217,54 @@ class _MovieCardState extends State<_MovieCard> {
           children: [
             cover,
             SizedBox(height: desktop ? 10 : 6),
-            Text(
-              movieTitle(movie),
-              maxLines: desktop ? 2 : 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: desktop ? 15 : 11.5,
-                fontWeight: desktop ? FontWeight.w800 : FontWeight.w600,
-                height: desktop ? 1.3 : 1.25,
+            FixedTextLines(
+              fontSize: desktop ? 15 : 11.5,
+              lineHeight: desktop ? 1.3 : 1.25,
+              lines: desktop ? 2 : 1,
+              child: Text(
+                movieTitle(movie),
+                maxLines: desktop ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: desktop ? 15 : 11.5,
+                  fontWeight: desktop ? FontWeight.w800 : FontWeight.w600,
+                  height: desktop ? 1.3 : 1.25,
+                ),
               ),
             ),
-            if (movie.year != null) ...[
-              SizedBox(height: desktop ? 6 : 0),
-              Row(
-                children: [
-                  if (desktop) ...[
-                    const Icon(
-                      Icons.calendar_today_rounded,
-                      size: 12,
-                      color: AppColors.textHint,
+            SizedBox(height: desktop ? 6 : 0),
+            FixedTextLines(
+              fontSize: desktop ? 12.5 : 10,
+              lineHeight: 1.3,
+              child: movie.year == null
+                  ? null
+                  : Row(
+                      children: [
+                        if (desktop) ...[
+                          const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 12,
+                            color: AppColors.textHint,
+                          ),
+                          const SizedBox(width: 5),
+                        ],
+                        Text(
+                          movie.year.toString(),
+                          style: TextStyle(
+                            color: desktop
+                                ? AppColors.textHint
+                                : AppColors.textSecondary,
+                            fontSize: desktop ? 12.5 : 10,
+                            fontWeight: desktop
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 5),
-                  ],
-                  Text(
-                    movie.year.toString(),
-                    style: TextStyle(
-                      color: desktop
-                          ? AppColors.textHint
-                          : AppColors.textSecondary,
-                      fontSize: desktop ? 12.5 : 10,
-                      fontWeight: desktop ? FontWeight.w600 : FontWeight.w400,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ],
         ),
       ),
