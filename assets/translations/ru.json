@@ -953,11 +953,11 @@
     "empty_status": "Your \"{}\" list is empty",
     "behind_n": "{} new",
     "mark_episode_watched": "Mark episode {} watched",
-    "find_in_sources": "Find in sources",
+    "find_in_sources": "Найти в источниках",
     "find_in_sources_hint": "Search every source for this title",
     "open_on_anilist": "Open on AniList",
     "refresh": "Refresh",
-    "retry": "Try again",
+    "retry": "Повторить",
     "upcoming_title": "Upcoming",
     "upcoming_empty": "None of the shows you follow have an announced next episode.",
     "today": "Today",
@@ -995,7 +995,18 @@
     "calendar_add_planning": "В «Запланировано»",
     "calendar_added_planning": "Добавлено в «Запланировано»",
     "calendar_add_failed": "Не удалось добавить в список",
-    "calendar_already_on_list": "Уже в вашем списке"
+    "calendar_already_on_list": "Уже в вашем списке",
+    "browse_title": "Обзор",
+    "browse_trending": "В тренде",
+    "browse_season": "Этот сезон",
+    "browse_popular": "Популярное",
+    "browse_upcoming": "Скоро",
+    "browse_empty": "Здесь пока пусто.",
+    "browse_failed": "AniList недоступен.",
+    "episodes_count": "{count} эп.",
+    "reminder_body": "Эпизод {episode} выйдет через 10 минут",
+    "reminders_on": "Напоминать перед выходом эпизодов",
+    "reminders_off": "Напоминания выключены"
   },
   "tracker": {
     "title": "Tracking",
@@ -1029,5 +1040,16 @@
     "retry": "Повторить",
     "navigation": "НАВИГАЦИЯ",
     "playback": "ВОСПРОИЗВЕДЕНИЕ"
+  },
+  "live_tv": {
+    "title": "Эфир",
+    "all": "Все",
+    "favourites": "ИЗБРАННОЕ",
+    "all_channels": "ВСЕ КАНАЛЫ",
+    "search_hint": "Название канала…",
+    "no_match": "Ничего не найдено.",
+    "empty": "Каналов пока нет.",
+    "load_failed": "Не удалось загрузить каналы.",
+    "retry": "Повторить"
   }
 }

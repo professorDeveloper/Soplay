@@ -953,11 +953,11 @@
     "empty_status": "Your \"{}\" list is empty",
     "behind_n": "{} new",
     "mark_episode_watched": "Mark episode {} watched",
-    "find_in_sources": "Find in sources",
+    "find_in_sources": "Manbalarda topish",
     "find_in_sources_hint": "Search every source for this title",
     "open_on_anilist": "Open on AniList",
     "refresh": "Refresh",
-    "retry": "Try again",
+    "retry": "Qayta urinish",
     "upcoming_title": "Upcoming",
     "upcoming_empty": "None of the shows you follow have an announced next episode.",
     "today": "Today",
@@ -995,7 +995,18 @@
     "calendar_add_planning": "«Rejada»ga qo'shish",
     "calendar_added_planning": "«Rejada» ro'yxatiga qo'shildi",
     "calendar_add_failed": "Ro'yxatga qo'shib bo'lmadi",
-    "calendar_already_on_list": "Allaqachon ro'yxatingizda"
+    "calendar_already_on_list": "Allaqachon ro'yxatingizda",
+    "browse_title": "Kashf qilish",
+    "browse_trending": "Trendda",
+    "browse_season": "Shu mavsum",
+    "browse_popular": "Eng mashhur",
+    "browse_upcoming": "Tez orada",
+    "browse_empty": "Bu yerda hozircha bo‘sh.",
+    "browse_failed": "AniList’ga ulanib bo‘lmadi.",
+    "episodes_count": "{count} qism",
+    "reminder_body": "{episode}-qism 10 daqiqadan keyin chiqadi",
+    "reminders_on": "Qism chiqishidan oldin eslatilsin",
+    "reminders_off": "Eslatmalar o‘chiq"
   },
   "tracker": {
     "title": "Tracking",
@@ -1029,5 +1040,16 @@
     "retry": "Qayta urinish",
     "navigation": "NAVIGATSIYA",
     "playback": "IJRO"
+  },
+  "live_tv": {
+    "title": "Jonli TV",
+    "all": "Hammasi",
+    "favourites": "TANLANGANLAR",
+    "all_channels": "BARCHA KANALLAR",
+    "search_hint": "Kanal nomi…",
+    "no_match": "Mos kanal topilmadi.",
+    "empty": "Hozircha kanal yo‘q.",
+    "load_failed": "Kanallarni yuklab bo‘lmadi.",
+    "retry": "Qayta urinish"
   }
 }

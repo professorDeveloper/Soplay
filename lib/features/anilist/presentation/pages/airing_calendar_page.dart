@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/anilist/data/airing_reminders.dart';
 import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
@@ -113,6 +114,15 @@ class _AiringCalendarPageState extends State<AiringCalendarPage>
     _syncPager();
   }
 
+  /// Lays down reminders whenever the library changes.
+  ///
+  /// Driven off the library rather than the calendar's day pages: the reminder
+  /// is for what YOU follow, and the calendar's window is everything.
+  void _syncReminders() {
+    if (!_service.isConnected) return;
+    unawaited(getIt<AiringReminders>().sync(_library.entries));
+  }
+
   void _onLibraryChange() {
     // setLibrary notifies the calendar, which this page already listens to, so
     // rebuilding again here would double every optimistic write the library
@@ -124,6 +134,7 @@ class _AiringCalendarPageState extends State<AiringCalendarPage>
     }
     _libraryLoading = _library.loading;
     _libraryError = _library.error;
+    _syncReminders();
     _onChange();
   }
 
@@ -211,8 +222,42 @@ class _AiringCalendarPageState extends State<AiringCalendarPage>
             ),
           ],
         ),
+        actions: [
+          // Only offered while connected: a reminder is for what you follow,
+          // and signed out there is no list to follow.
+          if (_service.isConnected)
+            IconButton(
+              tooltip: getIt<AiringReminders>().enabled
+                  ? 'anilist.reminders_on'.tr()
+                  : 'anilist.reminders_off'.tr(),
+              onPressed: _toggleReminders,
+              icon: Icon(
+                getIt<AiringReminders>().enabled
+                    ? Icons.notifications_active_rounded
+                    : Icons.notifications_none_rounded,
+                color: getIt<AiringReminders>().enabled ? kAnilistBlue : null,
+              ),
+            ),
+        ],
       ),
       body: body,
+    );
+  }
+
+  Future<void> _toggleReminders() async {
+    final reminders = getIt<AiringReminders>();
+    final next = !reminders.enabled;
+    await reminders.setEnabled(next);
+    if (next) await reminders.sync(_library.entries);
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          next ? 'anilist.reminders_on'.tr() : 'anilist.reminders_off'.tr(),
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 

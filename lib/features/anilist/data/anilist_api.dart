@@ -199,6 +199,63 @@ class AnilistApi {
     return out;
   }
 
+  /// A browse shelf: trending, popular, or a given season.
+  ///
+  /// Public, like search — discovery is the half of AniList that works without
+  /// an account, and gating it behind one would hide the reason to make one.
+  ///
+  /// [season] and [seasonYear] travel together or not at all; AniList treats a
+  /// season without its year as "this season of every year", which is not a
+  /// shelf anybody wants.
+  Future<List<AnilistMedia>> browse({
+    String sort = 'TRENDING_DESC',
+    String? season,
+    int? seasonYear,
+    String? status,
+    int page = 1,
+    int perPage = 30,
+  }) async {
+    final gql = '''
+      query (\$sort: [MediaSort], \$season: MediaSeason, \$seasonYear: Int,
+             \$status: MediaStatus, \$page: Int, \$perPage: Int) {
+        Page(page: \$page, perPage: \$perPage) {
+          media(
+            type: ANIME
+            sort: \$sort
+            season: \$season
+            seasonYear: \$seasonYear
+            status: \$status
+            isAdult: false
+          ) {
+            $_mediaFields
+          }
+        }
+      }
+    ''';
+
+    final withSeason = season != null && seasonYear != null;
+    final data = await _run(
+      gql,
+      variables: {
+        'sort': [sort],
+        'season': ?(withSeason ? season : null),
+        'seasonYear': ?(withSeason ? seasonYear : null),
+        'status': ?status,
+        'page': page,
+        'perPage': perPage,
+      },
+    );
+
+    final pageData = data['Page'];
+    final media = pageData is Map ? pageData['media'] : null;
+    if (media is! List) return const [];
+    return media
+        .whereType<Map>()
+        .map((e) => AnilistMedia.fromJson(e.cast<String, dynamic>()))
+        .where((m) => !m.isAdult)
+        .toList(growable: false);
+  }
+
   /// Public title search — used to attach an AniList id to something the user
   /// is watching from a source that knows nothing about AniList.
   Future<List<AnilistMedia>> searchMedia(String query, {int perPage = 20}) async {
