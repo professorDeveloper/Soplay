@@ -472,7 +472,8 @@
     "following": "Отслеживаемые",
     "premiere": "Премьеры",
     "buff": "Buff",
-    "anilist": "AniList"
+    "anilist": "AniList",
+    "live_tv": "Эфир"
   },
   "premiere": {
     "tab_title": "Премьеры",
@@ -1086,7 +1087,8 @@
     "no_match": "Ничего не найдено.",
     "empty": "Каналов пока нет.",
     "load_failed": "Не удалось загрузить каналы.",
-    "retry": "Повторить"
+    "retry": "Повторить",
+    "recent": "НЕДАВНО СМОТРЕЛИ"
   },
   "time": {
     "now": "только что",

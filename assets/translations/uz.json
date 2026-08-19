@@ -418,7 +418,8 @@
     "following": "Kuzatilgan",
     "premiere": "Premyeralar",
     "buff": "Buff",
-    "anilist": "AniList"
+    "anilist": "AniList",
+    "live_tv": "Jonli TV"
   },
   "premiere": {
     "tab_title": "Premyeralar",
@@ -1086,7 +1087,8 @@
     "no_match": "Mos kanal topilmadi.",
     "empty": "Hozircha kanal yo‘q.",
     "load_failed": "Kanallarni yuklab bo‘lmadi.",
-    "retry": "Qayta urinish"
+    "retry": "Qayta urinish",
+    "recent": "YAQINDA KO‘RILGAN"
   },
   "time": {
     "now": "hozirgina",

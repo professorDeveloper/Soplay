@@ -372,6 +372,23 @@ class HiveService {
   Future<void> setLiveTvFavourites(List<String> ids) =>
       _settingsBox.put(AppConstants.liveTvFavouritesKey, ids);
 
+  /// The last channels watched, most recent first.
+  ///
+  /// Live TV is flipped through rather than browsed — you come back to the same
+  /// three or four channels — so where you were last is worth more here than a
+  /// catalogue is.
+  List<String> getLiveTvRecent() {
+    final raw = _settingsBox.get(AppConstants.liveTvRecentKey);
+    if (raw is! List) return const [];
+    return raw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+  }
+
+  /// Bounded: a history of everything ever watched is not a shortcut any more.
+  Future<void> pushLiveTvRecent(String id) {
+    final ids = [id, ...getLiveTvRecent().where((e) => e != id)].take(12).toList();
+    return _settingsBox.put(AppConstants.liveTvRecentKey, ids);
+  }
+
   bool get brightnessGestureEnabled {
     return _settingsBox.get(
           AppConstants.brightnessGestureKey,
