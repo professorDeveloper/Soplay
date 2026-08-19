@@ -995,7 +995,18 @@
     "calendar_add_planning": "Add to Planning",
     "calendar_added_planning": "Added to your Planning list",
     "calendar_add_failed": "Could not add this to your list",
-    "calendar_already_on_list": "Already on your list"
+    "calendar_already_on_list": "Already on your list",
+    "browse_title": "Discover",
+    "browse_trending": "Trending",
+    "browse_season": "This season",
+    "browse_popular": "All-time popular",
+    "browse_upcoming": "Coming soon",
+    "browse_empty": "Nothing to show here.",
+    "browse_failed": "Couldn't reach AniList.",
+    "episodes_count": "{count} eps",
+    "reminder_body": "Episode {episode} airs in 10 minutes",
+    "reminders_on": "Remind me before episodes air",
+    "reminders_off": "Episode reminders are off"
   },
   "tracker": {
     "title": "Tracking",

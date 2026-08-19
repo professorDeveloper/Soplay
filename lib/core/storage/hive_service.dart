@@ -342,6 +342,23 @@ class HiveService {
     await _settingsBox.put(AppConstants.longPressBoostKey, rate);
   }
 
+  /// Whether to remind before an episode on the AniList list airs.
+  bool get airingRemindersEnabled =>
+      _settingsBox.get(AppConstants.airingRemindersKey, defaultValue: false) == true;
+
+  Future<void> setAiringRemindersEnabled(bool value) =>
+      _settingsBox.put(AppConstants.airingRemindersKey, value);
+
+  /// How many reminders were scheduled last time, so exactly those can be
+  /// cancelled before the next batch.
+  int get airingReminderCount {
+    final raw = _settingsBox.get(AppConstants.airingReminderCountKey, defaultValue: 0);
+    return raw is int && raw >= 0 ? raw : 0;
+  }
+
+  Future<void> setAiringReminderCount(int value) =>
+      _settingsBox.put(AppConstants.airingReminderCountKey, value < 0 ? 0 : value);
+
   /// Channels the user pinned to the top of Live TV.
   ///
   /// Ids rather than whole channels: the line-up comes from the server and a

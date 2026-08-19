@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 import 'dart:async';
 import 'dart:io';
 
@@ -65,16 +69,28 @@ class NotificationService {
 
   Future<void> ensureInitialized() async {
     if (_initialized) return;
-    if (!Platform.isAndroid) {
+    if (!Platform.isAndroid && !Platform.isIOS) {
       _initialized = true;
       return;
     }
-    if (Firebase.apps.isEmpty) {
+    // Push is Android-only here, but the LOCAL plugin is what schedules airing
+    // reminders — so iOS initialises it even though it never registers for FCM.
+    if (Platform.isAndroid && Firebase.apps.isEmpty) {
       await Firebase.initializeApp();
     }
+    tz.initializeTimeZones();
+    // Scheduling is done in the device's own zone: an airing time converted to
+    // UTC and back through the wrong zone fires hours out.
+    tz.setLocalLocation(tz.getLocation(await _deviceTimeZone()));
+
     await _local.initialize(
-      const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      InitializationSettings(
+        android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
+        iOS: const DarwinInitializationSettings(
+          requestAlertPermission: false,
+          requestBadgePermission: false,
+          requestSoundPermission: false,
+        ),
       ),
       onDidReceiveNotificationResponse: (resp) {
         final payload = _decodePayload(resp.payload);
@@ -85,7 +101,84 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
     await androidImpl?.createNotificationChannel(_channel);
+    await androidImpl?.createNotificationChannel(_airingChannel);
     _initialized = true;
+  }
+
+  /// The zone the phone is actually in.
+  ///
+  /// Falls back to UTC rather than throwing: a reminder in the wrong zone is
+  /// bad, but a notification service that fails to start is worse.
+  Future<String> _deviceTimeZone() async {
+    try {
+      return await FlutterTimezone.getLocalTimezone();
+    } catch (_) {
+      return 'UTC';
+    }
+  }
+
+  /// Reminders for episodes about to air.
+  ///
+  /// Its own channel so a person can silence airing reminders without losing
+  /// the notifications that matter to their account.
+  static const AndroidNotificationChannel _airingChannel =
+      AndroidNotificationChannel(
+    'sozo_airing',
+    'Airing reminders',
+    description: 'Fires shortly before an episode you follow goes out',
+    importance: Importance.defaultImportance,
+  );
+
+  /// Schedules one reminder. Ids are the caller's, so it can replace its own.
+  ///
+  /// Inexact on purpose: exact alarms need a special permission on Android 12+
+  /// that a user has to grant by hand, and "a few minutes either side of the
+  /// episode" is what this is for anyway.
+  Future<void> scheduleAt({
+    required int id,
+    required DateTime when,
+    required String title,
+    required String body,
+    Map<String, dynamic>? payload,
+  }) async {
+    await ensureInitialized();
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    // A reminder for a moment that has passed would fire immediately.
+    if (!when.isAfter(DateTime.now())) return;
+
+    await _local.zonedSchedule(
+      id,
+      title,
+      body,
+      tz.TZDateTime.from(when, tz.local),
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _airingChannel.id,
+          _airingChannel.name,
+          channelDescription: _airingChannel.description,
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+        ),
+        iOS: const DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      payload: payload == null ? null : jsonEncode(payload),
+    );
+  }
+
+  Future<void> cancelScheduled(int id) async {
+    if (!_initialized) return;
+    await _local.cancel(id);
+  }
+
+  /// Every id in [ids]. Used to clear a whole batch before scheduling the next.
+  Future<void> cancelAllScheduled(Iterable<int> ids) async {
+    if (!_initialized) return;
+    for (final id in ids) {
+      await _local.cancel(id);
+    }
   }
 
   Future<void> setup() async {

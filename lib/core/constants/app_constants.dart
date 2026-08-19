@@ -44,6 +44,8 @@ class AppConstants {
   static const String languageKey = 'language';
   static const String currentProviderKey = 'current_provider';
   static const String liveTvFavouritesKey = 'live_tv_favourites';
+  static const String airingRemindersKey = 'anilist_airing_reminders';
+  static const String airingReminderCountKey = 'anilist_airing_reminder_count';
 
   /// Provider used until the real list arrives and ProviderBloc persists a
   /// choice. Without it a fresh install races: HomeBloc reads the current

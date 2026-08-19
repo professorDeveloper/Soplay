@@ -60,6 +60,8 @@ dependencies:
   firebase_crashlytics: ^4.1.3
   firebase_analytics: ^11.3.3
   flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
+  flutter_timezone: ^3.0.1
 
   # Local Storage
   hive_flutter: ^1.1.0

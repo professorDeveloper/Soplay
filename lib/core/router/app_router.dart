@@ -28,6 +28,7 @@ import 'package:soplay/features/manga/presentation/pages/reader_page.dart';
 import 'package:soplay/features/main/presentation/pages/main_page.dart';
 import 'package:soplay/features/network/presentation/pages/no_internet_page.dart';
 import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
+import 'package:soplay/features/anilist/presentation/pages/anilist_browse_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/airing_calendar_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_library_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_links_page.dart';
@@ -203,6 +204,10 @@ class AppRouter {
       GoRoute(
         path: '/anilist',
         builder: (context, state) => const AnilistLibraryPage(),
+      ),
+      GoRoute(
+        path: '/anilist/browse',
+        builder: (context, state) => const AnilistBrowsePage(),
       ),
       GoRoute(
         path: '/anilist/calendar',
