@@ -1088,7 +1088,13 @@
     "empty": "No channels yet.",
     "load_failed": "Couldn't load the channels.",
     "retry": "Try again",
-    "recent": "RECENTLY WATCHED"
+    "recent": "RECENTLY WATCHED",
+    "folders": "FOLDERS",
+    "search_in": "Search in {folder}…",
+    "channel_count": {
+      "one": "{} channel",
+      "other": "{} channels"
+    }
   },
   "time": {
     "now": "just now",
