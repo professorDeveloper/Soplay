@@ -370,6 +370,30 @@ class HiveService {
     return _settingsBox.put(AppConstants.liveTvRecentKey, ids);
   }
 
+  /// Enough of a channel to draw it without having fetched the page it is on.
+  ///
+  /// Favourites and recents are ids, and once the line-up is paged there is no
+  /// guarantee the page holding a given id was ever loaded — so a pinned
+  /// channel would simply vanish from its own shelf. The card is written back
+  /// whenever the channel is seen, so it stays close to current, and it is kept
+  /// only for the handful of ids that need it.
+  Map<String, Map<String, String>> getLiveTvCards() {
+    final raw = _settingsBox.get(AppConstants.liveTvCardsKey);
+    if (raw is! Map) return {};
+    final out = <String, Map<String, String>>{};
+    raw.forEach((key, value) {
+      if (value is Map) {
+        out[key.toString()] = {
+          for (final e in value.entries) e.key.toString(): e.value?.toString() ?? '',
+        };
+      }
+    });
+    return out;
+  }
+
+  Future<void> setLiveTvCards(Map<String, Map<String, String>> cards) =>
+      _settingsBox.put(AppConstants.liveTvCardsKey, cards);
+
   bool get brightnessGestureEnabled {
     return _settingsBox.get(
           AppConstants.brightnessGestureKey,
