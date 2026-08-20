@@ -87,9 +87,7 @@ class HiveService {
       AppConstants.currentProviderKey,
       defaultValue: '',
     ) as String;
-    // Never hand out an empty id: the home, search and detail repositories send
-    // whatever this returns straight to the API, and an empty provider is a 400.
-    // ProviderBloc overwrites this with the real choice once the list loads.
+
     return saved.isEmpty ? AppConstants.defaultProviderId : saved;
   }
 
@@ -97,9 +95,6 @@ class HiveService {
     await _settingsBox.put(AppConstants.currentProviderKey, providerId);
   }
 
-  /// The provider the user was on before an outage forced a temporary switch
-  /// to an on-device plugin. Restored as soon as the backend answers again, so
-  /// an outage never permanently rewrites their choice.
   String getPreOutageProvider() {
     return _settingsBox.get(AppConstants.preOutageProviderKey, defaultValue: '');
   }
@@ -112,8 +107,6 @@ class HiveService {
     await _settingsBox.delete(AppConstants.preOutageProviderKey);
   }
 
-  /// Last provider list the backend served, kept so the picker still has
-  /// something to show while `/contents/providers` is unreachable.
   List<Map<String, dynamic>> getCachedProviders() {
     final raw = _settingsBox.get(AppConstants.cachedProvidersKey);
     if (raw is! String || raw.isEmpty) return const [];
@@ -165,9 +158,6 @@ class HiveService {
     }
     await _settingsBox.put('favorite_providers', list);
   }
-
-  /// Providers included in cross-provider ("all sources") search. Kept small on
-  /// purpose so search never fans out to hundreds of providers.
   List<String> getCrossSearchProviders() {
     return (_settingsBox.get('cross_search_providers') as List?)
             ?.map((e) => e.toString())
@@ -179,7 +169,6 @@ class HiveService {
     await _settingsBox.put('cross_search_providers', ids);
   }
 
-  /// Followed serials (tracker), stored as a JSON list of maps.
   List<Map<String, dynamic>> getFollowedRaw() {
     final raw = _settingsBox.get('followed_titles');
     if (raw is String && raw.isNotEmpty) {
@@ -239,9 +228,6 @@ class HiveService {
     await _settingsBox.put(AppConstants.preferredMediaLangKey, lang);
   }
 
-  /// Playback engine chosen in Settings → Player. Distinct from
-  /// [getPreferredMediaLang], which picks a different *stream* (sub vs dub);
-  /// this picks the *decoder* that plays whatever stream was chosen.
   String getPlayerEngine() {
     return _settingsBox.get(
       AppConstants.playerEngineKey,
@@ -252,11 +238,6 @@ class HiveService {
   Future<void> savePlayerEngine(String engineId) async {
     await _settingsBox.put(AppConstants.playerEngineKey, engineId);
   }
-
-  /// Whether playback should stop and ask which engine to use.
-  ///
-  /// Defaults to false: the picker is a deliberate opt-in, so an install that
-  /// never touches Settings → Player behaves exactly as it did before.
   bool get askEngineOnPlay {
     return _settingsBox.get(
           AppConstants.askEngineOnPlayKey,
