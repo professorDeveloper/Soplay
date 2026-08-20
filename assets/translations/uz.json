@@ -1088,7 +1088,13 @@
     "empty": "Hozircha kanal yo‘q.",
     "load_failed": "Kanallarni yuklab bo‘lmadi.",
     "retry": "Qayta urinish",
-    "recent": "YAQINDA KO‘RILGAN"
+    "recent": "YAQINDA KO‘RILGAN",
+    "folders": "PAPKALAR",
+    "search_in": "{folder} ichida qidirish…",
+    "channel_count": {
+      "one": "{} kanal",
+      "other": "{} kanal"
+    }
   },
   "time": {
     "now": "hozirgina",

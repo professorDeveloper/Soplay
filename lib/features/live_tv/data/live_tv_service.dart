@@ -51,6 +51,9 @@ class LiveChannel {
           : json['logoUrl'] as String,
       country: json['country']?.toString() ?? '',
       language: json['language']?.toString() ?? '',
+      // Present when the channel arrives from a flat listing rather than from
+      // inside a group; withCategory still fills it in for the grouped shape.
+      category: json['category']?.toString() ?? '',
     );
   }
 }
@@ -63,15 +66,102 @@ class LiveCategory {
   final List<LiveChannel> channels;
 }
 
+/// One folder in the line-up, and how much is inside it.
+@immutable
+class LiveFolder {
+  const LiveFolder({required this.name, required this.count, this.logoUrl});
+
+  final String name;
+  final int count;
+  final String? logoUrl;
+}
+
+/// One page of channels.
+@immutable
+class LivePage {
+  const LivePage({
+    required this.channels,
+    required this.page,
+    required this.total,
+    required this.hasMore,
+  });
+
+  final List<LiveChannel> channels;
+  final int page;
+  final int total;
+  final bool hasMore;
+
+  static const empty = LivePage(channels: [], page: 1, total: 0, hasMore: false);
+}
+
 /// The live TV line-up.
 ///
 /// Grouped by the server rather than here: the TV app reads the same endpoint,
 /// and two clients each applying their own grouping rules is two sets of rules
 /// that drift.
+///
+/// Fetched a folder and a page at a time, because the whole line-up in one
+/// response is fine at a thousand channels and absurd at a hundred thousand —
+/// twenty megabytes of JSON a phone has to parse before it can draw anything,
+/// then filter in full on every keystroke.
 class LiveTvService {
   const LiveTvService({required Dio dio}) : _dio = dio;
 
   final Dio _dio;
+
+  /// The folders. A few dozen rows however large the line-up behind them is.
+  Future<List<LiveFolder>> folders() async {
+    final response = await _dio.get('/channels/categories');
+    final raw = (response.data as Map?)?['categories'];
+    if (raw is! List) return const [];
+    return [
+      for (final item in raw.whereType<Map>())
+        if ((item['name']?.toString() ?? '').isNotEmpty)
+          LiveFolder(
+            name: item['name'].toString(),
+            count: (item['count'] as num?)?.toInt() ?? 0,
+            logoUrl: (item['logoUrl'] as String?)?.trim().isEmpty ?? true
+                ? null
+                : item['logoUrl'] as String,
+          ),
+    ];
+  }
+
+  /// One page, optionally inside a folder or matching a search.
+  ///
+  /// Searching is the server's job: a client cannot filter what it never
+  /// received, and paging it all in just to filter locally is the same twenty
+  /// megabytes with extra steps.
+  Future<LivePage> browse({
+    String? category,
+    String? search,
+    int page = 1,
+    int limit = 40,
+  }) async {
+    final response = await _dio.get(
+      '/channels/browse',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (category != null && category.isNotEmpty) 'category': category,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+      },
+    );
+    final data = response.data as Map?;
+    final raw = data?['channels'];
+    return LivePage(
+      channels: raw is! List
+          ? const []
+          : raw
+                .whereType<Map>()
+                .map((e) => LiveChannel.fromJson(e.cast<String, dynamic>()))
+                .whereType<LiveChannel>()
+                .toList(growable: false),
+      page: (data?['page'] as num?)?.toInt() ?? page,
+      total: (data?['total'] as num?)?.toInt() ?? 0,
+      hasMore: data?['hasMore'] == true,
+    );
+  }
 
   Future<List<LiveCategory>> lineup() async {
     final response = await _dio.get('/channels');

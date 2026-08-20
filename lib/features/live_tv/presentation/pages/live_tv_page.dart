@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -29,42 +31,60 @@ class LiveTvPage extends StatefulWidget {
 class _LiveTvPageState extends State<LiveTvPage> {
   final LiveTvService _service = getIt<LiveTvService>();
   final _search = TextEditingController();
+  final _scroll = ScrollController();
 
-  List<LiveCategory> _all = const [];
+  List<LiveFolder> _folders = const [];
+  List<LiveChannel> _channels = const [];
   Set<String> _favourites = <String>{};
   List<String> _recent = const [];
-  String _category = '';
+  Map<String, Map<String, String>> _cards = {};
+
+  /// The folder being read, or empty for the top level.
+  String _folder = '';
   String _query = '';
+  Timer? _debounce;
+
+  int _page = 1;
+  bool _hasMore = false;
+  int _total = 0;
   bool _loading = true;
+  bool _loadingMore = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _favourites = _readFavourites();
-    _recent = getIt<HiveService>().getLiveTvRecent();
-    _load();
+    final hive = getIt<HiveService>();
+    _favourites = hive.getLiveTvFavourites().toSet();
+    _recent = hive.getLiveTvRecent();
+    _cards = hive.getLiveTvCards();
+    _scroll.addListener(_onScroll);
+    _loadFolders();
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
     _search.dispose();
     super.dispose();
   }
 
-  Set<String> _readFavourites() =>
-      getIt<HiveService>().getLiveTvFavourites().toSet();
+  /// True while the screen is showing folders rather than channels.
+  bool get _atTopLevel => _folder.isEmpty && _query.trim().isEmpty;
 
-  Future<void> _load() async {
+  Future<void> _loadFolders() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final lineup = await _service.lineup();
+      final folders = await _service.folders();
       if (!mounted) return;
       setState(() {
-        _all = lineup;
+        _folders = folders;
+        _total = folders.fold(0, (n, f) => n + f.count);
         _loading = false;
       });
     } catch (_) {
@@ -73,30 +93,158 @@ class _LiveTvPageState extends State<LiveTvPage> {
         _loading = false;
         _error = 'live_tv.load_failed'.tr();
       });
-      // A failed pull-to-refresh keeps the line-up on screen, so the failure
-      // has to be said somewhere other than the error state.
-      if (_all.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_error!),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
     }
+  }
+
+  /// One page of channels for the open folder, or for the current search.
+  Future<void> _loadPage({bool append = false}) async {
+    if (append && (_loadingMore || !_hasMore)) return;
+    setState(() {
+      if (append) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+        _error = null;
+      }
+    });
+    final page = append ? _page + 1 : 1;
+    try {
+      final result = await _service.browse(
+        category: _folder.isEmpty ? null : _folder,
+        search: _query,
+        page: page,
+      );
+      if (!mounted) return;
+      setState(() {
+        _channels = append ? [..._channels, ...result.channels] : result.channels;
+        _page = result.page;
+        _hasMore = result.hasMore;
+        _total = result.total;
+        _loading = false;
+        _loadingMore = false;
+      });
+      _rememberCards(result.channels);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadingMore = false;
+        if (!append) _error = 'live_tv.load_failed'.tr();
+      });
+    }
+  }
+
+  /// The next page, once the list is close enough to its end to need one.
+  void _onScroll() {
+    if (!_scroll.hasClients || _atTopLevel) return;
+    final position = _scroll.position;
+    if (position.pixels >= position.maxScrollExtent - 600) _loadPage(append: true);
+  }
+
+  /// Searching goes to the server, so it waits for a pause in the typing.
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
+    setState(() => _query = value);
+    if (value.trim().isEmpty) {
+      // Back to whatever was on screen before the search started.
+      if (_folder.isEmpty) {
+        setState(() => _channels = const []);
+      } else {
+        _loadPage();
+      }
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 350), _loadPage);
+  }
+
+  void _openFolder(String name) {
+    setState(() {
+      _folder = name;
+      _channels = const [];
+    });
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    _loadPage();
+  }
+
+  void _closeFolder() {
+    setState(() {
+      _folder = '';
+      _channels = const [];
+      _query = '';
+    });
+    _search.clear();
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  /// Keeps enough of the pinned channels to draw them without their page.
+  void _rememberCards(List<LiveChannel> seen) {
+    final wanted = {..._favourites, ..._recent};
+    if (wanted.isEmpty) return;
+    var changed = false;
+    for (final channel in seen) {
+      if (!wanted.contains(channel.id)) continue;
+      final card = {
+        'name': channel.name,
+        'streamUrl': channel.streamUrl,
+        'logoUrl': channel.logoUrl ?? '',
+        'category': channel.category,
+      };
+      if (_cards[channel.id]?.toString() == card.toString()) continue;
+      _cards[channel.id] = card;
+      changed = true;
+    }
+    // Only what is still pinned; a cache that only grows is a leak with a nicer
+    // name.
+    _cards.removeWhere((id, _) => !wanted.contains(id));
+    if (changed) getIt<HiveService>().setLiveTvCards(_cards);
+  }
+
+  LiveChannel? _fromCard(String id) {
+    final card = _cards[id];
+    if (card == null) return null;
+    final url = card['streamUrl'] ?? '';
+    final name = card['name'] ?? '';
+    if (url.isEmpty || name.isEmpty) return null;
+    return LiveChannel(
+      id: id,
+      name: name,
+      streamUrl: url,
+      logoUrl: (card['logoUrl'] ?? '').isEmpty ? null : card['logoUrl'],
+      category: card['category'] ?? '',
+    );
   }
 
   void _toggleFavourite(LiveChannel channel) {
     setState(() {
-      if (!_favourites.remove(channel.id)) _favourites.add(channel.id);
+      if (!_favourites.remove(channel.id)) {
+        _favourites.add(channel.id);
+        _cards[channel.id] = {
+          'name': channel.name,
+          'streamUrl': channel.streamUrl,
+          'logoUrl': channel.logoUrl ?? '',
+          'category': channel.category,
+        };
+      }
     });
-    getIt<HiveService>().setLiveTvFavourites(_favourites.toList());
+    final hive = getIt<HiveService>();
+    hive.setLiveTvFavourites(_favourites.toList());
+    hive.setLiveTvCards(_cards);
   }
 
   void _play(LiveChannel channel) {
-    getIt<HiveService>().pushLiveTvRecent(channel.id);
+    final hive = getIt<HiveService>();
+    hive.pushLiveTvRecent(channel.id);
+    _cards[channel.id] = {
+      'name': channel.name,
+      'streamUrl': channel.streamUrl,
+      'logoUrl': channel.logoUrl ?? '',
+      'category': channel.category,
+    };
+    hive.setLiveTvCards(_cards);
     setState(() {
-      _recent = [channel.id, ..._recent.where((e) => e != channel.id)].take(12).toList();
+      _recent = [channel.id, ..._recent.where((e) => e != channel.id)]
+          .take(12)
+          .toList();
     });
     context.push(
       '/player',
@@ -112,19 +260,6 @@ class _LiveTvPageState extends State<LiveTvPage> {
         showDownloadAction: false,
       ),
     );
-  }
-
-  List<LiveChannel> get _flat => [
-    for (final category in _all) ...category.channels,
-  ];
-
-  List<LiveChannel> get _visible {
-    final query = _query.trim().toLowerCase();
-    return _flat.where((c) {
-      if (_category.isNotEmpty && c.category != _category) return false;
-      if (query.isEmpty) return true;
-      return c.name.toLowerCase().contains(query);
-    }).toList(growable: false);
   }
 
   @override
@@ -155,44 +290,34 @@ class _LiveTvPageState extends State<LiveTvPage> {
   }
 
   Widget _body() {
-    // Gated on there being nothing to show: a refresh over a loaded line-up
-    // used to swap the whole screen for a spinner and back again.
-    if (_loading && _all.isEmpty) {
+    if (_loading && _folders.isEmpty && _channels.isEmpty) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2.5));
     }
-    if (_error != null && _all.isEmpty) {
+    if (_error != null && _folders.isEmpty && _channels.isEmpty) {
       return _Empty(
         icon: Icons.cloud_off_rounded,
         text: _error!,
         actionLabel: 'live_tv.retry'.tr(),
-        onAction: _load,
+        onAction: _loadFolders,
       );
     }
-    if (_all.isEmpty) {
-      return _Empty(icon: Icons.live_tv_rounded, text: 'live_tv.empty'.tr());
-    }
 
-    final visible = _visible;
-    final favourites = _flat
-        .where((c) => _favourites.contains(c.id))
-        .toList(growable: false);
-    final showFavourites =
-        favourites.isNotEmpty && _query.isEmpty && _category.isEmpty;
-
-    // Ordered by when it was watched, not by where it sits in the line-up, and
-    // never repeating what is already pinned right above it.
-    final byId = {for (final c in _flat) c.id: c};
+    final searching = _query.trim().isNotEmpty;
+    final favourites = [
+      for (final id in _favourites)
+        if (_fromCard(id) != null) _fromCard(id)!,
+    ];
     final recent = [
       for (final id in _recent)
-        if (byId[id] != null && !_favourites.contains(id)) byId[id]!,
+        if (!_favourites.contains(id) && _fromCard(id) != null) _fromCard(id)!,
     ];
-    final showRecent = recent.isNotEmpty && _query.isEmpty && _category.isEmpty;
 
     return RefreshIndicator(
       color: AppColors.primary,
       backgroundColor: AppColors.surface,
-      onRefresh: _load,
+      onRefresh: _atTopLevel ? _loadFolders : () => _loadPage(),
       child: CustomScrollView(
+        controller: _scroll,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
@@ -200,10 +325,13 @@ class _LiveTvPageState extends State<LiveTvPage> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
               child: TextField(
                 controller: _search,
-                onChanged: (v) => setState(() => _query = v),
+                onChanged: _onQueryChanged,
+                textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   isDense: true,
-                  hintText: 'live_tv.search_hint'.tr(),
+                  hintText: _folder.isEmpty
+                      ? 'live_tv.search_hint'.tr()
+                      : 'live_tv.search_in'.tr(namedArgs: {'folder': _folder}),
                   prefixIcon: const Icon(Icons.search_rounded, size: 20),
                   suffixIcon: _query.isEmpty
                       ? null
@@ -211,7 +339,7 @@ class _LiveTvPageState extends State<LiveTvPage> {
                           icon: const Icon(Icons.close_rounded, size: 18),
                           onPressed: () {
                             _search.clear();
-                            setState(() => _query = '');
+                            _onQueryChanged('');
                           },
                         ),
                 ),
@@ -219,50 +347,72 @@ class _LiveTvPageState extends State<LiveTvPage> {
             ),
           ),
 
-          SliverToBoxAdapter(
-            child: _CategoryBar(
-              categories: [for (final c in _all) c.name],
-              selected: _category,
-              onSelect: (value) => setState(() => _category = value),
+          // Which folder is open, and the way back out of it.
+          if (_folder.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _FolderCrumb(
+                folder: _folder,
+                total: _total,
+                onBack: _closeFolder,
+              ),
             ),
-          ),
 
-          if (showRecent) ...[
-            _Header(label: 'live_tv.recent'.tr()),
-            _RecentRow(
-              channels: recent,
-              onPlay: _play,
+          if (_atTopLevel) ...[
+            if (recent.isNotEmpty) ...[
+              _Header(label: 'live_tv.recent'.tr()),
+              _RecentRow(channels: recent, onPlay: _play),
+            ],
+            if (favourites.isNotEmpty) ...[
+              _Header(label: 'live_tv.favourites'.tr()),
+              _Grid(
+                channels: favourites,
+                favourites: _favourites,
+                onPlay: _play,
+                onFavourite: _toggleFavourite,
+              ),
+            ],
+            _Header(label: 'live_tv.folders'.tr()),
+            // Folders, not channels. A hundred thousand channels is a few dozen
+            // folders, and the one somebody wants is two taps away rather than
+            // twenty megabytes and a scroll.
+            _FolderGrid(folders: _folders, onOpen: _openFolder),
+          ] else if (_loading) ...[
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(top: 60),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+              ),
             ),
-          ],
-
-          if (showFavourites) ...[
-            _Header(label: 'live_tv.favourites'.tr()),
-            _Grid(
-              channels: favourites,
-              favourites: _favourites,
-              onPlay: _play,
-              onFavourite: _toggleFavourite,
-            ),
-          ],
-
-          if (visible.isEmpty)
+          ] else if (_channels.isEmpty) ...[
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.only(top: 60),
                 child: _Empty(
-                  icon: Icons.search_off_rounded,
-                  text: 'live_tv.no_match'.tr(),
+                  icon: searching ? Icons.search_off_rounded : Icons.live_tv_rounded,
+                  text: searching ? 'live_tv.no_match'.tr() : 'live_tv.empty'.tr(),
                 ),
               ),
-            )
-          else ...[
-            if (showFavourites) _Header(label: 'live_tv.all_channels'.tr()),
+            ),
+          ] else ...[
             _Grid(
-              channels: visible,
+              channels: _channels,
               favourites: _favourites,
               onPlay: _play,
               onFavourite: _toggleFavourite,
             ),
+            if (_loadingMore)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                    ),
+                  ),
+                ),
+              ),
           ],
 
           SliverToBoxAdapter(child: SizedBox(height: widget.embedded ? 96 : 28)),
@@ -272,8 +422,164 @@ class _LiveTvPageState extends State<LiveTvPage> {
   }
 }
 
-/// The one thing that makes this screen read as live rather than as a grid of
-/// logos: it is on now, and there is nothing to resume to.
+/// The folder you are inside, and the way back out.
+class _FolderCrumb extends StatelessWidget {
+  const _FolderCrumb({
+    required this.folder,
+    required this.total,
+    required this.onBack,
+  });
+
+  final String folder;
+  final int total;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+      child: Row(
+        children: [
+          Material(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onBack,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                child: Icon(Icons.arrow_back_rounded, size: 17),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              folder,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+          ),
+          Text(
+            '$total',
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textHint,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The folders themselves.
+///
+/// Two per row and captioned with a count, because the decision being made here
+/// is "which of these do I want", and a count is the only thing that
+/// distinguishes a folder with four channels in it from one with four thousand.
+class _FolderGrid extends StatelessWidget {
+  const _FolderGrid({required this.folders, required this.onOpen});
+
+  final List<LiveFolder> folders;
+  final ValueChanged<String> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final columns = width >= 900 ? 4 : (width >= 620 ? 3 : 2);
+
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          mainAxisExtent: 64,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, i) {
+            final folder = folders[i];
+            return Material(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(14),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => onOpen(folder.name),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: folder.logoUrl == null
+                            ? Icon(
+                                Icons.folder_rounded,
+                                size: 19,
+                                color: AppColors.textHint,
+                              )
+                            : CachedNetworkImage(
+                                imageUrl: folder.logoUrl!,
+                                fit: BoxFit.contain,
+                                errorWidget: (_, _, _) => Icon(
+                                  Icons.folder_rounded,
+                                  size: 19,
+                                  color: AppColors.textHint,
+                                ),
+                              ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              folder.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'live_tv.channel_count'.plural(folder.count),
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: AppColors.textHint,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: AppColors.textHint,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+          childCount: folders.length,
+        ),
+      ),
+    );
+  }
+}
+
 class _LivePill extends StatelessWidget {
   const _LivePill();
 
@@ -418,64 +724,6 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _CategoryBar extends StatelessWidget {
-  const _CategoryBar({
-    required this.categories,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final List<String> categories;
-  final String selected;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: categories.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) {
-          final value = i == 0 ? '' : categories[i - 1];
-          final label = i == 0 ? 'live_tv.all'.tr() : value;
-          final active = value == selected;
-          return Material(
-            color: active
-                ? AppColors.primary.withValues(alpha: 0.16)
-                : AppColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () => onSelect(value),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: active ? AppColors.primary : Colors.transparent,
-                    width: 1.2,
-                  ),
-                ),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: active ? AppColors.primary : AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
 
 class _Grid extends StatelessWidget {
   const _Grid({
