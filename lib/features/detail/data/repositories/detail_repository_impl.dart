@@ -8,7 +8,6 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/features/manga/data/models/manga_pages_model.dart';
 import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
-import 'package:soplay/core/player/webview_stream_extractor.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/detail/data/datasources/detail_data_source.dart';
 import 'package:soplay/features/detail/data/models/detail_model.dart';
@@ -23,14 +22,12 @@ class DetailRepositoryImpl implements DetailRepository {
   final DetailDataSource dataSource;
   final JsRuntimeService? jsRuntime;
   final HiveService? hive;
-  final WebViewStreamExtractor? webViewExtractor;
 
   const DetailRepositoryImpl(
     this.dataSource, {
     required this.mangayomi,
     this.jsRuntime,
     this.hive,
-    this.webViewExtractor,
   });
 
   final MangayomiBridge mangayomi;
