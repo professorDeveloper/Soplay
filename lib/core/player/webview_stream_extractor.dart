@@ -188,6 +188,14 @@ class WebViewStreamExtractor {
     final userAgent = _mobileUserAgent;
     final referer = _headerValue(pageHeaders, 'Referer');
 
+    // Baseline noise plus whatever this source declared. Server-supplied hosts are
+    // additive: the directive names the ad slot THIS embed pulls in, and the
+    // baseline covers the trackers every page has.
+    final blockFragments = <String>[
+      ..._blockHostFragments,
+      ...config.blockHosts.map((h) => h.toLowerCase()),
+    ];
+
     if (kDebugMode) {
       debugPrint(
         '[WebViewExtractor] start page=$pageUrl host=${config.hostPattern} '
@@ -306,7 +314,7 @@ class WebViewStreamExtractor {
           );
         }
 
-        if (_blockHostFragments.any((frag) => lowerUrl.contains(frag))) {
+        if (blockFragments.any((frag) => lowerUrl.contains(frag))) {
           return WebResourceResponse(
             contentType: 'text/plain',
             statusCode: 200,
