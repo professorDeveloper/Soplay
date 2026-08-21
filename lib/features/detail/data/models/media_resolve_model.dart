@@ -51,6 +51,9 @@ class MediaResolveModel extends MediaResolveEntity {
     final headers = (raw['captureHeaders'] as List? ?? const [])
         .whereType<String>()
         .toList(growable: false);
+    final blockHosts = (raw['blockHosts'] as List? ?? const [])
+        .whereType<String>()
+        .toList(growable: false);
     final timeout = raw['timeoutMs'];
     final loginUrl = raw['loginUrl'] as String?;
     final playType = (raw['playType'] as String?)?.toLowerCase();
@@ -59,6 +62,7 @@ class MediaResolveModel extends MediaResolveEntity {
       hostPattern: hostPattern,
       urlPatterns: patterns,
       captureHeaders: headers,
+      blockHosts: blockHosts,
       timeoutMs: timeout is num ? timeout.toInt() : 20000,
       loginUrl: loginUrl != null && loginUrl.isNotEmpty ? loginUrl : null,
       playType: playType == null || playType.isEmpty ? 'hls' : playType,

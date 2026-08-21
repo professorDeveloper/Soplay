@@ -347,7 +347,6 @@ Future<void> configureDependencies() async {
       mangayomi: getIt<MangayomiBridge>(),
       jsRuntime: getIt<JsRuntimeService>(),
       hive: getIt<HiveService>(),
-      webViewExtractor: getIt<WebViewStreamExtractor>(),
     ),
   );
   getIt.registerSingleton<CommentsDataSource>(
