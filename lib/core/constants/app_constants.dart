@@ -112,6 +112,8 @@ class AppConstants {
   static const String appLockPinSaltSecureKey = 'app_lock_pin_salt';
 
   static const String subtitleStyleKey = 'subtitle_style';
+  static const String subtitleAutoTranslateKey = 'subtitle_auto_translate';
+  static const String subtitleTranslateLangKey = 'subtitle_translate_lang';
 
   /// Ask which engine to use every time playback starts, instead of silently
   /// using [playerEngineKey]. Absent ⇒ off, so an existing install keeps the

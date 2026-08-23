@@ -19,6 +19,18 @@ extension _PlayerSubtitles on _PlayerPageState {
       return false;
     }
     final sub = _subtitles[index];
+
+    // AI tracks carry their cues in memory, not at a url. Restore them directly.
+    if (sub.file.startsWith('ai:')) {
+      final cues = _aiCaptions[sub.file];
+      if (cues == null || cues.isEmpty) return false;
+      setState(() {
+        _activeSubtitleIndex = index;
+        _captionFile = cues;
+      });
+      return true;
+    }
+
     SubtitleParseResult result;
     try {
       // ResponseType.bytes: Dio's string transformer always runs
@@ -152,6 +164,28 @@ extension _PlayerSubtitles on _PlayerPageState {
                   _searchOnlineSubtitles();
                 },
               ),
+              // AI translate, surfaced in the main menu — tinted so it reads as
+              // the standout action, not another neutral row.
+              ListTile(
+                focusColor: _kTvFocusFill,
+                leading: const Icon(Icons.auto_awesome_rounded,
+                    color: AppColors.primaryLight, size: 20),
+                title: Text('player.ai_translate_menu'.tr(),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                    'player.ai_translate_menu_desc'.tr(args: [
+                      _hive.getSubtitleTranslateLang().toUpperCase()
+                    ]),
+                    style: const TextStyle(
+                        color: Colors.white54, fontSize: 11.5)),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _autoTranslateBestSubtitle();
+                },
+              ),
               if (_activeSubtitleIndex != -1)
               ListTile(
                 focusColor: _kTvFocusFill,
@@ -197,51 +231,6 @@ extension _PlayerSubtitles on _PlayerPageState {
     );
   }
 
-  Future<String?> _promptWyzieKey() async {
-    final controller = TextEditingController();
-    final key = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: Text('player.subtitle_api_key'.tr(),
-            style: const TextStyle(color: Colors.white, fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'player.wyzie_key_hint'.tr(),
-              style: const TextStyle(color: Colors.white60, fontSize: 12.5),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'player.api_key'.tr(),
-                hintStyle: const TextStyle(color: Colors.white38),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('general.cancel'.tr()),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: Text('general.save'.tr()),
-          ),
-        ],
-      ),
-    );
-    if (key == null || key.isEmpty) return null;
-    await _hive.saveOpenSubtitlesKey(key);
-    return key;
-  }
-
   int? _currentEpisodeNumber() {
     if (!widget.args.isSerial) return null;
     // Read the episode number from the entity — parsing the '<title> · <label>'
@@ -280,21 +269,7 @@ extension _PlayerSubtitles on _PlayerPageState {
     return null;
   }
 
-  String _wyzieKey() {
-    final env = dotenv.isInitialized
-        ? (dotenv.maybeGet('WYZIE_API_KEY') ?? '')
-        : '';
-    if (env.trim().isNotEmpty) return env.trim();
-    return _hive.getOpenSubtitlesKey();
-  }
-
   Future<void> _searchOnlineSubtitles() async {
-    var key = _wyzieKey();
-    if (key.isEmpty) {
-      key = await _promptWyzieKey() ?? '';
-      if (key.isEmpty || !mounted) return;
-    }
-    final wyzieKey = key;
     final queryCtrl = TextEditingController(
       text: widget.args.title.replaceAll(RegExp(r'\(.*?\)'), '').trim(),
     );
@@ -313,9 +288,17 @@ extension _PlayerSubtitles on _PlayerPageState {
         var searched = false;
         String? error;
         List<OnlineSubtitle> results = const [];
+        SubtitleQuota? quota;
+        var quotaLoaded = false;
 
         return StatefulBuilder(
           builder: (ctx, setSheet) {
+            if (!quotaLoaded) {
+              quotaLoaded = true;
+              const SubtitleTranslationService().fetchQuota().then((q) {
+                if (ctx.mounted) setSheet(() => quota = q);
+              });
+            }
             Future<void> runSearch() async {
               final q = queryCtrl.text.trim();
               if (q.isEmpty || loading) return;
@@ -327,7 +310,6 @@ extension _PlayerSubtitles on _PlayerPageState {
               });
               try {
                 final r = await OnlineSubtitlesService.search(
-                  wyzieKey: wyzieKey,
                   title: q,
                   isSerial: widget.args.isSerial,
                   season: _currentSeasonNumber(),
@@ -362,7 +344,10 @@ extension _PlayerSubtitles on _PlayerPageState {
             // system insets — 411 - 0 - 24 - 120 = 267 in landscape, and still
             // the full 360 in portrait (891 - 120 = 771, clamped).
             final mq = MediaQuery.of(ctx);
-            const chromeHeight = 120.0;
+            // Header + search field + the AI banner + padding. The banner is
+            // the reason this is not the old 120 — without the extra budget the
+            // list pushed the column past the sheet in landscape.
+            const chromeHeight = 196.0;
             final listMaxHeight = (mq.size.height -
                     mq.viewInsets.bottom -
                     mq.padding.top -
@@ -371,7 +356,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                 .clamp(120.0, 360.0);
 
             return SafeArea(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding:
                     EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
                 child: Column(
@@ -430,6 +415,8 @@ extension _PlayerSubtitles on _PlayerPageState {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    _aiTranslateBanner(quota),
                     const SizedBox(height: 8),
                     ConstrainedBox(
                       constraints: BoxConstraints(maxHeight: listMaxHeight),
@@ -509,6 +496,13 @@ extension _PlayerSubtitles on _PlayerPageState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            trailing: _AiTranslateChip(
+              lang: _hive.getSubtitleTranslateLang().toUpperCase(),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                _translateAndApply(r);
+              },
+            ),
             onTap: () {
               Navigator.of(sheetCtx).pop();
               _applyOnlineSubtitle(r);
@@ -518,25 +512,235 @@ extension _PlayerSubtitles on _PlayerPageState {
     );
   }
 
+  /// The prominent AI-translate explainer at the top of the search sheet.
+  ///
+  /// Names the target language and shows how many translations are left today,
+  /// so the feature is understood before a row is tapped rather than after.
+  Widget _aiTranslateBanner(SubtitleQuota? quota) {
+    final lang = _hive.getSubtitleTranslateLang().toUpperCase();
+    final atLimit = quota != null && quota.enabled && quota.remaining <= 0;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withValues(alpha: 0.22),
+            AppColors.primary.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome_rounded,
+              color: Colors.white, size: 20),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'player.ai_translate_title'.tr(args: [lang]),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  quota == null || !quota.enabled
+                      ? 'player.ai_translate_hint'.tr()
+                      : atLimit
+                          ? 'player.ai_translate_used_up'.tr()
+                          : 'player.ai_translate_remaining'.tr(
+                              args: ['${quota.remaining}', '${quota.limit}']),
+                  style: TextStyle(
+                    color: atLimit ? AppColors.error : Colors.white70,
+                    fontSize: 11.5,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+    /// Maps a subtitle language code to the 2-letter form providers accept.
+  ///
+  /// Subtitle sources label tracks in ISO-639-2 ('eng', 'rus'); the translation
+  /// APIs want ISO-639-1 ('en', 'ru') and reject the 3-letter form. Anything not
+  /// recognised returns null, and the provider auto-detects instead.
+  String? _iso2LangOrNull(String raw) {
+    final code = raw.trim().toLowerCase();
+    if (code.length == 2) return code;
+    const map = {
+      'eng': 'en', 'rus': 'ru', 'spa': 'es', 'fra': 'fr', 'fre': 'fr',
+      'deu': 'de', 'ger': 'de', 'ita': 'it', 'por': 'pt', 'jpn': 'ja',
+      'kor': 'ko', 'zho': 'zh', 'chi': 'zh', 'ara': 'ar', 'tur': 'tr',
+      'ukr': 'uk', 'nld': 'nl', 'dut': 'nl', 'pol': 'pl', 'ind': 'id',
+    };
+    return map[code];
+  }
+
+  /// One-tap AI translate: finds the best source subtitle and translates it.
+  ///
+  /// The menu entry lands here directly so the person does not have to open the
+  /// search, read the list and find the small chip — the common case ("give me
+  /// this in my language") is a single tap.
+  Future<void> _autoTranslateBestSubtitle() async {
+    _toast('player.translating_subtitle'.tr());
+    List<OnlineSubtitle> results;
+    try {
+      results = await OnlineSubtitlesService.search(
+        title: widget.args.title,
+        isSerial: widget.args.isSerial,
+        season: _currentSeasonNumber(),
+        episode: _currentEpisodeNumber(),
+      );
+    } catch (_) {
+      if (mounted) _toast('player.translate_failed'.tr());
+      return;
+    }
+    if (!mounted) return;
+    if (results.isEmpty) {
+      _toast('player.no_subtitles_found'.tr());
+      return;
+    }
+    // Prefer an English source — it is what the providers carry most of and
+    // what the models translate best.
+    OnlineSubtitle? best;
+    for (final r in results) {
+      if (r.language.toUpperCase().startsWith('EN')) {
+        best = r;
+        break;
+      }
+    }
+    best ??= results.first;
+    await _translateAndApply(best);
+  }
+
+  /// Loads an online subtitle as-is (no translation).
   Future<void> _applyOnlineSubtitle(OnlineSubtitle sub) async {
     if (sub.url.isEmpty) return;
     _toast('player.loading_subtitle'.tr());
     final name = sub.fileName.isNotEmpty ? sub.fileName : sub.display;
-    final entity = SubtitleEntity(
-      label: name,
-      file: sub.url,
-    );
+    final entity = SubtitleEntity(label: name, file: sub.url);
     setState(() => _subtitles = [..._subtitles, entity]);
     final added = _subtitles.length - 1;
-    // The "loaded" toast is gated on the real outcome — _loadSubtitle already
-    // reported the reason if it failed. A track that never loaded is dropped
-    // again so it cannot sit in the sheet pretending to work.
     final ok = await _loadSubtitle(added, declaredFormat: sub.format);
     if (!mounted) return;
     if (ok) {
       _toast('player.subtitle_loaded'.tr());
     } else if (added < _subtitles.length && _activeSubtitleIndex != added) {
       setState(() => _subtitles = [..._subtitles]..removeAt(added));
+    }
+  }
+
+  /// Translates an online subtitle progressively and shows it as it arrives.
+  ///
+  /// The file is parsed here and sent to the server a slice at a time, so the
+  /// first Uzbek lines appear within seconds instead of after the whole movie.
+  /// Each slice is applied the moment it returns, and the assembled cues are
+  /// kept in memory so re-selecting the track is instant.
+  Future<void> _translateAndApply(OnlineSubtitle sub) async {
+    if (sub.url.isEmpty) return;
+    final targetLang = _hive.getSubtitleTranslateLang();
+
+    // 1. Fetch and parse the source subtitle into cues.
+    _toast('player.translating_subtitle'.tr());
+    List<Caption> source;
+    try {
+      final response = await Dio().get<List<int>>(
+        sub.url,
+        options: Options(
+          responseType: ResponseType.bytes,
+          validateStatus: (s) => s != null && s < 500,
+        ),
+      );
+      final parsed = parseSubtitleBytes(response.data ?? const <int>[],
+          url: sub.url, declaredFormat: sub.format);
+      if (!parsed.isSuccess) {
+        if (mounted) _toast(_subtitleFailureMessage(parsed.failure));
+        return;
+      }
+      source = parsed.captions;
+    } catch (e) {
+      _plog('subtitle translate download error: $e', level: LogLevel.warn);
+      if (mounted) _toast('player.translate_failed'.tr());
+      return;
+    }
+    if (!mounted) return;
+
+    // 2. A fresh AI track the cues fill into as slices arrive.
+    final marker = 'ai:${_aiTrackCounter++}';
+    final entity = SubtitleEntity(
+      label: 'AI · ${targetLang.toUpperCase()}',
+      file: marker,
+    );
+    final translated = List<Caption>.from(source);
+    _aiCaptions[marker] = translated;
+    setState(() {
+      _subtitles = [..._subtitles, entity];
+      _activeSubtitleIndex = _subtitles.length - 1;
+      _captionFile = translated;
+    });
+
+    // 3. Translate slice by slice, applying each as it returns. ~120 cues is
+    //    roughly ten minutes of dialogue — small enough to land fast, large
+    //    enough that the whole movie is only a handful of requests.
+    const chunkSize = 120;
+    final docKey = sub.url;
+    final from = _iso2LangOrNull(sub.language);
+    final service = const SubtitleTranslationService();
+    var applied = 0;
+    try {
+      for (var start = 0; start < source.length; start += chunkSize) {
+        final end = (start + chunkSize).clamp(0, source.length);
+        final slice = source.sublist(start, end);
+        final lines = await service.translateLines(
+          lines: [for (final c in slice) c.text],
+          targetLang: targetLang,
+          docKey: docKey,
+          from: from,
+          count: start == 0,
+        );
+        if (!mounted) return;
+        for (var i = 0; i < slice.length; i++) {
+          final c = slice[i];
+          translated[start + i] =
+              Caption(number: c.number, start: c.start, end: c.end, text: lines[i]);
+        }
+        applied = end;
+        // Only refresh the on-screen cues if this track is still the active one.
+        if (_subtitles.isNotEmpty &&
+            _activeSubtitleIndex >= 0 &&
+            _activeSubtitleIndex < _subtitles.length &&
+            _subtitles[_activeSubtitleIndex].file == marker) {
+          setState(() => _captionFile = List<Caption>.from(translated));
+        }
+      }
+      if (mounted) _toast('player.subtitle_loaded'.tr());
+    } on SubtitleDailyLimitReached catch (e) {
+      if (mounted) {
+        _toast(e.message);
+        // A partial translation is better than none — keep what arrived.
+        if (applied == 0) {
+          setState(() {
+            _subtitles = [..._subtitles]..removeWhere((x) => x.file == marker);
+            _activeSubtitleIndex = -1;
+            _captionFile = null;
+          });
+          _aiCaptions.remove(marker);
+        }
+      }
+    } catch (e) {
+      _plog('subtitle translate error: $e', level: LogLevel.warn);
+      if (mounted && applied == 0) _toast('player.translate_failed'.tr());
     }
   }
 
@@ -612,6 +816,12 @@ extension _PlayerSubtitles on _PlayerPageState {
                       side: const BorderSide(color: Colors.white24),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
+                      // The app theme asks every OutlinedButton for a full-width
+                      // minimum, which is right for a form button in a column and
+                      // fatal in a row: a Row hands its children an unbounded width,
+                      // so an infinite minimum is an infinite constraint and layout
+                      // throws. These four sit side by side, so they size to content.
+                      minimumSize: const Size(0, 48),
                     ),
                     onPressed: () => setOffset(_subtitleOffsetMs.value + delta),
                     child: Text(label),
@@ -1244,5 +1454,45 @@ extension _PlayerSubtitles on _PlayerPageState {
   void _applySubtitleStyle(SubtitleStyle next) {
     setState(() => _subtitleStyle = next);
     _hive.saveSubtitleStyle(next);
+  }
+}
+
+/// A compact, labelled translate action for a subtitle row —
+/// clearer than a bare icon that a first-time viewer would not read as AI.
+class _AiTranslateChip extends StatelessWidget {
+  const _AiTranslateChip({required this.lang, required this.onTap});
+
+  final String lang;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.auto_awesome_rounded,
+                  size: 13, color: AppColors.primaryLight),
+              const SizedBox(width: 5),
+              Text(
+                'AI → $lang',
+                style: const TextStyle(
+                  color: AppColors.primaryLight,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
