@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soplay/features/link_tv/presentation/pages/link_tv_page.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -156,19 +155,6 @@ class _ProfileViewState extends State<_ProfileView> {
                 ),
                 // Signed-in only: approving a TV pairing binds it to an account, so
                 // there is nothing this can do for a guest.
-                SliverToBoxAdapter(
-                  child: BlocBuilder<AuthBloc, AuthState>(
-                    buildWhen: (prev, next) =>
-                        (prev is AuthLoaded) != (next is AuthLoaded),
-                    builder: (context, state) {
-                      if (state is! AuthLoaded) return const SizedBox.shrink();
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: const _LinkTvTile(),
-                      );
-                    },
-                  ),
-                ),
                 const SliverToBoxAdapter(
                   child: _Reveal(order: 5, child: _WatchHistorySection()),
                 ),
@@ -975,11 +961,15 @@ class _ConnectionsSection extends StatelessWidget {
             children: [
               const _ConnectionsTile(),
               const _TileDivider(),
+              // Link a TV, not Live TV: the channel line-up moved to the home
+              // bar, and pairing a television — a thing you genuinely connect —
+              // had no entry point anywhere in the app except a deep link.
               _Tile(
-                icon: Icons.live_tv_rounded,
-                title: 'live_tv.title'.tr(),
+                icon: Icons.cast_connected_rounded,
+                title: 'link_tv.title'.tr(),
+                subtitle: 'link_tv.tile_subtitle'.tr(),
                 trailing: const _TileChevron(),
-                onTap: () => context.push('/live-tv'),
+                onTap: () => context.push('/link-tv'),
               ),
             ],
           ),
@@ -2203,31 +2193,6 @@ class _SheetCountdownCell extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Entry point into the phone half of the TV pairing flow.
-class _LinkTvTile extends StatelessWidget {
-  const _LinkTvTile();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: _SectionCard(
-        children: [
-          _Tile(
-            icon: Icons.cast_connected,
-            title: 'link_tv.title'.tr(),
-            subtitle: 'link_tv.tile_subtitle'.tr(),
-            trailing: const _TileChevron(),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const LinkTvPage()),
-            ),
-          ),
-        ],
       ),
     );
   }

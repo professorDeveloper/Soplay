@@ -39,7 +39,7 @@ import 'package:soplay/features/detail/presentation/widgets/detail_cast_tab.dart
 import 'package:soplay/features/detail/presentation/widgets/detail_comments_tab.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_hero.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_info.dart';
-import 'package:soplay/features/detail/presentation/widgets/detail_more_sheet.dart';
+import 'package:soplay/features/detail/presentation/widgets/detail_more_menu.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_related.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_screenshots.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_skeleton.dart';
@@ -54,7 +54,9 @@ class DetailPage extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) => getIt<DetailBloc>()..add(DetailLoad(args.contentUrl, provider: args.provider)),
+          create: (_) =>
+              getIt<DetailBloc>()
+                ..add(DetailLoad(args.contentUrl, provider: args.provider)),
         ),
         BlocProvider(create: (_) => getIt<EpisodesBloc>()),
         BlocProvider(create: (_) => getIt<FavoriteBloc>()),
@@ -135,17 +137,23 @@ class _DetailScaffold extends StatelessWidget {
                   ),
                 DetailError(:final message) => _ErrorView(
                   message: message,
-                  onRetry: () =>
-                      context.read<DetailBloc>().add(DetailLoad(contentUrl, provider: provider)),
+                  onRetry: () => context.read<DetailBloc>().add(
+                    DetailLoad(contentUrl, provider: provider),
+                  ),
                   onSolveCloudflare: isCloudflareError(message)
                       ? () async {
                           final bloc = context.read<DetailBloc>();
-                          final prov = provider ??
+                          final prov =
+                              provider ??
                               getIt<HiveService>().getCurrentProvider();
-                          final ok =
-                              await requestCloudflareSolve(context, prov);
+                          final ok = await requestCloudflareSolve(
+                            context,
+                            prov,
+                          );
                           if (ok) {
-                            bloc.add(DetailLoad(contentUrl, provider: provider));
+                            bloc.add(
+                              DetailLoad(contentUrl, provider: provider),
+                            );
                           }
                         }
                       : null,
@@ -191,6 +199,9 @@ class _DetailViewState extends State<_DetailView>
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _bodyPlayKey = GlobalKey();
   final GlobalKey _tabStripKey = GlobalKey();
+
+  /// The three-dot button, so its menu can hang off it.
+  final GlobalKey _moreButtonKey = GlobalKey();
 
   /// Scroll offset at which the tab strip reaches the app bar and pins.
   /// Measured while scrolling; stays infinite until then so that a tab switch
@@ -362,20 +373,33 @@ class _DetailViewState extends State<_DetailView>
 
   Widget _buildTabContent(DetailEntity detail) {
     final tab = _tabs[_tabController.index];
-    return KeyedSubtree(
-      key: ValueKey('detail-tab-$tab'),
-      child: switch (tab) {
-        'Similar' => DetailRelatedSection(related: detail.related),
-        'Cast' => DetailCastTab(cast: detail.cast, director: detail.director),
-        'Comments' => DetailCommentsTab(
-          provider: detail.provider,
-          contentUrl: detail.contentUrl,
-        ),
-        'Screenshots' => DetailScreenshotsSection(
-          screenshots: detail.screenshots,
-        ),
-        _ => const SizedBox.shrink(),
-      },
+    // Tabs used to cut over on the frame the index changed, which on a page
+    // this dense reads as a flicker rather than a change of view. Aligned to
+    // the top so the outgoing and incoming panes do not slide against each
+    // other while they cross-fade.
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 160),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.topCenter,
+        children: [...previous, ?current],
+      ),
+      child: KeyedSubtree(
+        key: ValueKey('detail-tab-$tab'),
+        child: switch (tab) {
+          'Similar' => DetailRelatedSection(related: detail.related),
+          'Cast' => DetailCastTab(cast: detail.cast, director: detail.director),
+          'Comments' => DetailCommentsTab(
+            provider: detail.provider,
+            contentUrl: detail.contentUrl,
+          ),
+          'Screenshots' => DetailScreenshotsSection(
+            screenshots: detail.screenshots,
+          ),
+          _ => const SizedBox.shrink(),
+        },
+      ),
     );
   }
 
@@ -401,10 +425,9 @@ class _DetailViewState extends State<_DetailView>
   void _onPrimaryAction() {
     final state = context.read<EpisodesBloc>().state;
     if (state is EpisodesLoading) return;
-    context.read<EpisodesBloc>().add(EpisodesLoad(
-      widget.detail.contentUrl,
-      provider: widget.provider,
-    ));
+    context.read<EpisodesBloc>().add(
+      EpisodesLoad(widget.detail.contentUrl, provider: widget.provider),
+    );
   }
 
   void _toggleMyList() {
@@ -548,34 +571,42 @@ class _DetailViewState extends State<_DetailView>
       await svc.unfollow(widget.detail.contentUrl);
     } else {
       final d = widget.detail;
-      await svc.follow(FollowedTitle(
-        contentUrl: d.contentUrl,
-        provider: d.provider,
-        title: d.title,
-        thumbnail: d.thumbnail ?? '',
-        year: d.year,
-        addedAt: DateTime.now().millisecondsSinceEpoch,
-      ));
+      await svc.follow(
+        FollowedTitle(
+          contentUrl: d.contentUrl,
+          provider: d.provider,
+          title: d.title,
+          thumbnail: d.thumbnail ?? '',
+          year: d.year,
+          addedAt: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
     }
     if (!mounted) return;
     setState(() => _isFollowing = !_isFollowing);
-    _showSnack(_isFollowing
-        ? 'detail.following_on'.tr()
-        : 'detail.following_off'.tr());
+    _showSnack(
+      _isFollowing ? 'detail.following_on'.tr() : 'detail.following_off'.tr(),
+    );
   }
 
-  void _onShare() {
+  /// The public link to this title — the one Share sends and Copy hands over.
+  String get _shareLink {
     final params = <String, String>{'url': widget.detail.contentUrl};
     final provider = widget.detail.provider.trim();
     if (provider.isNotEmpty) params['provider'] = provider;
-    final link = Uri.https('sozo.azamov.me', '/detail', params).toString();
-    Share.share('${widget.detail.title}\n$link');
+    return Uri.https('sozo.azamov.me', '/detail', params).toString();
   }
 
-  void _showMoreSheet() {
+  void _onShare() {
+    Share.share('${widget.detail.title}\n$_shareLink');
+  }
+
+  void _showMoreMenu() {
     final detail = widget.detail;
-    showDetailMoreSheet(
+    final favState = context.read<FavoriteBloc>().state;
+    showDetailMoreMenu(
       context,
+      anchorKey: _moreButtonKey,
       entity: FavoriteEntity(
         provider: detail.provider,
         contentUrl: detail.contentUrl,
@@ -587,6 +618,12 @@ class _DetailViewState extends State<_DetailView>
       onToggleFollow: _toggleFollow,
       onFindSources: _onFindOtherSources,
       onShare: _onShare,
+      shareUrl: _shareLink,
+      // Moving a title to the private list was a long-press on the + button and
+      // nothing else — a gesture the app had to run a coaching overlay to teach.
+      inPrivate: favState is FavoriteReady && favState.inPrivate,
+      onMoveToPrivate: _onMoveToPrivate,
+      onPrivateActions: _showPrivateActions,
     );
   }
 
@@ -618,9 +655,11 @@ class _DetailViewState extends State<_DetailView>
       );
     }
 
-    final ref =
-        playback.episodes.isNotEmpty ? playback.episodes.first.mediaRef : '';
-    final needsResolve = playback.type == 'webview-extract' ||
+    final ref = playback.episodes.isNotEmpty
+        ? playback.episodes.first.mediaRef
+        : '';
+    final needsResolve =
+        playback.type == 'webview-extract' ||
         playback.playerSrc == null ||
         playback.playerSrc!.isEmpty;
     if (needsResolve && ref.isNotEmpty) {
@@ -716,8 +755,10 @@ class _DetailViewState extends State<_DetailView>
             const SizedBox(height: 18),
             TextButton(
               onPressed: () => Navigator.of(dctx).pop(),
-              child: Text('general.cancel'.tr(),
-                  style: const TextStyle(color: Colors.white70)),
+              child: Text(
+                'general.cancel'.tr(),
+                style: const TextStyle(color: Colors.white70),
+              ),
             ),
           ],
         ),
@@ -739,8 +780,9 @@ class _DetailViewState extends State<_DetailView>
           return;
         }
         Duration resumePos = Duration.zero;
-        final historyItem =
-            getIt<HistoryService>().get(widget.detail.contentUrl);
+        final historyItem = getIt<HistoryService>().get(
+          widget.detail.contentUrl,
+        );
         if (historyItem != null) {
           resumePos = Duration(milliseconds: historyItem.positionMs);
         }
@@ -960,7 +1002,8 @@ class _DetailViewState extends State<_DetailView>
                             onAddToList: _toggleMyList,
                             onMoveToPrivate: _onMoveToPrivate,
                             onPrivateActions: _showPrivateActions,
-                            onMore: _showMoreSheet,
+                            moreButtonKey: _moreButtonKey,
+                            onMore: _showMoreMenu,
                           ),
                         ),
                   ),
@@ -1018,6 +1061,7 @@ class _AnimatedTopBar extends StatelessWidget {
     required this.isListActionLoading,
     required this.listActionShowcaseKey,
     required this.showcaseScope,
+    required this.moreButtonKey,
     required this.onBack,
     required this.onPrimaryAction,
     required this.onAddToList,
@@ -1039,6 +1083,7 @@ class _AnimatedTopBar extends StatelessWidget {
   final bool isListActionLoading;
   final GlobalKey listActionShowcaseKey;
   final String showcaseScope;
+  final GlobalKey moreButtonKey;
   final VoidCallback onBack;
   final VoidCallback onPrimaryAction;
   final VoidCallback onAddToList;
@@ -1151,6 +1196,7 @@ class _AnimatedTopBar extends StatelessWidget {
                   const SizedBox(width: 8),
                 ],
                 _CircleIconButton(
+                  key: moreButtonKey,
                   icon: Icons.more_vert_rounded,
                   onTap: onMore,
                 ),
@@ -1165,6 +1211,7 @@ class _AnimatedTopBar extends StatelessWidget {
 
 class _CircleIconButton extends StatelessWidget {
   const _CircleIconButton({
+    super.key,
     required this.icon,
     required this.onTap,
     this.onLongPress,

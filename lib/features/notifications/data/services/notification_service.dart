@@ -181,16 +181,27 @@ class NotificationService {
     }
   }
 
+  /// Puts this DEVICE on the push list, account or no account.
+  ///
+  /// Called once at startup rather than from the login flow. Push used to begin
+  /// at registration, so an announcement only ever reached the minority who had
+  /// signed up — everyone else had the app installed and no way to be told
+  /// anything.
+  ///
+  /// Registration also survives a denied permission prompt: the token is what
+  /// the server addresses, and someone who turns notifications on in system
+  /// settings a week later should not have to be asked again here.
   Future<void> setup() async {
-    if (!Platform.isAndroid) return;
+    // Every platform initialises: the local plugin is what schedules airing
+    // reminders, and this is the only startup call that reaches it.
     await ensureInitialized();
+    if (!Platform.isAndroid) return;
 
-    final settings = await FirebaseMessaging.instance.requestPermission(
+    await FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
-    if (settings.authorizationStatus == AuthorizationStatus.denied) return;
 
     final token = await FirebaseMessaging.instance.getToken();
     if (token != null) {
@@ -213,17 +224,23 @@ class NotificationService {
     }
   }
 
+  /// Signing out detaches the device from the account — it does not take the
+  /// device off push.
+  ///
+  /// The token is deliberately NOT deleted. It used to be, which meant logging
+  /// out also opted the phone out of every announcement until it next signed
+  /// in; the server now unlinks the row and keeps it, so broadcasts continue
+  /// and only that account's personal notifications stop.
   Future<void> unregister() async {
     if (!Platform.isAndroid) return;
     final token = _registeredToken ??
         await FirebaseMessaging.instance.getToken();
-    if (token != null && token.isNotEmpty) {
-      await repository.unregisterFcmToken(token);
-    }
-    try {
-      await FirebaseMessaging.instance.deleteToken();
-    } catch (_) {}
+    if (token == null || token.isEmpty) return;
+    await repository.unregisterFcmToken(token);
+    // Re-register as an anonymous device so the row's lastSeen keeps moving
+    // and a later sign-in claims the same token.
     _registeredToken = null;
+    await _registerToken(token);
   }
 
   Future<void> dispose() async {

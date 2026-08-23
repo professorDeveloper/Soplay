@@ -65,7 +65,10 @@ class WebViewStreamExtractor {
 ''';
 
   // ignore: unnecessary_string_escapes  // backslashes are JS-regex chars
-  static String _xhrCaptureShim(List<String> hostFragments, List<String> urlPatterns) {
+  static String _xhrCaptureShim(
+    List<String> hostFragments,
+    List<String> urlPatterns,
+  ) {
     final hosts = hostFragments.map((h) => "'$h'").join(',');
     final patterns = urlPatterns.map((p) => "'${p.toLowerCase()}'").join(',');
     return '''
@@ -86,6 +89,15 @@ class WebViewStreamExtractor {
   function __matchPat(url) {
     var l = String(url).toLowerCase();
     return __urlPats.some(function(p){ return l.indexOf(p) !== -1; });
+  }
+  // A manifest is the feature by definition, so its host does not have to be
+  // the embed's: these players hand the stream to a CDN on another domain, and
+  // gating on the host meant the one request worth catching was ignored.
+  function __worthCatching(url) {
+    if (!__matchPat(url)) return false;
+    if (__matchHost(url)) return true;
+    var l = String(url).toLowerCase();
+    return l.indexOf('.m3u8') !== -1 || l.indexOf('.mpd') !== -1;
   }
   function __report(url, headers) {
     try {
@@ -111,7 +123,7 @@ class WebViewStreamExtractor {
     XMLHttpRequest.prototype.send = function() {
       try {
         var u = this.__url || '';
-        if (u && __matchHost(u) && __matchPat(u)) {
+        if (u && __worthCatching(u)) {
           var abs = u;
           try { abs = new URL(u, location.href).toString(); } catch (_) {}
           __report(abs, this.__hdrs || {});
@@ -133,7 +145,7 @@ class WebViewStreamExtractor {
       window.fetch = function(input, init) {
         try {
           var url = (typeof input === 'string') ? input : (input && input.url) || '';
-          if (url && __matchHost(url) && __matchPat(url)) {
+          if (url && __worthCatching(url)) {
             var hdrs = {};
             var initHdrs = (init && init.headers) || (input && input.headers);
             if (initHdrs) {
@@ -185,6 +197,12 @@ class WebViewStreamExtractor {
     HeadlessInAppWebView? headless;
     var captured = false;
 
+    /// A pattern match from a host the directive did not name. Held rather than
+    /// committed, because on a foreign host a `.mp4` is as likely to be an ad
+    /// creative as the feature — but it beats coming back empty-handed, which
+    /// hands the player an HTML page and ends in "no supported format".
+    (String, Map<String, dynamic>)? fallback;
+
     final userAgent = _mobileUserAgent;
     final referer = _headerValue(pageHeaders, 'Referer');
 
@@ -213,10 +231,24 @@ class WebViewStreamExtractor {
     void completeWith(String url, Map<String, dynamic> rawHeaders) {
       if (captured) return;
       captured = true;
+      // The directive's playType describes what the site normally serves; the
+      // url describes what it just served. When they disagree the url wins, or
+      // a progressive mp4 gets handed to the player as HLS.
+      final lower = url.toLowerCase();
+      final playType = lower.contains('.m3u8')
+          ? 'hls'
+          : lower.contains('.mpd')
+          ? 'dash'
+          : lower.contains('.mp4')
+          ? 'progressive'
+          : config.playType;
       final headers = <String, String>{};
       rawHeaders.forEach((k, v) {
         if (v == null || k.isEmpty) return;
-        final keep = config.captureHeaders.any((h) => h.toLowerCase() == k.toLowerCase()) ||
+        final keep =
+            config.captureHeaders.any(
+              (h) => h.toLowerCase() == k.toLowerCase(),
+            ) ||
             k.toLowerCase().startsWith('x-');
         if (keep) headers[k] = v.toString();
       });
@@ -226,7 +258,10 @@ class WebViewStreamExtractor {
         }
       });
       headers.putIfAbsent('User-Agent', () => userAgent);
-      headers.putIfAbsent('Referer', () => 'https://${Uri.parse(pageUrl).host}/');
+      headers.putIfAbsent(
+        'Referer',
+        () => 'https://${Uri.parse(pageUrl).host}/',
+      );
       headers.putIfAbsent('Origin', () => 'https://${Uri.parse(pageUrl).host}');
 
       if (kDebugMode) {
@@ -234,10 +269,31 @@ class WebViewStreamExtractor {
       }
       if (!completer.isCompleted) {
         completer.complete(
-          ExtractedStream(url: url, headers: headers, playType: config.playType),
+          ExtractedStream(url: url, headers: headers, playType: playType),
         );
       }
       Timer(Duration.zero, stop);
+    }
+
+    /// One request that looked like media. Commits when the host is the one the
+    /// directive named, or when the url is a manifest — a `.m3u8`/`.mpd` is the
+    /// stream itself and nothing else on a page looks like one. Anything else is
+    /// held for the watchdog.
+    void offer(
+      String url,
+      Map<String, dynamic> headers, {
+      required bool onHost,
+    }) {
+      if (captured) return;
+      final lower = url.toLowerCase();
+      if (onHost || lower.contains('.m3u8') || lower.contains('.mpd')) {
+        completeWith(url, headers);
+        return;
+      }
+      fallback ??= (url, headers);
+      if (kDebugMode) {
+        debugPrint('[WebViewExtractor] holding off-host candidate $url');
+      }
     }
 
     headless = HeadlessInAppWebView(
@@ -271,10 +327,7 @@ class WebViewStreamExtractor {
           );
           await controller.addUserScript(
             userScript: UserScript(
-              source: _xhrCaptureShim(
-                [config.hostPattern],
-                config.urlPatterns,
-              ),
+              source: _xhrCaptureShim([config.hostPattern], config.urlPatterns),
               injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
             ),
           );
@@ -287,7 +340,14 @@ class WebViewStreamExtractor {
               final headers = (args.length > 1 && args[1] is Map)
                   ? Map<String, dynamic>.from(args[1] as Map)
                   : <String, dynamic>{};
-              completeWith(url, headers);
+              offer(
+                url,
+                headers,
+                onHost: _matchHost(
+                  Uri.tryParse(url)?.host ?? '',
+                  config.hostPattern,
+                ),
+              );
               return null;
             },
           );
@@ -298,23 +358,38 @@ class WebViewStreamExtractor {
         final urlStr = uri.toString();
         final lowerUrl = urlStr.toLowerCase();
 
-        if (_matchHost(uri.host, config.hostPattern) &&
+        // Sniffing is blind by nature — when it comes back empty the log is the
+        // only record of what the page actually asked for. Media-shaped urls
+        // only; a page's fonts and sprites would bury the one line that matters.
+        if (kDebugMode && _looksLikeMedia(lowerUrl)) {
+          debugPrint('[WebViewExtractor] req ${uri.host} $urlStr');
+        }
+
+        final blocked = blockFragments.any((frag) => lowerUrl.contains(frag));
+        if (!blocked &&
             config.urlPatterns.any((p) => lowerUrl.contains(p.toLowerCase()))) {
+          final onHost = _matchHost(uri.host, config.hostPattern);
           if (!captured) {
             final hdrs = <String, dynamic>{};
             (request.headers ?? const {}).forEach((k, v) => hdrs[k] = v);
-            completeWith(urlStr, hdrs);
+            offer(urlStr, hdrs, onHost: onHost);
           }
-          return WebResourceResponse(
-            contentType: 'text/plain',
-            statusCode: 200,
-            reasonPhrase: 'OK',
-            headers: const {},
-            data: Uint8List(0),
-          );
+          // Only the committed request is starved of a response. An off-host
+          // candidate has to go through, or the page stalls on it and the real
+          // manifest that would follow is never requested.
+          if (captured) {
+            return WebResourceResponse(
+              contentType: 'text/plain',
+              statusCode: 200,
+              reasonPhrase: 'OK',
+              headers: const {},
+              data: Uint8List(0),
+            );
+          }
+          return null;
         }
 
-        if (blockFragments.any((frag) => lowerUrl.contains(frag))) {
+        if (blocked) {
           return WebResourceResponse(
             contentType: 'text/plain',
             statusCode: 200,
@@ -334,6 +409,14 @@ class WebViewStreamExtractor {
     );
 
     watchdog = Timer(Duration(milliseconds: config.timeoutMs), () async {
+      final held = fallback;
+      if (!completer.isCompleted && held != null) {
+        if (kDebugMode) {
+          debugPrint('[WebViewExtractor] timeout — using held candidate');
+        }
+        completeWith(held.$1, held.$2);
+        return;
+      }
       if (kDebugMode && !completer.isCompleted) {
         debugPrint('[WebViewExtractor] timeout — no matching request captured');
       }
@@ -352,9 +435,26 @@ class WebViewStreamExtractor {
     return completer.future;
   }
 
+  static const _mediaHints = [
+    '.m3u8',
+    '.mpd',
+    '.mp4',
+    '.ts?',
+    'manifest',
+    'playlist',
+    'master',
+    '/stream',
+    '/video',
+    '/hls',
+  ];
+
+  static bool _looksLikeMedia(String lowerUrl) =>
+      _mediaHints.any(lowerUrl.contains);
+
   static String? _headerValue(Map<String, String> headers, String name) {
     for (final entry in headers.entries) {
-      if (entry.key.toLowerCase() == name.toLowerCase() && entry.value.isNotEmpty) {
+      if (entry.key.toLowerCase() == name.toLowerCase() &&
+          entry.value.isNotEmpty) {
         return entry.value;
       }
     }

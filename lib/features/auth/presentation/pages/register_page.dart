@@ -1,11 +1,14 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/auth/data/services/google_auth_service.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
+import 'package:soplay/features/auth/presentation/widgets/auth_widgets.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -19,18 +22,34 @@ class _RegisterPageState extends State<RegisterPage> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
   bool _obscurePassword = true;
+  bool _googlePending = false;
+
+  /// Shown on the page until the next attempt clears it.
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordController.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmController.dispose();
     super.dispose();
   }
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _googlePending = false;
+      _error = null;
+    });
     context.read<AuthBloc>().add(
       AuthRegisterRequested(
         username: _usernameController.text.trim(),
@@ -38,6 +57,14 @@ class _RegisterPageState extends State<RegisterPage> {
         password: _passwordController.text,
       ),
     );
+  }
+
+  void _signUpWithGoogle() {
+    setState(() {
+      _googlePending = true;
+      _error = null;
+    });
+    context.read<AuthBloc>().add(const AuthGoogleRequested());
   }
 
   void _close() {
@@ -50,129 +77,137 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: BlocListener<AuthBloc, AuthState>(
-        listenWhen: (previous, current) =>
-            current is AuthLoaded ||
-            current is AuthError ||
-            (current is AuthOtpPending && previous is! AuthOtpPending),
-        listener: (context, state) {
-          if (state is AuthLoaded) {
-            context.go('/main');
-          } else if (state is AuthOtpPending) {
-            context.push('/otp', extra: state.email);
-          } else if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
-          }
-        },
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+    return BlocListener<AuthBloc, AuthState>(
+      listenWhen: (previous, current) =>
+          current is AuthLoaded ||
+          current is AuthError ||
+          current is AuthInitial ||
+          (current is AuthOtpPending && previous is! AuthOtpPending),
+      listener: (context, state) {
+        if (state is AuthLoaded) {
+          // Prompts the password manager to keep what was just typed. Without
+          // it Android never offers to save, and the next sign-in is manual
+          // again.
+          TextInput.finishAutofillContext();
+          context.go('/main');
+        } else if (state is AuthOtpPending) {
+          context.push('/otp', extra: state.email);
+        } else if (state is AuthError) {
+          setState(() {
+            _googlePending = false;
+            _error = state.message;
+          });
+        } else if (state is AuthInitial) {
+          setState(() => _googlePending = false);
+        }
+      },
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          final loading = state is AuthLoading;
+          return AuthScaffold(
+            title: 'auth.create_account'.tr(),
+            subtitle: 'auth.register_subtitle'.tr(),
+            onClose: _close,
+            children: [
+              AutofillGroup(
+                child: Form(
+                  key: _formKey,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _TopBar(onClose: _close),
-                      const SizedBox(height: 34),
-                      Text(
-                        'auth.register'.tr(),
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      AuthTextField(
+                        controller: _usernameController,
+                        hint: 'auth.username_hint'.tr(),
+                        icon: Icons.person_outline_rounded,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.newUsername],
+                        enabled: !loading,
+                        validator: _validateUsername,
                       ),
-                      const SizedBox(height: 24),
-                      Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            _AuthTextField(
-                              controller: _usernameController,
-                              hint: 'auth.username_hint'.tr(),
-                              icon: Icons.person_outline_rounded,
-                              textInputAction: TextInputAction.next,
-                              validator: _validateUsername,
-                            ),
-                            const SizedBox(height: 12),
-                            _AuthTextField(
-                              controller: _emailController,
-                              hint: 'auth.email_hint'.tr(),
-                              icon: Icons.email_outlined,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                              validator: _validateEmail,
-                            ),
-                            const SizedBox(height: 12),
-                            _AuthTextField(
-                              controller: _passwordController,
-                              hint: 'auth.password_hint'.tr(),
-                              icon: Icons.lock_outline_rounded,
-                              obscureText: _obscurePassword,
-                              textInputAction: TextInputAction.done,
-                              onFieldSubmitted: (_) => _submit(),
-                              suffix: IconButton(
-                                onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword,
-                                ),
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  size: 20,
-                                  color: AppColors.textHint,
-                                ),
-                              ),
-                              validator: _validatePassword,
-                            ),
-                            const SizedBox(height: 20),
-                            BlocBuilder<AuthBloc, AuthState>(
-                              builder: (context, state) {
-                                final loading = state is AuthLoading;
-                                return SizedBox(
-                                  width: double.infinity,
-                                  height: 50,
-                                  child: ElevatedButton(
-                                    onPressed: loading ? null : _submit,
-                                    child: loading
-                                        ? const SizedBox(
-                                            width: 21,
-                                            height: 21,
-                                            child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2.2,
-                                            ),
-                                          )
-                                        : Text('auth.sign_up'.tr()),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
+                      const SizedBox(height: 12),
+                      AuthTextField(
+                        controller: _emailController,
+                        hint: 'auth.email_hint'.tr(),
+                        icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.email],
+                        enabled: !loading,
+                        validator: _validateEmail,
                       ),
-                      const SizedBox(height: 28),
-                      _AuthSwitchPrompt(
-                        text: 'auth.already_have_account'.tr(),
-                        action: 'auth.sign_in'.tr(),
-                        onTap: () => context.pushReplacement('/login'),
+                      const SizedBox(height: 12),
+                      AuthTextField(
+                        controller: _passwordController,
+                        hint: 'auth.password_hint'.tr(),
+                        icon: Icons.lock_outline_rounded,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.newPassword],
+                        enabled: !loading,
+                        suffix: IconButton(
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            size: 20,
+                            color: AppColors.textHint,
+                          ),
+                        ),
+                        validator: _validatePassword,
+                      ),
+                      _PasswordStrength(password: _passwordController.text),
+                      const SizedBox(height: 12),
+                      AuthTextField(
+                        controller: _confirmController,
+                        hint: 'auth.confirm_password_hint'.tr(),
+                        icon: Icons.lock_reset_rounded,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        enabled: !loading,
+                        onFieldSubmitted: (_) => _submit(),
+                        validator: _validateConfirm,
+                      ),
+                      const SizedBox(height: 20),
+                      AuthErrorBanner(message: _error),
+                      AuthPrimaryButton(
+                        label: 'auth.sign_up'.tr(),
+                        loading: loading && !_googlePending,
+                        onPressed: loading ? null : _submit,
                       ),
                     ],
                   ),
                 ),
-              );
-            },
-          ),
-        ),
+              ),
+              if (GoogleAuthService.isSupported) ...[
+                const SizedBox(height: 22),
+                const AuthDivider(),
+                const SizedBox(height: 16),
+                GoogleAuthButton(
+                  loading: loading && _googlePending,
+                  onPressed: loading ? null : _signUpWithGoogle,
+                ),
+              ],
+              const SizedBox(height: 18),
+              Text(
+                'auth.terms_agree'.tr(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 11.5,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 6),
+              AuthSwitchPrompt(
+                text: 'auth.already_have_account'.tr(),
+                action: 'auth.sign_in'.tr(),
+                onTap: () => context.pushReplacement('/login'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -198,114 +233,73 @@ class _RegisterPageState extends State<RegisterPage> {
     if (value.length < 6) return 'auth.invalid_password'.tr();
     return null;
   }
-}
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onClose});
-
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          'app_name'.tr(),
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const Spacer(),
-        IconButton(
-          onPressed: onClose,
-          icon: const Icon(Icons.close_rounded),
-          color: AppColors.textSecondary,
-        ),
-      ],
-    );
+  /// Registration ends in an emailed code, so a mistyped password is only
+  /// discovered minutes later at the login screen — cheap to catch here.
+  String? _validateConfirm(String? value) {
+    if (value != _passwordController.text) {
+      return 'auth.passwords_not_match'.tr();
+    }
+    return null;
   }
 }
 
-class _AuthTextField extends StatelessWidget {
-  const _AuthTextField({
-    required this.controller,
-    required this.hint,
-    required this.icon,
-    required this.validator,
-    this.keyboardType,
-    this.textInputAction,
-    this.obscureText = false,
-    this.suffix,
-    this.onFieldSubmitted,
-  });
+class _PasswordStrength extends StatelessWidget {
+  const _PasswordStrength({required this.password});
 
-  final TextEditingController controller;
-  final String hint;
-  final IconData icon;
-  final TextInputType? keyboardType;
-  final TextInputAction? textInputAction;
-  final bool obscureText;
-  final Widget? suffix;
-  final ValueChanged<String>? onFieldSubmitted;
-  final String? Function(String?) validator;
+  final String password;
+
+  int get _score {
+    if (password.length < 6) return 0;
+    var score = 1;
+    if (password.length >= 10) score++;
+    final varied = [
+      RegExp(r'[a-z]'),
+      RegExp(r'[A-Z]'),
+      RegExp(r'[0-9]'),
+      RegExp(r'[^A-Za-z0-9]'),
+    ].where((r) => r.hasMatch(password)).length;
+    if (varied >= 3) score++;
+    return score.clamp(0, 3);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      textInputAction: textInputAction,
-      obscureText: obscureText,
-      onFieldSubmitted: onFieldSubmitted,
-      style: const TextStyle(color: AppColors.textPrimary),
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, size: 20),
-        suffixIcon: suffix,
+    if (password.isEmpty) return const SizedBox(height: 12);
+
+    const labels = ['auth.weak', 'auth.weak', 'auth.medium', 'auth.strong'];
+    const colors = [
+      AppColors.error,
+      AppColors.error,
+      AppColors.rating,
+      AppColors.success,
+    ];
+    final score = _score;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          for (var i = 0; i < 3; i++) ...[
+            if (i > 0) const SizedBox(width: 4),
+            Expanded(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                height: 3,
+                decoration: BoxDecoration(
+                  color: i < score ? colors[score] : AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(width: 10),
+          Text(
+            labels[score].tr(),
+            style: TextStyle(color: colors[score], fontSize: 11.5),
+          ),
+        ],
       ),
-      validator: validator,
-    );
-  }
-}
-
-class _AuthSwitchPrompt extends StatelessWidget {
-  const _AuthSwitchPrompt({
-    required this.text,
-    required this.action,
-    required this.onTap,
-  });
-
-  final String text;
-  final String action;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Flexible(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: onTap,
-          child: Text(
-            action,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

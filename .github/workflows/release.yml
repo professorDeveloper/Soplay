@@ -323,11 +323,26 @@ jobs:
           APKSIGNER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -name apksigner | sort | tail -1)"
           APK="$(ls build/app/outputs/flutter-apk/app-*-release.apk | head -1)"
           CERT="$("$APKSIGNER" verify --print-certs "$APK")"
-          echo "$CERT" | grep -E 'certificate DN|SHA-256 digest'
+          echo "$CERT" | grep -E 'certificate DN|SHA-1 digest|SHA-256 digest'
           if echo "$CERT" | grep -q 'CN=Android Debug'; then
             echo "::error title=Debug-signed APK::Built with the debug keystore. Users could not update to this build."
             exit 1
           fi
+          # Firebase wants the release fingerprints colon-separated, and the
+          # signing key exists only inside ANDROID_KEYSTORE_B64 — this run log is
+          # the only place to read them off without unpacking the secret.
+          {
+            echo '### Release signing fingerprints'
+            echo 'Paste into Firebase Console → Project settings → Android app → Add fingerprint.'
+            echo '```'
+            echo "$CERT" \
+              | sed -nE 's/.*(SHA-(1|256)) digest: ([0-9a-f]+).*/\1 \3/p' \
+              | sort -u \
+              | while read -r name hex; do
+                  echo "${name}: $(echo "$hex" | tr 'a-z' 'A-Z' | sed 's/../&:/g; s/:$//')"
+                done
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       # Prints the versionCode/versionName baked into every APK, and fails if the
       # ABIs disagree.
       #

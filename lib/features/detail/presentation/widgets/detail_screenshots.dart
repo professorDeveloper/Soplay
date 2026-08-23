@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
@@ -99,18 +100,18 @@ class _ScreenshotCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
-              url,
+            CachedNetworkImage(
+              imageUrl: url,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const Center(
+              fadeInDuration: const Duration(milliseconds: 180),
+              placeholder: (_, _) =>
+                  const ColoredBox(color: AppColors.surfaceVariant),
+              errorWidget: (_, _, _) => const Center(
                 child: Icon(
                   Icons.broken_image_outlined,
                   color: AppColors.textHint,
                 ),
               ),
-              loadingBuilder: (_, child, chunk) => chunk == null
-                  ? child
-                  : Container(color: AppColors.surfaceVariant),
             ),
             const DecoratedBox(
               decoration: BoxDecoration(
@@ -346,16 +347,18 @@ class _ZoomablePhotoState extends State<_ZoomablePhoto>
         minScale: 1,
         maxScale: _maxScale,
         child: Center(
-          child: Image.network(
-            widget.url,
+          child: CachedNetworkImage(
+            imageUrl: widget.url,
             fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const Icon(
+            // The full-screen view opens on a thumbnail the grid already
+            // cached, so the large copy is usually a decode away rather than a
+            // download — the spinner is for the first open only.
+            errorWidget: (_, _, _) => const Icon(
               Icons.broken_image_outlined,
               color: AppColors.textHint,
               size: 48,
             ),
-            loadingBuilder: (_, child, chunk) {
-              if (chunk == null) return child;
+            progressIndicatorBuilder: (_, _, _) {
               return const SizedBox(
                 width: 38,
                 height: 38,

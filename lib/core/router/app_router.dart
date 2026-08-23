@@ -11,6 +11,7 @@ import 'package:soplay/features/app_lock/presentation/pages/pin_verify_page.dart
 import 'package:soplay/features/desktop_share/presentation/pages/desktop_share_page.dart';
 import 'package:soplay/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:soplay/features/auth/presentation/pages/login_page.dart';
+import 'package:soplay/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:soplay/features/auth/presentation/pages/otp_verify_page.dart';
 import 'package:soplay/features/auth/presentation/pages/register_page.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
@@ -264,6 +265,10 @@ class AppRouter {
       ),
       GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
       GoRoute(path: '/main', builder: (context, state) => const MainPage()),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingPage(),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
       GoRoute(
         path: '/forgot-password',

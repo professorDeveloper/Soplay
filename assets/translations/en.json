@@ -63,7 +63,27 @@
     "confirm_password_hint": "Repeat new password",
     "reset_password": "Reset password",
     "resend_code": "Send another code",
-    "resend_in": "Send again in {seconds}s"
+    "resend_in": "Send again in {seconds}s",
+    "identifier_hint": "Email or username",
+    "identifier_required": "Email or username required",
+    "continue_with_google": "Continue with Google",
+    "google_unavailable": "Google sign-in is not available on this device",
+    "google_failed": "Could not sign in with Google. Please try again",
+    "weak": "Weak",
+    "medium": "Medium",
+    "strong": "Strong",
+    "code_resent": "Code resent. Check your email.",
+    "verify": "Verify"
+  },
+  "onboarding": {
+    "skip": "Skip",
+    "continue_with_email": "Continue with email",
+    "slide_1_title": "Thousands of movies and series",
+    "slide_1_body": "New releases, world cinema and animation — all in one app.",
+    "slide_2_title": "Anime, a whole library",
+    "slide_2_body": "Seasonal releases, classics and subtitles. Link AniList and your list updates itself.",
+    "slide_3_title": "On the big screen too",
+    "slide_3_body": "Live TV channels, pairing your phone with the television and watching together — Sozo runs on TV as well."
   },
   "home": {
     "title": "Home",
@@ -195,7 +215,8 @@
     "engine_sheet_dont_ask": "Don't ask again",
     "engine_sheet_play": "Play",
     "subtitle_preview_text": "The quick brown fox jumps over the lazy dog",
-    "server": "Server"
+    "server": "Server",
+    "stream_not_found": "This source hides its stream behind a protected player. Try another source, or open it in your browser."
   },
   "profile": {
     "title": "Profile",
@@ -762,7 +783,13 @@
     "following_off": "Not following",
     "no_screenshots": "No screenshots",
     "show_more": "Show more",
-    "show_less": "Show less"
+    "show_less": "Show less",
+    "time_left": "{} left",
+    "liked": "{}% liked",
+    "watched_pct": "{}% watched",
+    "copy_link": "Copy link",
+    "link_copied": "Link copied",
+    "report_problem": "Report a problem"
   },
   "shorts": {
     "refresh": "Refresh",
@@ -1038,12 +1065,16 @@
     "browse_failed": "Couldn't reach AniList.",
     "episodes_count": "{count} eps",
     "reminder_body": "Episode {episode} airs in 10 minutes",
-    "reminders_on": "Remind me before episodes air",
+    "reminders_on": "Reminders on — before and when an episode airs",
     "reminders_off": "Episode reminders are off",
     "connect_first": "Connect AniList first",
     "save_failed": "Couldn't save to AniList",
     "search_in_source": "SEARCH IN ONE SOURCE",
-    "no_sources": "No sources installed yet"
+    "no_sources": "No sources installed yet",
+    "released_body": "Episode {episode} is out",
+    "remove_entry": "Remove from my list",
+    "remove_confirm": "Remove \"{}\" from your AniList? Your progress for it is deleted too.",
+    "removed": "Removed from AniList"
   },
   "tracker": {
     "title": "Tracking",
@@ -1076,7 +1107,10 @@
     "turn_tv_on": "Open Sozo on the TV to control it",
     "retry": "Try again",
     "navigation": "NAVIGATION",
-    "playback": "PLAYBACK"
+    "playback": "PLAYBACK",
+    "pick_device": "Which TV?",
+    "device_online": "Online",
+    "device_offline": "Offline — open Sozo on it"
   },
   "live_tv": {
     "title": "Live TV",

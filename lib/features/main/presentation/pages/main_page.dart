@@ -459,18 +459,19 @@ class _SoplayGlassCapsule extends StatelessWidget {
 
   static const double _barHeight = 62;
 
-  // Refractive dark glass — matches the app's dark surfaces (dark backer pad),
-  // but with a brighter specular rim, thicker body and a touch of chromatic
-  // edge so it reads as a real, pretty piece of glass (not a flat frost).
+  // Refractive dark glass — matches the app's dark surfaces (dark backer pad).
+  // The rim is deliberately quiet: a bright specular edge on a dark capsule
+  // reads as a drawn outline rather than as glass, so the highlight, the
+  // fresnel glow and the refraction band are all kept thin.
   static const _glassSettings = LiquidGlassSettings(
-    thickness: 20,
+    thickness: 14, // narrower edge band → a finer rim, not a fat outline
     blur: 5, // less haze behind the bar → cleaner, not muddy
-    chromaticAberration: 0.18, // subtle edge tint, not a rainbow smear
+    chromaticAberration: 0.08, // barely-there edge tint
     refractiveIndex: 1.5,
     saturation: 1.08,
-    lightIntensity: 1.25, // crisp top-edge specular highlight
+    lightIntensity: 0.6, // soft top-edge sheen instead of a hard stroke
     ambientStrength: 1,
-    glowIntensity: 0.7, // gentle luminous rim
+    glowIntensity: 0.25, // faint luminous rim
     glassColor: Color(0x12FFFFFF), // faint white sheen
     backerColor: Color(0xE61A1A1A), // near-solid dark pad → premium, not hazy
     whitenStrength: 0.0,

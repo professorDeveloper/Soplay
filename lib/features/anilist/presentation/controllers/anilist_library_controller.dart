@@ -163,6 +163,33 @@ class AnilistLibraryController extends ChangeNotifier {
     }
   }
 
+  /// Takes a title off the list for good.
+  ///
+  /// Removed from view first and put back if AniList refuses, the same way the
+  /// other two writes work — the list is the viewer's own and a round trip of
+  /// latency before it reflects their decision reads as the tap not landing.
+  Future<String?> remove(AnilistListEntry entry) async {
+    final token = _service.token;
+    if (token == null) return 'anilist.connect_first'.tr();
+    if (_busy.contains(entry.id)) return null;
+
+    final previous = _entries;
+    _busy.add(entry.id);
+    _entries = _entries.where((e) => e.id != entry.id).toList(growable: false);
+    notifyListeners();
+
+    try {
+      await _service.api.deleteEntry(token: token, entryId: entry.id);
+      return null;
+    } catch (e) {
+      _entries = previous;
+      return e is AnilistException ? e.message : 'anilist.save_failed'.tr();
+    } finally {
+      _busy.remove(entry.id);
+      notifyListeners();
+    }
+  }
+
   /// Completing the final episode should not leave the title on "Watching".
   static String? _statusAfter(AnilistListEntry entry, int progress) {
     final total = entry.media.episodes;

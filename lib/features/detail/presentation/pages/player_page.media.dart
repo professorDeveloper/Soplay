@@ -285,11 +285,19 @@ extension _PlayerMedia on _PlayerPageState {
         effType = sniffed.playType;
         _plog('sniff ok in ${sw.elapsedMilliseconds}ms -> $effUrl');
       } else {
-        // Fall through with the page url. It will fail, but with the player's
-        // own error rather than a silent black screen — and the log above says
-        // why. Blanking here would hide a recoverable retry.
+        // The url in hand is the embed PAGE. Handing that to the player used to
+        // cost two doomed retries and a minute of spinner before an error that
+        // blamed the format — the page is HTML, so of course no extractor reads
+        // it. Say what actually happened, and offer the browser, which is where
+        // a player this protected does work.
         _plog('sniff found no stream in ${sw.elapsedMilliseconds}ms',
             level: LogLevel.warn);
+        setState(() {
+          _initializing = false;
+          _isCodecError = true;
+          _errorMessage = 'player.stream_not_found'.tr();
+        });
+        return;
       }
     }
 

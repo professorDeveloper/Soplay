@@ -17,5 +17,6 @@ class UserEntity {
     this.createdAt,
   });
 
-  String get displayIdentifier => username ?? displayName ?? email.split('@').first;
+  String get displayIdentifier =>
+      username ?? displayName ?? email.split('@').first;
 }
