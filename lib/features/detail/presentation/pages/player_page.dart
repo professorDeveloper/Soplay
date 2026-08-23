@@ -28,8 +28,8 @@ import 'package:soplay/features/cloudflare/cloudflare_solver.dart';
 import 'package:soplay/features/detail/domain/entities/episode_entity.dart';
 import 'package:soplay/features/detail/domain/entities/extractor_config_entity.dart';
 import 'package:soplay/features/detail/domain/entities/player_args.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:soplay/core/subtitles/online_subtitles_service.dart';
+import 'package:soplay/core/subtitles/subtitle_translation_service.dart';
 import 'package:soplay/core/subtitles/subtitle_parser.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_entity.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
@@ -146,6 +146,11 @@ class _PlayerPageState extends State<PlayerPage>
   /// Cues for the active track, already sorted by start time — see
   /// [_PlayerSubtitles._loadSubtitle]. Null means "no track loaded".
   List<Caption>? _captionFile;
+  // AI-translated tracks build their cues progressively and hold them here,
+  // keyed by the entity's 'ai:<n>' marker, so re-selecting one restores the
+  // cues instead of trying to download an empty url.
+  final Map<String, List<Caption>> _aiCaptions = {};
+  int _aiTrackCounter = 0;
   final ValueNotifier<int> _subtitleOffsetMs = ValueNotifier<int>(0);
 
   /// Frame-rate conversion factor for the active subtitle. A 25fps subtitle

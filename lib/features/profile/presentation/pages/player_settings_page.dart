@@ -9,6 +9,7 @@ import 'package:soplay/core/player/media_controller.dart'
 import 'package:soplay/core/player/player_engine.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/subtitles/subtitle_languages.dart';
 import 'package:soplay/features/detail/domain/entities/subtitle_style.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
@@ -52,6 +53,8 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
   late bool _volumeGesture;
   late bool _keepScreenOn;
   late SubtitleStyle _subtitle;
+  late bool _autoTranslate;
+  late String _translateLang;
 
   static const List<double> _speedChoices = [
     0.5,
@@ -86,6 +89,8 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
     _volumeGesture = _hive.volumeGestureEnabled;
     _keepScreenOn = _hive.keepScreenOn;
     _subtitle = _hive.getSubtitleStyle();
+    _autoTranslate = _hive.getSubtitleAutoTranslate();
+    _translateLang = _hive.getSubtitleTranslateLang();
     if (kDebugMode) {
       final readMs = _openWatch.elapsedMilliseconds;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -288,6 +293,42 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
               ),
             ],
           ),
+
+          const SizedBox(height: 22),
+          SettingsLabel('player.subtitle_translation'.tr()),
+          SettingsCard(
+            children: [
+              SettingsSwitchTile(
+                icon: Icons.translate_rounded,
+                title: 'player.auto_translate'.tr(),
+                subtitle: 'player.auto_translate_desc'.tr(),
+                value: _autoTranslate,
+                onChanged: (v) {
+                  setState(() => _autoTranslate = v);
+                  _hive.setSubtitleAutoTranslate(v);
+                },
+              ),
+              SettingsDivider(),
+              SettingsDropdownTile<String>(
+                icon: Icons.language_rounded,
+                title: 'player.translate_to'.tr(),
+                value: kSubtitleTranslateLanguages
+                        .any((l) => l.$1 == _translateLang)
+                    ? _translateLang
+                    : 'uz',
+                options: [for (final l in kSubtitleTranslateLanguages) l.$1],
+                labelOf: (v) => kSubtitleTranslateLanguages
+                    .firstWhere((l) => l.$1 == v,
+                        orElse: () => kSubtitleTranslateLanguages.first)
+                    .$2,
+                onChanged: (v) {
+                  setState(() => _translateLang = v);
+                  _hive.setSubtitleTranslateLang(v);
+                },
+              ),
+            ],
+          ),
+          SettingsFootnote('player.translate_note'.tr()),
 
           const SizedBox(height: 22),
           SettingsLabel('player.subtitle_style'.tr()),

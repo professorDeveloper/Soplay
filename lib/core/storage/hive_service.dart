@@ -617,6 +617,32 @@ class HiveService {
     await _settingsBox.put('reader_bg', bg);
   }
 
+  /// Whether to translate a subtitle on play when the source has none in the
+  /// chosen language. Off by default — it spends a shared, capped budget.
+  bool getSubtitleAutoTranslate() {
+    return _settingsBox.get(
+          AppConstants.subtitleAutoTranslateKey,
+          defaultValue: false,
+        ) ==
+        true;
+  }
+
+  Future<void> setSubtitleAutoTranslate(bool value) async {
+    await _settingsBox.put(AppConstants.subtitleAutoTranslateKey, value);
+  }
+
+  /// Target language for subtitle translation. Falls back to the app language,
+  /// which is the one the person already reads the interface in.
+  String getSubtitleTranslateLang() {
+    final saved = _settingsBox.get(AppConstants.subtitleTranslateLangKey);
+    if (saved is String && saved.isNotEmpty) return saved;
+    return getLanguage();
+  }
+
+  Future<void> setSubtitleTranslateLang(String lang) async {
+    await _settingsBox.put(AppConstants.subtitleTranslateLangKey, lang.trim());
+  }
+
   SubtitleStyle getSubtitleStyle() {
     final raw = _settingsBox.get(AppConstants.subtitleStyleKey);
     if (raw is String && raw.isNotEmpty) {
