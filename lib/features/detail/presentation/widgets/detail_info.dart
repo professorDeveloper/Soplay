@@ -69,12 +69,14 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
               constraints: BoxConstraints(
                 maxWidth: isDesktopPlatform ? 900 : double.infinity,
               ),
-              child:
-                  _ExpandableDescription(text: widget.detail.description.trim()),
+              child: _ExpandableDescription(
+                text: widget.detail.description.trim(),
+              ),
             ),
           ],
           const SizedBox(height: 18),
-          if (item != null && (item.positionMs > 0 || item.episodeNumber != null))
+          if (item != null &&
+              (item.positionMs > 0 || item.episodeNumber != null))
             _ContinueWatchingCard(item: item, onTap: widget.onPrimaryAction)
           else
             _PlayButton(
@@ -91,36 +93,98 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
   }
 }
 
+/// Resume, with how far in you already are.
+///
+/// The button alone said "Continue" and nothing else: not which episode was
+/// half-finished, not whether it was two minutes in or two minutes from the
+/// end. The progress the player already records was on the page for the
+/// carousel and nowhere on the title's own screen.
 class _ContinueWatchingCard extends StatelessWidget {
   const _ContinueWatchingCard({required this.item, required this.onTap});
   final HistoryItem item;
   final VoidCallback onTap;
 
+  /// "1h 12m" / "24m" — the shape a remaining-time label wants, and short
+  /// enough to sit next to the episode on one line.
+  static String _short(Duration d) {
+    final hours = d.inHours;
+    final minutes = d.inMinutes.remainder(60);
+    if (hours > 0) return '${hours}h ${minutes}m';
+    if (d.inMinutes > 0) return '${d.inMinutes}m';
+    return '${d.inSeconds}s';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final progress = item.progress;
+    final left = item.durationMs > 0
+        ? Duration(milliseconds: item.durationMs - item.positionMs)
+        : null;
+
+    final caption = <String>[
+      if (item.isSerial && item.episodeNumber != null)
+        'detail.episode_n'.tr(args: ['${item.episodeNumber}']),
+      if (left != null && left > const Duration(seconds: 30))
+        'detail.time_left'.tr(args: [_short(left)])
+      else if (progress > 0)
+        'detail.watched_pct'.tr(args: ['${(progress * 100).round()}']),
+    ].join(' \u00b7 ');
+
     return SizedBox(
       width: isDesktopPlatform ? 360 : double.infinity,
-      height: 46,
-      child: ElevatedButton.icon(
-        onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 46,
+            child: ElevatedButton.icon(
+              onPressed: onTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              icon: const Icon(Icons.play_arrow_rounded, size: 26),
+              label: Text(
+                item.isSerial && item.episodeNumber != null
+                    ? 'detail.continue_ep'.tr(args: ['${item.episodeNumber}'])
+                    : 'detail.continue_watching'.tr(),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
           ),
-        ),
-        icon: const Icon(Icons.play_arrow_rounded, size: 26),
-        label: Text(
-          item.isSerial && item.episodeNumber != null
-              ? 'detail.continue_ep'.tr(args: ['${item.episodeNumber}'])
-              : 'detail.continue_watching'.tr(),
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
+          // A bar is only honest when the player reported a duration; a
+          // zero-length track would draw an empty rail that never moves.
+          if (progress > 0) ...[
+            const SizedBox(height: 9),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 3,
+                backgroundColor: AppColors.surfaceVariant,
+                valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+              ),
+            ),
+          ],
+          if (caption.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              caption,
+              style: const TextStyle(
+                color: AppColors.textHint,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -139,7 +203,14 @@ class _MetaLine extends StatelessWidget {
       if (detail.country != null && detail.country!.trim().isNotEmpty)
         detail.country!.trim(),
     ];
-    if (parts.isEmpty) return const SizedBox.shrink();
+
+    // Votes were parsed on every detail request and then dropped on the floor.
+    // A ratio is what a viewer actually asks of them ("is this any good?"), and
+    // a handful of votes cannot answer that, so a thin sample stays hidden.
+    final votes = detail.likes + detail.dislikes;
+    final rating = votes >= 5 ? (detail.likes * 100 / votes).round() : null;
+
+    if (parts.isEmpty && rating == null) return const SizedBox.shrink();
 
     final widgets = <Widget>[];
     for (var i = 0; i < parts.length; i++) {
@@ -157,12 +228,58 @@ class _MetaLine extends StatelessWidget {
         widgets.add(const _Dot());
       }
     }
+    if (rating != null) {
+      if (widgets.isNotEmpty) widgets.add(const _Dot());
+      widgets.add(_LikeRatio(percent: rating, votes: votes));
+    }
     // Wrap, not Row: a long country or runtime string overflowed the line on
     // narrow phones.
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       runSpacing: 4,
       children: widgets,
+    );
+  }
+}
+
+/// How the crowd voted, as a share rather than two raw counters — with the
+/// sample size beside it so a 100% from six people is not read as a verdict.
+class _LikeRatio extends StatelessWidget {
+  const _LikeRatio({required this.percent, required this.votes});
+
+  final int percent;
+  final int votes;
+
+  @override
+  Widget build(BuildContext context) {
+    final positive = percent >= 60;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          positive ? Icons.thumb_up_rounded : Icons.thumb_down_rounded,
+          size: 13,
+          color: positive ? AppColors.rating : AppColors.textHint,
+        ),
+        const SizedBox(width: 5),
+        Text(
+          'detail.liked'.tr(args: ['$percent']),
+          style: TextStyle(
+            color: positive ? AppColors.rating : AppColors.textSecondary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          '($votes)',
+          style: const TextStyle(
+            color: AppColors.textHint,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -188,9 +305,7 @@ class _GenresRow extends StatelessWidget {
 
   static String _slugify(String value) {
     final s = value.trim().toLowerCase();
-    return s
-        .replaceAll(RegExp(r"\s+"), '-')
-        .replaceAll(RegExp(r"-+"), '-');
+    return s.replaceAll(RegExp(r"\s+"), '-').replaceAll(RegExp(r"-+"), '-');
   }
 
   @override
@@ -343,11 +458,7 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
 }
 
 class _PlayButton extends StatelessWidget {
-  const _PlayButton({
-    super.key,
-    required this.onTap,
-    this.reader = false,
-  });
+  const _PlayButton({super.key, required this.onTap, this.reader = false});
   final VoidCallback onTap;
 
   /// Reading source — label and icon switch from Play/▶ to Read/book.

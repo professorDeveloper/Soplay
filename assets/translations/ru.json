@@ -63,7 +63,27 @@
     "confirm_password_hint": "Повторите новый пароль",
     "reset_password": "Сбросить пароль",
     "resend_code": "Отправить ещё раз",
-    "resend_in": "Повторно через {seconds} с"
+    "resend_in": "Повторно через {seconds} с",
+    "identifier_hint": "Email или имя пользователя",
+    "identifier_required": "Введите email или имя пользователя",
+    "continue_with_google": "Продолжить с Google",
+    "google_unavailable": "Вход через Google недоступен на этом устройстве",
+    "google_failed": "Не удалось войти через Google. Попробуйте ещё раз",
+    "weak": "Слабый",
+    "medium": "Средний",
+    "strong": "Надёжный",
+    "code_resent": "Код отправлен повторно. Проверьте почту.",
+    "verify": "Подтвердить"
+  },
+  "onboarding": {
+    "skip": "Пропустить",
+    "continue_with_email": "Продолжить с email",
+    "slide_1_title": "Тысячи фильмов и сериалов",
+    "slide_1_body": "Премьеры, мировое кино и мультфильмы — всё в одном приложении.",
+    "slide_2_title": "Аниме — целая библиотека",
+    "slide_2_body": "Сезонные новинки, классика и субтитры. Свяжите AniList — список обновится сам.",
+    "slide_3_title": "И на большом экране",
+    "slide_3_body": "Живые ТВ-каналы, подключение телефона к телевизору и совместный просмотр — Sozo работает и на ТВ."
   },
   "home": {
     "title": "Главная",
@@ -195,7 +215,8 @@
     "engine_sheet_dont_ask": "Больше не спрашивать",
     "engine_sheet_play": "Смотреть",
     "subtitle_preview_text": "Съешь ещё этих мягких французских булок",
-    "server": "Сервер"
+    "server": "Сервер",
+    "stream_not_found": "Этот источник прячет поток за защищённым плеером. Выберите другой источник или откройте в браузере."
   },
   "profile": {
     "title": "Профиль",
@@ -762,7 +783,13 @@
     "following_off": "Не отслеживается",
     "no_screenshots": "Нет кадров",
     "show_more": "Показать больше",
-    "show_less": "Свернуть"
+    "show_less": "Свернуть",
+    "time_left": "осталось {}",
+    "liked": "{}% понравилось",
+    "watched_pct": "{}% просмотрено",
+    "copy_link": "Скопировать ссылку",
+    "link_copied": "Ссылка скопирована",
+    "report_problem": "Сообщить о проблеме"
   },
   "shorts": {
     "refresh": "Обновить",
@@ -1038,12 +1065,16 @@
     "browse_failed": "AniList недоступен.",
     "episodes_count": "{count} эп.",
     "reminder_body": "Эпизод {episode} выйдет через 10 минут",
-    "reminders_on": "Напоминать перед выходом эпизодов",
+    "reminders_on": "Напоминания включены — до выхода эпизода и когда он выйдет",
     "reminders_off": "Напоминания выключены",
     "connect_first": "Сначала подключите AniList",
     "save_failed": "Не удалось сохранить в AniList",
     "search_in_source": "ИСКАТЬ В ОДНОМ ИСТОЧНИКЕ",
-    "no_sources": "Источники не установлены"
+    "no_sources": "Источники не установлены",
+    "released_body": "Эпизод {episode} вышел",
+    "remove_entry": "Удалить из моего списка",
+    "remove_confirm": "Удалить «{}» из вашего AniList? Прогресс по нему тоже удалится.",
+    "removed": "Удалено из AniList"
   },
   "tracker": {
     "title": "Tracking",
@@ -1076,7 +1107,10 @@
     "turn_tv_on": "Откройте Sozo на ТВ, чтобы управлять",
     "retry": "Повторить",
     "navigation": "НАВИГАЦИЯ",
-    "playback": "ВОСПРОИЗВЕДЕНИЕ"
+    "playback": "ВОСПРОИЗВЕДЕНИЕ",
+    "pick_device": "Какой телевизор?",
+    "device_online": "В сети",
+    "device_offline": "Не в сети — откройте на нём Sozo"
   },
   "live_tv": {
     "title": "Эфир",

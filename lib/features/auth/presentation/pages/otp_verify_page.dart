@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,6 +9,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
+import 'package:soplay/features/auth/presentation/widgets/auth_widgets.dart';
 
 class OtpVerifyPage extends StatefulWidget {
   const OtpVerifyPage({super.key, required this.email});
@@ -144,187 +146,172 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: BlocListener<AuthBloc, AuthState>(
-        listenWhen: (a, b) =>
-            a.runtimeType != b.runtimeType ||
-            (a is AuthOtpPending &&
-                b is AuthOtpPending &&
-                a.cooldownUntil != b.cooldownUntil),
-        listener: (context, state) {
-          if (state is AuthLoaded) {
-            context.go('/main');
-            return;
-          }
-          if (state is AuthOtpPending) {
-            _startCountdown(state.cooldownUntil);
-            if (state.justResent) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Code resent. Check your email.'),
-                  backgroundColor: AppColors.surface,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              );
+          listenWhen: (a, b) =>
+              a.runtimeType != b.runtimeType ||
+              (a is AuthOtpPending &&
+                  b is AuthOtpPending &&
+                  a.cooldownUntil != b.cooldownUntil),
+          listener: (context, state) {
+            if (state is AuthLoaded) {
+              context.go('/main');
+              return;
             }
-          }
-        },
-        child: SafeArea(
-          child: BlocBuilder<AuthBloc, AuthState>(
-            builder: (context, state) {
-              final pending = state is AuthOtpPending ? state : null;
-              final verifying = pending?.verifying ?? false;
-              final resending = pending?.resending ?? false;
-              final error = pending?.error;
-              final canResend = _remaining == Duration.zero && !resending;
-              final codeLength = _controller.text.length;
-              final canSubmit = codeLength == _length && !verifying;
+            if (state is AuthOtpPending) {
+              _startCountdown(state.cooldownUntil);
+              if (state.justResent) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('auth.code_resent'.tr()),
+                    backgroundColor: AppColors.surface,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
+              }
+            }
+          },
+          child: SafeArea(
+            child: BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, state) {
+                final pending = state is AuthOtpPending ? state : null;
+                final verifying = pending?.verifying ?? false;
+                final resending = pending?.resending ?? false;
+                final error = pending?.error;
+                final canResend = _remaining == Duration.zero && !resending;
+                final codeLength = _controller.text.length;
+                final canSubmit = codeLength == _length && !verifying;
 
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight - 32,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _TopBar(onBack: _back),
-                          const SizedBox(height: 32),
-                          Center(
-                            child: Container(
-                              width: 84,
-                              height: 84,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.12),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.mark_email_read_rounded,
-                                color: AppColors.primary,
-                                size: 40,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 22),
-                          const Text(
-                            'Verification code',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text.rich(
-                            TextSpan(
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 14,
-                                height: 1.5,
-                              ),
-                              children: [
-                                const TextSpan(
-                                  text: 'We sent a 6-digit code to\n',
-                                ),
-                                TextSpan(
-                                  text: widget.email,
-                                  style: const TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontWeight: FontWeight.w700,
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight - 32,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _TopBar(onBack: _back),
+                            const SizedBox(height: 32),
+                            Center(
+                              child: Container(
+                                width: 84,
+                                height: 84,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.12,
                                   ),
+                                  shape: BoxShape.circle,
                                 ),
-                              ],
+                                child: const Icon(
+                                  Icons.mark_email_read_rounded,
+                                  color: AppColors.primary,
+                                  size: 40,
+                                ),
+                              ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 32),
-                          _OtpField(
-                            controller: _controller,
-                            focusNode: _focus,
-                            length: _length,
-                            onChanged: _onCodeChanged,
-                            hasError: error != null,
-                          ),
-                          AnimatedSize(
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOut,
-                            child: error == null
-                                ? const SizedBox(height: 0)
-                                : Padding(
-                                    padding: const EdgeInsets.only(top: 14),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(
-                                          Icons.error_outline_rounded,
-                                          color: AppColors.error,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Flexible(
-                                          child: Text(
-                                            error,
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(
-                                              color: AppColors.error,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
+                            const SizedBox(height: 22),
+                            const Text(
+                              'Verification code',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text.rich(
+                              TextSpan(
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 14,
+                                  height: 1.5,
+                                ),
+                                children: [
+                                  const TextSpan(
+                                    text: 'We sent a 6-digit code to\n',
+                                  ),
+                                  TextSpan(
+                                    text: widget.email,
+                                    style: const TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 32),
+                            _OtpField(
+                              controller: _controller,
+                              focusNode: _focus,
+                              length: _length,
+                              onChanged: _onCodeChanged,
+                              hasError: error != null,
+                            ),
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOut,
+                              child: error == null
+                                  ? const SizedBox(height: 0)
+                                  : Padding(
+                                      padding: const EdgeInsets.only(top: 14),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.error_outline_rounded,
+                                            color: AppColors.error,
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Flexible(
+                                            child: Text(
+                                              error,
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(
+                                                color: AppColors.error,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(height: 28),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: ElevatedButton(
-                              onPressed: canSubmit ? _submit : null,
-                              child: verifying
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2.4,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Verify',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
+                                        ],
                                       ),
                                     ),
                             ),
-                          ),
-                          const SizedBox(height: 22),
-                          _ResendRow(
-                            canResend: canResend,
-                            resending: resending,
-                            remaining: _remaining,
-                            onResend: _resend,
-                            formatCooldown: _formatCooldown,
-                          ),
-                          const SizedBox(height: 12),
-                        ],
+                            const SizedBox(height: 28),
+                            AuthPrimaryButton(
+                              label: 'auth.verify'.tr(),
+                              loading: verifying,
+                              onPressed: canSubmit ? _submit : null,
+                            ),
+                            const SizedBox(height: 22),
+                            _ResendRow(
+                              canResend: canResend,
+                              resending: resending,
+                              remaining: _remaining,
+                              onResend: _resend,
+                              formatCooldown: _formatCooldown,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              );
-            },
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -398,12 +385,9 @@ class _ResendRow extends StatelessWidget {
             resending
                 ? 'Sending...'
                 : canResend
-                    ? 'Resend'
-                    : 'Resend in ${formatCooldown(remaining)}',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
+                ? 'Resend'
+                : 'Resend in ${formatCooldown(remaining)}',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           ),
         ),
       ],
@@ -508,15 +492,15 @@ class _OtpCell extends StatelessWidget {
     final borderColor = hasError
         ? AppColors.error
         : isFocused
-            ? AppColors.primary
-            : isFilled
-                ? AppColors.textHint
-                : AppColors.border;
+        ? AppColors.primary
+        : isFilled
+        ? AppColors.textHint
+        : AppColors.border;
     final bgColor = hasError
         ? AppColors.error.withValues(alpha: 0.06)
         : isFocused
-            ? AppColors.primary.withValues(alpha: 0.08)
-            : AppColors.surface;
+        ? AppColors.primary.withValues(alpha: 0.08)
+        : AppColors.surface;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       curve: Curves.easeOut,
@@ -537,10 +521,7 @@ class _OtpCell extends StatelessWidget {
           child: FadeTransition(opacity: anim, child: child),
         ),
         child: char.isEmpty
-            ? _CursorDot(
-                key: const ValueKey('empty'),
-                visible: isFocused,
-              )
+            ? _CursorDot(key: const ValueKey('empty'), visible: isFocused)
             : Text(
                 char,
                 key: ValueKey(char + isFilled.toString()),

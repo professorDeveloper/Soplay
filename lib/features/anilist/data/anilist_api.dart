@@ -393,6 +393,35 @@ class AnilistApi {
     return saveProgress(token: token, mediaId: mediaId, status: status.value);
   }
 
+  /// Takes a title off the viewer's list entirely.
+  ///
+  /// [entryId] is the LIST ENTRY id, not the media id — AniList deletes by the
+  /// row, and passing a media id here silently deletes nothing (or somebody
+  /// else's row, if it happens to collide).
+  ///
+  /// A missing entry counts as success: the caller wanted it gone, and it is.
+  Future<void> deleteEntry({
+    required String token,
+    required int entryId,
+  }) async {
+    const mutation = '''
+      mutation (\$id: Int) {
+        DeleteMediaListEntry(id: \$id) {
+          deleted
+        }
+      }
+    ''';
+    final data = await _run(
+      mutation,
+      variables: {'id': entryId},
+      token: token,
+    );
+    final result = data['DeleteMediaListEntry'];
+    if (result is Map && result['deleted'] == false) {
+      throw const AnilistException('AniList did not remove the entry');
+    }
+  }
+
   /// Writes progress back to AniList.
   ///
   /// [progress] is an episode COUNT, not an index — AniList means "episodes

@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
@@ -208,12 +209,12 @@ class _CastAvatar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: imageUrl.isNotEmpty
-          ? Image.network(
-              imageUrl,
+          ? CachedNetworkImage(
+              imageUrl: imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => _Initials(initials: _initials),
-              loadingBuilder: (_, child, chunk) =>
-                  chunk == null ? child : _Initials(initials: _initials),
+              fadeInDuration: const Duration(milliseconds: 160),
+              errorWidget: (_, _, _) => _Initials(initials: _initials),
+              placeholder: (_, _) => _Initials(initials: _initials),
             )
           : _Initials(initials: _initials),
     );

@@ -36,58 +36,84 @@ class HomeTopBar extends StatelessWidget {
     final topPad = MediaQuery.of(context).padding.top;
     final progress = blurProgress.clamp(0.0, 1.0);
 
+    // Eight targets — wordmark, source pill, streak, and five actions — do not
+    // fit a phone at full spacing; the row overflowed by 18px on a 411dp
+    // screen. The space comes out of the wordmark and the icon gaps, NOT out of
+    // the source name: which source is live is the one piece of state in this
+    // bar, and a bare logo does not say it.
+    final compact = MediaQuery.sizeOf(context).width < 430;
+    final iconPad = compact ? 6.0 : 8.0;
+
+    final actions = <Widget>[
+      DesktopRefreshButton(
+        color: AppColors.textPrimary,
+        onRefresh: () => context.read<HomeBloc>().add(HomeLoad(silent: true)),
+      ),
+      _TopBarIcon(
+        icon: Icons.groups_rounded,
+        pad: iconPad,
+        onTap: () => showPartyEntrySheet(context),
+      ),
+      _TopBarIcon(
+        icon: Icons.search_rounded,
+        pad: iconPad,
+        onTap: () => getIt<NavController>().goToId(TabId.search),
+      ),
+      // AniList lived four taps deep behind the profile. Discovery and the
+      // airing calendar are things people open daily, and a tracker nobody
+      // can find is a tracker nobody connects.
+      _TopBarIcon.custom(
+        pad: iconPad,
+        child: const AnilistLogo(size: 19, radius: 5),
+        onTap: () => context.push('/anilist'),
+      ),
+      // Live TV was reachable only through the profile, which is where
+      // things go to be forgotten. It is a line-up you open and leave, not
+      // a setting.
+      _TopBarIcon(
+        icon: Icons.live_tv_rounded,
+        pad: iconPad,
+        onTap: () => context.push('/live-tv'),
+      ),
+      _DownloadIndicator(pad: iconPad),
+      _NotificationsIndicator(pad: iconPad),
+    ];
+
     final bar = Padding(
       padding: EdgeInsets.fromLTRB(20, topPad + 10, 12, 10),
       child: Row(
         children: [
-          const Text(
+          Text(
             'SOZO',
             style: TextStyle(
               color: AppColors.primary,
-              fontSize: 22,
+              fontSize: compact ? 18 : 22,
               fontWeight: FontWeight.w900,
-              letterSpacing: 2.5,
+              letterSpacing: compact ? 1.6 : 2.5,
               height: 1,
             ),
           ),
-          const SizedBox(width: 10),
-          const Flexible(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: _ProviderSwitcher(),
-            ),
+          SizedBox(width: compact ? 8 : 10),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: compact ? 116 : 170),
+            child: const _ProviderSwitcher(),
           ),
           const SizedBox(width: 8),
           const StreakBadge(),
-          DesktopRefreshButton(
-            color: AppColors.textPrimary,
-            onRefresh: () =>
-                context.read<HomeBloc>().add(HomeLoad(silent: true)),
+          // The last line of defence: a transient download badge, a long streak
+          // count or a large system font can still outgrow what is left, and a
+          // strip that scales a few percent reads better than a yellow bar.
+          // Expanded, not Flexible: a loose child shrinks to its own width and
+          // then sits wherever the row left it, so the strip floated mid-bar
+          // with dead space to its right. Filling the remainder is what lets
+          // centerRight actually pin it to the edge.
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+            ),
           ),
-          _TopBarIcon(
-            icon: Icons.groups_rounded,
-            onTap: () => showPartyEntrySheet(context),
-          ),
-          _TopBarIcon(
-            icon: Icons.search_rounded,
-            onTap: () => getIt<NavController>().goToId(TabId.search),
-          ),
-          // AniList lived four taps deep behind the profile. Discovery and the
-          // airing calendar are things people open daily, and a tracker nobody
-          // can find is a tracker nobody connects.
-          _TopBarIcon.custom(
-            child: const AnilistLogo(size: 19, radius: 5),
-            onTap: () => context.push('/anilist'),
-          ),
-          // Live TV was reachable only through the profile, which is where
-          // things go to be forgotten. It is a line-up you open and leave, not
-          // a setting.
-          _TopBarIcon(
-            icon: Icons.live_tv_rounded,
-            onTap: () => context.push('/live-tv'),
-          ),
-          _DownloadIndicator(),
-          const _NotificationsIndicator(),
         ],
       ),
     );
@@ -124,10 +150,7 @@ class _TopBarBackground extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withValues(alpha: 0.80),
-              Colors.transparent,
-            ],
+            colors: [Colors.black.withValues(alpha: 0.80), Colors.transparent],
           ),
         ),
       );
@@ -135,10 +158,7 @@ class _TopBarBackground extends StatelessWidget {
 
     return ClipRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: 14 * progress,
-          sigmaY: 14 * progress,
-        ),
+        filter: ImageFilter.blur(sigmaX: 14 * progress, sigmaY: 14 * progress),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: AppColors.navBackground.withValues(alpha: 0.72 * progress),
@@ -306,8 +326,11 @@ class _ProviderQuickSwitchSheet extends StatelessWidget {
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,
                 itemCount: favorites.length,
-                itemBuilder: (context, i) =>
-                    _favoriteProviderTile(context, favorites[i], currentProviderId),
+                itemBuilder: (context, i) => _favoriteProviderTile(
+                  context,
+                  favorites[i],
+                  currentProviderId,
+                ),
               ),
             )
           else
@@ -316,8 +339,11 @@ class _ProviderQuickSwitchSheet extends StatelessWidget {
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,
                 itemCount: favorites.length,
-                itemBuilder: (context, i) =>
-                    _favoriteProviderTile(context, favorites[i], currentProviderId),
+                itemBuilder: (context, i) => _favoriteProviderTile(
+                  context,
+                  favorites[i],
+                  currentProviderId,
+                ),
               ),
             ),
           const Divider(color: AppColors.divider, height: 1),
@@ -329,8 +355,11 @@ class _ProviderQuickSwitchSheet extends StatelessWidget {
                 color: AppColors.surfaceVariant,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.apps_rounded,
-                  color: AppColors.textSecondary, size: 18),
+              child: const Icon(
+                Icons.apps_rounded,
+                color: AppColors.textSecondary,
+                size: 18,
+              ),
             ),
             title: Text(
               'profile.all_providers'.tr(),
@@ -340,8 +369,11 @@ class _ProviderQuickSwitchSheet extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            trailing: const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textHint, size: 20),
+            trailing: const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textHint,
+              size: 20,
+            ),
             onTap: () => Navigator.of(context).pop(_kAllProvidersAction),
           ),
           SizedBox(height: bottomPad + 8),
@@ -352,7 +384,10 @@ class _ProviderQuickSwitchSheet extends StatelessWidget {
 }
 
 Widget _favoriteProviderTile(
-    BuildContext context, ProviderEntity p, String currentProviderId) {
+  BuildContext context,
+  ProviderEntity p,
+  String currentProviderId,
+) {
   final selected = p.id == currentProviderId;
   return ListTile(
     leading: _ProviderLogo(image: p.image, size: 36),
@@ -410,7 +445,9 @@ class _ProviderLogo extends StatelessWidget {
 }
 
 class _NotificationsIndicator extends StatefulWidget {
-  const _NotificationsIndicator();
+  const _NotificationsIndicator({this.pad = 8});
+
+  final double pad;
 
   @override
   State<_NotificationsIndicator> createState() =>
@@ -512,7 +549,7 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
           _refresh(force: true);
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          padding: EdgeInsets.symmetric(horizontal: widget.pad, vertical: 10),
           child: SizedBox(
             width: 24,
             height: 24,
@@ -565,16 +602,25 @@ class _NotificationsIndicatorState extends State<_NotificationsIndicator>
 }
 
 class _TopBarIcon extends StatelessWidget {
-  const _TopBarIcon({required IconData this.icon, required this.onTap})
-    : child = null;
+  const _TopBarIcon({
+    required IconData this.icon,
+    required this.onTap,
+    this.pad = 8,
+  }) : child = null;
 
   /// For a brand mark, which is an image rather than an icon font glyph.
-  const _TopBarIcon.custom({required Widget this.child, required this.onTap})
-    : icon = null;
+  const _TopBarIcon.custom({
+    required Widget this.child,
+    required this.onTap,
+    this.pad = 8,
+  }) : icon = null;
 
   final IconData? icon;
   final Widget? child;
   final VoidCallback onTap;
+
+  /// Horizontal breathing room, tightened on phones where the row is full.
+  final double pad;
 
   @override
   Widget build(BuildContext context) {
@@ -586,7 +632,7 @@ class _TopBarIcon extends StatelessWidget {
         child: Padding(
           // Vertical 10 (not 8): a 40dp target was under the minimum, and
           // widening it instead would overflow the row on a small phone.
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          padding: EdgeInsets.symmetric(horizontal: pad, vertical: 10),
           // Sized to match the icons beside it, so the row stays even.
           child: SizedBox(
             width: 24,
@@ -600,6 +646,10 @@ class _TopBarIcon extends StatelessWidget {
 }
 
 class _DownloadIndicator extends StatefulWidget {
+  const _DownloadIndicator({this.pad = 8});
+
+  final double pad;
+
   @override
   State<_DownloadIndicator> createState() => _DownloadIndicatorState();
 }
@@ -632,7 +682,9 @@ class _DownloadIndicatorState extends State<_DownloadIndicator>
   void _check() {
     if (!mounted) return;
     final items = _service.getAll();
-    final active = items.where((i) => i.status == DownloadStatus.downloading).length;
+    final active = items
+        .where((i) => i.status == DownloadStatus.downloading)
+        .length;
     final hasActive = active > 0;
     if (hasActive != _hasActive || active != _activeCount) {
       setState(() {
@@ -657,7 +709,7 @@ class _DownloadIndicatorState extends State<_DownloadIndicator>
         borderRadius: BorderRadius.circular(24),
         onTap: () => context.push('/downloads'),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          padding: EdgeInsets.symmetric(horizontal: widget.pad, vertical: 10),
           child: SizedBox(
             width: 24,
             height: 24,

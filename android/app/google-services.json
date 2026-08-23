@@ -13,7 +13,12 @@
           "package_name": "com.animestudios.animeapp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "767586905505-g0kjbh1n4d6k4o4j2es9e23unutsb2pd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBEOHebJaGTtawrlDtaASQbL_ksSp4xK3o"
@@ -21,7 +26,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "767586905505-g0kjbh1n4d6k4o4j2es9e23unutsb2pd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     },
@@ -32,7 +42,12 @@
           "package_name": "com.azamovme.sozotvlogin"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "767586905505-g0kjbh1n4d6k4o4j2es9e23unutsb2pd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBEOHebJaGTtawrlDtaASQbL_ksSp4xK3o"
@@ -40,7 +55,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "767586905505-g0kjbh1n4d6k4o4j2es9e23unutsb2pd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     },
@@ -51,7 +71,12 @@
           "package_name": "com.saikou.sozo_tv"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "767586905505-g0kjbh1n4d6k4o4j2es9e23unutsb2pd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBEOHebJaGTtawrlDtaASQbL_ksSp4xK3o"
@@ -59,7 +84,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "767586905505-g0kjbh1n4d6k4o4j2es9e23unutsb2pd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     },
@@ -70,7 +100,28 @@
           "package_name": "com.soplay.sozo"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "767586905505-6taagnps9gv03kq4ovf6voftnk4fuo8s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.soplay.sozo",
+            "certificate_hash": "a64896629645c6604ed2a6f2f23da9f0b22a3a1b"
+          }
+        },
+        {
+          "client_id": "767586905505-m4hka84squ2ja6e6q9q1q4ck8hvcjmje.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.soplay.sozo",
+            "certificate_hash": "a3c1287857351a4703c61dc35bda576dd57c29bb"
+          }
+        },
+        {
+          "client_id": "767586905505-g0kjbh1n4d6k4o4j2es9e23unutsb2pd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBEOHebJaGTtawrlDtaASQbL_ksSp4xK3o"
@@ -78,7 +129,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "767586905505-g0kjbh1n4d6k4o4j2es9e23unutsb2pd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

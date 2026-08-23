@@ -15,13 +15,14 @@ class AuthLoginRequested extends AuthEvent {
   final String identifier;
   final String password;
 
-  const AuthLoginRequested({
-    required this.identifier,
-    required this.password,
-  });
+  const AuthLoginRequested({required this.identifier, required this.password});
 
   @override
   List<Object?> get props => [identifier, password];
+}
+
+class AuthGoogleRequested extends AuthEvent {
+  const AuthGoogleRequested();
 }
 
 class AuthRegisterRequested extends AuthEvent {
@@ -69,7 +70,10 @@ class AuthPasswordResetRequested extends AuthEvent {
   final String email;
   final bool isResend;
 
-  const AuthPasswordResetRequested({required this.email, this.isResend = false});
+  const AuthPasswordResetRequested({
+    required this.email,
+    this.isResend = false,
+  });
 
   @override
   List<Object?> get props => [email, isResend];

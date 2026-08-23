@@ -25,8 +25,15 @@ class AiringReminders {
   final NotificationService _notifications;
   final HiveService _hive;
 
-  /// How long before the episode the reminder fires.
+  /// How long before the episode the heads-up fires.
   static const Duration lead = Duration(minutes: 10);
+
+  /// How long after the airing time the "it is out" notification fires.
+  ///
+  /// Not on the dot: a source needs a few minutes to actually carry the episode,
+  /// and a notification that arrives before anything is watchable is worse than
+  /// one that arrives late.
+  static const Duration releaseDelay = Duration(minutes: 5);
 
   /// Only the next few days are scheduled. The platform caps how many pending
   /// notifications an app may hold, and a reminder three weeks out is one the
@@ -56,22 +63,30 @@ class AiringReminders {
 
       final now = DateTime.now();
       final until = now.add(horizon);
-      final due = <({DateTime at, String title, int episode})>[];
+      final due = <({DateTime at, String title, int episode, bool released})>[];
 
       for (final entry in entries) {
         final airing = entry.media.nextAiring;
         if (airing == null) continue;
-        final at = airing.airsAt.subtract(lead);
-        // Already gone, or too far out to be worth a slot.
-        if (!at.isAfter(now) || airing.airsAt.isAfter(until)) continue;
-        due.add((
-          at: at,
-          title: entry.media.englishTitle ??
-              entry.media.romajiTitle ??
-              entry.media.nativeTitle ??
-              '',
-          episode: airing.episode,
-        ));
+        if (airing.airsAt.isAfter(until)) continue;
+        final title = entry.media.englishTitle ??
+            entry.media.romajiTitle ??
+            entry.media.nativeTitle ??
+            '';
+        if (title.isEmpty) continue;
+
+        // Two moments matter, and only one of them was ever scheduled: the
+        // heads-up before it airs, and the episode actually being out. The
+        // second is the one people mean by "tell me when a new episode drops" —
+        // a reminder ten minutes early is a promise, not the thing itself.
+        final ahead = airing.airsAt.subtract(lead);
+        if (ahead.isAfter(now)) {
+          due.add((at: ahead, title: title, episode: airing.episode, released: false));
+        }
+        final out = airing.airsAt.add(releaseDelay);
+        if (out.isAfter(now)) {
+          due.add((at: out, title: title, episode: airing.episode, released: true));
+        }
       }
 
       due.sort((a, b) => a.at.compareTo(b.at));
@@ -79,14 +94,14 @@ class AiringReminders {
       var scheduled = 0;
       for (var i = 0; i < due.length && scheduled < _idSpan; i++) {
         final item = due[i];
-        if (item.title.isEmpty) continue;
         await _notifications.scheduleAt(
           id: _idBase + scheduled,
           when: item.at,
           title: item.title,
-          body: 'anilist.reminder_body'.tr(
-            namedArgs: {'episode': '${item.episode}'},
-          ),
+          body: (item.released
+                  ? 'anilist.released_body'
+                  : 'anilist.reminder_body')
+              .tr(namedArgs: {'episode': '${item.episode}'}),
         );
         scheduled++;
       }

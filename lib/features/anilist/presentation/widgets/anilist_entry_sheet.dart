@@ -78,6 +78,53 @@ class _AnilistEntrySheetState extends State<AnilistEntrySheet> {
     );
   }
 
+  Future<void> _confirmRemove(AnilistListEntry entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'anilist.remove_entry'.tr(),
+          style: const TextStyle(color: AppColors.textPrimary, fontSize: 17),
+        ),
+        content: Text(
+          'anilist.remove_confirm'.tr(args: [entry.media.displayTitle]),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text('general.cancel'.tr()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              'anilist.remove_entry'.tr(),
+              style: const TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final error = await _c.remove(entry);
+    if (!mounted) return;
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('anilist.removed'.tr()),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final entry = _entry;
@@ -220,6 +267,15 @@ class _AnilistEntrySheetState extends State<AnilistEntrySheet> {
                           Uri.parse(media.siteUrl!),
                           mode: LaunchMode.externalApplication,
                         ),
+              ),
+              // Behind a confirmation, and last: everything above this line is
+              // reversible with one more tap, and this is not — AniList drops
+              // the entry and the progress with it.
+              _Action(
+                icon: Icons.delete_outline_rounded,
+                label: 'anilist.remove_entry'.tr(),
+                destructive: true,
+                onTap: busy ? null : () => _confirmRemove(entry),
               ),
             ],
           ),
@@ -395,12 +451,17 @@ class _Action extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.subtitle,
+    this.destructive = false,
   });
 
   final IconData icon;
   final String label;
   final String? subtitle;
   final VoidCallback? onTap;
+
+  /// Coloured as a warning and given no chevron: it does not lead anywhere,
+  /// it ends something.
+  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
@@ -410,13 +471,21 @@ class _Action extends StatelessWidget {
       enabled: enabled,
       leading: Icon(
         icon,
-        color: enabled ? kAnilistBlue : AppColors.textHint,
+        color: !enabled
+            ? AppColors.textHint
+            : destructive
+            ? AppColors.error
+            : kAnilistBlue,
         size: 22,
       ),
       title: Text(
         label,
         style: TextStyle(
-          color: enabled ? AppColors.textPrimary : AppColors.textHint,
+          color: !enabled
+              ? AppColors.textHint
+              : destructive
+              ? AppColors.error
+              : AppColors.textPrimary,
           fontSize: 14.5,
           fontWeight: FontWeight.w600,
         ),
@@ -427,11 +496,13 @@ class _Action extends StatelessWidget {
               subtitle!,
               style: const TextStyle(color: AppColors.textHint, fontSize: 12),
             ),
-      trailing: const Icon(
-        Icons.chevron_right_rounded,
-        color: AppColors.textHint,
-        size: 20,
-      ),
+      trailing: destructive
+          ? null
+          : const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textHint,
+              size: 20,
+            ),
       onTap: onTap,
     );
   }

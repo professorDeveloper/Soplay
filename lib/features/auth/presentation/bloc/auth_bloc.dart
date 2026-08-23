@@ -5,7 +5,9 @@ import 'package:soplay/core/error/result.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/auth/domain/entities/auth_token.dart';
 import 'package:soplay/features/auth/domain/repositories/auth_repository.dart';
+import 'package:soplay/features/auth/data/services/google_auth_service.dart';
 import 'package:soplay/features/auth/domain/usecases/forgot_password_usecase.dart';
+import 'package:soplay/features/auth/domain/usecases/google_login_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/login_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/register_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/resend_otp_usecase.dart';
@@ -21,6 +23,8 @@ import 'package:soplay/features/anilist/data/anilist_service.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LoginUseCase loginUseCase;
+  final GoogleLoginUseCase googleLoginUseCase;
+  final GoogleAuthService googleAuthService;
   final RegisterUseCase registerUseCase;
   final VerifyOtpUseCase verifyOtpUseCase;
   final ResendOtpUseCase resendOtpUseCase;
@@ -35,6 +39,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   AuthBloc({
     required this.loginUseCase,
+    required this.googleLoginUseCase,
+    required this.googleAuthService,
     required this.registerUseCase,
     required this.verifyOtpUseCase,
     required this.resendOtpUseCase,
@@ -47,6 +53,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }) : super(AuthInitial()) {
     on<AuthStarted>(_onStarted);
     on<AuthLoginRequested>(_onLogin);
+    on<AuthGoogleRequested>(_onGoogleLogin);
     on<AuthRegisterRequested>(_onRegister);
     on<AuthOtpVerifyRequested>(_onVerifyOtp);
     on<AuthOtpResendRequested>(_onResendOtp);
@@ -65,6 +72,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     if (state is AuthInitial) return;
     await notificationService.unregister();
+    await googleAuthService.signOut();
     await hiveService.clearAuth();
     emit(AuthInitial());
   }
@@ -105,6 +113,37 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         unawaited(syncFavorites());
         unawaited(_syncHistory());
         unawaited(notificationService.setup());
+      case Failure(:final error):
+        emit(AuthError(message: _friendlyError(error)));
+    }
+  }
+
+  Future<void> _onGoogleLogin(
+    AuthGoogleRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    final token = await googleAuthService.signIn();
+    switch (token) {
+      case Success(value: final idToken?):
+        final result = await googleLoginUseCase(idToken);
+        switch (result) {
+          case Success(:final value):
+            emit(AuthLoaded(token: value));
+            unawaited(syncFavorites());
+            unawaited(_syncHistory());
+            unawaited(notificationService.setup());
+          case Failure(:final error):
+            // The Firebase session is live but Sozo's is not, so drop it —
+            // otherwise the next attempt silently reuses the same account and
+            // never reopens the picker.
+            await googleAuthService.signOut();
+            emit(AuthError(message: _friendlyError(error)));
+        }
+      case Success():
+        // Backed out of the account picker. Not an error, so the screen goes
+        // back to how it was rather than flashing a red snackbar.
+        emit(AuthInitial());
       case Failure(:final error):
         emit(AuthError(message: _friendlyError(error)));
     }
@@ -283,6 +322,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     await notificationService.unregister();
+    await googleAuthService.signOut();
     await authRepository.logout();
     emit(AuthInitial());
   }

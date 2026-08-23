@@ -63,7 +63,27 @@
     "confirm_password_hint": "Yangi parolni takrorlang",
     "reset_password": "Parolni tiklash",
     "resend_code": "Yana kod yuborish",
-    "resend_in": "{seconds} s dan keyin qayta"
+    "resend_in": "{seconds} s dan keyin qayta",
+    "identifier_hint": "Email yoki foydalanuvchi nomi",
+    "identifier_required": "Email yoki foydalanuvchi nomini kiriting",
+    "continue_with_google": "Google bilan davom etish",
+    "google_unavailable": "Bu qurilmada Google orqali kirish mavjud emas",
+    "google_failed": "Google orqali kirib bo'lmadi. Qayta urinib ko'ring",
+    "weak": "Zaif",
+    "medium": "O'rtacha",
+    "strong": "Kuchli",
+    "code_resent": "Kod qayta yuborildi. Emailingizni tekshiring.",
+    "verify": "Tasdiqlash"
+  },
+  "onboarding": {
+    "skip": "O'tkazib yuborish",
+    "continue_with_email": "Email bilan davom etish",
+    "slide_1_title": "Minglab kino va seriallar",
+    "slide_1_body": "Yangi premyeralar, jahon kinosi va multfilmlar — barchasi bitta ilovada.",
+    "slide_2_title": "Anime — butun boshli kutubxona",
+    "slide_2_body": "Mavsumiy yangiliklar, klassikalar va subtitrlar. AniList bog'lansa, ro'yxating o'zi yangilanadi.",
+    "slide_3_title": "Katta ekranda ham",
+    "slide_3_body": "Jonli TV kanallar, telefondan televizorga ulash va birga ko'rish — Sozo televizorda ham ishlaydi."
   },
   "home": {
     "title": "Bosh sahifa",
@@ -195,7 +215,8 @@
     "engine_sheet_dont_ask": "Boshqa so‘ralmasin",
     "engine_sheet_play": "Ijro etish",
     "subtitle_preview_text": "Tez qo’ng’ir tulki yalqov itning ustidan sakraydi",
-    "server": "Server"
+    "server": "Server",
+    "stream_not_found": "Bu manba oqimini himoyalangan pleyer ortida yashiradi. Boshqa manbani tanlang yoki brauzerda oching."
   },
   "profile": {
     "title": "Profil",
@@ -762,7 +783,13 @@
     "following_off": "Kuzatilmayapti",
     "no_screenshots": "Kadrlar yo‘q",
     "show_more": "Ko‘proq",
-    "show_less": "Yig‘ish"
+    "show_less": "Yig‘ish",
+    "time_left": "{} qoldi",
+    "liked": "{}% yoqtirdi",
+    "watched_pct": "{}% ko‘rilgan",
+    "copy_link": "Havoladan nusxa olish",
+    "link_copied": "Havola nusxalandi",
+    "report_problem": "Muammo haqida xabar berish"
   },
   "shorts": {
     "refresh": "Yangilash",
@@ -1038,12 +1065,16 @@
     "browse_failed": "AniList’ga ulanib bo‘lmadi.",
     "episodes_count": "{count} qism",
     "reminder_body": "{episode}-qism 10 daqiqadan keyin chiqadi",
-    "reminders_on": "Qism chiqishidan oldin eslatilsin",
+    "reminders_on": "Eslatma yoqilgan — qism chiqishidan oldin va chiqqanda",
     "reminders_off": "Eslatmalar o‘chiq",
     "connect_first": "Avval AniList’ni ulang",
     "save_failed": "AniList’ga saqlab bo‘lmadi",
     "search_in_source": "BITTA MANBADA QIDIRISH",
-    "no_sources": "Hali manba o‘rnatilmagan"
+    "no_sources": "Hali manba o‘rnatilmagan",
+    "released_body": "{episode}-qism chiqdi",
+    "remove_entry": "Ro'yxatimdan o'chirish",
+    "remove_confirm": "\"{}\" AniList ro'yxatingizdan o'chirilsinmi? Undagi progress ham o'chadi.",
+    "removed": "AniList ro'yxatidan o'chirildi"
   },
   "tracker": {
     "title": "Tracking",
@@ -1076,7 +1107,10 @@
     "turn_tv_on": "Boshqarish uchun TVda Sozo’ni oching",
     "retry": "Qayta urinish",
     "navigation": "NAVIGATSIYA",
-    "playback": "IJRO"
+    "playback": "IJRO",
+    "pick_device": "Qaysi televizor?",
+    "device_online": "Onlayn",
+    "device_offline": "Oflayn — unda Sozo ni oching"
   },
   "live_tv": {
     "title": "Jonli TV",

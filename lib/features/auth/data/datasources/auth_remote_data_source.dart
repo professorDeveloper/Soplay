@@ -15,6 +15,12 @@ class AuthRemoteDataSource {
     return AuthModel.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// Trades a Firebase ID token for a Sozo session.
+  Future<AuthModel> loginWithGoogle(String idToken) async {
+    final response = await dio.post('/auth/google', data: {'idToken': idToken});
+    return AuthModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<void> requestRegisterOtp({
     required String email,
     required String username,
@@ -27,10 +33,7 @@ class AuthRemoteDataSource {
   }
 
   Future<void> resendRegisterOtp(String email) async {
-    await dio.post(
-      '/auth/register/resend',
-      data: {'email': email},
-    );
+    await dio.post('/auth/register/resend', data: {'email': email});
   }
 
   Future<AuthModel> verifyRegisterOtp({
@@ -75,6 +78,40 @@ class AuthRemoteDataSource {
     final data = response.data as Map<String, dynamic>;
     final userJson = data['user'] as Map<String, dynamic>? ?? data;
     return UserModel.fromJson(userJson);
+  }
+
+  Future<UserModel> updateProfile({
+    String? username,
+    String? displayName,
+    String? photoUrl,
+  }) async {
+    final response = await dio.put(
+      '/auth/profile',
+      data: {
+        'username': ?username,
+        'displayName': ?displayName,
+        'photoURL': ?photoUrl,
+      },
+    );
+    final data = response.data as Map<String, dynamic>;
+    final userJson = data['user'] as Map<String, dynamic>? ?? data;
+    return UserModel.fromJson(userJson);
+  }
+
+  /// Asks for a slot in R2 and returns where to PUT the bytes and what the
+  /// picture will be reachable at once they are there.
+  Future<({String uploadUrl, String publicUrl})> avatarUploadUrl(
+    String contentType,
+  ) async {
+    final response = await dio.post(
+      '/auth/profile/avatar-url',
+      data: {'contentType': contentType},
+    );
+    final data = response.data as Map<String, dynamic>;
+    return (
+      uploadUrl: data['uploadUrl'] as String,
+      publicUrl: data['publicUrl'] as String,
+    );
   }
 
   Future<Map<String, String>> refresh(String refreshToken) async {

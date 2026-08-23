@@ -52,16 +52,13 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
 
   Future<void> _connect() async {
     // Connecting stores the token against the Sozo account, so there has to be
-    // one. Said plainly here rather than letting the backend answer 401 after
-    // the user has already been bounced through a browser.
+    // one. Rather than saying so and stopping — which left the user holding a
+    // message and no way to act on it — this goes to the login screen and
+    // carries on with the link when they come back signed in.
     if (!getIt<HiveService>().isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('anilist.sign_in_first'.tr()),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
+      await context.push('/login');
+      if (!mounted) return;
+      if (!getIt<HiveService>().isLoggedIn) return;
     }
     final opened = await _anilist.beginLink();
     if (!opened && mounted) {

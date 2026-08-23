@@ -10,6 +10,7 @@ import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
+import 'package:soplay/features/auth/presentation/widgets/auth_widgets.dart';
 
 /// Resetting a forgotten password.
 ///
@@ -210,7 +211,7 @@ class _EmailStep extends StatelessWidget {
       key: formKey,
       child: Column(
         children: [
-          _Field(
+          AuthTextField(
             controller: controller,
             hint: 'auth.email_hint'.tr(),
             icon: Icons.mail_outline_rounded,
@@ -227,9 +228,9 @@ class _EmailStep extends StatelessWidget {
             },
           ),
           const SizedBox(height: 20),
-          _PrimaryButton(
+          AuthPrimaryButton(
             label: 'auth.send_reset_code'.tr(),
-            busy: busy,
+            loading: busy,
             onPressed: onSubmit,
           ),
         ],
@@ -272,7 +273,7 @@ class _ResetStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Field(
+          AuthTextField(
             controller: code,
             hint: 'auth.reset_code_hint'.tr(),
             icon: Icons.pin_outlined,
@@ -289,7 +290,7 @@ class _ResetStep extends StatelessWidget {
             },
           ),
           const SizedBox(height: 12),
-          _Field(
+          AuthTextField(
             controller: password,
             hint: 'auth.new_password_hint'.tr(),
             icon: Icons.lock_outline_rounded,
@@ -312,7 +313,7 @@ class _ResetStep extends StatelessWidget {
             },
           ),
           const SizedBox(height: 12),
-          _Field(
+          AuthTextField(
             controller: confirm,
             hint: 'auth.confirm_password_hint'.tr(),
             icon: Icons.lock_reset_rounded,
@@ -336,9 +337,9 @@ class _ResetStep extends StatelessWidget {
           ],
 
           const SizedBox(height: 20),
-          _PrimaryButton(
+          AuthPrimaryButton(
             label: 'auth.reset_password'.tr(),
-            busy: state.submitting,
+            loading: state.submitting,
             onPressed: onSubmit,
           ),
           const SizedBox(height: 10),
@@ -356,84 +357,6 @@ class _ResetStep extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton({
-    required this.label,
-    required this.busy,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool busy;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: busy ? null : onPressed,
-        child: busy
-            ? const SizedBox(
-                width: 21,
-                height: 21,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.2,
-                ),
-              )
-            : Text(label),
-      ),
-    );
-  }
-}
-
-class _Field extends StatelessWidget {
-  const _Field({
-    required this.controller,
-    required this.hint,
-    required this.icon,
-    this.keyboardType,
-    this.textInputAction,
-    this.obscureText = false,
-    this.suffix,
-    this.validator,
-    this.onFieldSubmitted,
-    this.inputFormatters,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final IconData icon;
-  final TextInputType? keyboardType;
-  final TextInputAction? textInputAction;
-  final bool obscureText;
-  final Widget? suffix;
-  final String? Function(String?)? validator;
-  final void Function(String)? onFieldSubmitted;
-  final List<TextInputFormatter>? inputFormatters;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      textInputAction: textInputAction,
-      obscureText: obscureText,
-      validator: validator,
-      onFieldSubmitted: onFieldSubmitted,
-      inputFormatters: inputFormatters,
-      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, size: 20, color: AppColors.textHint),
-        suffixIcon: suffix,
       ),
     );
   }

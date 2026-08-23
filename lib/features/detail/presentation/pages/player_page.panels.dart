@@ -606,6 +606,120 @@ extension _PlayerPanels on _PlayerPageState {
   Widget _buildSidePanel() {
     final isQuality = _panel == _SidePanel.quality;
     final sources = _currentServerSources;
+
+    // Portrait phone: a full-height drawer over four quality rows covered the
+    // video and matched nothing else in the player, where every other list —
+    // speed, subtitles, servers, settings — arrives from the bottom. Landscape
+    // and TV keep the drawer: there the height is the usable dimension.
+    final asSheet = !isTvPlatform && !isDesktopPlatform && _isPortrait;
+
+    final list = isQuality
+        ? ListView.separated(
+            controller: _tvPanelScroll,
+            shrinkWrap: asSheet,
+            padding: EdgeInsets.zero,
+            itemCount: sources.length,
+            separatorBuilder: (_, _) => Divider(
+              color: Colors.white.withValues(alpha: 0.06),
+              height: 1,
+            ),
+            itemBuilder: (_, i) {
+              final src = _videoSources[sources[i]];
+              return _QualityRow(
+                source: _resolutionOnly(src),
+                isActive: src.quality == _currentQuality,
+                onTap: () => _switchQuality(src),
+              );
+            },
+          )
+        : ListView.separated(
+            // Non-null only on TV (see _openPanel), where it opens
+            // the list near the episode being watched.
+            controller: _tvPanelScroll,
+            shrinkWrap: asSheet,
+            padding: EdgeInsets.zero,
+            itemCount: widget.args.episodes.length,
+            separatorBuilder: (_, _) => Divider(
+              color: Colors.white.withValues(alpha: 0.06),
+              height: 1,
+            ),
+            itemBuilder: (_, i) => _EpisodeRow(
+              episode: widget.args.episodes[i],
+              isActive: i == _episodeIndex,
+              onTap: () => _partyEpisodeNav(i),
+            ),
+          );
+
+    final body = Column(
+      mainAxisSize: asSheet ? MainAxisSize.min : MainAxisSize.max,
+      children: [
+        if (asSheet)
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(top: 10),
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+          child: Row(
+            children: [
+              Text(
+                isQuality ? 'player.quality'.tr() : 'player.episodes'.tr(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                onPressed: _closePanel,
+                focusColor: _kTvFocusFill,
+                icon: const Icon(Icons.close_rounded, color: Colors.white70),
+              ),
+            ],
+          ),
+        ),
+        if (asSheet) Flexible(child: list) else Expanded(child: list),
+      ],
+    );
+
+    final surface = Material(
+      color: Colors.black.withValues(alpha: 0.92),
+      shape: asSheet
+          ? const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            )
+          : null,
+      child: SafeArea(
+        // The panel hugs the right edge, so the left cutout inset is not its
+        // to pay — honouring it just narrowed every row by ~44dp.
+        left: false,
+        top: !asSheet,
+        // Its own focus scope so _openPanel can hand the remote over and
+        // _closePanel can hand it back — see [_tvPanelFocus].
+        child: FocusScope(node: _tvPanelFocus, child: body),
+      ),
+    );
+
+    if (asSheet) {
+      return Positioned(
+        left: 0,
+        right: 0,
+        bottom: 0,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.55,
+          ),
+          child: surface,
+        ),
+      );
+    }
+
     return Positioned(
       top: 0,
       bottom: 0,
@@ -613,81 +727,7 @@ extension _PlayerPanels on _PlayerPageState {
       // Wider on TV: 320dp is a phone drawer, and at 10 feet the episode
       // labels in it truncate to uselessness.
       width: isTvPlatform ? 420 : 320,
-      child: Material(
-        color: Colors.black.withValues(alpha: 0.92),
-        child: SafeArea(
-          // The panel hugs the right edge, so the left cutout inset is not its
-          // to pay — honouring it just narrowed every row by ~44dp.
-          left: false,
-          // Its own focus scope so _openPanel can hand the remote over and
-          // _closePanel can hand it back — see [_tvPanelFocus].
-          child: FocusScope(
-            node: _tvPanelFocus,
-            child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                child: Row(
-                  children: [
-                    Text(
-                      isQuality ? 'player.quality'.tr() : 'player.episodes'.tr(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: _closePanel,
-                      focusColor: _kTvFocusFill,
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: isQuality
-                    ? ListView.separated(
-                        controller: _tvPanelScroll,
-                        itemCount: sources.length,
-                        separatorBuilder: (_, _) => Divider(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          height: 1,
-                        ),
-                        itemBuilder: (_, i) {
-                          final src = _videoSources[sources[i]];
-                          return _QualityRow(
-                            source: _resolutionOnly(src),
-                            isActive: src.quality == _currentQuality,
-                            onTap: () => _switchQuality(src),
-                          );
-                        },
-                      )
-                    : ListView.separated(
-                        // Non-null only on TV (see _openPanel), where it opens
-                        // the list near the episode being watched.
-                        controller: _tvPanelScroll,
-                        itemCount: widget.args.episodes.length,
-                        separatorBuilder: (_, _) => Divider(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          height: 1,
-                        ),
-                        itemBuilder: (_, i) => _EpisodeRow(
-                          episode: widget.args.episodes[i],
-                          isActive: i == _episodeIndex,
-                          onTap: () => _partyEpisodeNav(i),
-                        ),
-                      ),
-              ),
-            ],
-            ),
-          ),
-        ),
-      ),
+      child: surface,
     );
   }
 }

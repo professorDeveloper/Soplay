@@ -33,7 +33,9 @@ import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
+import 'package:soplay/features/auth/data/services/google_auth_service.dart';
 import 'package:soplay/features/auth/domain/usecases/forgot_password_usecase.dart';
+import 'package:soplay/features/auth/domain/usecases/google_login_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/register_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/resend_otp_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/verify_otp_usecase.dart';
@@ -234,6 +236,7 @@ Future<void> configureDependencies() async {
     SearchDataSource(dio: getIt<Dio>()),
   );
 
+  getIt.registerSingleton<GoogleAuthService>(GoogleAuthService());
   getIt.registerSingleton<AuthRepository>(
     AuthRepositoryImpl(getIt<AuthRemoteDataSource>(), getIt<HiveService>()),
   );
@@ -521,6 +524,9 @@ Future<void> configureDependencies() async {
     ViewAllUseCase(getIt<HomeRepository>()),
   );
   getIt.registerSingleton<LoginUseCase>(LoginUseCase(getIt<AuthRepository>()));
+  getIt.registerSingleton<GoogleLoginUseCase>(
+    GoogleLoginUseCase(getIt<AuthRepository>()),
+  );
   getIt.registerSingleton<RegisterUseCase>(
     RegisterUseCase(getIt<AuthRepository>()),
   );
@@ -550,6 +556,8 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<AuthBloc>(
     () => AuthBloc(
       loginUseCase: getIt<LoginUseCase>(),
+      googleLoginUseCase: getIt<GoogleLoginUseCase>(),
+      googleAuthService: getIt<GoogleAuthService>(),
       registerUseCase: getIt<RegisterUseCase>(),
       verifyOtpUseCase: getIt<VerifyOtpUseCase>(),
       resendOtpUseCase: getIt<ResendOtpUseCase>(),

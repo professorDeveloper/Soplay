@@ -1,10 +1,12 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
+import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 
 /// The local titles tied to an AniList entry, and a way to break a wrong tie.
 ///
@@ -22,6 +24,20 @@ class AnilistLinksPage extends StatefulWidget {
 class _AnilistLinksPageState extends State<AnilistLinksPage> {
   final AnilistLinkStore _store = getIt<AnilistLinkStore>();
   late List<AnilistLink> _items = _store.all();
+
+  /// A row is the title itself, not just a record of a match — opening it is
+  /// what people reach for first, and until now the only thing a tap could do
+  /// was break the link.
+  void _open(AnilistLink link) {
+    if (link.contentUrl.trim().isEmpty) return;
+    context.push(
+      '/detail',
+      extra: DetailArgs(
+        contentUrl: link.contentUrl,
+        provider: link.provider.trim().isEmpty ? null : link.provider.trim(),
+      ),
+    );
+  }
 
   Future<void> _unlink(AnilistLink link) async {
     await _store.remove(link.provider, link.contentUrl);
@@ -62,6 +78,7 @@ class _AnilistLinksPageState extends State<AnilistLinksPage> {
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (_, i) => _LinkTile(
                 link: _items[i],
+                onOpen: () => _open(_items[i]),
                 onUnlink: () => _unlink(_items[i]),
               ),
             ),
@@ -70,66 +87,80 @@ class _AnilistLinksPageState extends State<AnilistLinksPage> {
 }
 
 class _LinkTile extends StatelessWidget {
-  const _LinkTile({required this.link, required this.onUnlink});
+  const _LinkTile({
+    required this.link,
+    required this.onOpen,
+    required this.onUnlink,
+  });
 
   final AnilistLink link;
+  final VoidCallback onOpen;
   final VoidCallback onUnlink;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AnilistCover(url: link.coverImage, width: 46, radius: 8),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  link.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AnilistCover(url: link.coverImage, width: 46, radius: 8),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AnilistChip(
-                      label: link.provider.isEmpty ? '—' : link.provider,
-                      color: AppColors.textSecondary,
-                    ),
-                    if (link.auto)
-                      AnilistChip(
-                        label: 'anilist.auto_matched'.tr(),
-                        icon: Icons.auto_fix_high_rounded,
-                        color: AppColors.rating,
+                    Text(
+                      link.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        AnilistChip(
+                          label: link.provider.isEmpty
+                              ? '\u2014'
+                              : link.provider,
+                          color: AppColors.textSecondary,
+                        ),
+                        if (link.auto)
+                          AnilistChip(
+                            label: 'anilist.auto_matched'.tr(),
+                            icon: Icons.auto_fix_high_rounded,
+                            color: AppColors.rating,
+                          ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              IconButton(
+                tooltip: 'anilist.unlink'.tr(),
+                onPressed: onUnlink,
+                icon: const Icon(
+                  Icons.link_off_rounded,
+                  color: AppColors.textHint,
+                  size: 20,
+                ),
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: 'anilist.unlink'.tr(),
-            onPressed: onUnlink,
-            icon: const Icon(Icons.link_off_rounded,
-                color: AppColors.textHint, size: 20),
-          ),
-        ],
+        ),
       ),
     );
   }

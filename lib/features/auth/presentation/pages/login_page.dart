@@ -1,11 +1,14 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/auth/data/services/google_auth_service.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
+import 'package:soplay/features/auth/presentation/widgets/auth_widgets.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -20,6 +23,13 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
+  /// Which button is waiting. The bloc reports one AuthLoading for both paths,
+  /// so without this the spinner lands on whichever button the page guesses.
+  bool _googlePending = false;
+
+  /// Shown on the page until the next attempt clears it.
+  String? _error;
+
   @override
   void dispose() {
     _identifierController.dispose();
@@ -29,12 +39,24 @@ class _LoginPageState extends State<LoginPage> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _googlePending = false;
+      _error = null;
+    });
     context.read<AuthBloc>().add(
       AuthLoginRequested(
         identifier: _identifierController.text.trim(),
         password: _passwordController.text,
       ),
     );
+  }
+
+  void _signInWithGoogle() {
+    setState(() {
+      _googlePending = true;
+      _error = null;
+    });
+    context.read<AuthBloc>().add(const AuthGoogleRequested());
   }
 
   void _close() {
@@ -47,139 +69,123 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: BlocListener<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is AuthLoaded) {
-            context.go('/main');
-          } else if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
-          }
-        },
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthLoaded) {
+          // Prompts the password manager to keep what was just typed. Without
+          // it Android never offers to save, and the next sign-in is manual
+          // again.
+          TextInput.finishAutofillContext();
+          context.go('/main');
+        } else if (state is AuthError) {
+          setState(() {
+            _googlePending = false;
+            _error = state.message;
+          });
+        } else if (state is AuthInitial) {
+          setState(() => _googlePending = false);
+        }
+      },
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          final loading = state is AuthLoading;
+          return AuthScaffold(
+            title: 'auth.welcome_back'.tr(),
+            subtitle: 'auth.login_subtitle'.tr(),
+            onClose: _close,
+            children: [
+              AutofillGroup(
+                child: Form(
+                  key: _formKey,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _TopBar(onClose: _close),
-                      const SizedBox(height: 42),
-                      Text(
-                        'auth.login'.tr(),
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
+                      AuthTextField(
+                        controller: _identifierController,
+                        hint: 'auth.identifier_hint'.tr(),
+                        icon: Icons.person_outline_rounded,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.username],
+                        enabled: !loading,
+                        validator: _validateIdentifier,
+                      ),
+                      const SizedBox(height: 12),
+                      AuthTextField(
+                        controller: _passwordController,
+                        hint: 'auth.password_hint'.tr(),
+                        icon: Icons.lock_outline_rounded,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [AutofillHints.password],
+                        enabled: !loading,
+                        onFieldSubmitted: (_) => _submit(),
+                        suffix: IconButton(
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            size: 20,
+                            color: AppColors.textHint,
+                          ),
+                        ),
+                        validator: _validatePassword,
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          // Carries whatever was typed, so the reset page
+                          // does not ask for an address the user just gave.
+                          onPressed: () => context.push(
+                            '/forgot-password',
+                            extra: _identifierController.text.contains('@')
+                                ? _identifierController.text.trim()
+                                : null,
+                          ),
+                          child: Text(
+                            'auth.forgot_password'.tr(),
+                            style: const TextStyle(fontSize: 12.5),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            _AuthTextField(
-                              controller: _identifierController,
-                              hint: 'Email or username',
-                              icon: Icons.person_outline_rounded,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                              validator: _validateIdentifier,
-                            ),
-                            const SizedBox(height: 12),
-                            _AuthTextField(
-                              controller: _passwordController,
-                              hint: 'auth.password_hint'.tr(),
-                              icon: Icons.lock_outline_rounded,
-                              obscureText: _obscurePassword,
-                              textInputAction: TextInputAction.done,
-                              onFieldSubmitted: (_) => _submit(),
-                              suffix: IconButton(
-                                onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword,
-                                ),
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  size: 20,
-                                  color: AppColors.textHint,
-                                ),
-                              ),
-                              validator: _validatePassword,
-                            ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                // Carries whatever was typed, so the reset page
-                                // does not ask for an address the user just gave.
-                                onPressed: () => context.push(
-                                  '/forgot-password',
-                                  extra: _identifierController.text.contains('@')
-                                      ? _identifierController.text.trim()
-                                      : null,
-                                ),
-                                child: Text(
-                                  'auth.forgot_password'.tr(),
-                                  style: const TextStyle(fontSize: 12.5),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            BlocBuilder<AuthBloc, AuthState>(
-                              builder: (context, state) {
-                                final loading = state is AuthLoading;
-                                return SizedBox(
-                                  width: double.infinity,
-                                  height: 50,
-                                  child: ElevatedButton(
-                                    onPressed: loading ? null : _submit,
-                                    child: loading
-                                        ? const SizedBox(
-                                            width: 21,
-                                            height: 21,
-                                            child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2.2,
-                                            ),
-                                          )
-                                        : Text('auth.sign_in'.tr()),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                      _AuthSwitchPrompt(
-                        text: 'auth.dont_have_account'.tr(),
-                        action: 'auth.sign_up'.tr(),
-                        onTap: () => context.pushReplacement('/register'),
+                      const SizedBox(height: 6),
+                      AuthErrorBanner(message: _error),
+                      AuthPrimaryButton(
+                        label: 'auth.sign_in'.tr(),
+                        loading: loading && !_googlePending,
+                        onPressed: loading ? null : _submit,
                       ),
                     ],
                   ),
                 ),
-              );
-            },
-          ),
-        ),
+              ),
+              if (GoogleAuthService.isSupported) ...[
+                const SizedBox(height: 22),
+                const AuthDivider(),
+                const SizedBox(height: 16),
+                GoogleAuthButton(
+                  loading: loading && _googlePending,
+                  onPressed: loading ? null : _signInWithGoogle,
+                ),
+              ],
+              const SizedBox(height: 20),
+              AuthSwitchPrompt(
+                text: 'auth.dont_have_account'.tr(),
+                action: 'auth.sign_up'.tr(),
+                onTap: () => context.pushReplacement('/register'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   String? _validateIdentifier(String? value) {
     final v = value?.trim() ?? '';
-    if (v.isEmpty) return 'Email or username required';
+    if (v.isEmpty) return 'auth.identifier_required'.tr();
     if (v.contains('@')) {
       if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,}$').hasMatch(v)) {
         return 'auth.invalid_email'.tr();
@@ -194,115 +200,5 @@ class _LoginPageState extends State<LoginPage> {
     if (value == null || value.isEmpty) return 'auth.password'.tr();
     if (value.length < 6) return 'auth.invalid_password'.tr();
     return null;
-  }
-}
-
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onClose});
-
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-         Text(
-          'app_name'.tr(),
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const Spacer(),
-        IconButton(
-          onPressed: onClose,
-          icon: const Icon(Icons.close_rounded),
-          color: AppColors.textSecondary,
-        ),
-      ],
-    );
-  }
-}
-
-class _AuthTextField extends StatelessWidget {
-  const _AuthTextField({
-    required this.controller,
-    required this.hint,
-    required this.icon,
-    required this.validator,
-    this.keyboardType,
-    this.textInputAction,
-    this.obscureText = false,
-    this.suffix,
-    this.onFieldSubmitted,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final IconData icon;
-  final TextInputType? keyboardType;
-  final TextInputAction? textInputAction;
-  final bool obscureText;
-  final Widget? suffix;
-  final ValueChanged<String>? onFieldSubmitted;
-  final String? Function(String?) validator;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      textInputAction: textInputAction,
-      obscureText: obscureText,
-      onFieldSubmitted: onFieldSubmitted,
-      style: const TextStyle(color: AppColors.textPrimary),
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, size: 20),
-        suffixIcon: suffix,
-      ),
-      validator: validator,
-    );
-  }
-}
-
-class _AuthSwitchPrompt extends StatelessWidget {
-  const _AuthSwitchPrompt({
-    required this.text,
-    required this.action,
-    required this.onTap,
-  });
-
-  final String text;
-  final String action;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Flexible(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: onTap,
-          child: Text(
-            action,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }

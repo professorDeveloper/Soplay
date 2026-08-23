@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
@@ -133,10 +134,15 @@ class _RelatedThumbnail extends StatelessWidget {
         ),
       );
     }
-    return Image.network(
-      url!,
+    // Cached: these posters are the same ones the home rows already fetched,
+    // and re-downloading them made every "Similar" strip repaint grey on the
+    // way back to a title.
+    return CachedNetworkImage(
+      imageUrl: url!,
       fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => Container(
+      fadeInDuration: const Duration(milliseconds: 180),
+      placeholder: (_, _) => const ColoredBox(color: AppColors.surfaceVariant),
+      errorWidget: (_, _, _) => Container(
         color: AppColors.surfaceVariant,
         child: const Center(
           child: Icon(
@@ -146,8 +152,6 @@ class _RelatedThumbnail extends StatelessWidget {
           ),
         ),
       ),
-      loadingBuilder: (_, child, chunk) =>
-          chunk == null ? child : Container(color: AppColors.surfaceVariant),
     );
   }
 }

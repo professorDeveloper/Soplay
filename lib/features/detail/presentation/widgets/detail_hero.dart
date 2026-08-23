@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
@@ -97,17 +98,24 @@ class _ThumbnailImage extends StatelessWidget {
         ),
       );
     }
-    // Placeholder underneath rather than swapped in by loadingBuilder: the
-    // artwork used to cut in hard over a flat grey block, and the hard cut is
-    // the most visible thing on the page while it happens.
+    // Cached, like every other poster in the app: the hero is the largest image
+    // on the screen and it was the only one re-downloaded on every visit, so
+    // coming back to a title you just left redrew the grey block first.
+    //
+    // Placeholder underneath rather than swapped in: the artwork used to cut in
+    // hard over a flat grey block, and the hard cut is the most visible thing
+    // on the page while it happens.
     return Stack(
       fit: StackFit.expand,
       children: [
         const ColoredBox(color: AppColors.surfaceVariant),
-        Image.network(
-          url!,
+        CachedNetworkImage(
+          imageUrl: url!,
           fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => Container(
+          fadeInDuration: const Duration(milliseconds: 240),
+          fadeInCurve: Curves.easeOut,
+          placeholder: (_, _) => const ColoredBox(color: AppColors.surfaceVariant),
+          errorWidget: (_, _, _) => Container(
             color: AppColors.surfaceVariant,
             child: const Center(
               child: Icon(
@@ -117,15 +125,6 @@ class _ThumbnailImage extends StatelessWidget {
               ),
             ),
           ),
-          frameBuilder: (_, child, frame, wasSynchronouslyLoaded) {
-            if (wasSynchronouslyLoaded) return child;
-            return AnimatedOpacity(
-              opacity: frame == null ? 0 : 1,
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeOut,
-              child: child,
-            );
-          },
         ),
       ],
     );

@@ -17,6 +17,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:soplay/core/constants/app_constants.dart';
 import 'package:soplay/core/extensions/extension_bridge.dart';
 import 'package:soplay/core/storage/hive_service.dart';
+import 'package:soplay/features/anilist/data/airing_reminders.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/system/desktop_window.dart';
@@ -74,12 +75,11 @@ void main() async {
   }
   _fireAndForget(getIt<DownloadService>().resumeIncomplete(), 'download');
   _fireAndForget(getIt<ProviderRegistry>().preload(), 'providers');
-  _fireAndForget(
-    getIt<NotificationService>().ensureInitialized(),
-    'fcm',
-  );
+  // setup(), not just ensureInitialized(): registering the device is what makes
+  // it reachable, and it belongs to opening the app rather than to signing in.
+  _fireAndForget(getIt<NotificationService>().setup(), 'fcm');
   _fireAndForget(getIt<DeeplinkService>().start(), 'deeplink');
-  _fireAndForget(getIt<AnilistService>().restore(), 'anilist');
+  _fireAndForget(_restoreAnilistAndReminders(), 'anilist');
   RepoFileImport.start(
     () => AppRouter.router.routerDelegate.navigatorKey.currentContext,
   );
@@ -149,6 +149,21 @@ Future<void> _initHive() async {
     Hive.openBox(AppConstants.userListsBox),
     Hive.openBox(AppConstants.privateFavoritesBox),
   ]);
+}
+
+/// Restores the AniList link, then lays down the next window of episode
+/// reminders.
+///
+/// The schedule used to be refreshed only while the airing calendar was on
+/// screen, so someone who turned reminders on and never opened that page again
+/// stopped being told anything once the first week ran out. Startup is where
+/// this belongs: it is the one moment the app is guaranteed to reach.
+Future<void> _restoreAnilistAndReminders() async {
+  final anilist = getIt<AnilistService>();
+  await anilist.restore();
+  final reminders = getIt<AiringReminders>();
+  if (!reminders.enabled || !anilist.isConnected) return;
+  await reminders.sync(await anilist.library());
 }
 
 void _fireAndForget(Future<void> future, String tag) {

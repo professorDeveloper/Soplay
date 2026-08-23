@@ -724,6 +724,7 @@ extension _PlayerControls on _PlayerPageState {
                       ),
                       const SizedBox(width: 6),
                       Expanded(
+                        flex: 2,
                         child: Text(
                           _episodeTitle(),
                           maxLines: 1,
@@ -736,14 +737,17 @@ extension _PlayerControls on _PlayerPageState {
                           ),
                         ),
                       ),
-                      // The action set outgrows a portrait phone (lang pill +
-                      // download + the full icon row), which used to squeeze the
-                      // title to nothing and then overflow. Half the bar each,
-                      // right-anchored, and the surplus scrolls instead.
+                      // The action set outgrows a portrait phone. It used to
+                      // take half the bar and scroll the surplus off the left,
+                      // where nobody found it — orientation and Watch Party were
+                      // simply invisible. Now the actions get the larger share
+                      // and scale a few percent if they still do not fit, so
+                      // every one of them is on screen.
                       Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          reverse: true,
+                        flex: 5,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -796,17 +800,18 @@ extension _PlayerControls on _PlayerPageState {
                                     onTap: _openServerSheet,
                                   ),
                                 ],
-                                if (hasEpisodes || hasQualities) ...[
+                                if (hasQualities) ...[
                                   const SizedBox(width: 8),
                                   _IconButton(
-                                    icon: hasEpisodes
-                                        ? Icons.video_library_rounded
-                                        : Icons.high_quality_rounded,
-                                    onTap: () => _openPanel(
-                                      hasEpisodes
-                                          ? _SidePanel.episodes
-                                          : _SidePanel.quality,
-                                    ),
+                                    icon: Icons.high_quality_rounded,
+                                    onTap: () => _openPanel(_SidePanel.quality),
+                                  ),
+                                ],
+                                if (hasEpisodes) ...[
+                                  const SizedBox(width: 8),
+                                  _IconButton(
+                                    icon: Icons.video_library_rounded,
+                                    onTap: () => _openPanel(_SidePanel.episodes),
                                   ),
                                 ],
                               ] else if (!isDesktopPlatform) ...[
@@ -816,44 +821,53 @@ extension _PlayerControls on _PlayerPageState {
                                       : Icons.screen_lock_portrait_rounded,
                                   onTap: _toggleOrientation,
                                 ),
-                                const SizedBox(width: 8),
-                                _IconButton(
-                                  icon: Icons.lock_outline_rounded,
-                                  onTap: () => setState(() {
-                                    _locked = true;
-                                    _controlsVisible = false;
-                                    _controlsAnimation.reverse();
-                                    _hideTimer?.cancel();
-                                  }),
-                                ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6),
+                                if (!_isPortrait) ...[
+                                  _IconButton(
+                                    icon: Icons.lock_outline_rounded,
+                                    onTap: () => setState(() {
+                                      _locked = true;
+                                      _controlsVisible = false;
+                                      _controlsAnimation.reverse();
+                                      _hideTimer?.cancel();
+                                    }),
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
                                 _IconButton(
                                   icon: Icons.picture_in_picture_alt_rounded,
                                   onTap: _enterPip,
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6),
                                 if (canDownload) ...[
                                   _IconButton(
                                     icon: Icons.download_rounded,
                                     onTap: _startDownload,
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 6),
                                 ],
                                 _IconButton(
                                   icon: Icons.settings_outlined,
                                   onTap: _openSettingsSheet,
                                 ),
-                                const SizedBox(width: 8),
-                                _IconButton(
-                                  icon: hasEpisodes
-                                      ? Icons.video_library_rounded
-                                      : Icons.high_quality_rounded,
-                                  onTap: hasEpisodes
-                                      ? () => _openPanel(_SidePanel.episodes)
-                                      : hasQualities
-                                          ? () => _openPanel(_SidePanel.quality)
-                                          : _openSettingsSheet,
-                                ),
+                                const SizedBox(width: 6),
+                                // Quality and episodes used to share one slot,
+                                // so on a serial the quality panel was
+                                // unreachable, and with neither available the
+                                // HQ icon opened Settings — a button that says
+                                // one thing and does another.
+                                if (hasQualities) ...[
+                                  _IconButton(
+                                    icon: Icons.high_quality_rounded,
+                                    onTap: () => _openPanel(_SidePanel.quality),
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
+                                if (hasEpisodes)
+                                  _IconButton(
+                                    icon: Icons.video_library_rounded,
+                                    onTap: () => _openPanel(_SidePanel.episodes),
+                                  ),
                               ],
                             ],
                           ),

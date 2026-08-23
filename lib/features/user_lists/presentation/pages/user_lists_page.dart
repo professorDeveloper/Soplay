@@ -253,7 +253,16 @@ class _EmptyState extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
+            // Biased above the true centre. The app bar and the tab strip take
+            // the top of the screen, so a block centred in what is left reads
+            // as sitting too low — the eye measures against the whole screen,
+            // not against the viewport it was given. The same 1/8 nudge is what
+            // the My List empty state gets from its bottom padding.
+            padding: EdgeInsets.only(
+              left: 32,
+              right: 32,
+              bottom: constraints.maxHeight / 8,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
