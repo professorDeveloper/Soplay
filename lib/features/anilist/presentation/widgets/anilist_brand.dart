@@ -145,12 +145,17 @@ class AnilistStateMessage extends StatelessWidget {
     required this.text,
     this.actionLabel,
     this.onAction,
+    this.accent = kAnilistBlue,
   });
 
   final IconData icon;
   final String text;
   final String? actionLabel;
   final VoidCallback? onAction;
+
+  /// The tracker's brand colour. Defaults to AniList's, so every existing call
+  /// site is unchanged; MyAnimeList passes its own.
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -175,8 +180,8 @@ class AnilistStateMessage extends StatelessWidget {
             OutlinedButton(
               onPressed: onAction,
               style: OutlinedButton.styleFrom(
-                foregroundColor: kAnilistBlue,
-                side: BorderSide(color: kAnilistBlue.withValues(alpha: 0.5)),
+                foregroundColor: accent,
+                side: BorderSide(color: accent.withValues(alpha: 0.5)),
                 // The app's outlined buttons are full-width page actions; this
                 // one sits under a paragraph and should read as an aside.
                 minimumSize: const Size(0, 42),
@@ -238,12 +243,16 @@ class AnilistConnectPrompt extends StatelessWidget {
     required this.actionLabel,
     required this.onConnect,
     this.busy = false,
+    this.accent = kAnilistBlue,
   });
 
   final String message;
   final String actionLabel;
   final VoidCallback onConnect;
   final bool busy;
+
+  /// See [AnilistStateMessage.accent].
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +277,7 @@ class AnilistConnectPrompt extends StatelessWidget {
             FilledButton.icon(
               onPressed: busy ? null : onConnect,
               style: FilledButton.styleFrom(
-                backgroundColor: kAnilistBlue,
+                backgroundColor: accent,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
                 shape: RoundedRectangleBorder(

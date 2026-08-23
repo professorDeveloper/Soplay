@@ -1095,7 +1095,22 @@
     "matching_note": "Matched through AniList, which carries the MyAnimeList id for the same entry. Link a title once and both trackers follow it.",
     "privacy_note": "Your AniList and MyAnimeList tokens are stored on your Sozo account. The app only ever writes the episode number you watched.",
     "tracking_on": "Tracked on MyAnimeList",
-    "save_failed": "Couldn't save to MyAnimeList"
+    "save_failed": "Couldn't save to MyAnimeList",
+    "open_library": "My MyAnimeList",
+    "linked_titles": "Linked titles",
+    "connect_prompt": "Connect your account to see your MyAnimeList here.",
+    "connect_first": "Connect MyAnimeList first",
+    "search_failed": "Couldn't reach MyAnimeList.",
+    "link_title": "Link to MyAnimeList",
+    "link_hint": "Pick which MyAnimeList anime this title is.",
+    "linked_to": "Linked to {}",
+    "track": "Track on MyAnimeList",
+    "tracked": "Tracked on MyAnimeList",
+    "score_label": "SCORE",
+    "remove_entry": "Remove from my list",
+    "remove_confirm": "Remove \"{}\" from your MyAnimeList? Your progress for it is deleted too.",
+    "removed": "Removed from MyAnimeList",
+    "rewatching_note": "You're rewatching this. Sozo leaves the status alone so the rewatch is not ended."
   },
   "tracker": {
     "title": "Tracking",

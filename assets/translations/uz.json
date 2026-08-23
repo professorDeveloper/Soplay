@@ -1095,7 +1095,22 @@
     "matching_note": "AniList orqali — u ayni yozuvning MyAnimeList id'sini ham saqlaydi. Nomni bir marta bog'lasangiz, ikkala tracker ham kuzatadi.",
     "privacy_note": "AniList va MyAnimeList tokenlaringiz Sozo hisobingizda saqlanadi. Ilova faqat siz ko'rgan epizod raqamini yozadi.",
     "tracking_on": "MyAnimeList'da kuzatilmoqda",
-    "save_failed": "MyAnimeList'ga saqlab bo'lmadi"
+    "save_failed": "MyAnimeList'ga saqlab bo'lmadi",
+    "open_library": "MyAnimeList ro'yxatim",
+    "linked_titles": "Bog'langan nomlar",
+    "connect_prompt": "MyAnimeList ro'yxatingizni shu yerda ko'rish uchun hisobingizni ulang.",
+    "connect_first": "Avval MyAnimeList ni ulang",
+    "search_failed": "MyAnimeList ga ulanib bo'lmadi.",
+    "link_title": "MyAnimeList ga bog'lash",
+    "link_hint": "Bu nom MyAnimeList dagi qaysi anime ekanini tanlang.",
+    "linked_to": "{} ga bog'landi",
+    "track": "MyAnimeList da kuzatish",
+    "tracked": "MyAnimeList da kuzatilmoqda",
+    "score_label": "BAHO",
+    "remove_entry": "Ro'yxatimdan o'chirish",
+    "remove_confirm": "\"{}\" MyAnimeList ro'yxatingizdan o'chirilsinmi? Undagi progress ham o'chadi.",
+    "removed": "MyAnimeList dan o'chirildi",
+    "rewatching_note": "Siz buni qayta ko'ryapsiz. Sozo statusga tegmaydi, aks holda qayta ko'rish tugab qoladi."
   },
   "tracker": {
     "title": "Tracking",

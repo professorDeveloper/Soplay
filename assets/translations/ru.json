@@ -1095,7 +1095,22 @@
     "matching_note": "Через AniList — он хранит идентификатор MyAnimeList для той же записи. Свяжите тайтл один раз, и оба трекера будут его вести.",
     "privacy_note": "Ваши токены AniList и MyAnimeList хранятся в аккаунте Sozo. Приложение записывает только номер просмотренного эпизода.",
     "tracking_on": "Отслеживается на MyAnimeList",
-    "save_failed": "Не удалось сохранить в MyAnimeList"
+    "save_failed": "Не удалось сохранить в MyAnimeList",
+    "open_library": "Мой MyAnimeList",
+    "linked_titles": "Связанные тайтлы",
+    "connect_prompt": "Подключите аккаунт, чтобы видеть здесь свой список MyAnimeList.",
+    "connect_first": "Сначала подключите MyAnimeList",
+    "search_failed": "Не удалось связаться с MyAnimeList.",
+    "link_title": "Связать с MyAnimeList",
+    "link_hint": "Выберите, какое аниме на MyAnimeList соответствует этому тайтлу.",
+    "linked_to": "Связано с {}",
+    "track": "Отслеживать на MyAnimeList",
+    "tracked": "Отслеживается на MyAnimeList",
+    "score_label": "ОЦЕНКА",
+    "remove_entry": "Удалить из моего списка",
+    "remove_confirm": "Удалить «{}» из вашего MyAnimeList? Прогресс по нему тоже будет удалён.",
+    "removed": "Удалено из MyAnimeList",
+    "rewatching_note": "Вы пересматриваете это. Sozo не трогает статус, чтобы не прервать пересмотр."
   },
   "tracker": {
     "title": "Tracking",

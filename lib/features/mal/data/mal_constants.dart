@@ -25,22 +25,6 @@ class MalConstants {
   static const String callbackHost = 'mal';
 }
 
-/// The list statuses MAL accepts on a write.
-///
-/// Deliberately plain strings — MAL rejects anything else, and a typo here
-/// fails at runtime with a 400. Note there is no "rewatching" member: MAL
-/// expresses that as a FLAG on a completed entry (`is_rewatching`), which is
-/// read but never sent.
-class MalStatus {
-  const MalStatus._();
-
-  static const String watching = 'watching';
-  static const String completed = 'completed';
-  static const String onHold = 'on_hold';
-  static const String dropped = 'dropped';
-  static const String planToWatch = 'plan_to_watch';
-}
-
 class MalException implements Exception {
   const MalException(this.message);
 

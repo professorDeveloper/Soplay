@@ -39,6 +39,8 @@ import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
 import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
+import 'package:soplay/features/mal/data/mal_service.dart';
+import 'package:soplay/features/mal/presentation/widgets/mal_brand.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_logo.dart';
 
@@ -1020,12 +1022,17 @@ class _ConnectionsSection extends StatelessWidget {
   }
 }
 
-/// The Connections row, which shows AniList's state inline.
+/// The Connections row, which shows the trackers' state inline.
 ///
 /// A tile of its own rather than a plain link: whether a tracker is connected
 /// is the entire question a user opens this row to answer, and making them
-/// navigate to find out defeats the point. Listens to the service so connecting
-/// elsewhere updates it without a manual refresh.
+/// navigate to find out defeats the point.
+///
+/// It speaks for BOTH trackers rather than for AniList alone. Branded as one
+/// service, it read as an AniList row — so someone looking for MyAnimeList had
+/// no reason to tap it and reasonably concluded the app did not support it.
+/// Listens to both services so connecting elsewhere updates it without a
+/// manual refresh.
 class _ConnectionsTile extends StatefulWidget {
   const _ConnectionsTile();
 
@@ -1035,16 +1042,19 @@ class _ConnectionsTile extends StatefulWidget {
 
 class _ConnectionsTileState extends State<_ConnectionsTile> {
   final AnilistService _anilist = getIt<AnilistService>();
+  final MalService _mal = getIt<MalService>();
 
   @override
   void initState() {
     super.initState();
     _anilist.addListener(_onChange);
+    _mal.addListener(_onChange);
   }
 
   @override
   void dispose() {
     _anilist.removeListener(_onChange);
+    _mal.removeListener(_onChange);
     super.dispose();
   }
 
@@ -1052,14 +1062,30 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
     if (mounted) setState(() {});
   }
 
+  /// Who is connected, in one line.
+  ///
+  /// Account names rather than service names: two people with both trackers
+  /// linked want to see WHICH accounts, and the logos beside this already say
+  /// which services. Falls back to the service name when a link carries no
+  /// username yet.
+  String _subtitle() {
+    final names = <String>[
+      if (_anilist.isConnected)
+        (_anilist.viewer?.name.trim().isNotEmpty ?? false)
+            ? _anilist.viewer!.name.trim()
+            : 'AniList',
+      if (_mal.isConnected)
+        (_mal.viewer?.name.trim().isNotEmpty ?? false)
+            ? _mal.viewer!.name.trim()
+            : 'MyAnimeList',
+    ];
+    return names.isEmpty ? 'anilist.connect_tagline'.tr() : names.join('  ·  ');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final connected = _anilist.isConnected;
-    final name = _anilist.viewer?.name;
+    final anyConnected = _anilist.isConnected || _mal.isConnected;
 
-    // A branded row rather than a generic "Connections" line. Connecting a
-    // tracker is the kind of thing people only do if they notice it exists,
-    // and a link icon among a dozen settings rows does not read as an offer.
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1068,15 +1094,26 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
           padding: const EdgeInsets.fromLTRB(16, 11, 12, 11),
           child: Row(
             children: [
-              const AnilistLogoBadge(size: 34, radius: 10),
+              // Both marks, so the row names what it actually offers. Dimmed
+              // when that tracker is not connected, so the pair doubles as a
+              // status readout at a glance.
+              _TrackerMark(
+                connected: _anilist.isConnected,
+                child: const AnilistLogo(size: 28, radius: 8),
+              ),
+              const SizedBox(width: 7),
+              _TrackerMark(
+                connected: _mal.isConnected,
+                child: const MalLogo(size: 28, radius: 8),
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'AniList',
-                      style: TextStyle(
+                    Text(
+                      'anilist.connections_title'.tr(),
+                      style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -1084,23 +1121,20 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      connected && name != null && name.isNotEmpty
-                          ? name
-                          : 'anilist.connect_tagline'.tr(),
+                      _subtitle(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: connected ? kAnilistBlue : AppColors.textHint,
+                        color: anyConnected ? kAnilistBlue : AppColors.textHint,
                         fontSize: 12.5,
-                        fontWeight: connected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
+                        fontWeight:
+                            anyConnected ? FontWeight.w600 : FontWeight.w400,
                       ),
                     ),
                   ],
                 ),
               ),
-              if (!connected)
+              if (!anyConnected)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -1127,6 +1161,20 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
       ),
     );
   }
+}
+
+/// A tracker logo, dimmed while that tracker is not connected.
+class _TrackerMark extends StatelessWidget {
+  const _TrackerMark({required this.connected, required this.child});
+
+  final bool connected;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Opacity(
+        opacity: connected ? 1 : 0.38,
+        child: child,
+      );
 }
 
 class _SecuritySection extends StatefulWidget {

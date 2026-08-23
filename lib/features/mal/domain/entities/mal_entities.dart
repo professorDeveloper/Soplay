@@ -1,3 +1,19 @@
+/// The list statuses MAL accepts on a write.
+///
+/// Deliberately plain strings — MAL identifies them by the wire value, and a
+/// second representation would only need mapping back at every edge. Note there
+/// is no "rewatching" member: MAL expresses that as a FLAG on a completed entry
+/// (`is_rewatching`), which is read but never sent.
+class MalStatus {
+  const MalStatus._();
+
+  static const String watching = 'watching';
+  static const String completed = 'completed';
+  static const String onHold = 'on_hold';
+  static const String dropped = 'dropped';
+  static const String planToWatch = 'plan_to_watch';
+}
+
 /// The signed-in MyAnimeList account.
 class MalViewer {
   const MalViewer({required this.id, required this.name, this.avatarUrl});
@@ -109,3 +125,88 @@ class MalAnime {
     );
   }
 }
+
+/// One row of the viewer's MyAnimeList.
+class MalListEntry {
+  const MalListEntry({
+    required this.anime,
+    required this.status,
+    this.progress = 0,
+    this.score = 0,
+    this.isRewatching = false,
+    this.updatedAt,
+  });
+
+  final MalAnime anime;
+
+  /// One of [MalStatus]. MAL never returns a row without one.
+  final String status;
+
+  final int progress;
+
+  /// 0-10, where 0 means "not scored". MAL has no half points.
+  final int score;
+
+  final bool isRewatching;
+
+  /// Server clock, for sorting most-recently-touched first.
+  final DateTime? updatedAt;
+
+  /// Episodes left to watch, or null when the total is unknown (still airing).
+  int? get remaining {
+    final total = anime.episodes;
+    if (total == null || total <= 0) return null;
+    final left = total - progress;
+    return left > 0 ? left : 0;
+  }
+
+  double get fraction {
+    final total = anime.episodes;
+    if (total == null || total <= 0) return 0;
+    return (progress / total).clamp(0.0, 1.0);
+  }
+
+  MalListEntry copyWith({
+    String? status,
+    int? progress,
+    int? score,
+    bool? isRewatching,
+  }) => MalListEntry(
+        anime: anime,
+        status: status ?? this.status,
+        progress: progress ?? this.progress,
+        score: score ?? this.score,
+        isRewatching: isRewatching ?? this.isRewatching,
+        updatedAt: updatedAt,
+      );
+
+  /// Parses one `{ node, list_status }` pair from `/users/@me/animelist`.
+  static MalListEntry? fromJson(Map<String, dynamic> row) {
+    final node = (row['node'] as Map?)?.cast<String, dynamic>();
+    final listStatus = (row['list_status'] as Map?)?.cast<String, dynamic>();
+    if (node == null || listStatus == null) return null;
+    final anime = MalAnime.fromJson(node);
+    if (anime.id <= 0) return null;
+    return MalListEntry(
+      anime: anime,
+      status: (listStatus['status'] ?? MalStatus.watching).toString(),
+      progress: (listStatus['num_episodes_watched'] as num?)?.toInt() ?? 0,
+      score: (listStatus['score'] as num?)?.toInt() ?? 0,
+      isRewatching: listStatus['is_rewatching'] == true,
+      updatedAt: DateTime.tryParse('${listStatus['updated_at']}'),
+    );
+  }
+}
+
+/// The statuses a library screen shows, in the order people expect them.
+///
+/// A plain list rather than an enum: MAL identifies them by the wire string,
+/// and a second representation would only need mapping back at every edge.
+const List<String> kMalLibraryStatuses = [
+  MalStatus.watching,
+  MalStatus.completed,
+  MalStatus.onHold,
+  MalStatus.dropped,
+  MalStatus.planToWatch,
+];
+
