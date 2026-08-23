@@ -54,7 +54,13 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
   late SubtitleStyle _subtitle;
 
   static const List<double> _speedChoices = [
-    0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0,
+    0.5,
+    0.75,
+    1.0,
+    1.25,
+    1.5,
+    1.75,
+    2.0,
   ];
   static const List<int> _seekChoices = [5, 10, 30];
   static const List<double> _boostChoices = [1.5, 2.0, 2.5, 3.0];
@@ -83,8 +89,10 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
     if (kDebugMode) {
       final readMs = _openWatch.elapsedMilliseconds;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        debugPrint('[PLAYER-SETTINGS] hive read ${readMs}ms, '
-            'first frame ${_openWatch.elapsedMilliseconds}ms');
+        debugPrint(
+          '[PLAYER-SETTINGS] hive read ${readMs}ms, '
+          'first frame ${_openWatch.elapsedMilliseconds}ms',
+        );
       });
     }
   }
@@ -107,10 +115,10 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
   /// same three modes are named there and the two lists disagreeing would be
   /// worse than either naming alone.
   String _fitLabel(String id) => switch (id) {
-        'cover' => 'player.fit_fill'.tr(),
-        'fill' => 'player.fit_stretch'.tr(),
-        _ => 'player.fit_original'.tr(),
-      };
+    'cover' => 'player.fit_fill'.tr(),
+    'fill' => 'player.fit_stretch'.tr(),
+    _ => 'player.fit_original'.tr(),
+  };
 
   String _speedLabel(double v) =>
       '${v.toString().replaceFirst(RegExp(r'\.0$'), '')}×';
@@ -236,8 +244,8 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
                 subtitle: 'profile.seek_step_desc'.tr(),
                 value: _seekValue,
                 options: _seekChoices,
-                labelOf: (v) => 'profile.seconds_short'
-                    .tr(args: <String>[v.toString()]),
+                labelOf: (v) =>
+                    'profile.seconds_short'.tr(args: <String>[v.toString()]),
                 onChanged: (v) {
                   setState(() => _seekSeconds = v);
                   _hive.saveDoubleTapSeekSeconds(v);
@@ -293,9 +301,8 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
                 value: _subtitle.fontSize,
                 options: const [12, 14, 16, 18, 20, 24, 28, 32],
                 labelOf: (v) => v.toInt().toString(),
-                onChanged: (v) => _saveSubtitle(
-                  _subtitle.copyWith(fontSize: v),
-                ),
+                onChanged: (v) =>
+                    _saveSubtitle(_subtitle.copyWith(fontSize: v)),
               ),
               const SettingsDivider(),
               SettingsDropdownTile<SubtitleEdge>(
@@ -402,14 +409,34 @@ class _SubtitlePreview extends StatelessWidget {
             shadows: switch (style.edge) {
               SubtitleEdge.none => const <Shadow>[],
               SubtitleEdge.shadow => const <Shadow>[
-                  Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 1)),
-                ],
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
+                ),
+              ],
               SubtitleEdge.outline => const <Shadow>[
-                  Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1)),
-                  Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, -1)),
-                  Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)),
-                  Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, 1)),
-                ],
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 2,
+                  offset: Offset(-1, -1),
+                ),
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 2,
+                  offset: Offset(1, -1),
+                ),
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 2,
+                  offset: Offset(1, 1),
+                ),
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 2,
+                  offset: Offset(-1, 1),
+                ),
+              ],
             },
           ),
         ),
@@ -449,8 +476,11 @@ class _SubtitleColorRow extends StatelessWidget {
               color: AppColors.textSecondary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.palette_outlined,
-                color: AppColors.textSecondary, size: 18),
+            child: const Icon(
+              Icons.palette_outlined,
+              color: AppColors.textSecondary,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -505,8 +535,11 @@ class _SubtitleOpacityRow extends StatelessWidget {
               color: AppColors.textSecondary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.opacity_rounded,
-                color: AppColors.textSecondary, size: 18),
+            child: const Icon(
+              Icons.opacity_rounded,
+              color: AppColors.textSecondary,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -581,8 +614,7 @@ class _EngineRow extends StatelessWidget {
                 child: Icon(
                   playerEngineIcon(engine),
                   size: 18,
-                  color:
-                      selected ? AppColors.primary : AppColors.textSecondary,
+                  color: selected ? AppColors.primary : AppColors.textSecondary,
                 ),
               ),
               const SizedBox(width: 14),
@@ -606,10 +638,11 @@ class _EngineRow extends StatelessWidget {
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color:
-                                  AppColors.primary.withValues(alpha: 0.14),
+                              color: AppColors.primary.withValues(alpha: 0.14),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(

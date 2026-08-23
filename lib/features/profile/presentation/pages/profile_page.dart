@@ -111,7 +111,11 @@ class _ProfileViewState extends State<_ProfileView> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF1E1416), Color(0xFF181818), Color(0xFF101010)],
+                colors: [
+                  Color(0xFF1E1416),
+                  Color(0xFF181818),
+                  Color(0xFF101010),
+                ],
                 stops: [0, 0.35, 1],
               ),
             ),
@@ -119,65 +123,77 @@ class _ProfileViewState extends State<_ProfileView> {
           ),
           _ProfileScrollFrame(
             child: RefreshIndicator(
-            onRefresh: _onRefresh,
-            color: AppColors.primary,
-            backgroundColor: AppColors.surface,
-            edgeOffset: headerH,
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(child: SizedBox(height: headerH + 16)),
-                SliverToBoxAdapter(
-                  child: BlocBuilder<AuthBloc, AuthState>(
-                    builder: (context, state) {
-                      final user =
-                          state is AuthLoaded ? state.token.user : null;
-                      return _Reveal(order: 0, child: _ProfileHeader(user: user));
-                    },
+              onRefresh: _onRefresh,
+              color: AppColors.primary,
+              backgroundColor: AppColors.surface,
+              edgeOffset: headerH,
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(child: SizedBox(height: headerH + 16)),
+                  SliverToBoxAdapter(
+                    child: BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        final user = state is AuthLoaded
+                            ? state.token.user
+                            : null;
+                        return _Reveal(
+                          order: 0,
+                          child: _ProfileHeader(user: user),
+                        );
+                      },
+                    ),
                   ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
-                const SliverToBoxAdapter(
-                  child: _Reveal(order: 1, child: StreakCard()),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                const SliverToBoxAdapter(
-                  child: _Reveal(order: 2, child: _ConnectionsSection()),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                const SliverToBoxAdapter(
-                  child: _Reveal(order: 3, child: _ProvidersSection()),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                const SliverToBoxAdapter(
-                  child: _Reveal(order: 4, child: _ExtensionSourcesSection()),
-                ),
-                // Signed-in only: approving a TV pairing binds it to an account, so
-                // there is nothing this can do for a guest.
-                const SliverToBoxAdapter(
-                  child: _Reveal(order: 5, child: _WatchHistorySection()),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                const SliverToBoxAdapter(
-                  child: _Reveal(order: 6, child: _SecuritySection()),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                const SliverToBoxAdapter(
-                  child: _Reveal(order: 7, child: _SettingsEntriesSection()),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                const SliverToBoxAdapter(
-                  child: _Reveal(order: 8, child: _AboutSection()),
-                ),
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: bottomPad + (isDesktopPlatform ? 112 : 96),
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  const SliverToBoxAdapter(
+                    child: _Reveal(order: 1, child: StreakCard()),
                   ),
-                ),
-              ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  const SliverToBoxAdapter(
+                    child: _Reveal(order: 2, child: _ConnectionsSection()),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  const SliverToBoxAdapter(
+                    child: _Reveal(order: 3, child: _ProvidersSection()),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  const SliverToBoxAdapter(
+                    child: _Reveal(order: 4, child: _ExtensionSourcesSection()),
+                  ),
+                  // Signed-in only: approving a TV pairing binds it to an account, so
+                  // there is nothing this can do for a guest.
+                  const SliverToBoxAdapter(
+                    child: _Reveal(order: 5, child: _WatchHistorySection()),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  const SliverToBoxAdapter(
+                    child: _Reveal(order: 6, child: _SecuritySection()),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  const SliverToBoxAdapter(
+                    child: _Reveal(order: 7, child: _SettingsEntriesSection()),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  const SliverToBoxAdapter(
+                    child: _Reveal(order: 8, child: _AboutSection()),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  SliverToBoxAdapter(
+                    child: BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) => state is AuthLoaded
+                          ? const _Reveal(order: 9, child: _SignOutSection())
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: bottomPad + (isDesktopPlatform ? 112 : 96),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           ),
           Positioned(
             top: 0,
@@ -199,13 +215,15 @@ class _ProfileViewState extends State<_ProfileView> {
                 final content = Container(
                   padding: EdgeInsets.fromLTRB(20, topPad + 14, 16, 14),
                   decoration: BoxDecoration(
-                    color: AppColors.navBackground
-                        .withValues(alpha: 0.78 * progress),
+                    color: AppColors.navBackground.withValues(
+                      alpha: 0.78 * progress,
+                    ),
                     border: progress > 0.05
                         ? Border(
                             bottom: BorderSide(
-                              color: Colors.white
-                                  .withValues(alpha: 0.07 * progress),
+                              color: Colors.white.withValues(
+                                alpha: 0.07 * progress,
+                              ),
                               width: 0.5,
                             ),
                           )
@@ -214,8 +232,7 @@ class _ProfileViewState extends State<_ProfileView> {
                   child: isDesktopPlatform
                       ? Center(
                           child: ConstrainedBox(
-                            constraints:
-                                const BoxConstraints(maxWidth: 760),
+                            constraints: const BoxConstraints(maxWidth: 760),
                             child: Padding(
                               padding: const EdgeInsets.only(left: 16),
                               child: Align(
@@ -424,8 +441,8 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
             color: active
                 ? AppColors.primary.withValues(alpha: 0.12)
                 : (_hover
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.transparent),
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.transparent),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
@@ -459,8 +476,7 @@ class _Reveal extends StatefulWidget {
   State<_Reveal> createState() => _RevealState();
 }
 
-class _RevealState extends State<_Reveal>
-    with SingleTickerProviderStateMixin {
+class _RevealState extends State<_Reveal> with SingleTickerProviderStateMixin {
   AnimationController? _c;
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
@@ -670,29 +686,54 @@ class _UserContent extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          _LogoutButton(),
+          _EditProfileButton(user: user),
         ],
       ),
     );
   }
 }
 
-class _LogoutButton extends StatelessWidget {
-  const _LogoutButton();
+/// Editing is what someone reaches for on their own profile; signing out is
+/// something they do once and go looking for. The header carries the first, and
+/// the last section of the page carries the second.
+class _EditProfileButton extends StatelessWidget {
+  const _EditProfileButton({required this.user});
+
+  final UserEntity user;
 
   @override
   Widget build(BuildContext context) {
-    // Tinted, not neutral: signing out is the one destructive control on this
-    // screen and it was indistinguishable from an ordinary icon button.
     return IconButton(
-      onPressed: () => _confirmLogout(context),
-      icon: const Icon(Icons.logout_rounded, size: 20),
-      color: AppColors.error,
-      tooltip: 'profile.sign_out'.tr(),
+      onPressed: () => context.push('/profile/edit', extra: user),
+      icon: const Icon(Icons.edit_outlined, size: 19),
+      color: AppColors.textPrimary,
+      tooltip: 'profile.edit_profile'.tr(),
       style: IconButton.styleFrom(
-        backgroundColor: AppColors.error.withValues(alpha: 0.12),
+        backgroundColor: Colors.white.withValues(alpha: 0.07),
         fixedSize: const Size(40, 40),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+}
+
+class _SignOutSection extends StatelessWidget {
+  const _SignOutSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: _SectionCard(
+        children: [
+          _Tile(
+            icon: Icons.logout_rounded,
+            title: 'profile.sign_out'.tr(),
+            destructive: true,
+            trailing: const SizedBox.shrink(),
+            onTap: () => _confirmLogout(context),
+          ),
+        ],
       ),
     );
   }
@@ -931,8 +972,8 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
                 title: BridgeControl.canHost
                     ? 'profile.share_sources_desktop'.tr()
                     : Platform.isIOS
-                        ? 'ios.sources_title'.tr()
-                        : 'profile.desktop_sources'.tr(),
+                    ? 'ios.sources_title'.tr()
+                    : 'profile.desktop_sources'.tr(),
                 trailing: const _TileChevron(),
                 onTap: () => context.push('/desktop-share'),
               ),
@@ -1051,8 +1092,9 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
                       style: TextStyle(
                         color: connected ? kAnilistBlue : AppColors.textHint,
                         fontSize: 12.5,
-                        fontWeight:
-                            connected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: connected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                       ),
                     ),
                   ],
@@ -1060,8 +1102,10 @@ class _ConnectionsTileState extends State<_ConnectionsTile> {
               ),
               if (!connected)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: kAnilistBlue.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(8),
@@ -1281,18 +1325,23 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
           ),
           child: Column(
             children: [
-              SizedBox(height: 24, child: Center(child: _navPreview(value, accent))),
+              SizedBox(
+                height: 24,
+                child: Center(child: _navPreview(value, accent)),
+              ),
               const SizedBox(height: 7),
-              Text(labelKey.tr(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      color: selected
-                          ? AppColors.textPrimary
-                          : AppColors.textSecondary,
-                      fontSize: 11,
-                      fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w500)),
+              Text(
+                labelKey.tr(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ),
@@ -1317,33 +1366,49 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   value: _native,
                   activeThumbColor: AppColors.primary,
-                  secondary: const Icon(Icons.web_asset_rounded,
-                      color: AppColors.textSecondary),
-                  title: Text('profile.native_window_bar'.tr(),
-                      style: const TextStyle(
-                          color: AppColors.textPrimary, fontSize: 15)),
-                  subtitle: Text('profile.native_window_bar_subtitle'.tr(),
-                      style: const TextStyle(
-                          color: AppColors.textHint, fontSize: 12)),
+                  secondary: const Icon(
+                    Icons.web_asset_rounded,
+                    color: AppColors.textSecondary,
+                  ),
+                  title: Text(
+                    'profile.native_window_bar'.tr(),
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'profile.native_window_bar_subtitle'.tr(),
+                    style: const TextStyle(
+                      color: AppColors.textHint,
+                      fontSize: 12,
+                    ),
+                  ),
                   onChanged: _toggle,
                 ),
               if (isMobilePlatform) ...[
                 if (widget.showLabel)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.dashboard_customize_rounded,
-                          size: 18, color: AppColors.textHint),
-                      const SizedBox(width: 8),
-                      Text('profile.nav_style'.tr(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.dashboard_customize_rounded,
+                          size: 18,
+                          color: AppColors.textHint,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'profile.nav_style'.tr(),
                           style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600)),
-                    ],
+                            color: AppColors.textSecondary,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
                   child: DecoratedBox(
@@ -1367,15 +1432,26 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                     borderRadius: BorderRadius.circular(14),
                     child: ListTile(
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      leading: const Icon(Icons.view_week_rounded,
-                          color: AppColors.textSecondary),
-                      title: Text('nav_customize.entry_title'.tr(),
-                          style: const TextStyle(
-                              color: AppColors.textPrimary, fontSize: 15)),
-                      subtitle: Text('nav_customize.entry_subtitle'.tr(),
-                          style: const TextStyle(
-                              color: AppColors.textHint, fontSize: 12)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      leading: const Icon(
+                        Icons.view_week_rounded,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: Text(
+                        'nav_customize.entry_title'.tr(),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'nav_customize.entry_subtitle'.tr(),
+                        style: const TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 12,
+                        ),
+                      ),
                       trailing: const _TileChevron(),
                       onTap: () => showTabCustomizer(context),
                     ),
@@ -1403,8 +1479,10 @@ class NavbarPage extends StatelessWidget {
         backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: Text('profile.nav_style'.tr(),
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        title: Text(
+          'profile.nav_style'.tr(),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
       ),
       body: const SingleChildScrollView(
         padding: EdgeInsets.only(top: 12, bottom: 40),
@@ -1469,8 +1547,7 @@ class _AboutSection extends StatelessWidget {
     final uri = Uri.parse(url);
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   void _showDeveloper(BuildContext context) {
@@ -1607,7 +1684,9 @@ class _AboutSection extends StatelessWidget {
                         ? 'v${snap.data!.version} (${snap.data!.buildNumber})'
                         : '…',
                     style: const TextStyle(
-                        color: AppColors.textHint, fontSize: 13),
+                      color: AppColors.textHint,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
                 onTap: null,
@@ -1621,8 +1700,10 @@ class _AboutSection extends StatelessWidget {
                   children: [
                     Text(
                       'Azamov X',
-                      style:
-                          TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
                     ),
                     SizedBox(width: 4),
                     _TileChevron(),
@@ -1760,9 +1841,14 @@ class _Tile extends StatelessWidget {
     required this.trailing,
     required this.onTap,
     this.subtitle,
+    this.destructive = false,
   });
 
   final IconData? icon;
+
+  /// Signing out is the one row on this page that undoes something, and a row
+  /// that reads exactly like "Appearance" gives no sign of that.
+  final bool destructive;
 
   /// Drawn in place of the icon chip, in the same 34px box so the column of
   /// leading marks does not shift between rows.
@@ -1784,7 +1870,11 @@ class _Tile extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) => Row(
               children: [
-                _TileLeading(icon: icon, child: leading),
+                _TileLeading(
+                  icon: icon,
+                  destructive: destructive,
+                  child: leading,
+                ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -1793,10 +1883,14 @@ class _Tile extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: TextStyle(
+                          color: destructive
+                              ? AppColors.error
+                              : AppColors.textPrimary,
                           fontSize: 15,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: destructive
+                              ? FontWeight.w600
+                              : FontWeight.w500,
                         ),
                       ),
                       if (sub != null && sub.isNotEmpty) ...[
@@ -1817,8 +1911,9 @@ class _Tile extends StatelessWidget {
                 // Half the row at most: past that the value wins the tug of
                 // war with the title and pushes it into a wrapped column.
                 ConstrainedBox(
-                  constraints:
-                      BoxConstraints(maxWidth: constraints.maxWidth * 0.5),
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth * 0.5,
+                  ),
                   child: trailing,
                 ),
               ],
@@ -1831,10 +1926,11 @@ class _Tile extends StatelessWidget {
 }
 
 class _TileLeading extends StatelessWidget {
-  const _TileLeading({this.icon, this.child});
+  const _TileLeading({this.icon, this.child, this.destructive = false});
 
   final IconData? icon;
   final Widget? child;
+  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
@@ -1846,12 +1942,18 @@ class _TileLeading extends StatelessWidget {
       width: 34,
       height: 34,
       decoration: BoxDecoration(
-        color: AppColors.textSecondary.withValues(alpha: 0.1),
+        color: destructive
+            ? AppColors.error.withValues(alpha: 0.12)
+            : AppColors.textSecondary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
       ),
       child: icon == null
           ? null
-          : Icon(icon, color: AppColors.textSecondary, size: 18),
+          : Icon(
+              icon,
+              color: destructive ? AppColors.error : AppColors.textSecondary,
+              size: 18,
+            ),
     );
   }
 }
@@ -1871,10 +1973,10 @@ class _TileChevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Icon(
-        Icons.chevron_right_rounded,
-        color: AppColors.textHint,
-        size: 20,
-      );
+    Icons.chevron_right_rounded,
+    color: AppColors.textHint,
+    size: 20,
+  );
 }
 
 class _Avatar extends StatelessWidget {
@@ -1886,22 +1988,19 @@ class _Avatar extends StatelessWidget {
     final photoUrl = user.photoURL;
     final initials = _initials(user.displayIdentifier);
 
+    // No coloured ring. A Google picture already arrives as a saturated tile,
+    // and a red band around it read as an error state rather than a frame.
     return Container(
       width: 66,
       height: 66,
-      padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primaryDark],
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.primary,
-          borderRadius: BorderRadius.circular(16),
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(17),
         ),
         clipBehavior: Clip.antiAlias,
         child: photoUrl != null && photoUrl.isNotEmpty
@@ -1959,8 +2058,10 @@ class _ServerCountdownTileState extends State<_ServerCountdownTile> {
   void initState() {
     super.initState();
     _updateRemaining();
-    _timer =
-        Timer.periodic(const Duration(seconds: 1), (_) => _updateRemaining());
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _updateRemaining(),
+    );
   }
 
   void _updateRemaining() {
@@ -2229,9 +2330,9 @@ class _ExtensionSourcesSection extends StatelessWidget {
           ),
           title: 'profile.aniyomi_sources'.tr(),
           trailing: const _TileChevron(),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const AniyomiSourcesPage()),
-          ),
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const AniyomiSourcesPage())),
         ),
       if (BridgeControl.canHost && MangaChannel.isSupported)
         _Tile(
@@ -2242,9 +2343,9 @@ class _ExtensionSourcesSection extends StatelessWidget {
           ),
           title: 'manga.sources_title'.tr(),
           trailing: const _TileChevron(),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const MangaSourcesPage()),
-          ),
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const MangaSourcesPage())),
         ),
       // Not gated on BridgeControl.canHost / a platform channel: these
       // extensions are JavaScript, so this entry is valid on iOS, macOS and

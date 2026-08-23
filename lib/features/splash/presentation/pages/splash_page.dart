@@ -7,13 +7,6 @@ import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/splash/presentation/widgets/netflix_splash.dart';
 
-/// Temporary: send every launch to the onboarding, signed in or not, so the
-/// screen can be looked at without clearing the session each time.
-///
-/// Set back to `false` to restore the shipping behaviour — onboarding as the
-/// signed-out landing screen only.
-const bool kAlwaysShowOnboarding = true;
-
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
@@ -34,13 +27,11 @@ class _SplashPageState extends State<SplashPage> {
       context.go('/pin-verify?redirect=/main');
       return;
     }
-    // Shown on every launch, not just the first: while nobody is signed in it
-    // IS the landing screen — the place the app says what it is and offers the
-    // two ways in. A signed-in device skips it and goes straight to the app.
-    // A device with a PIN has been used before, so the question only arises on
-    // the branch with no lock to unlock.
-    if (kAlwaysShowOnboarding ||
-        (getIt<HiveService>().getToken() ?? '').isEmpty) {
+    // Once, on a device nobody has signed in on. A PIN means the device has
+    // been used before, so the question only arises on the branch with no lock
+    // to unlock.
+    final hive = getIt<HiveService>();
+    if (!hive.hasOnboardingSeen && (hive.getToken() ?? '').isEmpty) {
       context.go('/onboarding');
       return;
     }

@@ -73,7 +73,8 @@
     "medium": "Средний",
     "strong": "Надёжный",
     "code_resent": "Код отправлен повторно. Проверьте почту.",
-    "verify": "Подтвердить"
+    "verify": "Подтвердить",
+    "avatar_bad_format": "Формат изображения не поддерживается (jpg, png, webp)"
   },
   "onboarding": {
     "skip": "Пропустить",
@@ -329,7 +330,14 @@
     "section_connections": "ПОДКЛЮЧЕНИЯ",
     "section_extensions": "ИСТОЧНИКИ",
     "section_settings": "НАСТРОЙКИ",
-    "remove_favorite": "Убрать из избранного"
+    "remove_favorite": "Убрать из избранного",
+    "edit_profile": "Редактировать профиль",
+    "display_name_hint": "Ваше имя",
+    "display_name_too_long": "Имя не длиннее 60 символов",
+    "pick_from_gallery": "Выбрать из галереи",
+    "take_photo": "Сделать фото",
+    "remove_photo": "Удалить фото",
+    "photo_pick_failed": "Не удалось выбрать фото"
   },
   "search": {
     "title": "Поиск",

@@ -73,7 +73,8 @@
     "medium": "Medium",
     "strong": "Strong",
     "code_resent": "Code resent. Check your email.",
-    "verify": "Verify"
+    "verify": "Verify",
+    "avatar_bad_format": "Image format not supported (jpg, png, webp)"
   },
   "onboarding": {
     "skip": "Skip",
@@ -329,7 +330,14 @@
     "section_connections": "CONNECTIONS",
     "section_extensions": "SOURCES",
     "section_settings": "SETTINGS",
-    "remove_favorite": "Remove from favourites"
+    "remove_favorite": "Remove from favourites",
+    "edit_profile": "Edit profile",
+    "display_name_hint": "Your name",
+    "display_name_too_long": "Name must be 60 characters or fewer",
+    "pick_from_gallery": "Choose from gallery",
+    "take_photo": "Take a photo",
+    "remove_photo": "Remove photo",
+    "photo_pick_failed": "Could not pick a photo"
   },
   "search": {
     "title": "Search",

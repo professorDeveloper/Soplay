@@ -2,6 +2,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/auth/data/services/google_auth_service.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
@@ -42,6 +44,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
     super.dispose();
   }
 
+  /// Marked on the way out rather than on entry: a first launch killed halfway
+  /// through should still get the introduction next time.
+  Future<void> _leave(String route) async {
+    await getIt<HiveService>().markOnboardingSeen();
+    if (!mounted) return;
+    context.go(route);
+  }
+
   void _continueWithGoogle() {
     setState(() => _googlePending = true);
     context.read<AuthBloc>().add(const AuthGoogleRequested());
@@ -52,7 +62,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthLoaded) {
-          context.go('/main');
+          _leave('/main');
         } else if (state is AuthError) {
           setState(() => _googlePending = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -105,7 +115,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           ),
                         ),
                         const Spacer(),
-                        _SkipChip(onTap: () => context.go('/main')),
+                        _SkipChip(onTap: () => _leave('/main')),
                       ],
                     ),
                   ),
@@ -140,12 +150,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               label: 'onboarding.continue_with_email'.tr(),
                               onPressed: loading
                                   ? null
-                                  : () => context.push('/register'),
+                                  : () => _leave('/register'),
                             ),
                             AuthSwitchPrompt(
                               text: 'auth.already_have_account'.tr(),
                               action: 'auth.sign_in'.tr(),
-                              onTap: () => context.push('/login'),
+                              onTap: () => _leave('/login'),
                             ),
                           ],
                         );
