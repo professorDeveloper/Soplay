@@ -1084,6 +1084,19 @@
     "remove_confirm": "\"{}\" AniList ro'yxatingizdan o'chirilsinmi? Undagi progress ham o'chadi.",
     "removed": "AniList ro'yxatidan o'chirildi"
   },
+  "mal": {
+    "connect": "MyAnimeList ulash",
+    "disconnect": "MyAnimeList uzish",
+    "disconnect_confirm": "MyAnimeList hisobingiz uziladi va moslashtirilgan nomlar unutiladi. Ro'yxatingiz MyAnimeList'da qoladi.",
+    "connect_explainer": "MyAnimeList'ni ulang — ko'rgan epizodlaringiz avtomatik belgilanadi.",
+    "connected_explainer": "Ko'rilgan epizodlar MyAnimeList ro'yxatingizga yoziladi. Ulanish hisobingizda saqlanadi, shuning uchun televizoringiz va boshqa qurilmalaringiz qaytadan kirishni so'ramaydi.",
+    "not_configured": "MyAnimeList serverda hali sozlanmagan",
+    "matching_title": "Nomlar qanday moslashtiriladi",
+    "matching_note": "AniList orqali — u ayni yozuvning MyAnimeList id'sini ham saqlaydi. Nomni bir marta bog'lasangiz, ikkala tracker ham kuzatadi.",
+    "privacy_note": "AniList va MyAnimeList tokenlaringiz Sozo hisobingizda saqlanadi. Ilova faqat siz ko'rgan epizod raqamini yozadi.",
+    "tracking_on": "MyAnimeList'da kuzatilmoqda",
+    "save_failed": "MyAnimeList'ga saqlab bo'lmadi"
+  },
   "tracker": {
     "title": "Tracking",
     "tab_following": "Following",

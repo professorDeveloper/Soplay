@@ -19,6 +19,7 @@ import 'package:soplay/core/extensions/extension_bridge.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/anilist/data/airing_reminders.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
+import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
@@ -151,7 +152,7 @@ Future<void> _initHive() async {
   ]);
 }
 
-/// Restores the AniList link, then lays down the next window of episode
+/// Restores the tracker links, then lays down the next window of episode
 /// reminders.
 ///
 /// The schedule used to be refreshed only while the airing calendar was on
@@ -161,6 +162,9 @@ Future<void> _initHive() async {
 Future<void> _restoreAnilistAndReminders() async {
   final anilist = getIt<AnilistService>();
   await anilist.restore();
+  // Restored in the same breath, and its failures are just as swallowed: a
+  // tracker that cannot be reached at startup must not hold up the app.
+  unawaited(getIt<MalService>().restore().catchError((Object _) {}));
   final reminders = getIt<AiringReminders>();
   if (!reminders.enabled || !anilist.isConnected) return;
   await reminders.sync(await anilist.library());

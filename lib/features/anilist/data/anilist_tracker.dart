@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
+import 'package:soplay/features/anilist/data/anilist_api.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/domain/entities/anilist_entities.dart';
 
@@ -24,6 +25,12 @@ class AnilistTracker {
   final AnilistLinkStore _links;
 
   AnilistLinkStore get links => _links;
+
+  /// The underlying API, for callers that need a lookup this class does not
+  /// wrap. Search and media reads are public, so this is usable even when
+  /// AniList itself is not connected — which is what lets the MyAnimeList
+  /// tracker borrow AniList purely as a matcher.
+  AnilistApi get api => _service.api;
 
   static const String _tag = '[AniList]';
 

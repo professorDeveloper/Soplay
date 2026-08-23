@@ -72,6 +72,17 @@ class AppConstants {
   /// map never silently drops a pending removal.
   static const String aniListLinkTombstonesKey = 'anilist_link_tombstones';
   static const String malTokenKey = 'mal_token';
+  static const String malViewerKey = 'mal_viewer';
+
+  /// Local title -> MAL anime id map. Lives in the SETTINGS box for the same
+  /// reason [aniListLinksKey] does: it survives a token refresh and is cleared
+  /// explicitly on sign-out rather than incidentally.
+  ///
+  /// Kept SEPARATE from the AniList map even though most rows are created from
+  /// the same match. Each tracker's links die with that tracker's connection,
+  /// and one shared map would take the other's associations down with it.
+  static const String malLinksKey = 'mal_links';
+  static const String malLinkTombstonesKey = 'mal_link_tombstones';
   static const String preferredMediaLangKey = 'preferred_media_lang';
   static const String defaultMediaLang = 'sub';
 

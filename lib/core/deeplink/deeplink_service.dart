@@ -8,6 +8,8 @@ import 'package:soplay/core/router/app_router.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/anilist/data/anilist_constants.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
+import 'package:soplay/features/mal/data/mal_constants.dart';
+import 'package:soplay/features/mal/data/mal_service.dart';
 
 class DeeplinkService {
   DeeplinkService({AppLinks? appLinks}) : _appLinks = appLinks ?? AppLinks();
@@ -61,6 +63,14 @@ class DeeplinkService {
       debugPrint('$_tag AniList callback');
       if (getIt.isRegistered<AnilistService>()) {
         await getIt<AnilistService>().handleCallback(uri);
+      }
+      return;
+    }
+
+    if (isCustom && uri.host == MalConstants.callbackHost) {
+      debugPrint('$_tag MyAnimeList callback');
+      if (getIt.isRegistered<MalService>()) {
+        await getIt<MalService>().handleCallback(uri);
       }
       return;
     }

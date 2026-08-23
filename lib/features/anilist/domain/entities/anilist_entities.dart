@@ -99,6 +99,7 @@ class AnilistScheduledAiring {
 class AnilistMedia {
   const AnilistMedia({
     required this.id,
+    this.idMal,
     this.romajiTitle,
     this.englishTitle,
     this.nativeTitle,
@@ -116,6 +117,16 @@ class AnilistMedia {
   });
 
   final int id;
+
+  /// The same show's id on MyAnimeList, when AniList knows one.
+  ///
+  /// Carried so that linking a title ONCE serves both trackers: AniList is the
+  /// only side that can match a source title to anything, and it happens to
+  /// hold MAL's id for the same entry. Without this the MAL tracker would need
+  /// its own search and its own link sheet to learn what the user already told
+  /// us. Null for entries AniList has no MAL counterpart for.
+  final int? idMal;
+
   final String? romajiTitle;
   final String? englishTitle;
   final String? nativeTitle;
@@ -168,6 +179,7 @@ class AnilistMedia {
     final title = (json['title'] as Map?)?.cast<String, dynamic>();
     return AnilistMedia(
       id: (json['id'] as num?)?.toInt() ?? 0,
+      idMal: (json['idMal'] as num?)?.toInt(),
       romajiTitle: title?['romaji'] as String?,
       englishTitle: title?['english'] as String?,
       nativeTitle: title?['native'] as String?,
