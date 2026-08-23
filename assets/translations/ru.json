@@ -1084,6 +1084,19 @@
     "remove_confirm": "Удалить «{}» из вашего AniList? Прогресс по нему тоже удалится.",
     "removed": "Удалено из AniList"
   },
+  "mal": {
+    "connect": "Подключить MyAnimeList",
+    "disconnect": "Отключить MyAnimeList",
+    "disconnect_confirm": "Аккаунт MyAnimeList будет отключён, а сопоставленные тайтлы забыты. Ваш список останется на MyAnimeList.",
+    "connect_explainer": "Подключите MyAnimeList — просмотренные эпизоды будут отмечаться автоматически.",
+    "connected_explainer": "Просмотренные эпизоды записываются в ваш список MyAnimeList. Связь хранится в аккаунте, поэтому телевизор и другие устройства не попросят войти снова.",
+    "not_configured": "MyAnimeList ещё не настроен на сервере",
+    "matching_title": "Как сопоставляются тайтлы",
+    "matching_note": "Через AniList — он хранит идентификатор MyAnimeList для той же записи. Свяжите тайтл один раз, и оба трекера будут его вести.",
+    "privacy_note": "Ваши токены AniList и MyAnimeList хранятся в аккаунте Sozo. Приложение записывает только номер просмотренного эпизода.",
+    "tracking_on": "Отслеживается на MyAnimeList",
+    "save_failed": "Не удалось сохранить в MyAnimeList"
+  },
   "tracker": {
     "title": "Tracking",
     "tab_following": "Following",

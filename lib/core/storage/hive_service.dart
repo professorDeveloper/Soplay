@@ -82,6 +82,16 @@ class HiveService {
   Future<void> clearMalToken() async =>
       _authBox.delete(AppConstants.malTokenKey);
 
+  /// The linked MyAnimeList account as JSON — the MAL counterpart of
+  /// [getAniListViewer], and cached for the same reason.
+  String? getMalViewer() => _authBox.get(AppConstants.malViewerKey);
+
+  Future<void> saveMalViewer(String json) async =>
+      _authBox.put(AppConstants.malViewerKey, json);
+
+  Future<void> clearMalViewer() async =>
+      _authBox.delete(AppConstants.malViewerKey);
+
   String getCurrentProvider() {
     final saved = _settingsBox.get(
       AppConstants.currentProviderKey,

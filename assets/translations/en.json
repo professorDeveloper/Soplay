@@ -1084,6 +1084,19 @@
     "remove_confirm": "Remove \"{}\" from your AniList? Your progress for it is deleted too.",
     "removed": "Removed from AniList"
   },
+  "mal": {
+    "connect": "Connect MyAnimeList",
+    "disconnect": "Disconnect MyAnimeList",
+    "disconnect_confirm": "Your MyAnimeList account will be disconnected and matched titles forgotten. Your list stays on MyAnimeList.",
+    "connect_explainer": "Connect MyAnimeList and the episodes you watch are marked automatically.",
+    "connected_explainer": "Watched episodes are written to your MyAnimeList. The connection is stored on your account, so your TV and other devices will not ask you to sign in again.",
+    "not_configured": "MyAnimeList is not configured on the server yet",
+    "matching_title": "How titles are matched",
+    "matching_note": "Matched through AniList, which carries the MyAnimeList id for the same entry. Link a title once and both trackers follow it.",
+    "privacy_note": "Your AniList and MyAnimeList tokens are stored on your Sozo account. The app only ever writes the episode number you watched.",
+    "tracking_on": "Tracked on MyAnimeList",
+    "save_failed": "Couldn't save to MyAnimeList"
+  },
   "tracker": {
     "title": "Tracking",
     "tab_following": "Following",

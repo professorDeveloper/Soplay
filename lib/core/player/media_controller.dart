@@ -372,6 +372,18 @@ class _MediaKitController extends PlayerController {
   /// mpv always reports a `no` (disabled) and an `auto` pseudo-track. Neither is
   /// a real choice for "which dub am I listening to", so drop them and only
   /// surface the control when a genuine alternative exists.
+  static bool _sameTracks(List<PlayerAudioTrack> a, List<PlayerAudioTrack> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id ||
+          a[i].title != b[i].title ||
+          a[i].language != b[i].language) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   void _syncAudioTracks(List<mk.AudioTrack> tracks) {
     final filtered =
         tracks.where((t) => t.id != 'no' && t.id != 'auto').toList();
@@ -384,7 +396,11 @@ class _MediaKitController extends PlayerController {
           ordinal: i + 1,
         ),
     ];
-    if (real.length == _audioTracks.length) return;
+    // Comparing only the count kept the first list mpv reported. It probes a stream in
+    // stages, so the same two tracks arrive first as bare ids and again once their title
+    // and language are known - identical length, different content - and the sheet was
+    // left showing the un-probed version, which is why languages read as missing or wrong.
+    if (_sameTracks(real, _audioTracks)) return;
     _audioTracks = real;
     // Nudge listeners so a sheet already on screen picks the new list up.
     _emit(value.copyWith());

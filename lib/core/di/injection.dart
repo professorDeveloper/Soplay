@@ -31,6 +31,9 @@ import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/history/data/history_sync_remote_data_source.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
 import 'package:soplay/features/anilist/data/anilist_link_store.dart';
+import 'package:soplay/features/mal/data/mal_link_store.dart';
+import 'package:soplay/features/mal/data/mal_service.dart';
+import 'package:soplay/features/mal/data/mal_tracker.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/auth/data/services/google_auth_service.dart';
@@ -219,6 +222,27 @@ Future<void> configureDependencies() async {
     AnilistTracker(
       service: getIt<AnilistService>(),
       links: getIt<AnilistLinkStore>(),
+    ),
+  );
+
+  // MyAnimeList. Same account-owned shape as AniList above, with one dependency
+  // that looks odd and is deliberate: the MAL tracker holds the AniList one as a
+  // MATCHER. AniList search needs no token, and it publishes the MAL id for the
+  // same entry, so a title matched once serves both trackers instead of being
+  // matched twice — and matched twice is matched wrong twice.
+  getIt.registerSingleton<MalLinkStore>(MalLinkStore());
+  getIt.registerSingleton<MalService>(
+    MalService(
+      backendDio: getIt<Dio>(),
+      hive: getIt<HiveService>(),
+      links: getIt<MalLinkStore>(),
+    ),
+  );
+  getIt.registerSingleton<MalTracker>(
+    MalTracker(
+      service: getIt<MalService>(),
+      links: getIt<MalLinkStore>(),
+      anilist: getIt<AnilistTracker>(),
     ),
   );
 

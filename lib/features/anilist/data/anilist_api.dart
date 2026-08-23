@@ -56,6 +56,7 @@ class AnilistApi {
   /// query shows up as a silently missing value rather than an error.
   static const String _mediaFields = '''
     id
+    idMal
     episodes
     averageScore
     seasonYear
@@ -280,6 +281,30 @@ class AnilistApi {
         .whereType<Map>()
         .map((e) => AnilistMedia.fromJson(e.cast<String, dynamic>()))
         .toList(growable: false);
+  }
+
+  /// The MyAnimeList id for an AniList media, or null when there is none.
+  ///
+  /// Exists so a title the user linked BY HAND reaches MyAnimeList too. That
+  /// link is the only thing that works for a translated or transliterated
+  /// source title — no search will ever match one — so without this lookup MAL
+  /// would silently track nothing for exactly the titles that needed the manual
+  /// link in the first place.
+  ///
+  /// Deliberately its own tiny query rather than a field on [entryState]: it is
+  /// asked once per title, cached by the caller, and needs no token.
+  Future<int?> malIdFor(int mediaId) async {
+    if (mediaId <= 0) return null;
+    final gql = '''
+      query (\$id: Int) {
+        Media(id: \$id, type: ANIME) { idMal }
+      }
+    ''';
+    final data = await _run(gql, variables: {'id': mediaId});
+    final media = data['Media'];
+    if (media is! Map) return null;
+    final idMal = (media['idMal'] as num?)?.toInt();
+    return (idMal != null && idMal > 0) ? idMal : null;
   }
 
   /// Everything airing between [from] and [to].

@@ -648,8 +648,8 @@ extension _PlayerMedia on _PlayerPageState {
 
     if (v.isInitialized && v.duration.inMilliseconds > 0) {
       if (v.position.inMilliseconds >=
-          v.duration.inMilliseconds * _kAnilistThreshold) {
-        _maybeReportAnilist();
+          v.duration.inMilliseconds * _kTrackerThreshold) {
+        _maybeReportTrackers();
       }
 
       final remaining = v.duration - v.position;

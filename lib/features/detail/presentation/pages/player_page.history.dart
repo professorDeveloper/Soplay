@@ -4,7 +4,7 @@ part of 'player_page.dart';
 ///
 /// 85% is the convention every anime tracker uses, and it exists because
 /// endings and next-episode previews are routinely skipped.
-const double _kAnilistThreshold = 0.85;
+const double _kTrackerThreshold = 0.85;
 
 extension _PlayerHistory on _PlayerPageState {
   void _scheduleHistorySave() {
@@ -77,21 +77,27 @@ extension _PlayerHistory on _PlayerPageState {
     );
   }
 
-  /// Reports the episode in progress to AniList once it is far enough through.
+  /// Reports the episode in progress to every connected tracker once it is far
+  /// enough through.
   ///
-  /// Fires at [_kAnilistThreshold] rather than at the very end because a viewer
+  /// Fires at [_kTrackerThreshold] rather than at the very end because a viewer
   /// who skips the ending, or who closes the player on the credits, has still
   /// watched the episode — waiting for the last frame loses those entirely.
   ///
   /// Everything about this is fire-and-forget: no await on the caller's path,
   /// no snackbar, no error state. It runs during playback, and a tracker being
   /// down is not the viewer's problem to see.
-  void _maybeReportAnilist() {
+  ///
+  /// The guard set is shared across trackers rather than kept per tracker. One
+  /// episode is one event; a MAL write that fails must not be retried by the
+  /// next tick, which is exactly what a per-tracker set would cause.
+  void _maybeReportTrackers() {
     final contentUrl = widget.args.contentUrl;
     if (contentUrl == null || contentUrl.isEmpty) return;
 
-    final tracker = getIt<AnilistTracker>();
-    if (!tracker.isConnected) return;
+    final anilist = getIt<AnilistTracker>();
+    final mal = getIt<MalTracker>();
+    if (!anilist.isConnected && !mal.isConnected) return;
 
     // A movie is one episode as far as a tracker is concerned.
     final int episodeNumber;
@@ -103,18 +109,26 @@ extension _PlayerHistory on _PlayerPageState {
     } else {
       episodeNumber = 1;
     }
-    if (episodeNumber <= 0 || !_anilistReported.add(episodeNumber)) return;
+    if (episodeNumber <= 0 || !_trackersReported.add(episodeNumber)) return;
 
-    unawaited(
-      tracker
-          .reportEpisode(
-            provider: widget.args.provider,
-            contentUrl: contentUrl,
-            title: widget.args.title,
-            episodeNumber: episodeNumber,
-          )
-          .catchError((Object _) => null),
-    );
+    for (final tracker in <Future<int?> Function()>[
+      if (anilist.isConnected)
+        () => anilist.reportEpisode(
+              provider: widget.args.provider,
+              contentUrl: contentUrl,
+              title: widget.args.title,
+              episodeNumber: episodeNumber,
+            ),
+      if (mal.isConnected)
+        () => mal.reportEpisode(
+              provider: widget.args.provider,
+              contentUrl: contentUrl,
+              title: widget.args.title,
+              episodeNumber: episodeNumber,
+            ),
+    ]) {
+      unawaited(tracker().catchError((Object _) => null));
+    }
   }
 
   Future<void> _pingStreak() async {
