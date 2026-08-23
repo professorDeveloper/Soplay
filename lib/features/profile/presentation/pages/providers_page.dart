@@ -40,10 +40,8 @@ class ProvidersPage extends StatefulWidget {
   static void open(BuildContext context, ProviderBloc bloc) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => BlocProvider.value(
-          value: bloc,
-          child: const ProvidersPage(),
-        ),
+        builder: (_) =>
+            BlocProvider.value(value: bloc, child: const ProvidersPage()),
       ),
     );
   }
@@ -61,8 +59,7 @@ class _ProvidersPageState extends State<ProvidersPage> {
   @override
   void initState() {
     super.initState();
-    final hasFavorites =
-        getIt<HiveService>().getFavoriteProviders().isNotEmpty;
+    final hasFavorites = getIt<HiveService>().getFavoriteProviders().isNotEmpty;
     var initial = _providerSheetFilter;
     if (initial == 'favorites' && !hasFavorites) initial = 'all';
     if (initial == 'all' && hasFavorites) initial = 'favorites';
@@ -122,8 +119,7 @@ class _ProvidersPageState extends State<ProvidersPage> {
           final filtered = state is ProviderLoaded
               ? _filteredProviders(state.providers)
               : const <ProviderEntity>[];
-          final favorites =
-              getIt<HiveService>().getFavoriteProviders().toSet();
+          final favorites = getIt<HiveService>().getFavoriteProviders().toSet();
           return Column(
             children: [
               Padding(
@@ -145,13 +141,19 @@ class _ProvidersPageState extends State<ProvidersPage> {
                     isDense: true,
                     hintText: 'profile.search_providers_hint'.tr(),
                     hintStyle: const TextStyle(color: AppColors.textHint),
-                    prefixIcon: const Icon(Icons.search,
-                        color: AppColors.textHint, size: 20),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: AppColors.textHint,
+                      size: 20,
+                    ),
                     suffixIcon: _query.isEmpty
                         ? null
                         : IconButton(
-                            icon: const Icon(Icons.clear,
-                                color: AppColors.textHint, size: 20),
+                            icon: const Icon(
+                              Icons.clear,
+                              color: AppColors.textHint,
+                              size: 20,
+                            ),
                             onPressed: () => setState(() {
                               _searchController.clear();
                               _query = '';
@@ -180,34 +182,39 @@ class _ProvidersPageState extends State<ProvidersPage> {
                     padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
                     child: Text(
                       _query.isEmpty
-                          ? 'profile.count_of_total_shown'.tr(args: [
-                              '${filtered.length}',
-                              '${state.providers.length}'
-                            ])
+                          ? 'profile.count_of_total_shown'.tr(
+                              args: [
+                                '${filtered.length}',
+                                '${state.providers.length}',
+                              ],
+                            )
                           // A query ignores the category chip, so say so —
                           // otherwise a hit from a hidden group looks like a bug.
                           : '${filtered.length} / ${state.providers.length} · '
-                              '${'profile.searching_all_sources'.tr()}',
+                                '${'profile.searching_all_sources'.tr()}',
                       style: const TextStyle(
-                          color: AppColors.textHint, fontSize: 12),
+                        color: AppColors.textHint,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ),
               Expanded(
                 child: switch (state) {
-                  ProviderLoaded() => filtered.isEmpty
-                      ? const _ProvidersEmpty()
-                      : _ProvidersList(
-                          providers: filtered,
-                          currentProviderId: state.currentProviderId,
-                          bottomPad: bottomPad,
-                          favorites: favorites,
-                          onToggleFavorite: _toggleFavorite,
-                          unavailableIds: {
-                            for (final p in state.providers)
-                              if (!state.isUsable(p)) p.id,
-                          },
-                        ),
+                  ProviderLoaded() =>
+                    filtered.isEmpty
+                        ? const _ProvidersEmpty()
+                        : _ProvidersList(
+                            providers: filtered,
+                            currentProviderId: state.currentProviderId,
+                            bottomPad: bottomPad,
+                            favorites: favorites,
+                            onToggleFavorite: _toggleFavorite,
+                            unavailableIds: {
+                              for (final p in state.providers)
+                                if (!state.isUsable(p)) p.id,
+                            },
+                          ),
                   ProviderError() => _ProvidersError(
                     onRetry: () =>
                         context.read<ProviderBloc>().add(const ProviderLoad()),
@@ -234,8 +241,11 @@ class _ProvidersPageState extends State<ProvidersPage> {
     final q = _query.trim().toLowerCase();
     if (q.isNotEmpty) {
       return all
-          .where((p) =>
-              p.name.toLowerCase().contains(q) || p.id.toLowerCase().contains(q))
+          .where(
+            (p) =>
+                p.name.toLowerCase().contains(q) ||
+                p.id.toLowerCase().contains(q),
+          )
           .toList();
     }
 
@@ -244,15 +254,18 @@ class _ProvidersPageState extends State<ProvidersPage> {
       final favs = getIt<HiveService>().getFavoriteProviders().toSet();
       list = all.where((p) => favs.contains(p.id));
     } else if (_selectedCategory == 'all') {
-      list = all.where((p) =>
-          providerGroup(p) != 'cloudstream' &&
-          providerGroup(p) != 'aniyomi' &&
-          providerGroup(p) != 'manga' &&
-          providerGroup(p) != 'mangayomi');
+      list = all.where(
+        (p) =>
+            providerGroup(p) != 'cloudstream' &&
+            providerGroup(p) != 'aniyomi' &&
+            providerGroup(p) != 'manga' &&
+            providerGroup(p) != 'mangayomi',
+      );
     } else if (_selectedCategory.startsWith('repo:')) {
       final repo = _selectedCategory.substring(5);
       list = all.where(
-          (p) => providerGroup(p) == 'cloudstream' && p.description == repo);
+        (p) => providerGroup(p) == 'cloudstream' && p.description == repo,
+      );
     } else {
       list = all.where((p) => providerGroup(p) == _selectedCategory);
     }
@@ -283,15 +296,15 @@ class _CategoryFilterButton extends StatelessWidget {
   ];
 
   static const _meta = <String, (String, IconData)>{
-    'all':        ('All',         Icons.apps_rounded),
-    'favorites':  ('Favorites',   Icons.star),
-    'cloud':      ('Cloud',       Icons.cloud_outlined),
-    'hybrid':     ('Hybrid',      Icons.sync_rounded),
-    'local':      ('Local',       Icons.smartphone_outlined),
-    'cloudstream':('CloudStream', Icons.extension_outlined),
-    'aniyomi':    ('Aniyomi',     Icons.play_circle_outline),
-    'manga':      ('Manga',       Icons.menu_book_outlined),
-    'mangayomi':  ('Mangayomi',   Icons.javascript_outlined),
+    'all': ('All', Icons.apps_rounded),
+    'favorites': ('Favorites', Icons.star),
+    'cloud': ('Cloud', Icons.cloud_outlined),
+    'hybrid': ('Hybrid', Icons.sync_rounded),
+    'local': ('Local', Icons.smartphone_outlined),
+    'cloudstream': ('CloudStream', Icons.extension_outlined),
+    'aniyomi': ('Aniyomi', Icons.play_circle_outline),
+    'manga': ('Manga', Icons.menu_book_outlined),
+    'mangayomi': ('Mangayomi', Icons.javascript_outlined),
   };
 
   String _label(String key) =>
@@ -329,8 +342,8 @@ class _CategoryFilterButton extends StatelessWidget {
     final selectedCount = selected == 'all'
         ? providers.length
         : selected.startsWith('repo:')
-            ? (repoCounts[selected.substring(5)] ?? 0)
-            : (counts[selected] ?? 0);
+        ? (repoCounts[selected.substring(5)] ?? 0)
+        : (counts[selected] ?? 0);
 
     final entries = <(String, String, IconData, int)>[
       ('all', _meta['all']!.$1, _meta['all']!.$2, providers.length),
@@ -338,8 +351,14 @@ class _CategoryFilterButton extends StatelessWidget {
         final meta = _meta[cat] ?? (cat, Icons.label_outline);
         return (cat, _label(cat), meta.$2, counts[cat] ?? 0);
       }),
-      ...repos.map((r) =>
-          ('repo:$r', _repoShort(r), Icons.folder_outlined, repoCounts[r] ?? 0)),
+      ...repos.map(
+        (r) => (
+          'repo:$r',
+          _repoShort(r),
+          Icons.folder_outlined,
+          repoCounts[r] ?? 0,
+        ),
+      ),
     ];
 
     return PopupMenuButton<String>(
@@ -469,8 +488,12 @@ class _ProvidersListState extends State<_ProvidersList> {
   @override
   void initState() {
     super.initState();
-    final i = widget.providers.indexWhere((p) => p.id == widget.currentProviderId);
-    final offset = i > 2 ? (i * _estItemExtent - 80).clamp(0.0, double.infinity) : 0.0;
+    final i = widget.providers.indexWhere(
+      (p) => p.id == widget.currentProviderId,
+    );
+    final offset = i > 2
+        ? (i * _estItemExtent - 80).clamp(0.0, double.infinity)
+        : 0.0;
     _controller = ScrollController(initialScrollOffset: offset);
   }
 
@@ -602,10 +625,7 @@ class _ProviderListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: unavailable ? 0.45 : 1,
-      child: _tile(context),
-    );
+    return Opacity(opacity: unavailable ? 0.45 : 1, child: _tile(context));
   }
 
   Widget _tile(BuildContext context) {
@@ -624,10 +644,12 @@ class _ProviderListTile extends StatelessWidget {
         ),
         child: InkWell(
           onTap: onTap,
-          onLongPress:
-              _canSolveCloudflare ? () => _solveCloudflare(context) : null,
-          onSecondaryTap:
-              _canSolveCloudflare ? () => _solveCloudflare(context) : null,
+          onLongPress: _canSolveCloudflare
+              ? () => _solveCloudflare(context)
+              : null,
+          onSecondaryTap: _canSolveCloudflare
+              ? () => _solveCloudflare(context)
+              : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
@@ -797,8 +819,11 @@ class _ProvidersOfflineBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.cloud_off_rounded,
-              color: AppColors.textSecondary, size: 20),
+          const Icon(
+            Icons.cloud_off_rounded,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -815,8 +840,9 @@ class _ProvidersOfflineBanner extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   usableCount > 0
-                      ? 'profile.offline_local_available'
-                          .tr(args: ['$usableCount'])
+                      ? 'profile.offline_local_available'.tr(
+                          args: ['$usableCount'],
+                        )
                       : 'profile.offline_no_local'.tr(),
                   style: const TextStyle(
                     color: AppColors.textSecondary,

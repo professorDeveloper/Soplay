@@ -10,7 +10,9 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Kamera faqat televizoringizdagi QR kodni o'qish uchun ishlatiladi.</string>
+	<string>Kamera televizoringizdagi QR kodni o'qish va profil rasmini olish uchun ishlatiladi.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Profil rasmini tanlash uchun galereyaga ruxsat kerak.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

@@ -43,24 +43,24 @@ class ProviderModel extends ProviderEntity {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'image': image,
-        'url': url,
-        'description': description,
-        'domains': domains,
-        'mode': mode,
-        'category': category,
-        'requiresCfBypass': requiresCfBypass,
-        'nsfw': nsfw,
-        if (extractor != null)
-          'extractor': {
-            'name': extractor!.name,
-            'version': extractor!.version,
-            'scope': extractor!.scope,
-            'url': extractor!.url,
-          },
-      };
+    'id': id,
+    'name': name,
+    'image': image,
+    'url': url,
+    'description': description,
+    'domains': domains,
+    'mode': mode,
+    'category': category,
+    'requiresCfBypass': requiresCfBypass,
+    'nsfw': nsfw,
+    if (extractor != null)
+      'extractor': {
+        'name': extractor!.name,
+        'version': extractor!.version,
+        'scope': extractor!.scope,
+        'url': extractor!.url,
+      },
+  };
 
   static ExtractorRef? _parseExtractor(dynamic raw) {
     if (raw is! Map) return null;

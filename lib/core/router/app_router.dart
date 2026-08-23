@@ -53,6 +53,8 @@ import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
 import 'package:soplay/features/live_tv/presentation/pages/live_tv_page.dart';
 import 'package:soplay/features/remote/presentation/pages/tv_remote_page.dart';
 import 'package:soplay/features/profile/presentation/pages/profile_page.dart';
+import 'package:soplay/features/auth/domain/entities/user_entity.dart';
+import 'package:soplay/features/profile/presentation/pages/profile_edit_page.dart';
 import 'package:soplay/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:soplay/features/private_list/presentation/pages/private_list_page.dart';
 import 'package:soplay/features/splash/presentation/pages/splash_page.dart';
@@ -268,6 +270,16 @@ class AppRouter {
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingPage(),
+      ),
+      GoRoute(
+        path: '/profile/edit',
+        builder: (context, state) {
+          final user = state.extra as UserEntity?;
+          // Reached only from a signed-in profile, but a cold deep link would
+          // arrive with nothing to edit.
+          if (user == null) return const ProfilePage();
+          return ProfileEditPage(user: user);
+        },
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
       GoRoute(

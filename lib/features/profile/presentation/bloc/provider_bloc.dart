@@ -168,24 +168,25 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         final m = Map<String, dynamic>.from(e);
         final id = (m['id'] as String?)?.trim() ?? '';
         if (id.isEmpty) continue;
-        into.add(ProviderModel(
-          id: id,
-          name: (m['name'] as String?) ?? id,
-          image: (m['icon'] as String?)?.isNotEmpty == true
-              ? m['icon'] as String
-              : _kCloudStreamIcon,
-          url: (m['mainUrl'] as String?) ?? '',
-          description: (m['repo'] as String?)?.isNotEmpty == true
-              ? m['repo'] as String
-              : 'CloudStream',
-          domains: const [],
-          mode: 'client',
-          category: 'cloudstream',
-          nsfw: m['nsfw'] == true,
-        ));
+        into.add(
+          ProviderModel(
+            id: id,
+            name: (m['name'] as String?) ?? id,
+            image: (m['icon'] as String?)?.isNotEmpty == true
+                ? m['icon'] as String
+                : _kCloudStreamIcon,
+            url: (m['mainUrl'] as String?) ?? '',
+            description: (m['repo'] as String?)?.isNotEmpty == true
+                ? m['repo'] as String
+                : 'CloudStream',
+            domains: const [],
+            mode: 'client',
+            category: 'cloudstream',
+            nsfw: m['nsfw'] == true,
+          ),
+        );
       }
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   Future<void> _appendAniyomiProviders(List<ProviderEntity> into) async {
@@ -197,21 +198,23 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         final m = Map<String, dynamic>.from(e);
         final id = (m['id'] as String?)?.trim() ?? '';
         if (id.isEmpty) continue;
-        into.add(ProviderModel(
-          id: id,
-          name: (m['name'] as String?) ?? id,
-          image: (m['icon'] as String?)?.isNotEmpty == true
-              ? m['icon'] as String
-              : _kAniyomiIcon,
-          url: (m['baseUrl'] as String?) ?? '',
-          description: (m['repo'] as String?)?.isNotEmpty == true
-              ? m['repo'] as String
-              : 'Aniyomi',
-          domains: const [],
-          mode: 'client',
-          category: 'aniyomi',
-          nsfw: m['nsfw'] == true,
-        ));
+        into.add(
+          ProviderModel(
+            id: id,
+            name: (m['name'] as String?) ?? id,
+            image: (m['icon'] as String?)?.isNotEmpty == true
+                ? m['icon'] as String
+                : _kAniyomiIcon,
+            url: (m['baseUrl'] as String?) ?? '',
+            description: (m['repo'] as String?)?.isNotEmpty == true
+                ? m['repo'] as String
+                : 'Aniyomi',
+            domains: const [],
+            mode: 'client',
+            category: 'aniyomi',
+            nsfw: m['nsfw'] == true,
+          ),
+        );
       }
     } catch (_) {}
   }
@@ -233,21 +236,23 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
         final id = (m['id'] as String?)?.trim() ?? '';
         if (id.isEmpty) continue;
         if (m['nsfw'] == true && !allowNsfw) continue;
-        into.add(ProviderModel(
-          id: id,
-          name: (m['name'] as String?) ?? id,
-          image: (m['icon'] as String?)?.isNotEmpty == true
-              ? m['icon'] as String
-              : _kMangaIcon,
-          url: (m['baseUrl'] as String?) ?? '',
-          description: (m['repo'] as String?)?.isNotEmpty == true
-              ? m['repo'] as String
-              : 'Manga',
-          domains: const [],
-          mode: 'client',
-          category: 'manga',
-          nsfw: m['nsfw'] == true,
-        ));
+        into.add(
+          ProviderModel(
+            id: id,
+            name: (m['name'] as String?) ?? id,
+            image: (m['icon'] as String?)?.isNotEmpty == true
+                ? m['icon'] as String
+                : _kMangaIcon,
+            url: (m['baseUrl'] as String?) ?? '',
+            description: (m['repo'] as String?)?.isNotEmpty == true
+                ? m['repo'] as String
+                : 'Manga',
+            domains: const [],
+            mode: 'client',
+            category: 'manga',
+            nsfw: m['nsfw'] == true,
+          ),
+        );
       }
     } catch (_) {}
   }
@@ -262,26 +267,29 @@ class ProviderBloc extends Bloc<ProviderEvent, ProviderState> {
     if (!MangayomiBridge.isSupported) return;
     final allowNsfw = hiveService.showNsfwMangaSources;
     try {
-      final list = getIt<MangayomiBridge>()
-          .listProviders(includeNsfw: allowNsfw);
+      final list = getIt<MangayomiBridge>().listProviders(
+        includeNsfw: allowNsfw,
+      );
       for (final m in list) {
         final id = (m['id'] as String?)?.trim() ?? '';
         if (id.isEmpty) continue;
-        into.add(ProviderModel(
-          id: id,
-          name: (m['name'] as String?) ?? id,
-          image: (m['icon'] as String?)?.isNotEmpty == true
-              ? m['icon'] as String
-              : _kMangayomiIcon,
-          url: (m['baseUrl'] as String?) ?? '',
-          description: (m['repo'] as String?)?.isNotEmpty == true
-              ? m['repo'] as String
-              : 'Mangayomi',
-          domains: const [],
-          mode: 'client',
-          category: 'mangayomi',
-          nsfw: m['nsfw'] == true,
-        ));
+        into.add(
+          ProviderModel(
+            id: id,
+            name: (m['name'] as String?) ?? id,
+            image: (m['icon'] as String?)?.isNotEmpty == true
+                ? m['icon'] as String
+                : _kMangayomiIcon,
+            url: (m['baseUrl'] as String?) ?? '',
+            description: (m['repo'] as String?)?.isNotEmpty == true
+                ? m['repo'] as String
+                : 'Mangayomi',
+            domains: const [],
+            mode: 'client',
+            category: 'mangayomi',
+            nsfw: m['nsfw'] == true,
+          ),
+        );
       }
     } catch (_) {}
   }

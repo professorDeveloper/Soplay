@@ -152,8 +152,11 @@ class SettingsDropdownTile<T> extends StatelessWidget {
                     ),
                   ),
                   if (option == value)
-                    const Icon(Icons.check_rounded,
-                        color: AppColors.primary, size: 17),
+                    const Icon(
+                      Icons.check_rounded,
+                      color: AppColors.primary,
+                      size: 17,
+                    ),
                 ],
               ),
             ),
@@ -267,8 +270,7 @@ class _SettingsRow extends StatelessWidget {
                       color: AppColors.textSecondary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child:
-                        Icon(icon, color: AppColors.textSecondary, size: 18),
+                    child: Icon(icon, color: AppColors.textSecondary, size: 18),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -302,8 +304,9 @@ class _SettingsRow extends StatelessWidget {
                   // Half the row at most: past that the value wins the tug of
                   // war with the title and pushes it into a wrapped column.
                   ConstrainedBox(
-                    constraints:
-                        BoxConstraints(maxWidth: constraints.maxWidth * 0.5),
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth * 0.5,
+                    ),
                     child: trailing,
                   ),
                 ],

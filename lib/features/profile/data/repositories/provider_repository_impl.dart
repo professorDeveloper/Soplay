@@ -23,9 +23,7 @@ class ProviderRepositoryImpl implements ProviderRepository {
           providers.map((p) => p.toJson()).toList(),
         );
       }
-      return Success(
-        ProvidersSnapshot(providers: providers, fromCache: false),
-      );
+      return Success(ProvidersSnapshot(providers: providers, fromCache: false));
     } catch (e) {
       final cached = _readCache();
       if (cached.isEmpty) return Failure(Exception(e.toString()));

@@ -73,7 +73,8 @@
     "medium": "O'rtacha",
     "strong": "Kuchli",
     "code_resent": "Kod qayta yuborildi. Emailingizni tekshiring.",
-    "verify": "Tasdiqlash"
+    "verify": "Tasdiqlash",
+    "avatar_bad_format": "Rasm formati qabul qilinmaydi (jpg, png, webp)"
   },
   "onboarding": {
     "skip": "O'tkazib yuborish",
@@ -329,7 +330,14 @@
     "section_connections": "ULANISHLAR",
     "section_extensions": "MANBALAR",
     "section_settings": "SOZLAMALAR",
-    "remove_favorite": "Sevimlilardan olib tashlash"
+    "remove_favorite": "Sevimlilardan olib tashlash",
+    "edit_profile": "Profilni tahrirlash",
+    "display_name_hint": "Ismingiz",
+    "display_name_too_long": "Ism 60 ta belgidan oshmasligi kerak",
+    "pick_from_gallery": "Galereyadan tanlash",
+    "take_photo": "Suratga olish",
+    "remove_photo": "Rasmni olib tashlash",
+    "photo_pick_failed": "Rasmni tanlab bo'lmadi"
   },
   "search": {
     "title": "Qidirish",

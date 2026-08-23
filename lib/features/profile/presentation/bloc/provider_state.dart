@@ -39,8 +39,9 @@ class ProviderLoaded extends ProviderState {
       !offline || provider.isServerIndependent;
 
   /// The providers that work right now — the set consumers should fan out to.
-  List<ProviderEntity> get usableProviders =>
-      offline ? providers.where((p) => p.isServerIndependent).toList() : providers;
+  List<ProviderEntity> get usableProviders => offline
+      ? providers.where((p) => p.isServerIndependent).toList()
+      : providers;
 
   @override
   List<Object?> get props => [providers, currentProviderId, offline, cachedAt];
