@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
 import 'package:flutter/material.dart';
 
 /// MyAnimeList's own blue. Used only for MAL affordances, so a "connect" or
@@ -45,3 +47,17 @@ class MalLogo extends StatelessWidget {
         ),
       );
 }
+
+/// The label for a MAL status, translated.
+///
+/// A function rather than a map on the status class: the strings live in the
+/// translation files, which cannot be reached from a const.
+String malStatusLabel(String status) => switch (status) {
+      MalStatus.watching => 'anilist.status_current'.tr(),
+      MalStatus.completed => 'anilist.status_completed'.tr(),
+      MalStatus.onHold => 'anilist.status_paused'.tr(),
+      MalStatus.dropped => 'anilist.status_dropped'.tr(),
+      MalStatus.planToWatch => 'anilist.status_planning'.tr(),
+      _ => status,
+    };
+

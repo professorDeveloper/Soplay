@@ -161,6 +161,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
 
     final malViewer = _mal.viewer;
     final malConnected = _mal.isConnected;
+    final malLinkCount = _malLinks.all().length;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -243,6 +244,28 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
           ),
           if (malConnected) ...[
             const SizedBox(height: 12),
+            _Row(
+              icon: Icons.auto_awesome_motion_rounded,
+              accent: kMalBlue,
+              title: 'mal.open_library'.tr(),
+              onTap: () => context.push('/mal'),
+            ),
+            const SizedBox(height: 8),
+            _Row(
+              icon: Icons.link_rounded,
+              accent: kMalBlue,
+              title: 'mal.linked_titles'.tr(),
+              subtitle: malLinkCount > 0
+                  ? 'anilist.linked_titles_count'.tr(args: ['$malLinkCount'])
+                  : 'anilist.linked_titles_none'.tr(),
+              onTap: malLinkCount == 0
+                  ? null
+                  : () async {
+                      await context.push('/mal/links');
+                      if (mounted) setState(() {});
+                    },
+            ),
+            const SizedBox(height: 8),
             _Row(
               icon: Icons.info_outline_rounded,
               accent: kMalBlue,

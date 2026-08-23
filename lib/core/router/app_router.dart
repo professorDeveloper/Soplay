@@ -33,6 +33,8 @@ import 'package:soplay/features/anilist/presentation/pages/anilist_browse_page.d
 import 'package:soplay/features/anilist/presentation/pages/airing_calendar_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_library_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_links_page.dart';
+import 'package:soplay/features/mal/presentation/pages/mal_library_page.dart';
+import 'package:soplay/features/mal/presentation/pages/mal_links_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/connections_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/upcoming_page.dart';
 import 'package:soplay/features/tracker/presentation/pages/following_page.dart';
@@ -228,6 +230,14 @@ class AppRouter {
       GoRoute(
         path: '/anilist/links',
         builder: (context, state) => const AnilistLinksPage(),
+      ),
+      GoRoute(
+        path: '/mal',
+        builder: (context, state) => const MalLibraryPage(),
+      ),
+      GoRoute(
+        path: '/mal/links',
+        builder: (context, state) => const MalLinksPage(),
       ),
       GoRoute(
         path: '/navbar',

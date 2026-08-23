@@ -100,6 +100,105 @@ class MalApi {
     return MalEntryState.fromAnime(data);
   }
 
+  /// The viewer's whole anime list.
+  ///
+  /// Fetched unfiltered and grouped by the caller rather than asked for once
+  /// per status: five requests for what one returns, and the counts on a tab
+  /// bar need every status anyway.
+  ///
+  /// Paged because MAL caps a page at 1000 and answers with a `paging.next`
+  /// URL. The page cap is a safety net against a list nobody expected, not a
+  /// real limit — 10,000 entries is far beyond any real account.
+  Future<List<MalListEntry>> animeList(String token) async {
+    final out = <MalListEntry>[];
+    String? next;
+
+    for (var page = 0; page < 10; page++) {
+      final Response<dynamic> res;
+      if (next == null) {
+        res = await _dio.get(
+          '/users/@me/animelist',
+          queryParameters: {
+            'fields': 'list_status,num_episodes,alternative_titles,main_picture',
+            'limit': 1000,
+            'sort': 'list_updated_at',
+            'nsfw': 'true',
+          },
+          options: _auth(token),
+        );
+      } else {
+        // The paging URL is absolute and already carries every parameter.
+        res = await _dio.get(next, options: _auth(token));
+      }
+
+      final data = _ok(res, 'could not read your MyAnimeList');
+      final rows = data['data'];
+      if (rows is! List) break;
+      for (final row in rows) {
+        if (row is! Map) continue;
+        final entry = MalListEntry.fromJson(row.cast<String, dynamic>());
+        if (entry != null) out.add(entry);
+      }
+
+      final paging = (data['paging'] as Map?)?['next'];
+      if (paging is! String || paging.isEmpty) break;
+      next = paging;
+    }
+
+    return out;
+  }
+
+  /// Edits an entry: any of status, progress and score, and only those given.
+  ///
+  /// Null means "leave it alone" throughout. Sending a field MAL already holds
+  /// the right value for is harmless; sending one the caller did not ask to
+  /// change is how a status gets silently rewritten.
+  Future<MalListEntry?> updateEntry({
+    required String token,
+    required MalAnime anime,
+    String? status,
+    int? episodes,
+    int? score,
+  }) async {
+    if (status == null && episodes == null && score == null) return null;
+
+    final res = await _dio.patch(
+      '/anime/${anime.id}/my_list_status',
+      data: {
+        'status': ?status,
+        'num_watched_episodes': ?episodes,
+        'score': ?score,
+      },
+      options: _auth(
+        token,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      ),
+    );
+    final data = _ok(res, 'could not update MyAnimeList');
+    return MalListEntry(
+      anime: anime,
+      status: (data['status'] ?? status ?? MalStatus.watching).toString(),
+      progress: (data['num_episodes_watched'] as num?)?.toInt() ?? episodes ?? 0,
+      score: (data['score'] as num?)?.toInt() ?? score ?? 0,
+      isRewatching: data['is_rewatching'] == true,
+      updatedAt: DateTime.tryParse('${data['updated_at']}'),
+    );
+  }
+
+  /// Removes the anime from the list entirely.
+  ///
+  /// MAL answers 404 when it was not on the list — treated as success, because
+  /// the caller asked for it to be gone and it is.
+  Future<void> deleteEntry({required String token, required int animeId}) async {
+    final res = await _dio.delete(
+      '/anime/$animeId/my_list_status',
+      options: _auth(token),
+    );
+    final code = res.statusCode ?? 0;
+    if (code == 200 || code == 404) return;
+    _ok(res, 'could not remove it from MyAnimeList');
+  }
+
   /// Writes [episodes] watched, and optionally moves the entry's status.
   ///
   /// [status] is null when the entry should keep whatever status it has —

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
-import 'package:soplay/features/mal/data/mal_constants.dart';
 import 'package:soplay/features/mal/data/mal_link_store.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/features/mal/domain/entities/mal_entities.dart';
@@ -233,7 +232,10 @@ class MalTracker {
   /// A rewatch is the case worth naming: MAL models it as a flag on a
   /// `completed` entry rather than as a status, so sending any status at all
   /// would knock the entry out of `completed` and end the rewatch.
-  @visibleForTesting
+  ///
+  /// Public because the library screen makes the same decision when the user
+  /// steps progress by hand. Two copies of this would drift, and every way it
+  /// can be wrong is invisible until somebody's list already is.
   static String? statusFor({
     required String? current,
     required bool isRewatching,

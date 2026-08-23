@@ -12,6 +12,10 @@ import 'package:soplay/features/anilist/data/anilist_link_store.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_brand.dart';
 import 'package:soplay/features/anilist/presentation/widgets/anilist_link_sheet.dart';
+import 'package:soplay/features/mal/data/mal_link_store.dart';
+import 'package:soplay/features/mal/data/mal_service.dart';
+import 'package:soplay/features/mal/presentation/widgets/mal_brand.dart';
+import 'package:soplay/features/mal/presentation/widgets/mal_link_sheet.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 import 'package:soplay/features/reports/presentation/widgets/report_sheet.dart';
 import 'package:soplay/features/user_lists/domain/entities/user_list_kind.dart';
@@ -355,9 +359,9 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
 
   @override
   Widget build(BuildContext context) {
-    final anilistReady =
-        getIt<AnilistService>().isConnected &&
-        widget.entity.contentUrl.isNotEmpty;
+    final hasUrl = widget.entity.contentUrl.isNotEmpty;
+    final anilistReady = getIt<AnilistService>().isConnected && hasUrl;
+    final malReady = getIt<MalService>().isConnected && hasUrl;
 
     // Material, not a bare DecoratedBox: every row in here is an InkWell, and
     // the sheet this replaced was quietly providing the surface they ink onto.
@@ -503,6 +507,7 @@ class _DetailMoreMenuState extends State<_DetailMoreMenu> {
                             onTap: _toggleFollow,
                           ),
                         if (anilistReady) _AnilistRow(entity: widget.entity),
+                        if (malReady) _MalRow(entity: widget.entity),
                         _MenuRow(
                           icon: widget.inPrivate
                               ? Icons.lock_rounded
@@ -689,6 +694,56 @@ class _AnilistRow extends StatefulWidget {
 
   @override
   State<_AnilistRow> createState() => _AnilistRowState();
+}
+
+class _MalRow extends StatefulWidget {
+  const _MalRow({required this.entity});
+
+  final FavoriteEntity entity;
+
+  @override
+  State<_MalRow> createState() => _MalRowState();
+}
+
+/// The MyAnimeList twin of [_AnilistRow].
+///
+/// Shown only when MAL is connected, so a user of one tracker never sees the
+/// other's row. Most MAL links are made automatically through AniList's
+/// `idMal`; this is how a wrong one gets corrected, and how a title AniList has
+/// no MAL counterpart for gets linked at all.
+class _MalRowState extends State<_MalRow> {
+  late MalLink? _link = getIt<MalLinkStore>().get(
+    widget.entity.provider,
+    widget.entity.contentUrl,
+  );
+
+  Future<void> _open() async {
+    await MalLinkSheet.show(
+      context,
+      provider: widget.entity.provider,
+      contentUrl: widget.entity.contentUrl,
+      title: widget.entity.title,
+    );
+    if (!mounted) return;
+    setState(
+      () => _link = getIt<MalLinkStore>().get(
+        widget.entity.provider,
+        widget.entity.contentUrl,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final linked = _link != null;
+    return _MenuRow(
+      icon: linked ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
+      label: linked ? 'mal.tracked'.tr() : 'mal.track'.tr(),
+      active: linked,
+      accent: kMalBlue,
+      onTap: _open,
+    );
+  }
 }
 
 class _AnilistRowState extends State<_AnilistRow> {
