@@ -109,6 +109,12 @@ class DartFetch {
           cf != null &&
           _looksLikeCfChallenge(status, headers, response.data)) {
         JsLog.req('fetch', 'CF challenge on $host — solving …');
+        // The cookie we just sent is the one that got challenged, so it is
+        // dead. Dropping it here matters for the case where the solve below
+        // fails: without this the stale header stays in the map and is
+        // prepended to every later request to the host, so each one is
+        // challenged afresh and the provider never recovers within a session.
+        _savedCookies.remove(host);
         // ALWAYS the app's own agent, never the one the extractor asked for.
         //
         // The challenge is solved inside an Android WebView that is forced to

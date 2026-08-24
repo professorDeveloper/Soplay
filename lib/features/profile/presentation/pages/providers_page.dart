@@ -712,7 +712,9 @@ class _ProviderListTile extends StatelessWidget {
                             fontSize: 11,
                             height: 1.25,
                           ),
-                          maxLines: 2,
+                          // One line, like the description it replaces: the row
+                          // is a fixed 44px and a second line overflows it.
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ] else if (provider.description.isNotEmpty) ...[

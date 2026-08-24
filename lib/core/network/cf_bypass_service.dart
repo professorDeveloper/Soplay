@@ -42,6 +42,33 @@ class CfBypassService {
     // page of a host clears every other page of it.
     final origin = 'https://$host/';
 
+    // Drop whatever clearance is already in the jar before solving.
+    //
+    // Not a precaution — the poll below completes on the mere PRESENCE of a
+    // cf_clearance cookie, so a stale one short-circuits the whole solve. That
+    // is what animepahe.pw did: the first poll tick fires at 600ms and the log
+    // read `solved animepahe.pw (607ms)`, which is far too fast for a managed
+    // challenge to have been answered. The service was reporting success on a
+    // cookie from an earlier run, the replay was rejected exactly like the
+    // request that triggered the solve, and with allowCfRetry already spent the
+    // extractor was handed the challenge page — getHome() then sat until its
+    // 60s timeout and the home screen stayed empty.
+    //
+    // Deleting it costs nothing, because reaching this method means a request
+    // just came back challenged: any clearance still present has already been
+    // proven not to work. Clearing it is what makes the poll's "found a cookie"
+    // mean "the WebView earned one just now".
+    try {
+      final cm = CookieManager.instance();
+      for (final u in {WebUri(origin), WebUri(url)}) {
+        await cm.deleteCookie(url: u, name: 'cf_clearance');
+        await cm.deleteCookie(url: u, name: 'cf_clearance', domain: '.$host');
+      }
+    } catch (_) {
+      // A jar we cannot prune still solves correctly whenever the stale cookie
+      // has expired on its own; failing the solve outright would be worse.
+    }
+
     final headless = HeadlessInAppWebView(
       webViewEnvironment: await WebViewEnv.ensure(),
       initialUrlRequest: URLRequest(url: WebUri(url)),

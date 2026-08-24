@@ -21,6 +21,11 @@ extension _PlayerMedia on _PlayerPageState {
       _videoSources = List.of(widget.args.videoSources);
       _currentSourceIndex = _pickInitialMovieSourceIndex(_videoSources);
       _autoFallbackUsed = false;
+      // A serial re-resolves inside _loadEpisode and picks the directive up
+      // there. A movie was resolved back on the detail page, so the only copy
+      // of it is the one that travelled in the args — and without it
+      // _initializeWith skips the sniff and hands the player an embed page.
+      _extractorConfig = widget.args.extractor;
       final source = _currentSourceIndex >= 0
           ? _videoSources[_currentSourceIndex]
           : null;
@@ -284,6 +289,7 @@ extension _PlayerMedia on _PlayerPageState {
       final body = res.data ?? '';
       if (res.statusCode == 200 && body.trimLeft().startsWith('#EXTM3U')) {
         _plog('rewrite ok -> $candidate');
+        _expandMasterPlaylist(candidate, body, headers);
         return candidate;
       }
       _plog(
@@ -295,6 +301,94 @@ extension _PlayerMedia on _PlayerPageState {
           level: LogLevel.warn);
     }
     return url;
+  }
+
+  /// Turn a verified master playlist into one [VideoSourceEntity] per rendition.
+  ///
+  /// A hybrid provider cannot enumerate qualities when it resolves: the manifest
+  /// URL only exists after the device has sniffed the embed, so the server can
+  /// only hand back a single `auto` source. ExoPlayer still adapts across every
+  /// rendition inside the master, but the quality sheet reads [_videoSources] —
+  /// so with one entry there is nothing to open and the picker never appears,
+  /// even though four renditions are playing.
+  ///
+  /// [_applyRewrite] already holds the master's body: it fetched it to prove the
+  /// rewrite was real. Parsing it here costs no extra request and turns those
+  /// renditions into entries the sheet can list.
+  ///
+  /// `auto` stays first and stays selected — adaptive is the better default on a
+  /// phone, and the explicit heights are there for when the viewer wants to pin
+  /// one.
+  void _expandMasterPlaylist(
+    String masterUrl,
+    String body,
+    Map<String, String> headers,
+  ) {
+    // Only ever widens a source list the provider could not fill in. A list
+    // that already has real qualities came from the provider and is better
+    // than anything parsed here.
+    if (_videoSources.length > 1) return;
+
+    final base = Uri.tryParse(masterUrl);
+    if (base == null) return;
+
+    final variants = <({int height, String url})>[];
+    final lines = body.split(RegExp(r'\r?\n'));
+    for (var i = 0; i < lines.length - 1; i++) {
+      final tag = lines[i].trim();
+      if (!tag.startsWith('#EXT-X-STREAM-INF')) continue;
+      final uri = lines[i + 1].trim();
+      if (uri.isEmpty || uri.startsWith('#')) continue;
+      // The label comes from the variant's own name when it has one, and only
+      // falls back to RESOLUTION. They disagree more often than not: a 2.40:1
+      // film encoded at 1080p carries RESOLUTION=1920x800, so naming the row
+      // after the pixel height offers the viewer `800p` for the stream every
+      // other player calls 1080p. The `index-s1080p-v1-a1` token in the URI is
+      // the name the packager gave it.
+      final named = RegExp(r'[-_/]s(\d{3,4})p\b').firstMatch(uri);
+      final res = RegExp(r'RESOLUTION=\d+x(\d+)').firstMatch(tag);
+      final height =
+          int.tryParse(named?.group(1) ?? res?.group(1) ?? '') ?? 0;
+      if (height <= 0) continue;
+      variants.add((height: height, url: base.resolve(uri).toString()));
+    }
+    if (variants.isEmpty) return;
+
+    // Best first, and one entry per height: a master often carries the same
+    // resolution twice at different bitrates, which would show the sheet two
+    // rows both labelled `1080p`.
+    variants.sort((a, b) => b.height.compareTo(a.height));
+    final seen = <int>{};
+
+    final auto = _videoSources.isNotEmpty ? _videoSources.first : null;
+    final expanded = <VideoSourceEntity>[
+      VideoSourceEntity(
+        quality: 'auto',
+        videoUrl: masterUrl,
+        isDefault: true,
+        accessible: true,
+        type: auto?.type ?? 'hls',
+        headers: auto?.headers ?? headers,
+      ),
+      for (final v in variants)
+        if (seen.add(v.height))
+          VideoSourceEntity(
+            quality: '${v.height}p',
+            videoUrl: v.url,
+            isDefault: false,
+            accessible: true,
+            type: auto?.type ?? 'hls',
+            headers: auto?.headers ?? headers,
+          ),
+    ];
+
+    _plog('master playlist -> ${expanded.length - 1} qualities '
+        '(${expanded.skip(1).map((e) => e.quality).join(", ")})');
+    if (!mounted) return;
+    setState(() {
+      _videoSources = expanded;
+      _currentSourceIndex = 0;
+    });
   }
 
   /// Entry point for every playback start. Resolves a page-url source to its

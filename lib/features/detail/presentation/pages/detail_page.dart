@@ -797,6 +797,9 @@ class _DetailViewState extends State<_DetailView>
             movieUrl: value.videoUrl,
             mediaRef: ref,
             type: value.type,
+            // Without this the player has no directive, so a source whose url
+            // is an embed page never gets sniffed and ExoPlayer is handed HTML.
+            extractor: value.extractor,
             videoSources: value.videoSources,
             resumePosition: resumePos,
             thumbnails: value.thumbnails,
