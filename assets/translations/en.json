@@ -492,7 +492,8 @@
     "voice": "Search by voice",
     "voice_listening": "Listening…",
     "voice_done": "Stopped listening",
-    "voice_hint": "Say the name of a film or series"
+    "voice_hint": "Say the name of a film or series",
+    "try_torrents": "Search torrents"
   },
   "movie": {
     "rating": "Rating",
@@ -881,7 +882,22 @@
     "watched_pct": "{}% watched",
     "copy_link": "Copy link",
     "link_copied": "Link copied",
-    "report_problem": "Report a problem"
+    "report_problem": "Report a problem",
+    "selected_n": "{} selected",
+    "select_all": "Select all",
+    "select_none": "Clear",
+    "download_n": "Download {}",
+    "download_queueing": "Queueing…",
+    "download_action": "Download",
+    "download_already": "Already downloaded",
+    "download_in_progress": "Download in progress",
+    "download_started": "Download started",
+    "download_needs_permission": "Notification permission is required for downloads",
+    "download_resolve_failed": "Could not get a download link for this episode",
+    "download_queued_n": "{} added to downloads",
+    "download_none_queued": "Nothing was added — they may already be downloaded",
+    "download_batch_title": "Download several episodes?",
+    "download_batch_body": "{} episodes will be queued. On mobile data this can be several gigabytes."
   },
   "shorts": {
     "refresh": "Refresh",
@@ -1328,7 +1344,11 @@
     "open_external": "Open in torrent app",
     "open_page": "Open on tracker",
     "stats_peers": "{} peers",
-    "buffering": "Buffering {}%"
+    "buffering": "Buffering {}%",
+    "still_searching": "{} trackers still answering",
+    "buffering_title": "Buffering…",
+    "no_video_in_torrent": "This torrent has no playable video.",
+    "tracker_failed": "{} could not be searched — results may be incomplete."
   },
   "backup": {
     "title": "Backup & restore",

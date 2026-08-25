@@ -44,7 +44,12 @@ void main() async {
     MediaKit.ensureInitialized();
     await windowManager.ensureInitialized();
   }
-  if (isMobilePlatform) {
+  // Resolved before the first glass decision, for the same reason
+  // initTvPlatform is: both answer "which bottom nav does this device get".
+  await initNativeGlass();
+  // Not `isMobilePlatform`: on iOS 26 the system draws the bar, so compiling a
+  // GLSL glass pipeline is cost with nothing to show for it.
+  if (usesFlutterGlass) {
      try {
       await LiquidGlassWidgets.initialize();
     } catch (_) {}
@@ -112,9 +117,18 @@ void main() async {
     fallbackLocale: const Locale('en'),
     child: const MyApp(),
   );
-  if (isMobilePlatform) {
+  if (usesFlutterGlass) {
     // Adaptive glass quality (auto-degrades to a plain frosted tier on weak /
-    // non-Impeller GPUs) + app-wide glass theming hooks. Never runs on desktop.
+    // non-Impeller GPUs) + app-wide glass theming hooks. Never runs on desktop,
+    // and never on iOS 26, where the bar is a native UIKit material.
+    //
+    // The scope is left at its defaults on purpose. It starts at `premium` and
+    // re-benchmarks after every resume, which would matter — except the nav bar
+    // is the app's only glass widget and it now names `GlassQuality.standard`
+    // explicitly, and an explicit widget quality wins over the scope's. Capping
+    // the scope too would mean depending on `GlassAdaptiveScopeConfig`, which
+    // the package marks experimental, to re-state something already decided at
+    // the one call site that matters.
     root = LiquidGlassWidgets.wrap(child: root, adaptiveQuality: true);
   }
   runApp(root);

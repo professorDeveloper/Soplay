@@ -492,7 +492,8 @@
     "voice": "Ovozli qidiruv",
     "voice_listening": "Tinglanmoqda…",
     "voice_done": "Tinglash to‘xtadi",
-    "voice_hint": "Film yoki serial nomini ayting"
+    "voice_hint": "Film yoki serial nomini ayting",
+    "try_torrents": "Torrentlarda qidirish"
   },
   "movie": {
     "rating": "Reyting",
@@ -881,7 +882,22 @@
     "watched_pct": "{}% ko‘rilgan",
     "copy_link": "Havoladan nusxa olish",
     "link_copied": "Havola nusxalandi",
-    "report_problem": "Muammo haqida xabar berish"
+    "report_problem": "Muammo haqida xabar berish",
+    "selected_n": "{} ta tanlandi",
+    "select_all": "Hammasini tanlash",
+    "select_none": "Bekor qilish",
+    "download_n": "{} tasini yuklash",
+    "download_queueing": "Navbatga qo'shilmoqda…",
+    "download_action": "Yuklab olish",
+    "download_already": "Allaqachon yuklangan",
+    "download_in_progress": "Yuklanmoqda",
+    "download_started": "Yuklash boshlandi",
+    "download_needs_permission": "Yuklash uchun bildirishnoma ruxsati kerak",
+    "download_resolve_failed": "Bu epizod uchun havola olinmadi",
+    "download_queued_n": "{} ta yuklamalarga qo'shildi",
+    "download_none_queued": "Hech narsa qo'shilmadi — ular allaqachon yuklangan bo'lishi mumkin",
+    "download_batch_title": "Bir nechta epizod yuklansinmi?",
+    "download_batch_body": "{} ta epizod navbatga qo'yiladi. Mobil internetda bu bir necha gigabayt bo'lishi mumkin."
   },
   "shorts": {
     "refresh": "Yangilash",
@@ -1328,7 +1344,11 @@
     "open_external": "Torrent ilovasida ochish",
     "open_page": "Trackerda ochish",
     "stats_peers": "{} peer",
-    "buffering": "Buferlanmoqda {}%"
+    "buffering": "Buferlanmoqda {}%",
+    "still_searching": "yana {} tracker javob bermoqda",
+    "buffering_title": "Buferlanmoqda…",
+    "no_video_in_torrent": "Bu torrentda ko'rish mumkin bo'lgan video yo'q.",
+    "tracker_failed": "{} da qidirib bo'lmadi — natijalar to'liq bo'lmasligi mumkin."
   },
   "backup": {
     "title": "Zaxira va tiklash",

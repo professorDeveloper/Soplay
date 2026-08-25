@@ -492,7 +492,8 @@
     "voice": "Голосовой поиск",
     "voice_listening": "Слушаю…",
     "voice_done": "Прослушивание остановлено",
-    "voice_hint": "Назовите фильм или сериал"
+    "voice_hint": "Назовите фильм или сериал",
+    "try_torrents": "Искать в торрентах"
   },
   "movie": {
     "rating": "Рейтинг",
@@ -881,7 +882,22 @@
     "watched_pct": "{}% просмотрено",
     "copy_link": "Скопировать ссылку",
     "link_copied": "Ссылка скопирована",
-    "report_problem": "Сообщить о проблеме"
+    "report_problem": "Сообщить о проблеме",
+    "selected_n": "Выбрано: {}",
+    "select_all": "Выбрать все",
+    "select_none": "Снять",
+    "download_n": "Скачать {}",
+    "download_queueing": "В очередь…",
+    "download_action": "Скачать",
+    "download_already": "Уже скачано",
+    "download_in_progress": "Уже скачивается",
+    "download_started": "Загрузка начата",
+    "download_needs_permission": "Для загрузок нужно разрешение на уведомления",
+    "download_resolve_failed": "Не удалось получить ссылку для этой серии",
+    "download_queued_n": "Добавлено в загрузки: {}",
+    "download_none_queued": "Ничего не добавлено — возможно, уже скачано",
+    "download_batch_title": "Скачать несколько серий?",
+    "download_batch_body": "В очередь встанет {} серий. На мобильном интернете это может быть несколько гигабайт."
   },
   "shorts": {
     "refresh": "Обновить",
@@ -1329,7 +1345,11 @@
     "open_external": "Открыть в торрент-клиенте",
     "open_page": "Открыть на трекере",
     "stats_peers": "{} пиров",
-    "buffering": "Буферизация {}%"
+    "buffering": "Буферизация {}%",
+    "still_searching": "ещё {} трекеров отвечают",
+    "buffering_title": "Буферизация…",
+    "no_video_in_torrent": "В этом торренте нет видео для воспроизведения.",
+    "tracker_failed": "{} не удалось опросить — результаты могут быть неполными."
   },
   "backup": {
     "title": "Резервная копия",

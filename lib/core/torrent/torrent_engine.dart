@@ -96,6 +96,11 @@ class TorrentEngine {
     }
     _port = port;
     developer.log('server up on 127.0.0.1:$port', name: 'torrent');
+
+    final cacheDir = await _channel.invokeMethod<String>('cacheDir');
+    if (cacheDir != null && cacheDir.isNotEmpty) {
+      await applyRecommendedSettings(cacheDir);
+    }
     return port;
   }
 
@@ -110,10 +115,36 @@ class TorrentEngine {
     if (port > 0) _port = port;
   }
 
+  /// Whether the server is up **anywhere in the process**, not just known to
+  /// this instance.
+  ///
+  /// [isRunning] only reports what this object has started. The server itself
+  /// outlives any single [TorrentEngine] — the search page, the player and the
+  /// stats overlay each hold their own — so anything destructive (clearing the
+  /// cache) has to ask the native side, which owns the real answer.
+  Future<bool> isServerRunningInProcess() async {
+    if (!isSupported) return false;
+    if (_port != null) return true;
+    try {
+      final port = await _channel.invokeMethod<int>('port');
+      if (port != null && port > 0) {
+        _port = port;
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   /// Deletes everything the server cached. Safe to call before it starts, and
   /// meant to run once at app launch — see the note in `TorrentServerBridge`.
   Future<void> clearCache() async {
     if (!isSupported) return;
+    // Refuse while the server is live: its cache directory is open files, and
+    // deleting them under a running torrent breaks playback that is working.
+    if (await isServerRunningInProcess()) {
+      developer.log('cache cleanup skipped — server is running', name: 'torrent');
+      return;
+    }
     try {
       await _channel.invokeMethod<bool>('clearCache');
     } on PlatformException catch (e) {
@@ -208,19 +239,169 @@ class TorrentEngine {
     }
   }
 
+  /// Settings pushed to the server right after it starts.
+  ///
+  /// The defaults it ships with are tuned for a desktop box on a wired line and
+  /// are actively bad on a phone. Field names come from the server's own
+  /// `BTSets` dump, so they are exactly what it understands.
+  ///
+  /// What each change is for:
+  ///
+  ///   * **`UseDisk` + `TorrentsSavePath`** — the default keeps the whole cache
+  ///     in RAM. A 64 MB balloon inside an app that is also decoding 1080p
+  ///     video is how a mid-range device gets its player killed mid-episode,
+  ///     and the app already owns a cache directory to spill into.
+  ///   * **`CacheSize`** — safe to raise once it is on disk, and a bigger cache
+  ///     is what absorbs a swarm that delivers in bursts.
+  ///   * **`PreloadCache`** — percent of the cache to fill before serving
+  ///     bytes. The default 50 % of 64 MB is ~32 MB of waiting before the first
+  ///     frame; 12 % of 128 MB is ~15 MB, which is still ~15 seconds of video
+  ///     ahead but starts noticeably sooner.
+  ///   * **`ConnectionsLimit`** — 25 peers is the single biggest brake on how
+  ///     fast a stream starts. Anime swarms routinely have hundreds.
+  ///   * **`RemoveCacheOnDrop`** — reclaim the disk the moment the user leaves
+  ///     the player, rather than only at the next launch.
+  static const Map<String, Object> recommendedSettings = {
+    'UseDisk': true,
+    'CacheSize': 128 * 1024 * 1024,
+    'PreloadCache': 12,
+    'ReaderReadAHead': 95,
+    'ConnectionsLimit': 100,
+    'RemoveCacheOnDrop': true,
+    'RetrackersMode': 1,
+  };
+
+  /// Applies [recommendedSettings], merged onto whatever the server currently
+  /// has so an unknown field is never dropped.
+  ///
+  /// Best-effort: a server that rejects the call still streams, just with the
+  /// stock settings, so a failure here must not stop playback.
+  Future<void> applyRecommendedSettings(String savePath) async {
+    try {
+      final current = await _dio.post<dynamic>(
+        '$_base/settings',
+        data: {'action': 'get'},
+      );
+      final sets = <String, dynamic>{
+        if (current.data is Map) ...Map<String, dynamic>.from(current.data as Map),
+        ...recommendedSettings,
+        'TorrentsSavePath': savePath,
+      };
+      await _dio.post<dynamic>(
+        '$_base/settings',
+        data: {'action': 'set', 'sets': sets},
+      );
+      developer.log('settings applied', name: 'torrent');
+    } catch (e) {
+      developer.log('settings not applied: $e', name: 'torrent');
+    }
+  }
+
+  /// Tells the server to start filling the read-ahead buffer for [file].
+  ///
+  /// Deliberately not awaited. The server holds this request open until the
+  /// buffer is full, which is the thing being waited *for* — progress is read
+  /// from [awaitPreload] instead.
+  ///
+  /// This is the fix for the worst symptom of naive torrent playback: hand the
+  /// stream URL straight to the player and its `initialize()` blocks until the
+  /// buffer fills anyway, except now it is behind a black screen with no
+  /// progress, no peer count and no cancel. Same wait, no information.
+  void startPreload(String hash, TorrentFileEntry file) {
+    stopPreload(hash);
+    final token = CancelToken();
+    _preloadTokens[hash] = token;
+
+    unawaited(
+      _dio
+          .getUri<dynamic>(
+            _streamUri(hash, file, mode: 'preload'),
+            cancelToken: token,
+            options: Options(
+              responseType: ResponseType.stream,
+              // The server holds this open for as long as the buffer takes to
+              // fill, which on a thin swarm is minutes.
+              receiveTimeout: const Duration(minutes: 5),
+            ),
+          )
+          .catchError((Object _) => Response<dynamic>(
+                requestOptions: RequestOptions(path: ''),
+              )),
+    );
+  }
+
+  /// Cancels a running preload request.
+  ///
+  /// This is not tidiness. The preload holds a reader open on the torrent, and
+  /// the play request opens another — two readers on one sequential stream is
+  /// the same thrashing that makes scrub previews unusable on a torrent. The
+  /// preload must be let go the moment its job is done.
+  void stopPreload(String hash) {
+    final token = _preloadTokens.remove(hash);
+    if (token != null && !token.isCancelled) token.cancel('preload finished');
+  }
+
+  final Map<String, CancelToken> _preloadTokens = {};
+
+  /// Polls until the read-ahead buffer is full enough to start playing.
+  ///
+  /// Returns as soon as the server reports the preload complete. On timeout it
+  /// returns the last status rather than throwing: a partly filled buffer still
+  /// plays, it just may stall, and refusing to start at all would be worse.
+  Future<TorrentStatus> awaitPreload(
+    String hash, {
+    Duration timeout = const Duration(seconds: 60),
+    Duration interval = const Duration(milliseconds: 500),
+    void Function(TorrentStatus status)? onProgress,
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    TorrentStatus? last;
+
+    try {
+      while (DateTime.now().isBefore(deadline)) {
+        try {
+          final status = await get(hash);
+          last = status;
+          onProgress?.call(status);
+          final progress = status.preloadProgress;
+          if (progress != null && progress >= 1) return status;
+          // Some builds stop reporting a preload target once they are serving.
+          if (progress == null && status.state == TorrentState.working) {
+            return status;
+          }
+          if (status.state == TorrentState.closed) return status;
+        } catch (_) {
+          // A dropped poll is not a dropped torrent.
+        }
+        await Future<void>.delayed(interval);
+      }
+      return last ?? await get(hash);
+    } finally {
+      // Every exit path — filled, timed out, or the torrent closed under us —
+      // must release the preload reader before the player opens its own.
+      stopPreload(hash);
+    }
+  }
+
   /// The playable URL for one file inside a torrent.
   ///
   /// `index` is the server's own 1-based file id, and `play` is what makes it
   /// serve bytes rather than describe them. The file name is in the path only
   /// so players and download managers see a sensible name — the server routes
   /// on `link` and `index`.
-  Uri streamUri(String hash, TorrentFileEntry file) => Uri.parse(
+  Uri streamUri(String hash, TorrentFileEntry file) =>
+      _streamUri(hash, file, mode: 'play');
+
+  /// `mode` is `play` to serve bytes or `preload` to only fill the buffer.
+  Uri _streamUri(String hash, TorrentFileEntry file, {required String mode}) =>
+      Uri.parse(
         '$_base/stream/${Uri.encodeComponent(file.name)}'
-        '?link=$hash&index=${file.id}&play',
+        '?link=$hash&index=${file.id}&$mode',
       );
 
   /// Closes the stream for one torrent but keeps it registered.
   Future<void> drop(String hash) async {
+    stopPreload(hash);
     try {
       await _post({'action': 'drop', 'hash': hash});
     } catch (_) {}

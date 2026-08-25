@@ -68,6 +68,9 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
     // Torrent pieces are cached to disk and a few nights of watching adds up
     // fast. Clearing on entry rather than on exit means a crash mid-episode
     // still gets cleaned up, and the user never pays for last week's viewing.
+    //
+    // clearCache refuses while the server is live — it is process-wide, so on a
+    // second visit to this page it may well be mid-stream.
     _engine.clearCache();
   }
 
@@ -253,18 +256,68 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
     );
   }
 
-  Widget _searchField() => TextField(
-        controller: _textController,
-        autofocus: widget.initialQuery == null,
-        textInputAction: TextInputAction.search,
-        onChanged: _controller.onTermChanged,
-        onSubmitted: (_) => _controller.search(),
-        style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
-        decoration: InputDecoration(
-          hintText: 'torrent.search_hint'.tr(),
-          hintStyle: TextStyle(color: AppColors.textHint, fontSize: 15),
-          border: InputBorder.none,
-          isDense: true,
+  /// A search pill, not a bare [TextField].
+  ///
+  /// The app's `inputDecorationTheme` gives every field an outlined, focus-
+  /// coloured border. That is right on a form and wrong in an app bar, where it
+  /// renders as a box wedged against the back arrow — and setting
+  /// `border: InputBorder.none` alone does not remove it, because the theme's
+  /// `focusedBorder` still wins the moment the field takes focus. Every border
+  /// slot has to be cleared explicitly, which is what the rest of this does.
+  Widget _searchField() => Container(
+        height: 42,
+        margin: const EdgeInsets.only(right: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(21),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search_rounded, size: 19, color: AppColors.textHint),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _textController,
+                autofocus: widget.initialQuery == null,
+                textInputAction: TextInputAction.search,
+                onChanged: (value) {
+                  _controller.onTermChanged(value);
+                  // Drives the clear button's visibility.
+                  setState(() {});
+                },
+                onSubmitted: (_) => _controller.search(),
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
+                cursorColor: AppColors.primary,
+                decoration: InputDecoration(
+                  hintText: 'torrent.search_hint'.tr(),
+                  hintStyle: TextStyle(color: AppColors.textHint, fontSize: 14.5),
+                  isDense: true,
+                  filled: false,
+                  contentPadding: EdgeInsets.zero,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                ),
+              ),
+            ),
+            if (_textController.text.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _textController.clear();
+                  _controller.onTermChanged('');
+                  setState(() {});
+                },
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: AppColors.textHint,
+                ),
+              ),
+          ],
         ),
       );
 
@@ -397,12 +450,47 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
             color: AppColors.primary,
             backgroundColor: Colors.transparent,
           ),
+        if (_controller.failedIndexers.isNotEmpty &&
+            _controller.pendingIndexers == 0)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppColors.errorLight.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 14, color: AppColors.errorLight),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    'torrent.tracker_failed'
+                        .tr(args: [_controller.failedIndexers.join(', ')]),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11.5,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'torrent.results_n'.tr(args: ['${_controller.results.length}']),
+              // While trackers are still answering the count is a running
+              // total, not a final one. Saying so stops "12 results" from
+              // reading as "that is all there is" a second before it becomes 80.
+              _controller.pendingIndexers > 0
+                  ? '${'torrent.results_n'.tr(args: ['${_controller.results.length}'])}'
+                      ' · ${'torrent.still_searching'.tr(args: ['${_controller.pendingIndexers}'])}'
+                  : 'torrent.results_n'.tr(args: ['${_controller.results.length}']),
               style: TextStyle(color: AppColors.textHint, fontSize: 12),
             ),
           ),

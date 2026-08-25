@@ -26,6 +26,7 @@ class TorrentSearchController extends ChangeNotifier {
   int _sequence = 0;
   CancelToken? _cancelToken;
   Timer? _debounce;
+  StreamSubscription<TorrentSearchUpdate>? _subscription;
 
   String _term = '';
   TorrentQuery _query = const TorrentQuery(term: '');
@@ -34,7 +35,18 @@ class TorrentSearchController extends ChangeNotifier {
   bool _nsfwAllowed = false;
 
   List<TorrentResult> _results = const [];
+
+  /// Everything the trackers returned, before filtering.
+  ///
+  /// Filters and sort order are computed entirely from data already here, so
+  /// keeping the unfiltered set means flipping a switch is instant instead of
+  /// an eight-second round trip to four websites — several of which rate-limit
+  /// a client that asks too often.
+  List<TorrentResult> _raw = const [];
+
   bool _loading = false;
+  int _pendingIndexers = 0;
+  List<String> _failedIndexers = const [];
   Object? _error;
 
   String get term => _term;
@@ -42,6 +54,15 @@ class TorrentSearchController extends ChangeNotifier {
   TorrentFilters get filters => _filters;
   List<TorrentResult> get results => _results;
   bool get loading => _loading;
+
+  /// Trackers still to answer. Non-zero while results are already on screen is
+  /// the normal state now — the list fills in as each tracker replies.
+  int get pendingIndexers => _pendingIndexers;
+
+  /// Trackers that errored, timed out, or answered with nothing — usually a
+  /// rate limit rather than a genuinely empty result.
+  List<String> get failedIndexers => _failedIndexers;
+
   Object? get error => _error;
 
   /// True once a search has run, so the page can tell "nothing searched yet"
@@ -69,6 +90,7 @@ class TorrentSearchController extends ChangeNotifier {
     if (value.trim().isEmpty) {
       _cancelInFlight();
       _results = const [];
+      _raw = const [];
       _error = null;
       _loading = false;
       notifyListeners();
@@ -84,20 +106,32 @@ class TorrentSearchController extends ChangeNotifier {
     if (_term.trim().isNotEmpty) search();
   }
 
+  /// Re-ranks what is already on screen. No network.
   void setSort(TorrentSort sort) {
     if (_query.sort == sort) return;
     _query = _query.copyWith(sort: sort, page: 1);
-    notifyListeners();
-    if (_term.trim().isNotEmpty) search();
+    _reapply();
   }
 
+  /// Re-filters what is already on screen. No network.
   void setFilters(TorrentFilters filters) {
     _filters = filters;
-    notifyListeners();
-    if (_term.trim().isNotEmpty) search();
+    _reapply();
   }
 
+  /// Recomputes the visible list from [_raw].
+  ///
+  /// Only used while a result set is in hand; with nothing fetched yet there is
+  /// nothing to re-filter and the change simply applies to the next search.
+  void _reapply() {
+    _results = _repository.applyFilters(_raw, _filters, _query.sort);
+    notifyListeners();
+  }
+
+  /// Which trackers to query. Unlike the filters this really does change what
+  /// the servers return, so it re-runs the search.
   void setEnabledIndexers(Set<String> ids) {
+    if (setEquals(_enabledIndexers, ids)) return;
     _enabledIndexers = ids;
     notifyListeners();
     if (_term.trim().isNotEmpty) search();
@@ -109,7 +143,12 @@ class TorrentSearchController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> search() async {
+  /// Starts a search, publishing results as each tracker answers.
+  ///
+  /// Nothing is awaited here: the page updates from [notifyListeners] as
+  /// frames arrive, so the first tracker's results are on screen in about half
+  /// a second instead of after the slowest one.
+  void search() {
     final term = _term.trim();
     if (term.isEmpty) return;
 
@@ -120,33 +159,54 @@ class TorrentSearchController extends ChangeNotifier {
 
     _loading = true;
     _error = null;
+    // The previous query's results are dropped immediately. Keeping them while
+    // a *different* search runs would show rows that do not match what is in
+    // the search box.
+    _results = const [];
+    _raw = const [];
+    _pendingIndexers = 0;
+    _failedIndexers = const [];
     notifyListeners();
 
-    try {
-      final results = await _repository.search(
-        _query.copyWith(term: term),
-        filters: _filters,
-        enabledIds: enabledIndexers,
-        nsfwAllowed: _nsfwAllowed,
-        cancelToken: cancelToken,
-      );
-      // A newer search started while this one was in flight.
-      if (sequence != _sequence) return;
-      _results = results;
-    } catch (e) {
-      if (sequence != _sequence) return;
-      _error = e;
-      _results = const [];
-    } finally {
-      if (sequence == _sequence) {
-        _loading = false;
+    _subscription = _repository
+        .searchIncremental(
+          _query.copyWith(term: term),
+          filters: _filters,
+          enabledIds: enabledIndexers,
+          nsfwAllowed: _nsfwAllowed,
+          cancelToken: cancelToken,
+        )
+        .listen(
+      (update) {
+        // A newer search started while this one was still arriving.
+        if (sequence != _sequence) return;
+        _results = update.results;
+        _raw = update.raw;
+        _pendingIndexers = update.pending;
+        _failedIndexers = update.failed;
+        _loading = !update.isComplete;
         notifyListeners();
-      }
-    }
+      },
+      onError: (Object error) {
+        if (sequence != _sequence) return;
+        _error = error;
+        _loading = false;
+        _pendingIndexers = 0;
+        notifyListeners();
+      },
+      onDone: () {
+        if (sequence != _sequence) return;
+        _loading = false;
+        _pendingIndexers = 0;
+        notifyListeners();
+      },
+    );
   }
 
   void _cancelInFlight() {
     _debounce?.cancel();
+    _subscription?.cancel();
+    _subscription = null;
     final token = _cancelToken;
     if (token != null && !token.isCancelled) {
       token.cancel('superseded');

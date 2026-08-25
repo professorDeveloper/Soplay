@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'package:dio/dio.dart';
 
 import 'package:soplay/features/torrent/data/indexers/nekobt_indexer.dart';
@@ -87,6 +89,36 @@ class TorrentFilters {
   }
 }
 
+/// One frame of a running search: everything found so far, and how many
+/// trackers have yet to answer.
+class TorrentSearchUpdate {
+  const TorrentSearchUpdate({
+    required this.results,
+    required this.pending,
+    this.raw = const [],
+    this.failed = const [],
+  });
+
+  final List<TorrentResult> results;
+
+  /// The same set before filtering. Kept so the page can re-filter locally
+  /// when the user changes a switch, instead of asking the trackers again.
+  final List<TorrentResult> raw;
+
+  /// Trackers still outstanding. Zero means the search is finished.
+  final int pending;
+
+  /// Display names of trackers that errored or timed out.
+  ///
+  /// Worth surfacing rather than swallowing: Nyaa rate-limits, and when it does
+  /// the results quietly halve. A user who is not told assumes the release they
+  /// were looking for does not exist, and searches again — which is exactly
+  /// what keeps them rate-limited.
+  final List<String> failed;
+
+  bool get isComplete => pending <= 0;
+}
+
 /// Searches every enabled tracker at once and returns one merged list.
 ///
 /// Three things make this more than a `Future.wait`:
@@ -137,10 +169,111 @@ class TorrentSearchRepository {
   /// Every indexer Sozo knows about, for the tracker-toggle settings screen.
   List<TorrentIndexer> get indexers => List.unmodifiable(_indexers);
 
-  /// Hard ceiling per tracker. Past this the result is not worth waiting for —
-  /// the other trackers have already answered and the user is watching a
-  /// spinner.
-  static const _perIndexerTimeout = Duration(seconds: 15);
+  /// Hard ceiling per tracker.
+  ///
+  /// Only a backstop now that results stream in: a slow tracker no longer
+  /// holds up the ones that already answered, it just contributes late.
+  static const _perIndexerTimeout = Duration(seconds: 8);
+
+  /// Runs [query] against every enabled tracker, emitting the merged list each
+  /// time one of them answers.
+  ///
+  /// This exists because the trackers are wildly unequal: Nyaa replies in about
+  /// half a second, nekoBT in under one, and Tokyo Toshokan routinely takes
+  /// eight. Waiting for all of them — which is what a plain `Future.wait` does
+  /// — means every search feels like the slowest tracker, and the user stares
+  /// at a spinner for eight seconds while the results they actually wanted have
+  /// been sitting in memory for seven and a half.
+  ///
+  /// Each emission is the full merged, deduplicated, filtered and ranked list
+  /// so far, so the UI can simply replace what it is showing. [pending] counts
+  /// the trackers still outstanding, which is what lets the page keep a
+  /// progress bar up without pretending the search is finished.
+  Stream<TorrentSearchUpdate> searchIncremental(
+    TorrentQuery query, {
+    TorrentFilters filters = const TorrentFilters(),
+    Set<String>? enabledIds,
+    bool nsfwAllowed = false,
+    CancelToken? cancelToken,
+  }) {
+    final selected = _select(query, enabledIds: enabledIds, nsfwAllowed: nsfwAllowed);
+    if (query.term.trim().isEmpty || selected.isEmpty) {
+      return Stream.value(const TorrentSearchUpdate(results: [], pending: 0));
+    }
+
+    final controller = StreamController<TorrentSearchUpdate>();
+    final collected = <TorrentResult>[];
+    final failed = <String>[];
+    final tokens = significantTokens(query.term);
+    var pending = selected.length;
+
+    // An immediate empty frame so the page can show "searching N trackers"
+    // before the first one answers, instead of a bare spinner.
+    controller.add(TorrentSearchUpdate(results: const [], pending: pending));
+
+    for (final indexer in selected) {
+      indexer
+          .search(query, cancelToken: cancelToken)
+          .timeout(_perIndexerTimeout, onTimeout: () {
+            developer.log('${indexer.id} timed out', name: 'torrent');
+            failed.add(indexer.name);
+            return const [];
+          })
+          .catchError((Object error, StackTrace _) {
+            developer.log('${indexer.id} failed: $error', name: 'torrent');
+            failed.add(indexer.name);
+            return const <TorrentResult>[];
+          })
+          .then((List<TorrentResult> raw) {
+            if (controller.isClosed) return;
+            var batch = raw;
+            // An indexer that returned rows none of which relate to the query
+            // did not search — it answered with its default listing. Those rows
+            // are worse than none: they fill the screen with confident-looking
+            // results for a completely different show.
+            if (ignoredTheQuery(batch, tokens)) {
+              developer.log(
+                '${indexer.id} ignored the query — dropping ${batch.length} rows',
+                name: 'torrent',
+              );
+              if (!failed.contains(indexer.name)) failed.add(indexer.name);
+              batch = const [];
+            }
+            collected.addAll(batch);
+            pending--;
+            final merged = _dedupe(collected);
+            controller.add(TorrentSearchUpdate(
+              results: applyFilters(merged, filters, query.sort),
+              raw: merged,
+              pending: pending,
+              failed: List.unmodifiable(failed),
+            ));
+            if (pending <= 0) controller.close();
+          });
+    }
+
+    // Nothing to unsubscribe from — the indexers own their own requests and
+    // swallow their own errors — but the guard stops a late arrival from
+    // adding to a closed controller.
+    controller.onCancel = () => controller.close();
+    return controller.stream;
+  }
+
+  /// The trackers a query should actually go to.
+  List<TorrentIndexer> _select(
+    TorrentQuery query, {
+    Set<String>? enabledIds,
+    required bool nsfwAllowed,
+  }) =>
+      _indexers.where((indexer) {
+        if (indexer.isNsfw && !nsfwAllowed) return false;
+        if (enabledIds != null && !enabledIds.contains(indexer.id)) return false;
+        // Asking a tracker for a category it does not model returns results for
+        // the wrong thing, which is worse than returning none.
+        if (!indexer.categories.contains(query.category)) return false;
+        if (query.page > 1 && !indexer.supportsPagination) return false;
+        return true;
+      }).toList();
 
   /// Runs [query] against every enabled tracker and returns the merged,
   /// filtered, ranked list.
@@ -157,15 +290,8 @@ class TorrentSearchRepository {
   }) async {
     if (query.term.trim().isEmpty) return const [];
 
-    final selected = _indexers.where((indexer) {
-      if (indexer.isNsfw && !nsfwAllowed) return false;
-      if (enabledIds != null && !enabledIds.contains(indexer.id)) return false;
-      // Asking a tracker for a category it does not model returns results for
-      // the wrong thing, which is worse than returning none.
-      if (!indexer.categories.contains(query.category)) return false;
-      if (query.page > 1 && !indexer.supportsPagination) return false;
-      return true;
-    }).toList();
+    final selected =
+        _select(query, enabledIds: enabledIds, nsfwAllowed: nsfwAllowed);
 
     if (selected.isEmpty) return const [];
 
@@ -187,6 +313,70 @@ class TorrentSearchRepository {
     final kept = merged.where(filters.allows).toList();
     _rank(kept, query.sort);
     return kept;
+  }
+
+  /// Applies [filters] and [sort] to an already-fetched result set.
+  ///
+  /// Exposed because none of it needs the network. Every filter here — quality,
+  /// codec, subtitle style, seeder floor — is computed from data already in
+  /// hand, so re-running the trackers when the user flips a switch is pure
+  /// waste: eight seconds of waiting, and a needless extra hit on sites that
+  /// rate-limit.
+  List<TorrentResult> applyFilters(
+    List<TorrentResult> results,
+    TorrentFilters filters,
+    TorrentSort sort,
+  ) {
+    final kept = results.where(filters.allows).toList();
+    _rank(kept, sort);
+    return kept;
+  }
+
+  /// Words that carry no matching power in a release name.
+  ///
+  /// Nobody names a file "season" or "episode" — releases use `S02E05` or
+  /// `- 05`. A user typing "Wednesday season 2 episode 6" is describing what
+  /// they want in English, not quoting a filename, and these words would make
+  /// every title look like a mismatch.
+  static const _stopWords = {
+    'season', 'seasons', 'episode', 'episodes', 'the', 'and', 'sub', 'subbed',
+    'dub', 'dubbed', 'anime', 'series', 'part', 'movie', 'watch', 'download',
+  };
+
+  /// Query words a genuine match should plausibly contain.
+  ///
+  /// Empty for a query with no ASCII words — Japanese or Cyrillic titles, say —
+  /// which disables the guard rather than letting it reject everything.
+  @visibleForTesting
+  static Set<String> significantTokens(String term) => term
+      .toLowerCase()
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((t) => t.length >= 3 && !_stopWords.contains(t))
+      .toSet();
+
+  /// Whether a tracker plainly did not search.
+  ///
+  /// This is a guard against a whole class of silent failure, not a relevance
+  /// filter. It never drops individual rows — a release legitimately titled
+  /// "Sousou no Frieren" should survive a search for "Frieren: Beyond Journey's
+  /// End" and vice versa, and per-row matching would kill exactly those. It
+  /// only fires when *not one* row in a batch shares *any* meaningful word with
+  /// the query, which does not happen to a tracker that searched and is exactly
+  /// what happens to one that returned its front page.
+  ///
+  /// Learned the hard way: nekoBT's API silently ignores an unknown parameter
+  /// name, so a typo in one query string made every search return the same
+  /// fifty popular torrents, and nothing anywhere reported a problem.
+  @visibleForTesting
+  static bool ignoredTheQuery(List<TorrentResult> batch, Set<String> tokens) {
+    if (batch.isEmpty || tokens.isEmpty) return false;
+    for (final result in batch) {
+      final title = result.title.toLowerCase();
+      for (final token in tokens) {
+        if (title.contains(token)) return false;
+      }
+    }
+    return true;
   }
 
   /// Collapses the same release arriving from several trackers into one row.

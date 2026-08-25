@@ -23,6 +23,7 @@ class SearchContentView extends StatelessWidget {
     required this.onRemoveRecent,
     required this.onClearRecents,
     required this.onTryAllSources,
+    this.onSearchTorrents,
   });
 
   final SearchState state;
@@ -35,6 +36,11 @@ class SearchContentView extends StatelessWidget {
   final ValueChanged<String> onRemoveRecent;
   final VoidCallback onClearRecents;
   final VoidCallback onTryAllSources;
+
+  /// Sends the current query to the torrent search. Null where torrents are
+  /// unavailable (iOS, desktop), so the option is simply absent rather than
+  /// present and failing.
+  final VoidCallback? onSearchTorrents;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +88,7 @@ class SearchContentView extends StatelessWidget {
             child: _SearchEmptyView(
               criteria: state.criteria,
               onTryAllSources: onTryAllSources,
+              onSearchTorrents: onSearchTorrents,
             ),
           ),
         ];
@@ -304,10 +311,12 @@ class _SearchEmptyView extends StatelessWidget {
   const _SearchEmptyView({
     required this.criteria,
     required this.onTryAllSources,
+    this.onSearchTorrents,
   });
 
   final SearchCriteria criteria;
   final VoidCallback onTryAllSources;
+  final VoidCallback? onSearchTorrents;
 
   @override
   Widget build(BuildContext context) {
@@ -334,6 +343,18 @@ class _SearchEmptyView extends StatelessWidget {
               label: 'search.try_all_sources'.tr(),
               onTap: onTryAllSources,
             ),
+            // Torrents are the honest last resort, and this is the moment they
+            // are worth offering: the catalogue sources have all been asked and
+            // none of them has it. Offering it earlier would push people onto
+            // BitTorrent for titles that stream fine.
+            if (onSearchTorrents != null) ...[
+              const SizedBox(height: 10),
+              _ActionChip(
+                icon: Icons.hub_rounded,
+                label: 'search.try_torrents'.tr(),
+                onTap: onSearchTorrents!,
+              ),
+            ],
           ],
         ],
       ),

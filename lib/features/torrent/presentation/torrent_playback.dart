@@ -32,7 +32,7 @@ class TorrentStreamHandle {
   final String title;
 }
 
-/// Turns a search result into something the player can open.
+/// Turns a torrent link into something the player can open.
 ///
 /// The sequence, and why each step is here:
 ///
@@ -44,13 +44,16 @@ class TorrentStreamHandle {
 ///      trackers a magnet from an indexer often has no announce URL at all and
 ///      falls back to DHT alone.
 ///   4. **Add the link and wait for metadata.** A magnet has no file list until
-///      the swarm answers. Reading it immediately is the classic bug — it
-///      returns null and the stream URL is built from nothing.
+///      the swarm answers.
 ///   5. **Pick a file** when the torrent holds more than one video.
+///   6. **Fill the read-ahead buffer** before handing the URL over.
 ///
-/// Steps 3–4 run behind a progress sheet that reports what is actually
-/// happening, because "fetching file list from the swarm" can genuinely take
-/// twenty seconds on a thin torrent and a bare spinner reads as a hang.
+/// Step 6 is the one that is easy to skip and expensive to skip. Give the
+/// player the URL immediately and it works — but `initialize()` then blocks
+/// until the buffer fills anyway, behind a black screen, with no progress, no
+/// peer count and no way out. Measured on a real swarm that was nineteen
+/// seconds of nothing. Doing the wait here costs the same time and spends it
+/// showing what is happening.
 abstract final class TorrentPlayback {
   static Future<TorrentStreamHandle?> prepare(
     BuildContext context,
@@ -80,8 +83,8 @@ abstract final class TorrentPlayback {
   ///
   /// Split out from [prepare] because a torrent does not only arrive from
   /// Sozo's own search: CloudStream plugins return magnets as extractor links,
-  /// and those deserve the identical treatment — consent, tracker injection,
-  /// metadata wait, file picker — rather than a second, worse implementation.
+  /// and those deserve the identical treatment rather than a second, worse
+  /// implementation.
   static Future<TorrentStreamHandle?> prepareLink(
     BuildContext context,
     String link, {
@@ -97,26 +100,16 @@ abstract final class TorrentPlayback {
     if (!await TorrentConsent.ensure(context)) return null;
     if (!context.mounted) return null;
 
-    // Captured before the awaits. Everything after this point runs across
-    // async gaps, and re-reading them from `context` there is the classic way
-    // to touch a disposed element when the user leaves mid-preparation.
+    // Captured before the awaits. Everything after this point runs across async
+    // gaps, and re-reading them from `context` there is the classic way to
+    // touch a disposed element when the user leaves mid-preparation.
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
 
-    final progress = _PreparationProgress();
-    // Non-dismissible only for the moment the sheet is up; the sheet itself
-    // offers a cancel, so the user is never trapped waiting on a dead swarm.
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      isDismissible: false,
-      enableDrag: false,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _PreparationSheet(progress: progress),
-    ));
+    final progress = _PreparationProgress(torrentName: title);
+    _openSheet(navigator, progress);
 
+    String? addedHash;
     try {
       progress.message = 'torrent.preparing'.tr();
 
@@ -124,35 +117,32 @@ abstract final class TorrentPlayback {
       if (progress.cancelled) return null;
 
       final added = await engine.add(link, title: title);
+      addedHash = added.hash;
       if (progress.cancelled) return null;
 
       progress.message = 'torrent.fetching_metadata'.tr();
 
       final status = await engine.awaitMetadata(
         added.hash,
-        onProgress: (s) {
-          progress.peers = s.activePeers ?? s.totalPeers;
-          if (s.label.isNotEmpty) progress.detail = s.label;
-        },
+        onProgress: progress.adopt,
       );
-      if (progress.cancelled) {
-        await engine.drop(status.hash);
-        return null;
-      }
+      if (progress.cancelled) return null;
 
       final videos = status.videoFiles;
       if (videos.isEmpty) {
         _closeSheet(navigator);
-        _toast(messenger, 'torrent.no_results'.tr());
+        _toast(messenger, 'torrent.no_video_in_torrent'.tr());
         await engine.drop(status.hash);
         return null;
       }
 
-      _closeSheet(navigator);
-      if (!context.mounted) return null;
-
-      TorrentFileEntry file = videos.first;
+      var file = videos.first;
       if (videos.length > 1) {
+        // The picker needs the screen to itself; the sheet comes back for the
+        // buffering step right after.
+        _closeSheet(navigator);
+        if (!context.mounted) return null;
+
         final picked = await TorrentFilePickerSheet.show(context, videos);
         if (picked == null) {
           // Backing out of the picker is a cancel, so stop the swarm rather
@@ -161,7 +151,21 @@ abstract final class TorrentPlayback {
           return null;
         }
         file = picked;
+        _openSheet(navigator, progress);
       }
+
+      progress
+        ..message = 'torrent.buffering_title'.tr()
+        ..fileName = file.name;
+
+      engine.startPreload(status.hash, file);
+      await engine.awaitPreload(status.hash, onProgress: progress.adopt);
+      if (progress.cancelled) {
+        await engine.drop(status.hash);
+        return null;
+      }
+
+      _closeSheet(navigator);
 
       return TorrentStreamHandle(
         url: engine.streamUri(status.hash, file),
@@ -172,14 +176,35 @@ abstract final class TorrentPlayback {
     } on TimeoutException {
       _closeSheet(navigator);
       _toast(messenger, 'torrent.metadata_timeout'.tr());
+      if (addedHash != null) await engine.drop(addedHash);
       return null;
     } catch (_) {
       _closeSheet(navigator);
       _toast(messenger, 'torrent.engine_failed'.tr());
+      if (addedHash != null) await engine.drop(addedHash);
       return null;
     } finally {
       progress.dispose();
     }
+  }
+
+  static void _openSheet(NavigatorState navigator, _PreparationProgress progress) {
+    if (!navigator.mounted) return;
+    unawaited(showModalBottomSheet<void>(
+      context: navigator.context,
+      backgroundColor: AppColors.surface,
+      isDismissible: false,
+      enableDrag: false,
+      // Full width and bottom-anchored. Without this the sheet inherits the
+      // theme's dialog-ish sizing and renders as a small floating card, which
+      // is neither a sheet nor a dialog and reads as a rendering bug.
+      constraints: const BoxConstraints.expand(height: double.infinity)
+          .copyWith(minHeight: 0, maxHeight: double.infinity),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _PreparationSheet(progress: progress),
+    ));
   }
 
   static void _closeSheet(NavigatorState navigator) {
@@ -196,9 +221,13 @@ abstract final class TorrentPlayback {
 
 /// Shared state between the preparation steps and the sheet showing them.
 class _PreparationProgress extends ChangeNotifier {
+  _PreparationProgress({this.torrentName});
+
+  final String? torrentName;
+
   String _message = '';
-  String? _detail;
-  int? _peers;
+  String? _fileName;
+  TorrentStatus? _status;
   bool cancelled = false;
 
   String get message => _message;
@@ -207,16 +236,36 @@ class _PreparationProgress extends ChangeNotifier {
     notifyListeners();
   }
 
-  String? get detail => _detail;
-  set detail(String? value) {
-    _detail = value;
+  String? get fileName => _fileName;
+  set fileName(String? value) {
+    _fileName = value;
     notifyListeners();
   }
 
-  int? get peers => _peers;
-  set peers(int? value) {
-    _peers = value;
+  TorrentStatus? get status => _status;
+
+  /// Takes the latest server snapshot. Called from the polling loops, which run
+  /// while the sheet may already have been disposed.
+  void adopt(TorrentStatus value) {
+    _status = value;
     notifyListeners();
+  }
+
+  int get peers => _status?.activePeers ?? _status?.totalPeers ?? 0;
+  double get downloadSpeed => _status?.downloadSpeed ?? 0;
+  double? get bufferProgress => _status?.preloadProgress;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }
 
@@ -225,58 +274,149 @@ class _PreparationSheet extends StatelessWidget {
 
   final _PreparationProgress progress;
 
+  static String _speed(double bytesPerSecond) {
+    if (bytesPerSecond < 1024) return '0 KB/s';
+    if (bytesPerSecond < 1024 * 1024) {
+      return '${(bytesPerSecond / 1024).toStringAsFixed(0)} KB/s';
+    }
+    return '${(bytesPerSecond / (1024 * 1024)).toStringAsFixed(1)} MB/s';
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+      child: SizedBox(
+        width: double.infinity,
         child: ListenableBuilder(
           listenable: progress,
-          builder: (context, _) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 34,
-                height: 34,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.6,
-                  color: AppColors.primary,
-                ),
+          builder: (context, _) {
+            final buffer = progress.bufferProgress;
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Icon(
+                          Icons.hub_rounded,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          progress.message,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (buffer != null)
+                        Text(
+                          '${(buffer * 100).round()}%',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (progress.fileName != null ||
+                      progress.torrentName != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      progress.fileName ?? progress.torrentName!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: 12.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      // Indeterminate until the server reports a buffer target:
+                      // a bar sitting at 0 % looks broken, a moving one does not
+                      // claim progress it cannot measure.
+                      value: buffer,
+                      minHeight: 4,
+                      backgroundColor: AppColors.surfaceVariant,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // The honest signal that something is happening. Metadata
+                  // arrives the moment one peer answers, so a rising peer count
+                  // means progress and a stuck zero means the swarm is empty —
+                  // which a spinner alone can never say.
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.arrow_downward_rounded,
+                        size: 13,
+                        color: AppColors.textHint,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        _speed(progress.downloadSpeed),
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Icon(
+                        Icons.hub_outlined,
+                        size: 12,
+                        color: AppColors.textHint,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'torrent.stats_peers'.tr(args: ['${progress.peers}']),
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () {
+                          progress.cancelled = true;
+                          Navigator.of(context).pop();
+                        },
+                        child: Text(
+                          'general.cancel'.tr(),
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(height: 18),
-              Text(
-                progress.message,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              // The peer count is the honest signal that something is
-              // happening: metadata arrives the moment one peer answers, so a
-              // rising number means progress and a stuck zero means the swarm
-              // is empty — which a spinner alone can never say.
-              if (progress.peers != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  'torrent.stats_peers'.tr(args: ['${progress.peers}']),
-                  style: TextStyle(color: AppColors.textHint, fontSize: 12.5),
-                ),
-              ],
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: () {
-                  progress.cancelled = true;
-                  Navigator.of(context).pop();
-                },
-                child: Text(
-                  'general.cancel'.tr(),
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

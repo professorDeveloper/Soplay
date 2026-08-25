@@ -84,7 +84,15 @@ class TokyoToshokanIndexer extends TorrentIndexer {
 
     final category = _categoryCode(query.category);
     final uri = baseUri.replace(path: '/rss.php', queryParameters: {
-      'search': query.term,
+      // `terms`, not `search`.
+      //
+      // An unknown parameter here is ignored rather than rejected, so
+      // `search=` returned the site's 150 newest torrents for every query — a
+      // search for "frieren" and one for "zzzznonexistentzzz" gave
+      // byte-identical results. The name comes from the site's own search form
+      // (`<input type="text" name="terms">`). `filter=` for the category is
+      // right and was verified separately: `filter=2` returns only Music.
+      'terms': query.term,
       'filter': ?category,
     });
 

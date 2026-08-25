@@ -63,7 +63,18 @@ class NekoBtIndexer extends TorrentIndexer {
     final uri = baseUri.replace(
       path: '/api/v1/torrents/search',
       queryParameters: {
-        'q': query.term,
+        // `query`, not `q`.
+        //
+        // The site's own page uses `/search?q=...`, and assuming the API took
+        // the same name cost a silent, total failure: an unknown parameter is
+        // not rejected, it is ignored, so every search returned the site's
+        // default "best" listing. Every query looked like it worked and every
+        // result was wrong — Frieren returned Bleach and Hunter x Hunter.
+        //
+        // The response's own `data.search` object echoes the parameters the
+        // server actually understood; that is what settled it. If this ever
+        // needs revisiting, check there first.
+        'query': query.term,
         'limit': '$_pageSize',
         // `page` is ignored by the API; `offset` is what it actually reads.
         'offset': '${(query.page - 1) * _pageSize}',

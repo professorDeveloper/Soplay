@@ -73,6 +73,10 @@ object TorrentServerBridge {
                 when (call.method) {
                     "start" -> start(appContext, call.argument<String>("trackers"), result)
                     "port" -> result.success(runningPort.get().toInt())
+                    // Where the server may spill its piece cache. Resolved
+                    // natively rather than in Dart so both sides agree on one
+                    // directory — the same one clearCache() wipes.
+                    "cacheDir" -> result.success(cacheDir(appContext).absolutePath)
                     "clearCache" -> result.success(clearCache(appContext))
                     else -> result.notImplemented()
                 }

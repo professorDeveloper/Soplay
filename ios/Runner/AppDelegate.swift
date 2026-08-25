@@ -68,6 +68,9 @@ import UIKit
     // contract as the Android host, so the Flutter side is platform-agnostic.
     RepoFileImport.register(messenger: registrar.messenger())
     SystemControls.register(with: registrar)
+    // Native iOS 26 Liquid Glass for the bottom nav. Registers a capability
+    // channel and a platform-view factory; both are inert on older iOS.
+    LiquidGlass.register(with: registrar)
 
     let previewChannel = FlutterMethodChannel(
       name: "soplay/preview",

@@ -224,6 +224,14 @@ extension _PlayerControls on _PlayerPageState {
       FramePreviewService.isSupported &&
       _isNetworkVideo &&
       _videoUrl != null &&
+      // Never on a torrent. Scrub previews work by opening a SECOND reader on
+      // the same URL and seeking it around to grab frames — which is exactly
+      // the access pattern a torrent stream cannot serve. The torrent server
+      // hands out one sequential reader with a read-ahead buffer in front of
+      // it; a second one seeking backwards and forwards thrashes that buffer,
+      // starves the player, and on a real device took the whole process down
+      // mid-episode.
+      TorrentStreamUrl.parse(_videoUrl) == null &&
       (!_isHls || Platform.isIOS);
 
   Widget _buildVideoLayer() {

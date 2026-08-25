@@ -69,6 +69,19 @@ class DownloadService {
     required String chapterRef,
   }) => _fnv('manga|$contentUrl|$provider|$chapterRef');
 
+  /// Id for a downloaded episode, or for a movie when [episodeNumber] is null.
+  ///
+  /// Both the player and the episode list build ids for the same episode, and
+  /// they have to agree byte for byte. When they did not, the list showed no
+  /// progress for a download the player had started, and starting it again
+  /// from the other screen downloaded the same file twice. One definition,
+  /// used from both.
+  static String videoId({
+    required String contentUrl,
+    int? episodeNumber,
+  }) =>
+      _fnv(episodeNumber == null ? contentUrl : '${contentUrl}_ep$episodeNumber');
+
   void dispose() {
     _nativePoller?.cancel();
     revision.dispose();

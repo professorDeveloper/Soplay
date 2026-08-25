@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -75,6 +78,17 @@ class _SearchViewState extends State<_SearchView> {
     });
   }
 
+  /// Torrent streaming is Android-only — the engine is a native Android
+  /// library with no iOS or desktop build. The option is hidden rather than
+  /// shown and failing.
+  static bool get _torrentsAvailable => !kIsWeb && Platform.isAndroid;
+
+  void _openTorrents(String query) {
+    // The query travels with it, so the torrent search opens already looking
+    // for the same thing rather than making the user type it a second time.
+    context.push('/torrents', extra: query);
+  }
+
   void _clearSearch() {
     _controller.clear();
     context.read<SearchBloc>().add(const SearchQueryChanged(''));
@@ -133,6 +147,9 @@ class _SearchViewState extends State<_SearchView> {
               onClearRecents: () =>
                   context.read<SearchBloc>().add(const SearchRecentsCleared()),
               onTryAllSources: () => _openCrossSearch(state.criteria.text),
+              onSearchTorrents: _torrentsAvailable
+                  ? () => _openTorrents(state.criteria.text)
+                  : null,
             ),
             ValueListenableBuilder<double>(
               valueListenable: _blurProgress,

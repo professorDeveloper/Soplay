@@ -17,6 +17,8 @@ import 'package:soplay/features/manga/domain/entities/reader_args.dart';
 import 'package:soplay/features/manga/domain/entities/manga_pages_entity.dart';
 import 'package:soplay/features/detail/domain/usecases/get_episodes_usecase.dart';
 import 'package:soplay/features/detail/domain/usecases/get_pages_usecase.dart';
+import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
+import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
 import 'package:soplay/features/download/data/download_service.dart';
 import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:soplay/features/history/data/history_service.dart';
@@ -56,6 +58,21 @@ class _EpisodesPageState extends State<EpisodesPage> {
   String? _error;
 
   HistoryItem? _historyItem;
+
+  /// Indices picked in multi-select. Empty means normal browsing.
+  ///
+  /// Downloading a season one tap at a time is the kind of chore that makes
+  /// people give up and leave the app open on wifi overnight instead. Picking a
+  /// run of episodes and queueing them in one go is the whole point of having a
+  /// download queue at all.
+  final Set<int> _selected = <int>{};
+
+  /// True while a batch is being resolved and queued. Each episode needs its
+  /// own resolve call, which is a network round trip per item, so the UI has to
+  /// say it is working rather than looking frozen.
+  bool _queueing = false;
+
+  bool get _selecting => _selected.isNotEmpty;
 
   @override
   void initState() {
@@ -251,6 +268,186 @@ class _EpisodesPageState extends State<EpisodesPage> {
     );
   }
 
+  /// The download id for [index], whichever kind of source this is.
+  String _downloadIdFor(int index) {
+    final item = _episodes[index];
+    return _isManga
+        ? DownloadService.mangaChapterId(
+            contentUrl: widget.args.contentUrl,
+            provider: widget.args.provider,
+            chapterRef: item.mediaRef,
+          )
+        : DownloadService.videoId(
+            contentUrl: widget.args.contentUrl,
+            episodeNumber: item.episode,
+          );
+  }
+
+  /// Queues one video episode.
+  ///
+  /// The stream URL does not exist until the provider is asked for it, so this
+  /// resolves first — the same call the player makes on open. That is why the
+  /// button spins for a moment before the download appears: it is a real
+  /// network round trip, not a delay we chose.
+  ///
+  /// Returns whether anything was queued, so [_downloadSelected] can report a
+  /// batch accurately instead of claiming successes it did not have.
+  Future<bool> _downloadEpisode(int index, {bool quiet = false}) async {
+    final ep = _episodes[index];
+    final id = _downloadIdFor(index);
+
+    final existing = _downloads.get(id);
+    if (existing != null &&
+        (existing.status == DownloadStatus.downloading ||
+            existing.status == DownloadStatus.pending ||
+            existing.status == DownloadStatus.completed)) {
+      if (!quiet) {
+        _toast(existing.status == DownloadStatus.completed
+            ? 'detail.download_already'.tr()
+            : 'detail.download_in_progress'.tr());
+      }
+      return false;
+    }
+
+    final result = await getIt<ResolveMediaUseCase>()(
+      ref: ep.mediaRef,
+      provider: widget.args.provider,
+    );
+    if (!mounted) return false;
+
+    if (result is! Success<MediaResolveEntity> || result.value.videoUrl.isEmpty) {
+      if (!quiet) _toast('detail.download_resolve_failed'.tr());
+      return false;
+    }
+
+    final media = result.value;
+    final started = await _downloads.startDownload(DownloadItem(
+      id: id,
+      contentUrl: widget.args.contentUrl,
+      provider: widget.args.provider,
+      title: widget.args.title,
+      thumbnail: widget.args.thumbnail,
+      videoUrl: media.videoUrl,
+      localPath: '',
+      headers: media.headers,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+      isSerial: true,
+      episodeNumber: ep.episode,
+      episodeLabel: ep.label,
+    ));
+
+    if (!started && !quiet && mounted) {
+      _toast('detail.download_needs_permission'.tr());
+    }
+    return started;
+  }
+
+  void _toggleSelection(int index) {
+    setState(() {
+      if (!_selected.remove(index)) _selected.add(index);
+    });
+  }
+
+  void _clearSelection() => setState(_selected.clear);
+
+  /// Selects every episode currently loaded — not every episode that exists.
+  ///
+  /// The list pages in as you scroll, and a long-running show can have a
+  /// thousand entries. "All" meaning "all 1000, including the 950 not fetched
+  /// yet" would be a trap, so it means what is on screen.
+  void _selectAllLoaded() {
+    setState(() {
+      if (_selected.length == _episodes.length) {
+        _selected.clear();
+      } else {
+        _selected
+          ..clear()
+          ..addAll(List.generate(_episodes.length, (i) => i));
+      }
+    });
+  }
+
+  /// Queues everything selected, in episode order.
+  ///
+  /// Sequential rather than parallel: each item needs its own resolve call, and
+  /// firing thirty at once at a provider is how you get rate-limited into
+  /// failing all thirty. The download service has its own queue for the
+  /// transfers themselves.
+  Future<void> _downloadSelected() async {
+    if (_queueing || _selected.isEmpty) return;
+
+    final indices = _selected.toList()..sort();
+    if (indices.length >= _batchConfirmThreshold) {
+      final ok = await _confirmLargeBatch(indices.length);
+      if (ok != true) return;
+    }
+
+    setState(() => _queueing = true);
+    var queued = 0;
+    for (final index in indices) {
+      if (!mounted) break;
+      final started = _isManga
+          ? await _downloadChapterQuietly(index)
+          : await _downloadEpisode(index, quiet: true);
+      if (started) queued++;
+    }
+    if (!mounted) return;
+    setState(() {
+      _queueing = false;
+      _selected.clear();
+    });
+    _toast(queued == 0
+        ? 'detail.download_none_queued'.tr()
+        : 'detail.download_queued_n'.tr(args: ['$queued']));
+  }
+
+  /// Batches past this size ask first. Thirty episodes is several gigabytes and
+  /// a long time on mobile data; a mis-tap on "select all" should not spend it.
+  static const _batchConfirmThreshold = 10;
+
+  Future<bool?> _confirmLargeBatch(int count) => showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text(
+            'detail.download_batch_title'.tr(),
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 17),
+          ),
+          content: Text(
+            'detail.download_batch_body'.tr(args: ['$count']),
+            style: TextStyle(color: AppColors.textSecondary, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'general.cancel'.tr(),
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text('detail.download_action'.tr()),
+            ),
+          ],
+        ),
+      );
+
+  /// [_downloadChapter] with its own error reporting suppressed, for batches.
+  Future<bool> _downloadChapterQuietly(int index) async {
+    final before = _downloads.get(_downloadIdFor(index));
+    if (before != null && before.status != DownloadStatus.failed) return false;
+    await _downloadChapter(index);
+    return _downloads.get(_downloadIdFor(index)) != null;
+  }
+
+  void _toast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
   Future<void> _downloadChapter(int index) async {
     final ch = _episodes[index];
     final id = DownloadService.mangaChapterId(
@@ -348,23 +545,24 @@ class _EpisodesPageState extends State<EpisodesPage> {
                         itemBuilder: (_, i) {
                           final isCurrent = _historyItem != null &&
                               _historyItem!.episodeIndex == i;
-                          DownloadItem? download;
-                          if (_isManga) {
-                            final id = DownloadService.mangaChapterId(
-                              contentUrl: widget.args.contentUrl,
-                              provider: widget.args.provider,
-                              chapterRef: _episodes[i].mediaRef,
-                            );
-                            download = _downloads.get(id);
-                          }
                           return _EpisodeRow(
                             episode: _episodes[i],
                             showImage: _showImages,
+                            isManga: _isManga,
                             progress: isCurrent ? _historyItem!.progress : null,
-                            onTap: () => _playFrom(i),
-                            onDownload:
-                                _isManga ? () => _downloadChapter(i) : null,
-                            download: download,
+                            // In selection mode a tap picks rather than plays;
+                            // opening the player from under a half-made
+                            // selection is the classic multi-select mistake.
+                            onTap: _selecting
+                                ? () => _toggleSelection(i)
+                                : () => _playFrom(i),
+                            onLongPress: () => _toggleSelection(i),
+                            selected: _selected.contains(i),
+                            selecting: _selecting,
+                            onDownload: _isManga
+                                ? () => _downloadChapter(i)
+                                : () => _downloadEpisode(i),
+                            download: _downloads.get(_downloadIdFor(i)),
                           );
                         },
                       ),
@@ -407,9 +605,24 @@ class _EpisodesPageState extends State<EpisodesPage> {
                   title: widget.args.title,
                   blurProgress: progress,
                   onBack: _goBack,
+                  selectedCount: _selected.length,
+                  allSelected: _selected.length == _episodes.length,
+                  onCancelSelection: _clearSelection,
+                  onSelectAll: _selectAllLoaded,
                 ),
               ),
             ),
+            if (_selecting)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _BatchDownloadBar(
+                  count: _selected.length,
+                  busy: _queueing,
+                  onDownload: _downloadSelected,
+                ),
+              ),
           ],
         ),
       ),
@@ -422,16 +635,30 @@ class _EpisodesAppBar extends StatelessWidget {
     required this.title,
     required this.blurProgress,
     required this.onBack,
+    this.selectedCount = 0,
+    this.allSelected = false,
+    this.onCancelSelection,
+    this.onSelectAll,
   });
 
   final String title;
   final double blurProgress;
   final VoidCallback onBack;
 
+  final int selectedCount;
+  final bool allSelected;
+  final VoidCallback? onCancelSelection;
+  final VoidCallback? onSelectAll;
+
+  bool get _selecting => selectedCount > 0;
+
   @override
   Widget build(BuildContext context) {
     final topPad = MediaQuery.paddingOf(context).top;
-    final progress = blurProgress.clamp(0.0, 1.0);
+    // Selection is opaque regardless of scroll: a half-transparent bar
+    // over the list makes the count hard to read, and the count is the only
+    // thing telling the user what is about to be downloaded.
+    final progress = _selecting ? 1.0 : blurProgress.clamp(0.0, 1.0);
 
     final content = Container(
       height: topPad + 56,
@@ -447,7 +674,53 @@ class _EpisodesAppBar extends StatelessWidget {
             : null,
       ),
       padding: EdgeInsets.fromLTRB(4, topPad + 4, 16, 0),
-      child: Row(
+      child: _selecting ? _selectionRow(context) : _titleRow(context),
+    );
+
+    return progress > 0.02
+        ? ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18 * progress, sigmaY: 18 * progress),
+              child: content,
+            ),
+          )
+        : content;
+  }
+
+  Widget _selectionRow(BuildContext context) => Row(
+        children: [
+          IconButton(
+            onPressed: onCancelSelection,
+            icon: const Icon(Icons.close_rounded, size: 22, color: Colors.white),
+          ),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Text(
+              'detail.selected_n'.tr(args: ['$selectedCount']),
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                height: 1.1,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onSelectAll,
+            child: Text(
+              allSelected
+                  ? 'detail.select_none'.tr()
+                  : 'detail.select_all'.tr(),
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      );
+
+  Widget _titleRow(BuildContext context) => Row(
         children: [
           IconButton(
             onPressed: onBack,
@@ -472,18 +745,7 @@ class _EpisodesAppBar extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-
-    if (progress < 0.01) return content;
-
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20 * progress, sigmaY: 20 * progress),
-        child: content,
-      ),
-    );
-  }
+      );
 }
 
 class _SortToggle extends StatelessWidget {
@@ -611,6 +873,10 @@ class _EpisodeRow extends StatelessWidget {
     required this.episode,
     required this.showImage,
     required this.onTap,
+    this.isManga = false,
+    this.onLongPress,
+    this.selected = false,
+    this.selecting = false,
     this.progress,
     this.onDownload,
     this.download,
@@ -619,6 +885,21 @@ class _EpisodeRow extends StatelessWidget {
   final EpisodeEntity episode;
   final bool showImage;
   final VoidCallback onTap;
+
+  /// A reading source rather than a video one. Decides the trailing icon, which
+  /// used to key off "does this row have a download button" — true only for
+  /// manga back when only manga could be downloaded, and wrong the moment
+  /// episodes became downloadable too.
+  final bool isManga;
+
+  final VoidCallback? onLongPress;
+  final bool selected;
+
+  /// Whether the list as a whole is in multi-select. The row needs this, not
+  /// just [selected]: every row shows a checkbox once selection starts, so the
+  /// user can see what is tappable.
+  final bool selecting;
+
   final double? progress;
   final VoidCallback? onDownload;
   final DownloadItem? download;
@@ -633,7 +914,11 @@ class _EpisodeRow extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      child: Padding(
+      onLongPress: onLongPress,
+      child: Container(
+        color: selected
+            ? AppColors.primary.withValues(alpha: 0.10)
+            : Colors.transparent,
         padding: EdgeInsets.symmetric(
           horizontal: 16,
           vertical: showImage ? 8 : 14,
@@ -698,32 +983,42 @@ class _EpisodeRow extends StatelessWidget {
                 if (hasSub && hasDub) const SizedBox(width: 4),
                 if (hasDub) const _LangChip(label: 'DUB', primary: false),
                 if (hasSub || hasDub) const SizedBox(width: 10),
-                if (onDownload != null) ...[
-                  _DownloadControl(
-                    download: download,
-                    onDownload: onDownload!,
+                if (selecting)
+                  Icon(
+                    selected
+                        ? Icons.check_circle_rounded
+                        : Icons.circle_outlined,
+                    size: 24,
+                    color: selected ? AppColors.primary : AppColors.textHint,
+                  )
+                else ...[
+                  if (onDownload != null) ...[
+                    _DownloadControl(
+                      download: download,
+                      onDownload: onDownload!,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: progress != null
+                          ? AppColors.primary.withValues(alpha: 0.15)
+                          : AppColors.surfaceVariant,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isManga
+                          ? Icons.menu_book_outlined
+                          : Icons.play_arrow_rounded,
+                      color: progress != null
+                          ? AppColors.primary
+                          : AppColors.textPrimary,
+                      size: 18,
+                    ),
                   ),
-                  const SizedBox(width: 8),
                 ],
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: progress != null
-                        ? AppColors.primary.withValues(alpha: 0.15)
-                        : AppColors.surfaceVariant,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    onDownload != null
-                        ? Icons.menu_book_outlined
-                        : Icons.play_arrow_rounded,
-                    color: progress != null
-                        ? AppColors.primary
-                        : AppColors.textPrimary,
-                    size: 18,
-                  ),
-                ),
               ],
             ),
             if (progress != null)
@@ -757,6 +1052,63 @@ class _EpisodeRow extends StatelessWidget {
     if (air != null && air.isNotEmpty) parts.add(air);
     if (run != null && run.isNotEmpty) parts.add(run);
     return parts.join(' · ');
+  }
+}
+
+/// The bottom action bar shown while episodes are selected.
+///
+/// Bottom rather than in the app bar: on a tall phone the primary action of a
+/// selection is the one thing that must stay under the thumb, and the app bar
+/// is already carrying the count and "select all".
+class _BatchDownloadBar extends StatelessWidget {
+  const _BatchDownloadBar({
+    required this.count,
+    required this.busy,
+    required this.onDownload,
+  });
+
+  final int count;
+  final bool busy;
+  final VoidCallback onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPad + 12),
+      decoration: BoxDecoration(
+        color: AppColors.navBackground,
+        border: Border(
+          top: BorderSide(color: AppColors.divider, width: 0.5),
+        ),
+      ),
+      child: SizedBox(
+        height: 46,
+        width: double.infinity,
+        child: FilledButton.icon(
+          // Disabled while queueing so a second tap cannot double-queue a set
+          // that is halfway through resolving.
+          onPressed: busy ? null : onDownload,
+          icon: busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.download_rounded, size: 19),
+          label: Text(
+            busy
+                ? 'detail.download_queueing'.tr()
+                : 'detail.download_n'.tr(args: ['$count']),
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
+    );
   }
 }
 

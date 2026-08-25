@@ -168,17 +168,18 @@ extension _PlayerHistory on _PlayerPageState {
       ep = widget.args.episodes[_episodeIndex];
     }
 
-    final rawId = widget.args.isSerial && ep != null
-        ? '${widget.args.contentUrl ?? url}_ep${ep.episode}'
-        : widget.args.contentUrl ?? url;
-    final id = _stableDownloadId(rawId);
+    // Shared with the episode list so both screens address the same download.
+    final id = DownloadService.videoId(
+      contentUrl: widget.args.contentUrl ?? url,
+      episodeNumber: widget.args.isSerial && ep != null ? ep.episode : null,
+    );
 
     final existing = _downloads.get(id);
     if (existing != null) {
       if (existing.status == DownloadStatus.completed) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Already downloaded'),
+          SnackBar(
+            content: Text('detail.download_already'.tr()),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -186,8 +187,8 @@ extension _PlayerHistory on _PlayerPageState {
       }
       if (existing.status == DownloadStatus.downloading) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Download in progress'),
+          SnackBar(
+            content: Text('detail.download_in_progress'.tr()),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -214,29 +215,21 @@ extension _PlayerHistory on _PlayerPageState {
     if (!mounted) return;
     if (!started) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Notification permission is required for downloads'),
+        SnackBar(
+          content: Text('detail.download_needs_permission'.tr()),
           behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Download started'),
+      SnackBar(
+        content: Text('detail.download_started'.tr()),
         behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  String _stableDownloadId(String value) {
-    var hash = 0x811c9dc5;
-    for (final unit in value.codeUnits) {
-      hash ^= unit;
-      hash = (hash * 0x01000193) & 0xffffffff;
-    }
-    return hash.toRadixString(36);
-  }
 }

@@ -18,11 +18,16 @@ class DetailContentHeader extends StatefulWidget {
     required this.detail,
     required this.onPrimaryAction,
     required this.playButtonKey,
+    this.onDownload,
   });
 
   final DetailEntity detail;
   final VoidCallback onPrimaryAction;
   final Key playButtonKey;
+
+  /// Queues the title for offline viewing, or opens the episode list when
+  /// "which episodes" is a question only the user can answer.
+  final VoidCallback? onDownload;
 
   @override
   State<DetailContentHeader> createState() => _DetailContentHeaderState();
@@ -80,13 +85,32 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
               (item.positionMs > 0 || item.episodeNumber != null))
             _ContinueWatchingCard(item: item, onTap: widget.onPrimaryAction)
           else
-            _PlayButton(
-              key: widget.playButtonKey,
-              onTap: widget.onPrimaryAction,
-              // Manga / manhwa / novel sources open the reader, so the primary
-              // action is "Read", not "Play" — with a book icon to match. The
-              // wrong verb on a manga title reads as a broken source.
-              reader: widget.detail.provider.opensReader,
+            Row(
+              children: [
+                Expanded(
+                  child: _PlayButton(
+                    key: widget.playButtonKey,
+                    onTap: widget.onPrimaryAction,
+                    // Manga / manhwa / novel sources open the reader, so the
+                    // primary action is "Read", not "Play" — with a book icon
+                    // to match. The wrong verb on a manga title reads as a
+                    // broken source.
+                    reader: widget.detail.provider.opensReader,
+                  ),
+                ),
+                // Offline used to be reachable only from inside the player:
+                // open the title, wait for a source to resolve, start playing,
+                // then find it in a menu. Four steps and a started stream to
+                // save something for the train.
+                if (widget.onDownload != null) ...[
+                  const SizedBox(width: 10),
+                  _SquareAction(
+                    icon: Icons.download_rounded,
+                    tooltip: 'detail.download_action'.tr(),
+                    onTap: widget.onDownload!,
+                  ),
+                ],
+              ],
             ),
         ],
       ),
@@ -454,6 +478,39 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
     return GestureDetector(
       onTap: () => setState(() => _expanded = !_expanded),
       child: body,
+    );
+  }
+}
+
+/// A square icon button sized to match [_PlayButton] beside it.
+class _SquareAction extends StatelessWidget {
+  const _SquareAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 46,
+        height: 46,
+        child: Material(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(kButtonRadius),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(kButtonRadius),
+            onTap: onTap,
+            child: Icon(icon, size: 21, color: AppColors.textPrimary),
+          ),
+        ),
+      ),
     );
   }
 }
