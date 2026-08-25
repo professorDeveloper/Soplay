@@ -238,7 +238,9 @@
     "sleep_hours": "{} soat",
     "sleep_minutes_short": "{} daq",
     "sleep_episode_end": "Qism oxirida",
-    "sleep_fired": "Uyqu taymeri — ijro to‘xtatildi"
+    "sleep_fired": "Uyqu taymeri — ijro to‘xtatildi",
+    "skip_opening": "Openingni o‘tkazish",
+    "skip_ending": "Endingni o‘tkazish"
   },
   "profile": {
     "title": "Profil",
@@ -364,7 +366,9 @@
     "photo_pick_failed": "Rasmni tanlab bo'lmadi",
     "incognito": "Incognito",
     "incognito_desc": "Tarixga va trackerlarga yozmasdan tomosha qilish",
-    "incognito_off": "Incognito o‘chirildi"
+    "incognito_off": "Incognito o‘chirildi",
+    "auto_skip_intro": "Openingni avtomatik o‘tkazish",
+    "auto_skip_intro_desc": "Anime opening va endinglarini so‘ramasdan o‘tkazish"
   },
   "appearance": {
     "title": "Ko'rinish",

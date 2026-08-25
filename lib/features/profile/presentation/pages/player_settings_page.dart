@@ -53,6 +53,7 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
   late bool _volumeGesture;
   late bool _keepScreenOn;
   late bool _incognito;
+  late bool _autoSkipIntro;
   late SubtitleStyle _subtitle;
   late bool _autoTranslate;
   late String _translateLang;
@@ -85,6 +86,7 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
     _fit = _hive.getDefaultPlayerFit();
     _autoNext = _hive.autoPlayNextEpisode;
     _incognito = _hive.isIncognito;
+    _autoSkipIntro = _hive.autoSkipIntro;
     _seekSeconds = _hive.getDoubleTapSeekSeconds();
     _boost = _hive.getLongPressBoost();
     _brightnessGesture = _hive.brightnessGestureEnabled;
@@ -236,6 +238,17 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
                 onChanged: (v) {
                   setState(() => _keepScreenOn = v);
                   _hive.setKeepScreenOn(v);
+                },
+              ),
+              const SettingsDivider(),
+              SettingsSwitchTile(
+                icon: Icons.fast_forward_rounded,
+                title: 'profile.auto_skip_intro'.tr(),
+                subtitle: 'profile.auto_skip_intro_desc'.tr(),
+                value: _autoSkipIntro,
+                onChanged: (v) {
+                  setState(() => _autoSkipIntro = v);
+                  _hive.setAutoSkipIntro(v);
                 },
               ),
               const SettingsDivider(),

@@ -169,6 +169,9 @@ class AppConstants {
   /// Incognito: watch without leaving a record of *what* was watched.
   static const String incognitoKey = 'incognito_mode';
 
+  /// Skip anime openings/endings without being asked each time.
+  static const String autoSkipIntroKey = 'auto_skip_intro';
+
   static const String streakBox = 'streak_box';
   static const String streakStateKey = 'streak_state';
 }

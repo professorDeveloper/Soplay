@@ -238,7 +238,9 @@
     "sleep_hours": "{} hours",
     "sleep_minutes_short": "{}m",
     "sleep_episode_end": "End of episode",
-    "sleep_fired": "Sleep timer — playback paused"
+    "sleep_fired": "Sleep timer — playback paused",
+    "skip_opening": "Skip opening",
+    "skip_ending": "Skip ending"
   },
   "profile": {
     "title": "Profile",
@@ -364,7 +366,9 @@
     "photo_pick_failed": "Could not pick a photo",
     "incognito": "Incognito",
     "incognito_desc": "Watch without adding to history or trackers",
-    "incognito_off": "Incognito turned off"
+    "incognito_off": "Incognito turned off",
+    "auto_skip_intro": "Skip openings automatically",
+    "auto_skip_intro_desc": "Skip anime openings and endings without asking"
   },
   "appearance": {
     "title": "Appearance",

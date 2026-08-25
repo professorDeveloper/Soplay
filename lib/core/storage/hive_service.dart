@@ -322,6 +322,33 @@ class HiveService {
     await _settingsBox.put(AppConstants.incognitoKey, value);
   }
 
+  /// Skip openings and endings automatically instead of offering a button.
+  ///
+  /// Defaults to off. Skip times are crowd-sourced, and a wrong one that jumps
+  /// the viewer ninety seconds into the episode is a far worse first impression
+  /// than a button they chose not to press.
+  bool get autoSkipIntro {
+    return _settingsBox.get(AppConstants.autoSkipIntroKey, defaultValue: false) ==
+        true;
+  }
+
+  Future<void> setAutoSkipIntro(bool value) async {
+    await _settingsBox.put(AppConstants.autoSkipIntroKey, value);
+  }
+
+  /// The `category` the backend gave a provider ('anime', 'movies', …).
+  ///
+  /// Read from the cached provider list rather than fetched: callers are on hot
+  /// paths (the player asks once per episode) and an empty answer is harmless —
+  /// it only ever gates an optional extra.
+  String providerCategory(String providerId) {
+    if (providerId.isEmpty) return '';
+    for (final p in getCachedProviders()) {
+      if (p['id'] == providerId) return '${p['category'] ?? ''}';
+    }
+    return '';
+  }
+
   int getDoubleTapSeekSeconds() {
     final raw = _settingsBox.get(
       AppConstants.doubleTapSeekSecondsKey,

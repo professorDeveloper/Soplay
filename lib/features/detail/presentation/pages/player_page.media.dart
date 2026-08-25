@@ -62,6 +62,9 @@ extension _PlayerMedia on _PlayerPageState {
       _retryAttempts = 0;
       _lifetimeRetries = 0;
     }
+    // The previous episode's opening/ending times do not apply to this one,
+    // and leaving them would offer a skip at the wrong minute.
+    _resetSkipTimes();
     setState(() {
       _initializing = true;
       _stage = _LoadingStage.resolving;
@@ -682,6 +685,10 @@ extension _PlayerMedia on _PlayerPageState {
       _isCodecError = false;
       });
       _scheduleHide();
+      // After the duration is known: AniSkip uses episode length to reject
+      // submissions timed against a different cut. Unawaited because a skip
+      // offer is an extra — playback must never wait on a third-party lookup.
+      unawaited(_loadSkipTimes());
     } on PlatformException catch (e) {
       _plog('platform exception ${e.code}: ${e.message}',
           level: LogLevel.error);
@@ -856,6 +863,8 @@ extension _PlayerMedia on _PlayerPageState {
           v.duration.inMilliseconds * _kTrackerThreshold) {
         _maybeReportTrackers();
       }
+
+      _updateActiveSkip(v.position);
 
       final remaining = v.duration - v.position;
       final isEnding = remaining <= const Duration(seconds: 2);

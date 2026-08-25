@@ -39,6 +39,7 @@ import 'package:soplay/features/detail/domain/entities/video_source_entity.dart'
 import 'package:soplay/features/detail/domain/video_option_groups.dart';
 import 'package:soplay/features/detail/presentation/widgets/player_engine_sheet.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
+import 'package:soplay/features/detail/data/aniskip_service.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/streak/presentation/dialogs/streak_milestone_dialog.dart';
 import 'package:soplay/features/download/data/download_service.dart';
@@ -72,6 +73,7 @@ part 'player_page.gestures.dart';
 part 'player_page.history.dart';
 part 'player_page.pip.dart';
 part 'player_page.sleep.dart';
+part 'player_page.aniskip.dart';
 part 'player_page.party.dart';
 part 'player_page.tv.dart';
 
@@ -123,6 +125,12 @@ class _PlayerPageState extends State<PlayerPage>
 
   /// How far one double-tap / seek-button / arrow-key press jumps.
   Duration get _seekStep => Duration(seconds: _seekSeconds);
+
+  /// AniSkip: opening/ending intervals for the CURRENT episode, the offer
+  /// currently on screen, and which types have already been used or declined.
+  List<SkipInterval> _skipIntervals = const [];
+  SkipInterval? _activeSkip;
+  final Set<String> _skipsTaken = <String>{};
 
   /// Sleep timer: the moment playback should stop, or null when unarmed.
   /// [_sleepAtEpisodeEnd] is the other arming mode — see player_page.sleep.dart.
@@ -515,6 +523,11 @@ class _PlayerPageState extends State<PlayerPage>
                     videoUrl: _videoUrl,
                     visible: _controlsVisible && !_locked,
                   ),
+                  // Above the controls layer so it is reachable while they are
+                  // hidden — the offer is at its most useful to a viewer who has
+                  // not touched the screen. Renders nothing when no interval is
+                  // active, so it costs nothing on non-anime playback.
+                  if (!_locked) _buildSkipButton(),
                   if (!_locked && _panel != _SidePanel.none) _buildSidePanel(),
                   if (!_locked && _inParty) _buildPartyReactionsLayer(),
                 ],
