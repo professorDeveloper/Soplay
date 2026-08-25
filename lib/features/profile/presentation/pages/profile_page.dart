@@ -10,6 +10,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/features/profile/presentation/widgets/backup_sheet.dart';
 import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
@@ -1047,6 +1048,12 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
                 ),
               ],
               const _TileDivider(),
+              _Tile(
+                icon: Icons.backup_outlined,
+                title: 'backup.title'.tr(),
+                trailing: const _TileChevron(),
+                onTap: () => BackupSheet.show(context),
+              ),
               _Tile(
                 icon: Icons.devices_rounded,
                 title: BridgeControl.canHost

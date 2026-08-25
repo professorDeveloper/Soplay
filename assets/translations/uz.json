@@ -1321,5 +1321,20 @@
     "open_page": "Trackerda ochish",
     "stats_peers": "{} peer",
     "buffering": "Buferlanmoqda {}%"
+  },
+  "backup": {
+    "title": "Zaxira va tiklash",
+    "subtitle": "Tomosha tarixi, ro‘yxatlar, manbalar va sozlamalar. Akkaunt kirishlari kirmaydi.",
+    "export": "Zaxira yaratish",
+    "export_desc": "Saqlab qo‘yish yoki o‘zingizga yuborish uchun fayl",
+    "restore": "Tiklash",
+    "restore_desc": "Zaxira faylini ilovaga qaytarish",
+    "restore_warning": "Zaxiradagi qiymatlar shu qurilmadagilarni almashtiradi. Faylda yo‘q narsalarga tegilmaydi.",
+    "restored": "{} ta qiymat tiklandi",
+    "not_a_backup": "Bu fayl Sozo zaxirasi emas",
+    "too_new": "Bu zaxira ilovaning yangiroq versiyasida yaratilgan",
+    "export_failed": "Zaxira yaratib bo‘lmadi",
+    "restore_failed": "Zaxirani o‘qib bo‘lmadi",
+    "file_subject": "Sozo zaxirasi"
   }
 }

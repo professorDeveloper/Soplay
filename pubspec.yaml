@@ -118,6 +118,14 @@ dependencies:
   google_sign_in: ^7.2.0
   image_picker: ^1.2.3
 
+  # Torrent indexers. Nyaa, Sukebei and Tokyo Toshokan publish RSS, so the
+  # torrent search needs a real XML parser -- already in the lockfile
+  # transitively. The HTML-only trackers are parsed magnet-first with regex
+  # instead: they are Nuxt apps whose class names are utility soup, and an
+  # anchor on `href="magnet:"` survives a redesign that CSS selectors do not.
+  xml: ^6.6.1
+  file_picker: ^11.0.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

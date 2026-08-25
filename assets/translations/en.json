@@ -1321,5 +1321,20 @@
     "open_page": "Open on tracker",
     "stats_peers": "{} peers",
     "buffering": "Buffering {}%"
+  },
+  "backup": {
+    "title": "Backup & restore",
+    "subtitle": "Watch history, lists, sources and settings. Sign-ins are not included.",
+    "export": "Create backup",
+    "export_desc": "Save a file you can keep or send to yourself",
+    "restore": "Restore",
+    "restore_desc": "Read a backup file back into the app",
+    "restore_warning": "Values in the backup will overwrite the ones on this device. Anything not in the file is left alone.",
+    "restored": "Restored {} values",
+    "not_a_backup": "That file is not a Sozo backup",
+    "too_new": "That backup was made by a newer version of the app",
+    "export_failed": "Could not create the backup",
+    "restore_failed": "Could not read that backup",
+    "file_subject": "Sozo backup"
   }
 }
