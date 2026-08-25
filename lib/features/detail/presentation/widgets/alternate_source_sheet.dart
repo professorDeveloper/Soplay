@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
@@ -10,11 +11,14 @@ import 'package:soplay/features/detail/domain/services/alternate_source_service.
 
 /// "This source is down — here is who else has it."
 ///
-/// Opened from the player's error screen. Results stream in per provider rather
-/// than arriving as one list: the viewer is already waiting on a failure, and a
-/// sheet that shows the first working source after two seconds is worth more
-/// than a complete one after fifteen. Sources that answer late simply appear
-/// below the ones that answered early.
+/// Opened from two places: the player's error screen, where a source has just
+/// failed, and the detail page, where someone would rather not find out the
+/// hard way. Both want the same thing — this title, playing, somewhere else.
+///
+/// Results stream in per provider rather than arriving as one list. Someone
+/// already waiting on a failure is better served by the first working source
+/// after two seconds than a complete list after fifteen; sources that answer
+/// late simply appear below the ones that answered early.
 ///
 /// Returns the [PlayerArgs] for the source the viewer picked, or null.
 class AlternateSourceSheet extends StatefulWidget {
@@ -177,15 +181,39 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
                 ? Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 28),
-                    child: Text(
-                      _searching
-                          ? 'player.alt_searching'.tr()
-                          : 'player.alt_none'.tr(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 13,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _searching
+                              ? 'player.alt_searching'.tr()
+                              : 'player.alt_none'.tr(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 13,
+                          ),
+                        ),
+                        // Only once the search is over, and only when it found
+                        // nothing. Cross-search casts a wider net — every
+                        // category, no title matching — so it is the right next
+                        // step for someone this sheet could not help, and a
+                        // dead end is the wrong thing to leave them with.
+                        if (!_searching) ...[
+                          const SizedBox(height: 14),
+                          TextButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              context.push('/cross-search', extra: widget.title);
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.white70,
+                            ),
+                            icon: const Icon(Icons.travel_explore_rounded, size: 18),
+                            label: Text('player.alt_search_all'.tr()),
+                          ),
+                        ],
+                      ],
                     ),
                   )
                 : ListView.builder(

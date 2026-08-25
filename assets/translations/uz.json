@@ -245,7 +245,8 @@
     "alt_searching": "Boshqa manbalar qidirilmoqda…",
     "alt_none": "Bu nomni boshqa manba topmadi",
     "alt_failed": "Bu manbani ochib bo‘lmadi",
-    "alt_no_episode": "Bu manbada {}-qism yo‘q"
+    "alt_no_episode": "Bu manbada {}-qism yo‘q",
+    "alt_search_all": "Barcha manbalarda qidirish"
   },
   "profile": {
     "title": "Profil",

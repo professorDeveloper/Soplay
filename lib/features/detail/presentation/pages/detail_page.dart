@@ -35,6 +35,7 @@ import 'package:soplay/features/my_list/data/private_list_service.dart';
 import 'package:soplay/features/my_list/domain/entities/favorite_entity.dart';
 import 'package:soplay/features/private_list/presentation/private_unlock.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:soplay/features/detail/presentation/widgets/alternate_source_sheet.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_cast_tab.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_comments_tab.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_hero.dart';
@@ -43,6 +44,9 @@ import 'package:soplay/features/detail/presentation/widgets/detail_more_menu.dar
 import 'package:soplay/features/detail/presentation/widgets/detail_related.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_screenshots.dart';
 import 'package:soplay/features/detail/presentation/widgets/detail_skeleton.dart';
+import 'package:soplay/features/detail/domain/entities/media_resolve_entity.dart';
+import 'package:soplay/features/download/data/download_service.dart';
+import 'package:soplay/features/download/domain/entities/download_item.dart';
 import 'package:showcaseview/showcaseview.dart';
 
 class DetailPage extends StatelessWidget {
@@ -425,9 +429,102 @@ class _DetailViewState extends State<_DetailView>
   void _onPrimaryAction() {
     final state = context.read<EpisodesBloc>().state;
     if (state is EpisodesLoading) return;
+    _pendingDownload = false;
     context.read<EpisodesBloc>().add(
       EpisodesLoad(widget.detail.contentUrl, provider: widget.provider),
     );
+  }
+
+  /// Play and download need the same thing first — the provider's playback
+  /// payload — and it arrives asynchronously through the bloc. Rather than a
+  /// second loader, the intent is remembered and the one result is routed when
+  /// it lands.
+  bool _pendingDownload = false;
+
+  void _onDownloadAction() {
+    final state = context.read<EpisodesBloc>().state;
+    if (state is EpisodesLoading) return;
+    _pendingDownload = true;
+    context.read<EpisodesBloc>().add(
+      EpisodesLoad(widget.detail.contentUrl, provider: widget.provider),
+    );
+  }
+
+  /// Where "download" goes once the payload is in.
+  ///
+  /// A series does not download from here: which episodes is a real question
+  /// with a real answer screen, and guessing (all of them? the next one?) is
+  /// worse than showing the list where each row has its own button and several
+  /// can be picked at once.
+  void _handleDownload(PlaybackEntity playback) {
+    if (playback.provider.opensReader || playback.isSerial) {
+      if (playback.episodes.isEmpty) {
+        _showSnack('detail.no_episodes'.tr());
+        return;
+      }
+      _openEpisodes(playback);
+      return;
+    }
+    unawaited(_downloadMovie(playback));
+  }
+
+  Future<void> _downloadMovie(PlaybackEntity playback) async {
+    final downloads = getIt<DownloadService>();
+    final id = DownloadService.videoId(contentUrl: widget.detail.contentUrl);
+
+    final existing = downloads.get(id);
+    if (existing != null && existing.status != DownloadStatus.failed) {
+      _showSnack(existing.status == DownloadStatus.completed
+          ? 'detail.download_already'.tr()
+          : 'detail.download_in_progress'.tr());
+      return;
+    }
+
+    var url = _pickMovieUrl(playback);
+    var headers = playback.headers;
+
+    // An embed page rather than a stream: the same resolve the player does on
+    // open. Downloading the page would produce an unplayable HTML file.
+    final ref = playback.episodes.isNotEmpty
+        ? playback.episodes.first.mediaRef
+        : '';
+    final needsResolve = playback.type == 'webview-extract' ||
+        url == null ||
+        url.isEmpty;
+    if (needsResolve && ref.isNotEmpty) {
+      final result = await getIt<ResolveMediaUseCase>()(
+        ref: ref,
+        provider: playback.provider,
+      );
+      if (!mounted) return;
+      if (result is Success<MediaResolveEntity> &&
+          result.value.videoUrl.isNotEmpty) {
+        url = result.value.videoUrl;
+        headers = result.value.headers;
+      }
+    }
+
+    if (url == null || url.isEmpty) {
+      _showSnack('detail.download_resolve_failed'.tr());
+      return;
+    }
+
+    final started = await downloads.startDownload(DownloadItem(
+      id: id,
+      contentUrl: widget.detail.contentUrl,
+      provider: playback.provider,
+      title: widget.detail.title,
+      thumbnail: widget.detail.thumbnail,
+      videoUrl: url,
+      localPath: '',
+      headers: headers,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+      isSerial: false,
+    ));
+    if (!mounted) return;
+    _showSnack(started
+        ? 'detail.download_started'.tr()
+        : 'detail.download_needs_permission'.tr());
   }
 
   void _toggleMyList() {
@@ -561,8 +658,35 @@ class _DetailViewState extends State<_DetailView>
     _showSnack('app_lock.removed_from_private'.tr());
   }
 
-  void _onFindOtherSources() {
-    context.push('/cross-search', extra: widget.detail.title);
+  /// Find this title on another source, without leaving the page.
+  ///
+  /// It used to open the cross-search screen with the title prefilled, which
+  /// works but is the long way round: search, find the row, open its detail
+  /// page, press play. The sheet searches the same providers and hands back
+  /// something playable, so the same intent is two taps instead of five.
+  ///
+  /// A series keeps its place. Whatever episode the viewer had reached here is
+  /// matched by NUMBER on the other source, because two catalogues rarely agree
+  /// on where a season starts — and landing someone on the wrong episode of the
+  /// right show is worse than saying this source cannot continue from there.
+  ///
+  /// Falls back to the old screen when nothing matched, rather than leaving a
+  /// dead end: cross-search casts a wider net and lets them look by hand.
+  Future<void> _onFindOtherSources() async {
+    final detail = widget.detail;
+    final history = getIt<HistoryService>().get(detail.contentUrl);
+
+    final args = await AlternateSourceSheet.show(
+      context,
+      title: detail.title,
+      provider: detail.provider,
+      category: getIt<HiveService>().providerCategory(detail.provider),
+      episodeNumber: history?.episodeNumber,
+      headers: const {},
+    );
+    if (!mounted) return;
+    if (args == null) return;
+    context.push('/player', extra: args);
   }
 
   Future<void> _toggleFollow() async {
@@ -690,28 +814,24 @@ class _DetailViewState extends State<_DetailView>
     );
   }
 
-  void _playMovieDirect(PlaybackEntity playback) {
-    var movieUrl = playback.playerSrc;
-    if (movieUrl == null || movieUrl.isEmpty) {
-      final sources = playback.videoSources;
-      String? pickedUrl;
-      for (final s in sources) {
-        if (s.isDefault && s.accessible) {
-          pickedUrl = s.videoUrl;
-          break;
-        }
-      }
-      if (pickedUrl == null) {
-        for (final s in sources) {
-          if (s.accessible) {
-            pickedUrl = s.videoUrl;
-            break;
-          }
-        }
-      }
-      pickedUrl ??= sources.isNotEmpty ? sources.first.videoUrl : null;
-      movieUrl = pickedUrl;
+  /// The stream a movie should use: the provider's own pick, else the default
+  /// accessible source, else any accessible one, else whatever exists.
+  String? _pickMovieUrl(PlaybackEntity playback) {
+    final direct = playback.playerSrc;
+    if (direct != null && direct.isNotEmpty) return direct;
+
+    final sources = playback.videoSources;
+    for (final s in sources) {
+      if (s.isDefault && s.accessible) return s.videoUrl;
     }
+    for (final s in sources) {
+      if (s.accessible) return s.videoUrl;
+    }
+    return sources.isNotEmpty ? sources.first.videoUrl : null;
+  }
+
+  void _playMovieDirect(PlaybackEntity playback) {
+    final movieUrl = _pickMovieUrl(playback);
     if (movieUrl == null || movieUrl.isEmpty) {
       _showSnack('detail.no_playable_source'.tr());
       return;
@@ -826,9 +946,15 @@ class _DetailViewState extends State<_DetailView>
           listenWhen: (prev, curr) => prev.runtimeType != curr.runtimeType,
           listener: (context, state) {
             if (state is EpisodesLoaded) {
-              _handlePlayback(state.playback);
+              if (_pendingDownload) {
+                _pendingDownload = false;
+                _handleDownload(state.playback);
+              } else {
+                _handlePlayback(state.playback);
+              }
               context.read<EpisodesBloc>().add(const EpisodesReset());
             } else if (state is EpisodesError) {
+              _pendingDownload = false;
               _showSnack(state.message);
               context.read<EpisodesBloc>().add(const EpisodesReset());
             }
@@ -888,6 +1014,7 @@ class _DetailViewState extends State<_DetailView>
                 child: DetailContentHeader(
                   detail: detail,
                   onPrimaryAction: _onPrimaryAction,
+                  onDownload: _onDownloadAction,
                   playButtonKey: _bodyPlayKey,
                 ),
               ),
