@@ -373,7 +373,9 @@
     "incognito_desc": "Watch without adding to history or trackers",
     "incognito_off": "Incognito turned off",
     "auto_skip_intro": "Skip openings automatically",
-    "auto_skip_intro_desc": "Skip anime openings and endings without asking"
+    "auto_skip_intro_desc": "Skip anime openings and endings without asking",
+    "incognito_active": "Incognito is on. Nothing you watch is saved to history or sent to AniList and MAL.",
+    "incognito_turn_off": "Turn off"
   },
   "appearance": {
     "title": "Appearance",
@@ -486,7 +488,10 @@
     "all_sources_failed": "All {} sources failed to answer. This is not an empty result — try again.",
     "no_results_with_failures": "No matches from the sources that answered ({}). {} could not be reached.",
     "all_sources_failed_one": "The source you searched failed to answer. This is not an empty result — try again.",
-    "voice": "Search by voice"
+    "voice": "Search by voice",
+    "voice_listening": "Listening…",
+    "voice_done": "Stopped listening",
+    "voice_hint": "Say the name of a film or series"
   },
   "movie": {
     "rating": "Rating",

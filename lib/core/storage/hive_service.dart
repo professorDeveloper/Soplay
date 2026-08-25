@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
 import '../../features/auth/data/models/user_model.dart';
@@ -318,8 +319,18 @@ class HiveService {
         true;
   }
 
+  /// Notified when [isIncognito] changes.
+  ///
+  /// A mode that suppresses history has to be visible wherever the viewer
+  /// actually is, and that is the home screen — not a sheet inside the player,
+  /// which nobody opens to check whether they are being recorded. Anything
+  /// showing the state listens here rather than polling.
+  final ValueNotifier<bool> incognitoChanged =
+      ValueNotifier<bool>(false);
+
   Future<void> setIncognito(bool value) async {
     await _settingsBox.put(AppConstants.incognitoKey, value);
+    incognitoChanged.value = value;
   }
 
   /// Skip openings and endings automatically instead of offering a button.

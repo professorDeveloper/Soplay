@@ -51,6 +51,10 @@ class HomeTopBar extends StatelessWidget {
     final iconPad = compact ? 6.0 : 8.0;
 
     final actions = <Widget>[
+      // First, and deliberately. This is the only place a viewer will notice
+      // that history is being suppressed — the player's sheet is not somewhere
+      // anyone opens to check. Renders nothing when incognito is off.
+      _IncognitoIndicator(pad: iconPad),
       DesktopRefreshButton(
         color: AppColors.textPrimary,
         onRefresh: () => context.read<HomeBloc>().add(HomeLoad(silent: true)),
@@ -782,6 +786,95 @@ class _DownloadIndicatorState extends State<_DownloadIndicator>
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Shown on the home bar whenever incognito is on.
+///
+/// The mode persists across restarts, which is the right default for a privacy
+/// setting but makes it easy to leave on for weeks — and the symptom is silent:
+/// Continue Watching simply stays empty. A badge on the screen the viewer opens
+/// first is what turns that into something they can see and undo.
+///
+/// Tapping asks before turning it off. A single tap silently disabling a
+/// privacy mode is the wrong direction to fail in, and the dialog doubles as
+/// the explanation for anyone who does not remember switching it on.
+class _IncognitoIndicator extends StatefulWidget {
+  const _IncognitoIndicator({this.pad = 8});
+
+  final double pad;
+
+  @override
+  State<_IncognitoIndicator> createState() => _IncognitoIndicatorState();
+}
+
+class _IncognitoIndicatorState extends State<_IncognitoIndicator> {
+  final HiveService _hive = getIt<HiveService>();
+
+  @override
+  void initState() {
+    super.initState();
+    _hive.incognitoChanged.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    _hive.incognitoChanged.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _confirmOff() async {
+    final off = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('profile.incognito'.tr()),
+        content: Text('profile.incognito_active'.tr()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('general.cancel'.tr()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('profile.incognito_turn_off'.tr()),
+          ),
+        ],
+      ),
+    );
+    if (off != true) return;
+    await _hive.setIncognito(false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('profile.incognito_off'.tr()),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_hive.isIncognito) return const SizedBox.shrink();
+    return _TopBarIconButton(
+      pad: widget.pad,
+      onTap: _confirmOff,
+      child: Tooltip(
+        message: 'profile.incognito'.tr(),
+        child: Icon(
+          Icons.visibility_off_rounded,
+          // The one item in this bar that is a warning rather than a
+          // shortcut, so it does not wear the same colour as the rest.
+          color: AppColors.errorLight,
+          size: 22,
         ),
       ),
     );

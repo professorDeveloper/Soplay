@@ -373,7 +373,9 @@
     "incognito_desc": "Tarixga va trackerlarga yozmasdan tomosha qilish",
     "incognito_off": "Incognito o‘chirildi",
     "auto_skip_intro": "Openingni avtomatik o‘tkazish",
-    "auto_skip_intro_desc": "Anime opening va endinglarini so‘ramasdan o‘tkazish"
+    "auto_skip_intro_desc": "Anime opening va endinglarini so‘ramasdan o‘tkazish",
+    "incognito_active": "Incognito yoniq. Ko‘rganlaringiz tarixga yozilmaydi va AniList/MAL ga yuborilmaydi.",
+    "incognito_turn_off": "O‘chirish"
   },
   "appearance": {
     "title": "Ko'rinish",
@@ -486,7 +488,10 @@
     "all_sources_failed": "Barcha {} manba javob bermadi. Bu bo‘sh natija emas — qayta urinib ko‘ring.",
     "no_results_with_failures": "Javob bergan manbalarda ({}) moslik yo‘q. Ulanib bo‘lmadi: {}.",
     "all_sources_failed_one": "Manba javob bermadi. Bu bo‘sh natija emas — qayta urinib ko‘ring.",
-    "voice": "Ovozli qidiruv"
+    "voice": "Ovozli qidiruv",
+    "voice_listening": "Tinglanmoqda…",
+    "voice_done": "Tinglash to‘xtadi",
+    "voice_hint": "Film yoki serial nomini ayting"
   },
   "movie": {
     "rating": "Reyting",

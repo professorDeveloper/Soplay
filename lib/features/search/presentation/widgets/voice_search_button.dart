@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/search/presentation/widgets/voice_search_dialog.dart';
 
 /// Microphone button for the search field.
 ///
@@ -93,31 +94,22 @@ class _VoiceSearchButtonState extends State<VoiceSearchButton>
     super.dispose();
   }
 
-  Future<void> _toggle() async {
-    if (_listening) {
-      await _speech.stop();
-      return;
-    }
-    // The device's own locale, not the app's. Someone using the app in English
-    // may well be searching for an Uzbek title out loud, and the recogniser
-    // that matches their keyboard is the better guess than the one that matches
-    // their UI language.
-    await _speech.listen(
-      onResult: (r) {
-        final words = r.recognizedWords.trim();
-        if (words.isEmpty) return;
-        widget.onText(words);
-        if (r.finalResult) widget.onSubmit?.call(words);
-      },
-      listenOptions: SpeechListenOptions(
-        partialResults: true,
-        cancelOnError: true,
-        // Long enough for a title, short enough that a forgotten session does
-        // not hold the microphone open.
-        listenFor: const Duration(seconds: 12),
-        pauseFor: const Duration(seconds: 3),
-      ),
+  /// Open the listening dialog and run whatever it comes back with.
+  ///
+  /// The session itself lives in the dialog, which owns the waveform and needs
+  /// the sound level anyway. This widget stays what it looks like: a button
+  /// that knows whether the device can listen at all.
+  Future<void> _open() async {
+    if (_listening) return;
+    final result = await VoiceSearchDialog.show(
+      context,
+      speech: _speech,
+      onPartial: widget.onText,
     );
+    final words = result?.trim() ?? '';
+    if (words.isEmpty) return;
+    widget.onText(words);
+    widget.onSubmit?.call(words);
   }
 
   @override
@@ -125,7 +117,7 @@ class _VoiceSearchButtonState extends State<VoiceSearchButton>
     if (!_platformSupported || !_available) return const SizedBox.shrink();
     return IconButton(
       tooltip: 'search.voice'.tr(),
-      onPressed: _toggle,
+      onPressed: _open,
       icon: AnimatedBuilder(
         animation: _pulse,
         builder: (_, child) => Opacity(
