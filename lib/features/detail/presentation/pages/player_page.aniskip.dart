@@ -172,3 +172,37 @@ extension _PlayerAniSkip on _PlayerPageState {
   /// room rather than the episode.
   bool get _controlsCanShowSkip => !_isPip && !(_inParty && !_isPartyHost);
 }
+
+/// Switching to a source that still works.
+///
+/// Lives beside the player rather than inside [AlternateSourceService] because
+/// only the player knows what is currently on screen: which episode number the
+/// viewer had reached, and that leaving means replacing this route rather than
+/// stacking another player on top of it.
+extension _PlayerAlternateSources on _PlayerPageState {
+  /// The episode number to look for on the other source, or null for a film.
+  int? get _currentEpisodeNumber {
+    if (!widget.args.isSerial) return null;
+    if (_episodeIndex < 0 || _episodeIndex >= widget.args.episodes.length) {
+      return null;
+    }
+    final n = widget.args.episodes[_episodeIndex].episode;
+    return n > 0 ? n : null;
+  }
+
+  Future<void> _openAlternateSources() async {
+    final args = await AlternateSourceSheet.show(
+      context,
+      title: widget.args.title,
+      provider: widget.args.provider,
+      category: _hive.providerCategory(widget.args.provider),
+      episodeNumber: _currentEpisodeNumber,
+      headers: widget.args.headers,
+    );
+    if (args == null || !mounted) return;
+    // pushReplacement, not push. The player being left is showing an error and
+    // has nothing to come back to, and stacking a second one would put a broken
+    // screen behind the working one for the back button to land on.
+    context.pushReplacement('/player', extra: args);
+  }
+}

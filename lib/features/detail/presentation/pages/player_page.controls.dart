@@ -297,6 +297,24 @@ extension _PlayerControls on _PlayerPageState {
                     label: Text('player.play_in_browser'.tr()),
                   ),
                 ],
+                // Offered on every playback failure, not only on the ones we
+                // can name. A source that has moved domain, minted a token the
+                // CDN now refuses, or simply lost the episode fails in a dozen
+                // different ways, and from the viewer's chair they are one
+                // problem: this show will not play here. The answer is the same
+                // in all of them.
+                if (!_isLive && !(_inParty && !_isPartyHost)) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: _openAlternateSources,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      side: const BorderSide(color: Colors.white24),
+                    ),
+                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                    label: Text('player.alt_sources'.tr()),
+                  ),
+                ],
                 if (isCloudflareError(_errorMessage)) ...[
                   const SizedBox(height: 10),
                   OutlinedButton.icon(

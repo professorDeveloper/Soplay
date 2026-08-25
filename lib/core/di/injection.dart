@@ -38,6 +38,7 @@ import 'package:soplay/features/mal/data/mal_tracker.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/detail/data/aniskip_service.dart';
+import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
 import 'package:soplay/features/auth/data/services/google_auth_service.dart';
 import 'package:soplay/features/auth/domain/usecases/forgot_password_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/google_login_usecase.dart';
@@ -228,6 +229,14 @@ Future<void> configureDependencies() async {
     ),
   );
   getIt.registerLazySingleton<AniSkipService>(() => AniSkipService());
+
+  getIt.registerLazySingleton<AlternateSourceService>(
+    () => AlternateSourceService(
+      engine: getIt<CrossSearchEngine>(),
+      providers: getIt<GetProvidersUseCase>(),
+      episodes: getIt<GetEpisodesUseCase>(),
+    ),
+  );
 
   getIt.registerSingleton<AnilistTracker>(
     AnilistTracker(

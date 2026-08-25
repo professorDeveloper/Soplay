@@ -240,7 +240,12 @@
     "sleep_episode_end": "End of episode",
     "sleep_fired": "Sleep timer — playback paused",
     "skip_opening": "Skip opening",
-    "skip_ending": "Skip ending"
+    "skip_ending": "Skip ending",
+    "alt_sources": "Try another source",
+    "alt_searching": "Searching other sources…",
+    "alt_none": "No other source has this title",
+    "alt_failed": "Could not open this source",
+    "alt_no_episode": "This source does not have episode {}"
   },
   "profile": {
     "title": "Profile",

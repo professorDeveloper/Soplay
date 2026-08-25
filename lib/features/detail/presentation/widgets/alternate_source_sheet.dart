@@ -1,0 +1,245 @@
+import 'dart:async';
+
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/system/responsive.dart';
+import 'package:soplay/features/detail/domain/entities/player_args.dart';
+import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
+
+/// "This source is down — here is who else has it."
+///
+/// Opened from the player's error screen. Results stream in per provider rather
+/// than arriving as one list: the viewer is already waiting on a failure, and a
+/// sheet that shows the first working source after two seconds is worth more
+/// than a complete one after fifteen. Sources that answer late simply appear
+/// below the ones that answered early.
+///
+/// Returns the [PlayerArgs] for the source the viewer picked, or null.
+class AlternateSourceSheet extends StatefulWidget {
+  const AlternateSourceSheet._({
+    required this.title,
+    required this.provider,
+    required this.category,
+    required this.episodeNumber,
+    required this.headers,
+  });
+
+  final String title;
+  final String provider;
+  final String category;
+  final int? episodeNumber;
+  final Map<String, String> headers;
+
+  static Future<PlayerArgs?> show(
+    BuildContext context, {
+    required String title,
+    required String provider,
+    required String category,
+    required int? episodeNumber,
+    required Map<String, String> headers,
+  }) {
+    return showAdaptiveModal<PlayerArgs>(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => AlternateSourceSheet._(
+        title: title,
+        provider: provider,
+        category: category,
+        episodeNumber: episodeNumber,
+        headers: headers,
+      ),
+    );
+  }
+
+  @override
+  State<AlternateSourceSheet> createState() => _AlternateSourceSheetState();
+}
+
+class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
+  final List<AlternateSource> _found = [];
+  StreamSubscription<AlternateSource>? _sub;
+  bool _searching = true;
+
+  /// Set while an entry is being turned into PlayerArgs, so the row can show a
+  /// spinner and the rest of the list stops accepting taps. Fetching an episode
+  /// list is a network call, and without this a second tap starts a second one.
+  String? _preparing;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = getIt<AlternateSourceService>()
+        .find(
+          title: widget.title,
+          excludeProvider: widget.provider,
+          category: widget.category,
+        )
+        .listen(
+          (s) {
+            if (!mounted) return;
+            setState(() {
+              _found.add(s);
+              // Best match first. The list grows while it is on screen, so this
+              // is a re-sort rather than a sorted insert — it is a handful of
+              // entries and the alternative is watching rows jump around less
+              // predictably than they do now.
+              _found.sort((a, b) => b.score.compareTo(a.score));
+            });
+          },
+          onDone: () {
+            if (mounted) setState(() => _searching = false);
+          },
+          onError: (_) {
+            if (mounted) setState(() => _searching = false);
+          },
+        );
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _pick(AlternateSource source) async {
+    if (_preparing != null) return;
+    setState(() => _preparing = source.provider.id);
+    final args = await getIt<AlternateSourceService>().buildArgs(
+      source: source,
+      episodeNumber: widget.episodeNumber,
+      headers: widget.headers,
+    );
+    if (!mounted) return;
+    if (args == null) {
+      setState(() => _preparing = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.episodeNumber != null
+                // The common failure, and worth naming precisely: the source
+                // has the show but not this episode number.
+                ? 'player.alt_no_episode'.tr(args: ['${widget.episodeNumber}'])
+                : 'player.alt_failed'.tr(),
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop(args);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.swap_horiz_rounded,
+                    color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'player.alt_sources'.tr(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (_searching)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white54,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const Divider(color: Colors.white12, height: 1),
+          Flexible(
+            child: _found.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 28),
+                    child: Text(
+                      _searching
+                          ? 'player.alt_searching'.tr()
+                          : 'player.alt_none'.tr(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 13,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _found.length,
+                    itemBuilder: (_, i) {
+                      final s = _found[i];
+                      final busy = _preparing == s.provider.id;
+                      return ListTile(
+                        dense: true,
+                        enabled: _preparing == null,
+                        onTap: () => _pick(s),
+                        leading: busy
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white54,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.play_circle_outline_rounded,
+                                color: Colors.white70,
+                                size: 22,
+                              ),
+                        title: Text(
+                          s.provider.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        // The source's own title for the show, not ours. Two
+                        // catalogues spell the same series differently, and
+                        // seeing which one this source means is how the viewer
+                        // tells a real match from a near miss before committing.
+                        subtitle: Text(
+                          s.item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}

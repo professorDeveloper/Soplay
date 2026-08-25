@@ -240,7 +240,12 @@
     "sleep_episode_end": "Qism oxirida",
     "sleep_fired": "Uyqu taymeri — ijro to‘xtatildi",
     "skip_opening": "Openingni o‘tkazish",
-    "skip_ending": "Endingni o‘tkazish"
+    "skip_ending": "Endingni o‘tkazish",
+    "alt_sources": "Boshqa manbadan ko‘rish",
+    "alt_searching": "Boshqa manbalar qidirilmoqda…",
+    "alt_none": "Bu nomni boshqa manba topmadi",
+    "alt_failed": "Bu manbani ochib bo‘lmadi",
+    "alt_no_episode": "Bu manbada {}-qism yo‘q"
   },
   "profile": {
     "title": "Profil",
