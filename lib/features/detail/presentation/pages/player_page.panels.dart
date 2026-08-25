@@ -234,6 +234,42 @@ extension _PlayerPanels on _PlayerPageState {
                   _openFitSheet();
                 },
               ),
+              // Shown here, and not only in Settings, so a mode that suppresses
+              // history cannot sit on unnoticed for weeks: the sheet is the one
+              // surface a viewer opens mid-episode, and this is where they will
+              // wonder why nothing is in Continue Watching.
+              if (_hive.isIncognito)
+                _SettingsTile(
+                  icon: Icons.visibility_off_outlined,
+                  label: 'profile.incognito'.tr(),
+                  value: 'general.on'.tr(),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _hive.setIncognito(false);
+                    if (!mounted) return;
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('profile.incognito_off'.tr()),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              // Not offered for live TV: a broadcast has no end to stop at, and
+              // a countdown that pauses a channel is just a mute button with
+              // extra steps.
+              if (!_isLive)
+                _SettingsTile(
+                  icon: Icons.bedtime_outlined,
+                  label: 'player.sleep_timer'.tr(),
+                  value: _sleepValueLabel,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _openSleepSheet();
+                  },
+                ),
               if (hasServers)
                 _SettingsTile(
                   icon: Icons.dns_outlined,

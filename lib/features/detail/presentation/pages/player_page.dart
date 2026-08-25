@@ -57,6 +57,10 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
+import 'package:soplay/core/torrent/torrent_engine.dart';
+import 'package:soplay/core/torrent/torrent_stream_url.dart';
+import 'package:soplay/features/torrent/presentation/torrent_playback.dart';
+import 'package:soplay/features/torrent/presentation/widgets/torrent_stats_overlay.dart';
 
 part 'player_page.models.dart';
 part 'player_page.widgets.dart';
@@ -67,6 +71,7 @@ part 'player_page.subtitles.dart';
 part 'player_page.gestures.dart';
 part 'player_page.history.dart';
 part 'player_page.pip.dart';
+part 'player_page.sleep.dart';
 part 'player_page.party.dart';
 part 'player_page.tv.dart';
 
@@ -119,6 +124,12 @@ class _PlayerPageState extends State<PlayerPage>
   /// How far one double-tap / seek-button / arrow-key press jumps.
   Duration get _seekStep => Duration(seconds: _seekSeconds);
 
+  /// Sleep timer: the moment playback should stop, or null when unarmed.
+  /// [_sleepAtEpisodeEnd] is the other arming mode — see player_page.sleep.dart.
+  Timer? _sleepTicker;
+  DateTime? _sleepDeadline;
+  bool _sleepAtEpisodeEnd = false;
+
   bool _isPip = false;
   bool _resumeAfterPause = false;
   bool _lastPipPlaying = false;
@@ -128,6 +139,16 @@ class _PlayerPageState extends State<PlayerPage>
   String? _currentQuality;
   String? _videoUrl;
   String? _mediaType;
+
+  /// Torrent playback, when the source turned out to be a magnet rather than a
+  /// stream. The engine is lazy — constructing it costs nothing and it never
+  /// touches the native side unless a torrent link actually arrives.
+  final TorrentEngine _torrentEngine = TorrentEngine();
+
+  /// Hash of the torrent currently being streamed, so leaving the player can
+  /// close the swarm connection. Without this the device keeps uploading to
+  /// strangers after the viewer thinks they are done watching.
+  String? _torrentHash;
   Map<String, String> _headers = const {};
   bool _isNetworkVideo = false;
   bool _isHls = false;
@@ -386,6 +407,16 @@ class _PlayerPageState extends State<PlayerPage>
 
   @override
   void dispose() {
+    // Before anything else: stop seeding. Fire-and-forget because dispose
+    // cannot await, and the request is a localhost round trip that completes
+    // long before the process would care.
+    final torrentHash = _torrentHash;
+    if (torrentHash != null) {
+      _torrentEngine.drop(torrentHash).whenComplete(_torrentEngine.dispose);
+      _torrentHash = null;
+    } else {
+      _torrentEngine.dispose();
+    }
     _saveHistory();
     // Push the position the viewer just stopped at, so another device can pick
     // it up. Without this the progress only leaves the phone the next time the
@@ -394,6 +425,7 @@ class _PlayerPageState extends State<PlayerPage>
     _partyDispose();
     WidgetsBinding.instance.removeObserver(this);
     _pipChannel.setMethodCallHandler(null);
+    _sleepTicker?.cancel();
     _hideTimer?.cancel();
     _historyTimer?.cancel();
     _seekRippleTimer?.cancel();
@@ -474,6 +506,15 @@ class _PlayerPageState extends State<PlayerPage>
                   if (!_locked) _buildScrubOverlay(),
                   if (!_locked) _buildSpeedBoostBadge(),
                   if (!_locked) _buildSwipeIndicator(),
+                  // Renders nothing unless the URL is a local torrent stream,
+                  // so it is safe to hand it every playback unconditionally.
+                  // It keeps showing while the controls are hidden if the
+                  // pre-buffer is still filling — that is precisely when the
+                  // picture is frozen and the user needs to know why.
+                  TorrentStatsOverlay(
+                    videoUrl: _videoUrl,
+                    visible: _controlsVisible && !_locked,
+                  ),
                   if (!_locked && _panel != _SidePanel.none) _buildSidePanel(),
                   if (!_locked && _inParty) _buildPartyReactionsLayer(),
                 ],

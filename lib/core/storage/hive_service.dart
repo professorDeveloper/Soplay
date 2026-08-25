@@ -307,6 +307,21 @@ class HiveService {
     await _settingsBox.put(AppConstants.autoPlayNextEpisodeKey, value);
   }
 
+  /// Watch without recording what was watched.
+  ///
+  /// Persisted rather than session-scoped, and deliberately so: the failure a
+  /// viewer cares about is the one where it was off when they thought it was
+  /// on. Surviving a restart errs toward privacy; the player and the settings
+  /// row both show it is active so it cannot be left on unnoticed.
+  bool get isIncognito {
+    return _settingsBox.get(AppConstants.incognitoKey, defaultValue: false) ==
+        true;
+  }
+
+  Future<void> setIncognito(bool value) async {
+    await _settingsBox.put(AppConstants.incognitoKey, value);
+  }
+
   int getDoubleTapSeekSeconds() {
     final raw = _settingsBox.get(
       AppConstants.doubleTapSeekSecondsKey,

@@ -29,6 +29,7 @@ import 'package:soplay/features/manga/presentation/pages/reader_page.dart';
 import 'package:soplay/features/main/presentation/pages/main_page.dart';
 import 'package:soplay/features/network/presentation/pages/no_internet_page.dart';
 import 'package:soplay/features/search/presentation/pages/cross_search_page.dart';
+import 'package:soplay/features/torrent/presentation/pages/torrent_search_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_browse_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/airing_calendar_page.dart';
 import 'package:soplay/features/anilist/presentation/pages/anilist_library_page.dart';
@@ -193,6 +194,14 @@ class AppRouter {
           }
           return CrossSearchPage(initialQuery: extra as String?);
         },
+      ),
+      GoRoute(
+        // Pops a `TorrentStreamHandle` when the user picks a torrent, so the
+        // caller decides what to do with the stream. `extra` pre-fills the
+        // search box — set when arriving from a title's detail page.
+        path: '/torrents',
+        builder: (context, state) =>
+            TorrentSearchPage(initialQuery: state.extra as String?),
       ),
       GoRoute(
         path: '/following',

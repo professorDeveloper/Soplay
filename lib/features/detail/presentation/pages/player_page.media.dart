@@ -469,6 +469,36 @@ extension _PlayerMedia on _PlayerPageState {
       return;
     }
 
+    // A magnet or .torrent link is not a stream, and handing one to ExoPlayer
+    // produces a bare "Source error". Turning it into a local HTTP stream here
+    // — the single funnel every playback path passes through — means Sozo's own
+    // torrent search, a CloudStream plugin that returns a magnet, and a pasted
+    // deeplink all behave identically, instead of each growing its own version.
+    if (TorrentLinks.isTorrentLink(url)) {
+      final handle = await TorrentPlayback.prepareLink(
+        context,
+        url,
+        engine: _torrentEngine,
+        title: widget.args.title,
+      );
+      if (!mounted) return;
+      // Null means the user declined the privacy warning, cancelled, or the
+      // swarm never answered — all of which prepareLink has already reported.
+      // Closing is the honest response; an error screen would be a second
+      // message about the same thing.
+      if (handle == null) {
+        setState(() => _initializing = false);
+        Navigator.of(context).maybePop();
+        return;
+      }
+      _torrentHash = handle.hash;
+      url = handle.url.toString();
+      // Whatever the plugin claimed the type was described the torrent, not
+      // the file inside it, and the server serves plain ranged bytes.
+      type = 'progressive';
+      headers = const {};
+    }
+
     final stopwatch = Stopwatch()..start();
     final isFileUri = url.startsWith('file://');
     final isLocal = url.startsWith('/') || isFileUri;
@@ -836,7 +866,13 @@ extension _PlayerMedia on _PlayerPageState {
         // Auto-advance is opt-out, not opt-in: it is what the player has
         // always done. Turning it off leaves the episode parked on its last
         // frame, which is also what makes the history entry below correct.
+        // A sleep timer set to "end of episode" parks here rather than
+        // advancing. It deliberately reuses the auto-advance-off path below,
+        // so the episode is marked finished exactly as it would be for someone
+        // who turned auto-advance off — the timer changes when playback stops,
+        // not what counts as watched.
         if (!guestInParty &&
+            !_sleepAtEpisodeEnd &&
             _hive.autoPlayNextEpisode &&
             widget.args.isSerial &&
             _episodeIndex + 1 < widget.args.episodes.length) {
@@ -848,6 +884,7 @@ extension _PlayerMedia on _PlayerPageState {
         if (url != null && url.isNotEmpty) {
           _history.remove(url);
         }
+        if (_sleepAtEpisodeEnd) unawaited(_fireSleepTimer());
       }
     }
 

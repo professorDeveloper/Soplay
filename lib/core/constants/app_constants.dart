@@ -91,6 +91,20 @@ class AppConstants {
   /// an existing install that never opens the setting is bit-for-bit unchanged.
   /// Read through `resolvePlayerEngine()` — never trust this raw value, it only
   /// applies on Android (desktop is always media_kit, iOS always video_player).
+  /// Whether the user has accepted the BitTorrent privacy warning.
+  ///
+  /// Persisted, deliberately. CloudStream keeps this per session and its own
+  /// error string tells a user who declined once to "restart app and accept the
+  /// pop-up" — a dead end reachable by one mis-tap. Storing the answer means
+  /// declining is recoverable from Settings and accepting is not re-asked every
+  /// launch. Absent ⇒ not accepted, so the warning is always shown at least
+  /// once.
+  static const String torrentConsentKey = 'torrent_consent';
+
+  /// Tracker ids the torrent search queries, as a comma-separated list.
+  /// Absent ⇒ every non-adult tracker.
+  static const String torrentIndexersKey = 'torrent_indexers';
+
   static const String playerEngineKey = 'player_engine';
   static const String defaultPlayerEngine = 'default';
   static const String telegramPromoSeenKey = 'telegram_promo_seen';
@@ -151,6 +165,9 @@ class AppConstants {
   static const String brightnessGestureKey = 'brightness_gesture';
   static const String volumeGestureKey = 'volume_gesture';
   static const String keepScreenOnKey = 'keep_screen_on';
+
+  /// Incognito: watch without leaving a record of *what* was watched.
+  static const String incognitoKey = 'incognito_mode';
 
   static const String streakBox = 'streak_box';
   static const String streakStateKey = 'streak_state';

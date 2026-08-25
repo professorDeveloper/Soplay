@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -1033,6 +1034,18 @@ class _WatchHistorySectionState extends State<_WatchHistorySection> {
                 trailing: const _TileChevron(),
                 onTap: () => context.push('/live-tv'),
               ),
+              // Android only: the torrent engine is a native Android library
+              // with no iOS or desktop equivalent, so on those platforms the
+              // row is absent rather than present and failing.
+              if (!kIsWeb && Platform.isAndroid) ...[
+                const _TileDivider(),
+                _Tile(
+                  icon: Icons.hub_rounded,
+                  title: 'torrent.title'.tr(),
+                  trailing: const _TileChevron(),
+                  onTap: () => context.push('/torrents'),
+                ),
+              ],
               const _TileDivider(),
               _Tile(
                 icon: Icons.devices_rounded,

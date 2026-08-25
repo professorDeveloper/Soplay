@@ -92,6 +92,11 @@ extension _PlayerHistory on _PlayerPageState {
   /// episode is one event; a MAL write that fails must not be retried by the
   /// next tick, which is exactly what a per-tracker set would cause.
   void _maybeReportTrackers() {
+    // Incognito covers the trackers too. Suppressing local history while still
+    // pushing the episode to AniList and MAL would leave the record in the one
+    // place the viewer cannot quietly clear — someone else's server.
+    if (_hive.isIncognito) return;
+
     final contentUrl = widget.args.contentUrl;
     if (contentUrl == null || contentUrl.isEmpty) return;
 
