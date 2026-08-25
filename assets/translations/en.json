@@ -928,7 +928,8 @@
     "pending": "Pending",
     "remove": "Remove",
     "empty_title": "No downloads yet",
-    "empty_subtitle": "Downloaded videos will appear here"
+    "empty_subtitle": "Downloaded videos will appear here",
+    "paused": "Paused"
   },
   "history": {
     "clear_title": "Clear History",

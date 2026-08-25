@@ -928,7 +928,8 @@
     "pending": "Kutilmoqda",
     "remove": "O'chirish",
     "empty_title": "Hozircha yuklamalar yo'q",
-    "empty_subtitle": "Yuklab olingan videolar shu yerda ko'rinadi"
+    "empty_subtitle": "Yuklab olingan videolar shu yerda ko'rinadi",
+    "paused": "To‘xtatilgan"
   },
   "history": {
     "clear_title": "Tarixni tozalash",

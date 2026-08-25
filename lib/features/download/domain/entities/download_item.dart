@@ -1,4 +1,8 @@
-enum DownloadStatus { pending, downloading, completed, failed }
+/// `pending` doubles as "queued": an item that has been accepted but is
+/// waiting for a slot. The UI already renders it the same way it renders a
+/// download that has started but has no bytes yet, which is what it looks like
+/// from the viewer's side.
+enum DownloadStatus { pending, downloading, paused, completed, failed }
 
 class DownloadItem {
   final String id;

@@ -224,6 +224,9 @@ class _DownloadsPageState extends State<DownloadsPage> {
                     _service.remove(item.id);
                   },
                   onRetry: () => _service.startDownload(item),
+                  onPauseResume: () => item.status == DownloadStatus.paused
+                      ? _service.resume(item.id)
+                      : _service.pause(item.id),
                 );
               },
             ),
@@ -298,12 +301,14 @@ class _DownloadRow extends StatelessWidget {
     required this.onTap,
     required this.onRemove,
     required this.onRetry,
+    required this.onPauseResume,
   });
 
   final DownloadItem item;
   final VoidCallback onTap;
   final VoidCallback onRemove;
   final VoidCallback onRetry;
+  final VoidCallback onPauseResume;
 
   /// Swiping is the only way to drop a download on a phone, and nothing on
   /// screen advertises it — a queued or failed row has no button at all.
@@ -495,8 +500,19 @@ class _DownloadRow extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       )
+                    else if (item.status == DownloadStatus.paused)
+                      Text(
+                        'downloads.paused'.tr(),
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
                     else
                       Text(
+                        // Also what a queued item shows: it has been accepted
+                        // and is waiting for one of the two slots.
                         'downloads.pending'.tr(),
                         style: const TextStyle(
                           color: AppColors.textHint,
@@ -507,6 +523,29 @@ class _DownloadRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              // Offered while there is something to stop or restart. A finished
+              // or failed download has neither — failed already has Retry.
+              if (item.status == DownloadStatus.downloading ||
+                  item.status == DownloadStatus.pending ||
+                  item.status == DownloadStatus.paused)
+                GestureDetector(
+                  onTap: onPauseResume,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      item.status == DownloadStatus.paused
+                          ? Icons.play_arrow_rounded
+                          : Icons.pause_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                ),
               if (item.status == DownloadStatus.failed)
                 GestureDetector(
                   onTap: onRetry,

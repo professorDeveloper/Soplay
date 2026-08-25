@@ -26,8 +26,23 @@ class DownloadService {
     }
   }
 
+  /// How many downloads actually run at once.
+  ///
+  /// Queuing ten episodes used to start ten transfers, which on a phone means
+  /// ten streams fighting over one connection: everything crawls, the first
+  /// episode the viewer wanted to watch finishes last, and on mobile data it is
+  /// the worst possible shape. Two keeps the link busy without starving the one
+  /// at the front of the queue.
+  static const int maxConcurrent = 2;
+
   final Dio _dio = Dio();
   final Map<String, CancelToken> _tokens = {};
+
+  /// Accepted but not yet started, oldest first.
+  final List<DownloadItem> _queue = [];
+
+  /// Ids currently transferring, so [_pump] knows when a slot frees.
+  final Set<String> _running = {};
   final _NativeDownloadBridge _native = _NativeDownloadBridge();
   Timer? _nativePoller;
   int _activeCount = 0;
@@ -126,13 +141,71 @@ class DownloadService {
     return lower.contains('.m3u8');
   }
 
+  /// Accept a download. Returns whether it was accepted, NOT whether it
+  /// finished.
+  ///
+  /// It used to await the whole transfer on the Dart path while returning
+  /// immediately on the native one, so the caller's "Download started" message
+  /// appeared at the start on Android and at the *end* everywhere else. A queue
+  /// makes both paths agree, and agrees with what the message already said.
   Future<bool> startDownload(DownloadItem item) async {
-    if (_tokens.containsKey(item.id)) return false;
+    if (_tokens.containsKey(item.id) ||
+        _running.contains(item.id) ||
+        _queue.any((q) => q.id == item.id)) {
+      return false;
+    }
 
     if (_useNativeDownloader) {
       return _startNativeDownload(item);
     }
 
+    // Persisted as pending before it starts so it appears in the list the
+    // moment it is accepted. A queued download that is invisible until a slot
+    // frees looks like a button that did nothing.
+    await _save(item.copyWith(status: DownloadStatus.pending), force: true);
+    _queue.add(item);
+    _pump();
+    return true;
+  }
+
+  /// Start whatever the free slots allow.
+  void _pump() {
+    while (_running.length < maxConcurrent && _queue.isNotEmpty) {
+      final next = _queue.removeAt(0);
+      _running.add(next.id);
+      unawaited(
+        _run(next).whenComplete(() {
+          _running.remove(next.id);
+          // Draining from here rather than from a timer means the next item
+          // starts the instant a slot frees.
+          _pump();
+        }),
+      );
+    }
+  }
+
+  /// Stop a transfer but keep what it has already written.
+  ///
+  /// Distinct from [cancelDownload], which is a request to forget the thing.
+  /// A paused HLS download keeps its segments, and [resume] picks up where it
+  /// stopped because the segment loop skips files that are already on disk.
+  Future<void> pause(String id) async {
+    _queue.removeWhere((q) => q.id == id);
+    _tokens[id]?.cancel();
+    _tokens.remove(id);
+    final item = get(id);
+    if (item == null) return;
+    if (item.status == DownloadStatus.completed) return;
+    await _save(item.copyWith(status: DownloadStatus.paused), force: true);
+  }
+
+  Future<void> resume(String id) async {
+    final item = get(id);
+    if (item == null || item.status == DownloadStatus.completed) return;
+    await startDownload(item);
+  }
+
+  Future<bool> _run(DownloadItem item) async {
     final cancel = CancelToken();
     _tokens[item.id] = cancel;
 
@@ -220,7 +293,13 @@ class DownloadService {
     }
     final items = getAll();
     for (final item in items) {
-      if (item.status == DownloadStatus.downloading) {
+      // `pending` is included because the app can be killed with items still
+      // queued, and those never started at all — leaving them out would strand
+      // exactly the downloads that had not had their turn yet. `paused` is
+      // excluded on purpose: that state was chosen by the viewer, and a restart
+      // is not consent to resume.
+      if (item.status == DownloadStatus.downloading ||
+          item.status == DownloadStatus.pending) {
         unawaited(startDownload(item));
       }
     }
@@ -526,6 +605,9 @@ class DownloadService {
     if (_useNativeDownloader) {
       unawaited(_native.cancelDownload(id));
     }
+    // Dropped from the queue too, or cancelling something that had not started
+    // would leave it waiting for a slot it no longer wants.
+    _queue.removeWhere((q) => q.id == id);
     _tokens[id]?.cancel();
     _tokens.remove(id);
   }
