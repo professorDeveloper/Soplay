@@ -133,5 +133,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Used to search by voice.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Used to search by voice.</string>
 </dict>
 </plist>

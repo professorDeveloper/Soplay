@@ -485,7 +485,8 @@
     "status_failed_n": "{} xato",
     "all_sources_failed": "Barcha {} manba javob bermadi. Bu bo‘sh natija emas — qayta urinib ko‘ring.",
     "no_results_with_failures": "Javob bergan manbalarda ({}) moslik yo‘q. Ulanib bo‘lmadi: {}.",
-    "all_sources_failed_one": "Manba javob bermadi. Bu bo‘sh natija emas — qayta urinib ko‘ring."
+    "all_sources_failed_one": "Manba javob bermadi. Bu bo‘sh natija emas — qayta urinib ko‘ring.",
+    "voice": "Ovozli qidiruv"
   },
   "movie": {
     "rating": "Reyting",

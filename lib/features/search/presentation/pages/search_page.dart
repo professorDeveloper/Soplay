@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/features/search/presentation/blocs/search_bloc.dart';
+import 'package:soplay/features/search/presentation/widgets/voice_search_button.dart';
 import 'package:soplay/features/search/presentation/widgets/search_filter_sheet.dart';
 import 'package:soplay/features/search/presentation/widgets/search_header.dart';
 import 'package:soplay/features/search/presentation/widgets/search_state_views.dart';
@@ -149,6 +150,18 @@ class _SearchViewState extends State<_SearchView> {
                 onSubmitted: (q) =>
                     context.read<SearchBloc>().add(SearchSubmitted(q)),
                 onClear: _clearSearch,
+                voiceButton: VoiceSearchButton(
+                  // Partial results land in the field as they are heard; only
+                  // the final transcript runs a search, so a half-heard title
+                  // never fires a query of its own.
+                  onText: (t) {
+                    _controller.text = t;
+                    _controller.selection =
+                        TextSelection.collapsed(offset: t.length);
+                    context.read<SearchBloc>().add(SearchQueryChanged(t));
+                  },
+                  onSubmit: _runQuery,
+                ),
               ),
             ),
           ],

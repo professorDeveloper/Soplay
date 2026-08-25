@@ -485,7 +485,8 @@
     "status_failed_n": "{} failed",
     "all_sources_failed": "All {} sources failed to answer. This is not an empty result — try again.",
     "no_results_with_failures": "No matches from the sources that answered ({}). {} could not be reached.",
-    "all_sources_failed_one": "The source you searched failed to answer. This is not an empty result — try again."
+    "all_sources_failed_one": "The source you searched failed to answer. This is not an empty result — try again.",
+    "voice": "Search by voice"
   },
   "movie": {
     "rating": "Rating",

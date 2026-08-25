@@ -125,6 +125,7 @@ dependencies:
   # anchor on `href="magnet:"` survives a redesign that CSS selectors do not.
   xml: ^6.6.1
   file_picker: ^11.0.3
+  speech_to_text: ^7.4.0
 
 dev_dependencies:
   flutter_test:

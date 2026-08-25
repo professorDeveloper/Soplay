@@ -189,4 +189,14 @@ dependencies {
     // is started only in debug builds (BuildConfig.DEBUG gate in MainActivity).
     // See BridgeServer.kt + docs/DESKTOP_EXTENSIONS_PLAN.md.
     implementation("org.nanohttpd:nanohttpd:2.3.1")
+
+    // Embedded torrent streaming server (Go, via gomobile). Same artifact
+    // CloudStream ships; it descends from YouROK/TorrServer through
+    // Diegopyl1209/torrentserver-aniyomi, with the `os.Exit` paths removed so a
+    // busy port cannot take the whole app down.
+    //
+    // SIZE: this ships libgojni.so for all four ABIs, ~48 MB uncompressed. It is
+    // by far the biggest single native payload in the app — see the size note in
+    // .github/workflows/release.yml before changing how ABIs are split.
+    implementation("com.github.recloudstream:torrentserver:7861970")
 }

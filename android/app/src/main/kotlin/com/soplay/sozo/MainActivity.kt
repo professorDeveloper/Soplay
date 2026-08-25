@@ -34,6 +34,7 @@ import com.soplay.sozo.manga.MangaHost
 import com.soplay.sozo.manga.MangaRepoManager
 import com.soplay.sozo.extensions.RepoFileIntent
 import com.soplay.sozo.preview.FramePreview
+import com.soplay.sozo.torrent.TorrentServerBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -708,6 +709,12 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        // Embedded TorrServer. Registers its own channel rather than adding
+        // another handler here — the native side is only "load Go, bind a
+        // port"; adding torrents and reading their state is plain HTTP from
+        // Dart. See torrent/TorrentServerBridge.kt.
+        TorrentServerBridge.register(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     /** Current share selection: `{shareAll, ids}`. `shareAll` (default true) means
@@ -1024,6 +1031,11 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // The torrent server itself is deliberately left running: the Go fork
+        // exists because its shutdown paths crash the process, and the activity
+        // being destroyed does not mean playback is over (PiP, rotation).
+        // Only the channel is detached.
+        TorrentServerBridge.dispose()
         try { bridgeServer?.stop() } catch (_: Throwable) {}
         bridgeServer = null
         pipReceiver?.let {

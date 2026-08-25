@@ -374,12 +374,21 @@ class PluginHost(private val appContext: Context) {
                     put("episode", 1); put("label", "Watch live"); put("mediaRef", ref)
                 })
             }
-            // Torrent/magnet entries have no dataUrl and no HTTP stream — there is
-            // nothing this app's player can do with them. Say so explicitly rather
-            // than rendering the same silent empty page.
+            // A torrent entry carries a magnet (or a .torrent url) instead of a
+            // dataUrl. That used to be a dead end; the app now embeds a torrent
+            // server, so the link is offered as the single playable episode and
+            // the player turns it into a local stream on open.
             is TorrentLoadResponse -> {
-                unsupported =
-                    "This is a torrent entry (magnet link) — Sozo's player cannot open it."
+                val ref = resp.magnet ?: resp.torrent
+                if (ref.isNullOrBlank()) {
+                    unsupported = "This torrent entry has no magnet or .torrent link."
+                } else {
+                    episodes.put(JSONObject().apply {
+                        put("episode", 1)
+                        put("label", resp.name.ifBlank { "Torrent" })
+                        put("mediaRef", ref)
+                    })
+                }
             }
         }
         // Cast (actors) + related (recommendations) when the provider supplies them.
@@ -465,16 +474,20 @@ class PluginHost(private val appContext: Context) {
                         }
                     },
                     callback = { link: ExtractorLink ->
-                        // Torrents and magnets are not streams. Passed through as an
-                        // ordinary source they reached the player as a bare "Source
-                        // error"; the honest thing is to not offer them. Relative urls
-                        // ("dl.php?id=…") go for the same reason — ExoPlayer resolves
-                        // those as a local file path.
-                        val streamable = link.type != ExtractorLinkType.TORRENT &&
-                                link.type != ExtractorLinkType.MAGNET
-                        if (streamable && link.url.startsWith("http", ignoreCase = true) &&
-                            seenUrls.add(link.url)
-                        ) {
+                        // Torrents and magnets used to be dropped here: they are not
+                        // streams, and handing one to ExoPlayer produced a bare "Source
+                        // error". They are now passed through tagged as "torrent",
+                        // because the app embeds a torrent server and the player
+                        // resolves such a link into a local HTTP stream before opening
+                        // it (see core/torrent/ and player_page.media.dart).
+                        //
+                        // Relative urls ("dl.php?id=…") are still dropped — ExoPlayer
+                        // resolves those as a local file path.
+                        val isTorrent = link.type == ExtractorLinkType.TORRENT ||
+                                link.type == ExtractorLinkType.MAGNET
+                        val addressable = link.url.startsWith("http", ignoreCase = true) ||
+                                (isTorrent && link.url.startsWith("magnet:", ignoreCase = true))
+                        if (addressable && seenUrls.add(link.url)) {
                             // getAllHeaders() folds in the referer exactly the way
                             // CloudStream's own player does, instead of us overwriting a
                             // Referer an extractor had deliberately set.
@@ -494,6 +507,11 @@ class PluginHost(private val appContext: Context) {
                                 put("type", when (link.type) {
                                     ExtractorLinkType.M3U8 -> "hls"
                                     ExtractorLinkType.DASH -> "dash"
+                                    // The Dart side recognises a magnet by its scheme
+                                    // anyway, but naming the type keeps the source list
+                                    // honest about what it is offering.
+                                    ExtractorLinkType.TORRENT,
+                                    ExtractorLinkType.MAGNET -> "torrent"
                                     else -> "http"
                                 })
                                 put("host", link.name)

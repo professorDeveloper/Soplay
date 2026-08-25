@@ -19,7 +19,12 @@ class SearchStickyHeader extends StatelessWidget {
     required this.onQueryChanged,
     required this.onSubmitted,
     required this.onClear,
+    this.voiceButton,
   });
+
+  /// Shown inside the field while it is empty, where the clear button sits once
+  /// there is something to clear. Null on the platforms with no recogniser.
+  final Widget? voiceButton;
 
   final double progress;
   final double topPad;
@@ -90,6 +95,7 @@ class SearchStickyHeader extends StatelessWidget {
                   onChanged: onQueryChanged,
                   onSubmitted: onSubmitted,
                   onClear: onClear,
+                  voiceButton: voiceButton,
                 ),
               ),
               const SizedBox(width: 10),
@@ -143,7 +149,10 @@ class _SearchField extends StatelessWidget {
     required this.onChanged,
     required this.onSubmitted,
     required this.onClear,
+    this.voiceButton,
   });
+
+  final Widget? voiceButton;
 
   final TextEditingController controller;
   final FocusNode focus;
@@ -174,7 +183,12 @@ class _SearchField extends StatelessWidget {
         suffixIcon: ValueListenableBuilder<TextEditingValue>(
           valueListenable: controller,
           builder: (context, value, _) {
-            if (value.text.isEmpty) return const SizedBox.shrink();
+            // Microphone while there is nothing to clear, clear button once
+            // there is. They never both apply, so the two share one slot rather
+            // than crowding the field with a second icon.
+            if (value.text.isEmpty) {
+              return voiceButton ?? const SizedBox.shrink();
+            }
             const icon = Icon(
               Icons.close_rounded,
               color: AppColors.textHint,
