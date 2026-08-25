@@ -102,6 +102,21 @@ class ExtensionRepoDefaults {
           'https://raw.githubusercontent.com/Swakshan/mangayomi-swak-extensions/main/anime_index.json',
       order: 2,
     ),
+    // Small, but every entry counts twice here: the repo is 100% JavaScript
+    // (13 anime, 4 manga, all `sourceCodeLanguage: 1`), so nothing in it is
+    // skipped on the platforms that cannot run Dart sources. The bigger repos
+    // are mostly the other way round — Kodjodevf is 249 Dart to 114 JS and has
+    // no anime index at all, and m2k3a's anime index is 40 Dart to 24 JS.
+    ExtensionRepoEntity(
+      kind: ExtensionRepoKind.mangayomi,
+      name: 'Mallyd11',
+      description: 'Anime · all-JavaScript, runs on iOS',
+      url:
+          'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/index.json',
+      animeUrl:
+          'https://raw.githubusercontent.com/Mallyd11/mangayomi-anime-extensions/main/anime_index.json',
+      order: 3,
+    ),
   ];
 
   static List<ExtensionRepoEntity> forKind(ExtensionRepoKind kind) =>
