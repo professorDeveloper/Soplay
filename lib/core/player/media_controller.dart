@@ -244,6 +244,20 @@ bool _mediaKitUsable() {
 
 bool _mediaKitFailed = false;
 
+/// How long to wait for libmpv to put a decoded frame on the screen.
+///
+/// Generous on purpose. A false positive here demotes a working engine for the
+/// rest of the session, which is a worse outcome than a few seconds spent once
+/// on a device that is about to show a black screen either way.
+const Duration _firstFrameTimeout = Duration(seconds: 5);
+
+/// Set as the error when libmpv plays but cannot display.
+///
+/// A sentinel rather than prose: the player matches on it to rebuild with the
+/// platform backend, and a human-readable string would be one careless edit
+/// away from silently breaking that.
+const String kVideoOutputUnavailable = 'sozo:no-video-output';
+
 /// Loads libmpv ahead of the first playback, but only when media_kit is the
 /// selected engine.
 ///
@@ -322,10 +336,20 @@ class _NativeController extends PlayerController {
 
 class _MediaKitSource {
   _MediaKitSource.uri(Uri uri, this.headers)
-      : source = uri.isScheme('file') ? uri.toFilePath() : uri.toString();
-  _MediaKitSource.path(this.source) : headers = const <String, String>{};
+      : source = uri.isScheme('file') ? uri.toFilePath() : uri.toString(),
+        uri = uri.isScheme('file') ? null : uri;
+  _MediaKitSource.path(this.source)
+      : headers = const <String, String>{},
+        uri = null;
 
+  /// What libmpv is given: a URL string, or a path for a local file.
   final String source;
+
+  /// The network URL, or null for a local file. Kept because libmpv takes both
+  /// as one string and the platform backend does not — it has a separate
+  /// constructor for each, and by then the distinction is gone.
+  final Uri? uri;
+
   final Map<String, String> headers;
 }
 
@@ -341,12 +365,22 @@ class _MediaKitController extends PlayerController {
   }
 
   final _MediaKitSource _src;
+
+  /// The platform backend, once libmpv has proved it cannot display.
+  ///
+  /// Swapped in rather than reported upward. Everything above this class asked
+  /// for "a controller for this URL" and does not care which library provides
+  /// it; making the player page handle an engine that half-works would spread
+  /// one library's quirk across the whole feature.
+  PlayerController? _fallback;
+
   late final mk.Player _player;
   late final mkv.VideoController _videoController;
   List<PlayerAudioTrack> _audioTracks = const <PlayerAudioTrack>[];
   String? _activeAudioTrackId;
   final List<StreamSubscription<dynamic>> _subs = <StreamSubscription<dynamic>>[];
   bool _disposed = false;
+  bool _mpvGone = false;
   String? _error;
 
   @override
@@ -363,6 +397,28 @@ class _MediaKitController extends PlayerController {
     if (_disposed) return;
     final w = _player.state.width ?? 0;
     final h = _player.state.height ?? 0;
+
+    // Decoded is not the same as displayed.
+    //
+    // libmpv draws through its own GL context, and where that context cannot be
+    // created the player carries on perfectly: it demuxes, it decodes, it
+    // reports a size and a duration, it plays the audio — and the texture never
+    // receives a frame. What the viewer gets is a black rectangle with sound,
+    // and nothing anywhere reports an error, because by libmpv's account
+    // nothing went wrong.
+    //
+    // Waiting for the first frame is the only signal that separates the two.
+    // Dimensions being known means a frame has already been decoded, so the
+    // remaining step is local work and a few seconds is generous; the cost is
+    // paid once, by a device that was going to show nothing anyway.
+    if (w > 0 && h > 0 && !await _firstFrameArrives()) {
+      markMediaKitUnavailable();
+      debugPrint('[player] libmpv played without a picture — using the '
+          'platform player for this device');
+      await _swapToPlatformBackend();
+      return;
+    }
+
     value = value.copyWith(
       isInitialized: _error == null,
       duration: _player.state.duration,
@@ -371,6 +427,51 @@ class _MediaKitController extends PlayerController {
           : value.size,
       errorDescription: _error,
     );
+  }
+
+  /// Tear libmpv down and continue on the platform player.
+  ///
+  /// The viewer sees a slightly longer load, not an error — which is the right
+  /// trade for a device where the alternative was a black rectangle that
+  /// nothing reported as broken.
+  Future<void> _swapToPlatformBackend() async {
+    await _teardownMpv();
+    if (_disposed) return;
+
+    final replacement = _src.uri == null
+        ? _NativeController(vp.VideoPlayerController.file(File(_src.source)))
+        : _NativeController(
+            vp.VideoPlayerController.networkUrl(
+              _src.uri!,
+              httpHeaders: _src.headers,
+            ),
+          );
+    _fallback = replacement;
+    // Its value is this controller's value from here on, so the page's existing
+    // listeners keep working without knowing anything changed.
+    replacement.addListener(() {
+      if (!_disposed) value = replacement.value;
+    });
+    await replacement.initialize();
+    if (_disposed) {
+      await replacement.dispose();
+      return;
+    }
+    value = replacement.value;
+  }
+
+  /// Whether the texture ever receives a frame.
+  ///
+  /// Not a health check on the file — that has already decoded. This asks
+  /// whether this device can put what was decoded on the screen.
+  Future<bool> _firstFrameArrives() async {
+    try {
+      await _videoController.waitUntilFirstFrameRendered
+          .timeout(_firstFrameTimeout);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _wire() {
@@ -483,41 +584,55 @@ class _MediaKitController extends PlayerController {
   }
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() => _fallback?.play() ?? _player.play();
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() => _fallback?.pause() ?? _player.pause();
 
   @override
-  Future<void> seekTo(Duration position) => _player.seek(position);
+  Future<void> seekTo(Duration position) =>
+      _fallback?.seekTo(position) ?? _player.seek(position);
 
   @override
-  Future<void> setPlaybackSpeed(double speed) => _player.setRate(speed);
+  Future<void> setPlaybackSpeed(double speed) =>
+      _fallback?.setPlaybackSpeed(speed) ?? _player.setRate(speed);
 
   @override
-  Future<void> setVolume(double volume) =>
-      _player.setVolume((volume * 100).clamp(0.0, 100.0));
+  Future<void> setVolume(double volume) => _fallback != null
+      ? _fallback!.setVolume(volume)
+      : _player.setVolume((volume * 100).clamp(0.0, 100.0));
 
   @override
-  Future<void> setLooping(bool looping) => _player.setPlaylistMode(
+  Future<void> setLooping(bool looping) => _fallback != null
+      ? _fallback!.setLooping(looping)
+      : _player.setPlaylistMode(
         looping ? mk.PlaylistMode.single : mk.PlaylistMode.none,
       );
 
-  @override
-  bool get letterboxesInternally => true;
 
   @override
-  bool get supportsAudioTracks => true;
+  bool get letterboxesInternally => _fallback?.letterboxesInternally ?? true;
 
   @override
-  List<PlayerAudioTrack> get audioTracks => _audioTracks;
+  // False once swapped: the platform player cannot switch tracks, and the
+  // control must disappear rather than sit there doing nothing.
+  bool get supportsAudioTracks => _fallback?.supportsAudioTracks ?? true;
+
+  @override
+  List<PlayerAudioTrack> get audioTracks =>
+      _fallback?.audioTracks ?? _audioTracks;
 
   @override
   String? get activeAudioTrackId =>
-      _activeAudioTrackId ?? _player.state.track.audio.id;
+      _fallback != null ? null : _activeAudioTrackId ?? _player.state.track.audio.id;
+
 
   @override
   Future<void> setAudioTrack(String id) async {
+    // The platform player has no track API at all, so there is nothing to
+    // forward to. supportsAudioTracks already reports false once swapped, which
+    // is what removes the control; this guard is for anything that asks anyway.
+    if (_fallback != null) return;
     final match = _player.state.tracks.audio
         .where((t) => t.id == id)
         .cast<mk.AudioTrack?>()
@@ -528,21 +643,38 @@ class _MediaKitController extends PlayerController {
   }
 
   @override
-  Widget buildView({BoxFit fit = BoxFit.contain}) => mkv.Video(
+  Widget buildView({BoxFit fit = BoxFit.contain}) =>
+      // The surface, not just the controls: after a swap the mpv texture is a
+      // dead black rectangle, and it is the thing the viewer is looking at.
+      _fallback?.buildView(fit: fit) ??
+          mkv.Video(
         controller: _videoController,
         fit: fit,
         fill: const Color(0xFF000000),
         controls: mkv.NoVideoControls,
       );
 
+
   @override
   Future<void> dispose() async {
     _disposed = true;
+    await _teardownMpv();
+    await _fallback?.dispose();
+    super.dispose();
+  }
+
+  /// Release libmpv without ending this controller.
+  ///
+  /// Shared with [dispose] because the swap has to leave nothing of the old
+  /// backend behind: an undisposed Player keeps decoding, and two backends on
+  /// one stream is audio playing twice.
+  Future<void> _teardownMpv() async {
+    if (_mpvGone) return;
+    _mpvGone = true;
     for (final s in _subs) {
       await s.cancel();
     }
     _subs.clear();
     await _player.dispose();
-    super.dispose();
   }
 }

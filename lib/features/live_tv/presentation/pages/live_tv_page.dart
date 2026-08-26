@@ -1260,8 +1260,16 @@ class _ChannelCard extends StatelessWidget {
   /// Two lines, always. Channel names run from "TV1" to "Discovery Science HD",
   /// and letting the caption size itself left every logo in a row at a
   /// different scale.
+  ///
+  /// Rounded up, and that is the whole point of the call. 11.5 x 1.2 x 2 is
+  /// 27.6, but the text is laid out in whole logical pixels and takes 28 — so
+  /// every card whose name wrapped to a second line overflowed by exactly the
+  /// 0.4 difference. Reserving the ceiling costs at most a pixel of card and
+  /// removes a sub-pixel deficit that no amount of padding elsewhere could fix,
+  /// because it was arithmetic and not spacing.
   static double reserveCaption(BuildContext context) =>
-      MediaQuery.textScalerOf(context).scale(_fontSize) * _lineHeight * 2;
+      (MediaQuery.textScalerOf(context).scale(_fontSize) * _lineHeight * 2)
+          .ceilToDouble();
 
   final LiveChannel channel;
   final bool favourite;
