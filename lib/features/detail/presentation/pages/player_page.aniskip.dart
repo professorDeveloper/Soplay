@@ -190,7 +190,21 @@ extension _PlayerAlternateSources on _PlayerPageState {
     return n > 0 ? n : null;
   }
 
-  Future<void> _openAlternateSources() async {
+  /// Offers the same title on another provider.
+  ///
+  /// Reached two ways, and the difference is [keepPosition]. From the error
+  /// view there is nothing to resume to. From the settings sheet the viewer is
+  /// part-way through and switching *because* this source is struggling — so
+  /// the position travels with them and the episode picks up where it was,
+  /// which is what makes switching worth doing instead of going back.
+  Future<void> _openAlternateSources({bool keepPosition = false}) async {
+    final controller = _controller;
+    final resumeAt = keepPosition &&
+            controller != null &&
+            controller.value.isInitialized
+        ? controller.value.position
+        : Duration.zero;
+
     final args = await AlternateSourceSheet.show(
       context,
       title: widget.args.title,
@@ -198,10 +212,12 @@ extension _PlayerAlternateSources on _PlayerPageState {
       category: _hive.providerCategory(widget.args.provider),
       episodeNumber: _currentEpisodeNumber,
       headers: widget.args.headers,
+      resumeAt: resumeAt,
     );
     if (args == null || !mounted) return;
-    // pushReplacement, not push. The player being left is showing an error and
-    // has nothing to come back to, and stacking a second one would put a broken
+    // pushReplacement, not push. Either the player being left is showing an
+    // error and has nothing to come back to, or it is the source the viewer
+    // just chose to abandon — stacking a second one would leave the discarded
     // screen behind the working one for the back button to land on.
     context.pushReplacement('/player', extra: args);
   }

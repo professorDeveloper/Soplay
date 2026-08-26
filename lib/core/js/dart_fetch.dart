@@ -51,6 +51,40 @@ class DartFetch {
 
   bool get hasPendingCfChallenge => _pendingCfHost != null;
 
+  /// The host of that challenge, for the *manual* solve.
+  ///
+  /// The button on the error screen has nothing but a provider id to go on, and
+  /// an extension routinely fetches from an API or CDN host its metadata never
+  /// mentions — TeamX is configured as `olympustaff.com` and reads from it, but
+  /// plenty of sources are not so tidy. The host that actually came back
+  /// challenged is the one to send a WebView to.
+  String? get pendingCfHost => _pendingCfHost;
+
+  /// Take on a clearance earned outside this class, and report whether there
+  /// was one to take.
+  ///
+  /// [solvePendingCfChallenge] does its work headlessly, which cannot answer a
+  /// challenge that wants a person — a checkbox, a captcha. Those go to the
+  /// interactive `CloudflareSolverPage` and its visible WebView, and the cookie
+  /// it earns lands in the *WebView's* jar. Dio keeps its own, entirely
+  /// separate one here, so until the value is copied across [_send] cannot see
+  /// it: the solver page popped `true`, the caller reloaded, and the identical
+  /// challenge came straight back.
+  Future<bool> adoptSolvedClearance(String host) async {
+    final cf = _cfService;
+    if (cf == null) return false;
+    final cookieHeader = await cf.readClearance(host);
+    if (cookieHeader == null) return false;
+    JsLog.res('fetch', 'adopted a clearance for $host');
+    _savedCookies[host] = cookieHeader;
+    // The recorded challenge is answered; leaving it would send the next
+    // automatic solve after a host that is already cleared.
+    if (_pendingCfHost == host) _pendingCfHost = null;
+    _lastBlock = null;
+    unawaited(_pushCookiesToBackend(host, cookieHeader, const {}));
+    return true;
+  }
+
   /// Solve the recorded challenge. Returns whether a clearance was obtained.
   Future<bool> solvePendingCfChallenge() async {
     final host = _pendingCfHost;

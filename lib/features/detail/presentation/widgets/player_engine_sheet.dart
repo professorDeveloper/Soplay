@@ -17,13 +17,13 @@ IconData playerEngineIcon(PlayerEngine engine) => switch (engine) {
     };
 
 String playerEngineTitleKey(PlayerEngine engine) => switch (engine) {
-      PlayerEngine.native => 'profile.player_engine_default',
+      PlayerEngine.native => 'profile.player_engine_native',
       PlayerEngine.mediaKit => 'profile.player_engine_media_kit',
       PlayerEngine.external => 'profile.player_engine_external',
     };
 
 String playerEngineDescKey(PlayerEngine engine) => switch (engine) {
-      PlayerEngine.native => 'profile.player_engine_default_desc',
+      PlayerEngine.native => 'profile.player_engine_native_desc',
       PlayerEngine.mediaKit => 'profile.player_engine_media_kit_desc',
       PlayerEngine.external => 'profile.player_engine_external_desc',
     };

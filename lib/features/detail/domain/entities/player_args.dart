@@ -32,6 +32,14 @@ class PlayerArgs {
   /// movie play at all.
   final ExtractorConfigEntity? extractor;
 
+  /// Live TV channel id, for the in-player programme guide.
+  ///
+  /// Live playback carried the stream url and the channel name but nothing that
+  /// identified the channel, so the player could not ask for its guide — the
+  /// one screen where "what am I watching, and what is next" is the actual
+  /// question had no way to answer it.
+  final String? liveChannelId;
+
   final String? mediaRef;
   final String? lang;
   final String? partyCode;
@@ -52,6 +60,7 @@ class PlayerArgs {
     this.showDownloadAction = true,
     this.thumbnails,
     this.extractor,
+    this.liveChannelId,
     this.mediaRef,
     this.lang,
     this.partyCode,

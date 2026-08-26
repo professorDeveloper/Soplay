@@ -475,6 +475,9 @@ class _LiveTvPageState extends State<LiveTvPage> {
         // Live has no episodes and nothing to resume to, and offering a
         // download for a stream with no end would be a lie.
         type: 'live',
+        // Lets the player open this channel's guide without going back out to
+        // the channel list to find it.
+        liveChannelId: channel.id,
         showDownloadAction: false,
       ),
     );

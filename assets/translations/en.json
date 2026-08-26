@@ -24,7 +24,8 @@
     "see_all": "See all",
     "unknown": "Unknown",
     "off": "Off",
-    "on": "On"
+    "on": "On",
+    "new_badge": "NEW"
   },
   "auth": {
     "login": "Login",
@@ -246,7 +247,17 @@
     "alt_none": "No other source has this title",
     "alt_failed": "Could not open this source",
     "alt_no_episode": "This source does not have episode {}",
-    "alt_search_all": "Search all sources"
+    "alt_search_all": "Search all sources",
+    "guide": "Guide",
+    "change_source": "Change source",
+    "cast": "Cast to TV",
+    "cast_to": "Cast to",
+    "cast_searching": "Looking for devices on this Wi-Fi…",
+    "cast_none": "No devices found. The TV has to be on the same Wi-Fi as this phone.",
+    "cast_failed": "Could not connect to {}",
+    "cast_unsupported": "This stream cannot be cast",
+    "cast_active": "Playing on {}",
+    "cast_stop": "Stop casting"
   },
   "profile": {
     "title": "Profile",
@@ -327,8 +338,8 @@
     "nav_style_solid": "Solid",
     "nav_style_classic": "Classic",
     "section_player": "Player",
-    "player_engine_default": "Default",
-    "player_engine_default_desc": "The built-in player. Best battery life and hardware decoding. Cannot switch audio tracks.",
+    "player_engine_native": "System player",
+    "player_engine_native_desc": "The platform player. Best battery life and hardware decoding. Cannot switch audio tracks.",
     "player_engine_media_kit": "media_kit",
     "player_engine_media_kit_desc": "Plays more formats and lets you switch audio and subtitle tracks. Uses a bit more battery.",
     "player_engine_external": "External player",
@@ -376,7 +387,8 @@
     "auto_skip_intro": "Skip openings automatically",
     "auto_skip_intro_desc": "Skip anime openings and endings without asking",
     "incognito_active": "Incognito is on. Nothing you watch is saved to history or sent to AniList and MAL.",
-    "incognito_turn_off": "Turn off"
+    "incognito_turn_off": "Turn off",
+    "all_languages": "All languages"
   },
   "appearance": {
     "title": "Appearance",
@@ -1273,7 +1285,9 @@
     "channel_count": {
       "one": "{} channel",
       "other": "{} channels"
-    }
+    },
+    "up_next": "UP NEXT",
+    "minutes_left": "{} min left"
   },
   "time": {
     "now": "just now",
@@ -1364,5 +1378,35 @@
     "export_failed": "Could not create the backup",
     "restore_failed": "Could not read that backup",
     "file_subject": "Sozo backup"
+  },
+  "provider_test": {
+    "title": "Test sources",
+    "intro": "Runs a real search, opens a title and asks the CDN for the first bytes. Results are for this device and network, right now.",
+    "summary": "{} of {} played",
+    "run_all": "Test all",
+    "run_one": "Test",
+    "stop": "Stop",
+    "stage_catalogue": "Catalogue",
+    "stage_detail": "Title",
+    "stage_stream": "Link",
+    "stage_playback": "Playback",
+    "entry": "Test sources"
+  },
+  "catalog": {
+    "title": "Sources by language",
+    "subtitle": "Browse every extension source across all four ecosystems",
+    "type_all": "All",
+    "type_anime": "Anime",
+    "type_video": "Movies & series",
+    "type_manga": "Manga",
+    "type_novel": "Novels",
+    "add_repo": "Add repo",
+    "installed": "Added {} source(s) from {}",
+    "install_empty": "That repo returned nothing installable.",
+    "install_failed": "Install failed: {}",
+    "needs_js": "Dart source — cannot run here",
+    "android_only": "Android only",
+    "empty": "Nothing here yet. Try another language or clear the filters.",
+    "unreachable": "The source catalog could not be reached."
   }
 }

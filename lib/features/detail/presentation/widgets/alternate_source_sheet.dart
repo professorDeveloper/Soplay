@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,6 +31,7 @@ class AlternateSourceSheet extends StatefulWidget {
     required this.category,
     required this.episodeNumber,
     required this.headers,
+    this.resumeAt = Duration.zero,
   });
 
   final String title;
@@ -36,6 +40,13 @@ class AlternateSourceSheet extends StatefulWidget {
   final int? episodeNumber;
   final Map<String, String> headers;
 
+  /// Where the viewer is now, carried onto the source they pick.
+  ///
+  /// Zero when the sheet opens from a playback failure — there is nothing to
+  /// resume to. Non-zero when they chose to switch mid-episode, which is the
+  /// case that must not restart it.
+  final Duration resumeAt;
+
   static Future<PlayerArgs?> show(
     BuildContext context, {
     required String title,
@@ -43,6 +54,7 @@ class AlternateSourceSheet extends StatefulWidget {
     required String category,
     required int? episodeNumber,
     required Map<String, String> headers,
+    Duration resumeAt = Duration.zero,
   }) {
     return showAdaptiveModal<PlayerArgs>(
       context: context,
@@ -57,6 +69,7 @@ class AlternateSourceSheet extends StatefulWidget {
         category: category,
         episodeNumber: episodeNumber,
         headers: headers,
+        resumeAt: resumeAt,
       ),
     );
   }
@@ -66,6 +79,10 @@ class AlternateSourceSheet extends StatefulWidget {
 }
 
 class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
+  /// Torrent streaming is Android-only — the engine is a native Android
+  /// library. Hidden elsewhere rather than shown and failing.
+  static bool get _torrentsAvailable => !kIsWeb && Platform.isAndroid;
+
   final List<AlternateSource> _found = [];
   StreamSubscription<AlternateSource>? _sub;
   bool _searching = true;
@@ -118,6 +135,7 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
       source: source,
       episodeNumber: widget.episodeNumber,
       headers: widget.headers,
+      resumeAt: widget.resumeAt,
     );
     if (!mounted) return;
     if (args == null) {
@@ -212,6 +230,24 @@ class _AlternateSourceSheetState extends State<AlternateSourceSheet> {
                             icon: const Icon(Icons.travel_explore_rounded, size: 18),
                             label: Text('player.alt_search_all'.tr()),
                           ),
+                          // The last resort, and this is the moment for it: a
+                          // source just failed and none of the others has the
+                          // title either. Offering torrents earlier would push
+                          // people onto BitTorrent for something that streams
+                          // fine; offering nothing here leaves them at a dead
+                          // end.
+                          if (_torrentsAvailable)
+                            TextButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                context.push('/torrents', extra: widget.title);
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.white70,
+                              ),
+                              icon: const Icon(Icons.hub_rounded, size: 18),
+                              label: Text('search.try_torrents'.tr()),
+                            ),
                         ],
                       ],
                     ),

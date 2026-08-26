@@ -55,7 +55,7 @@ class _DownloadsSectionState extends State<DownloadsSection> {
         children: [
           // Padding inside the InkWell — outside it the tap target was only as
           // tall as the title text.
-          InkWell(
+          HomeSectionTapTarget(
             onTap: () => context.push('/downloads'),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),

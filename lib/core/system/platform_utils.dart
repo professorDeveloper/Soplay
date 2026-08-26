@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart' show PlatformInfo;
 import 'package:flutter/services.dart';
 
 /// Resolved once at startup by [initTvPlatform]. Never mutated afterwards.
@@ -45,49 +46,19 @@ void debugSetTvPlatform(bool value) {
   _tvResolved = true;
 }
 
-/// Resolved once at startup by [initNativeGlass]. Never mutated afterwards.
-///
-/// False until resolved, so any read before it lands takes the Flutter-shader
-/// path the app already shipped.
-bool _nativeGlass = false;
-bool _nativeGlassResolved = false;
-
-const MethodChannel _liquidGlassChannel = MethodChannel('soplay/liquid_glass');
-
-/// True only where the OS can provide real Liquid Glass — iOS 26+, in a binary
-/// actually built against the iOS 26 SDK.
-///
-/// Both halves of that matter. Checking the OS version from Dart would answer
-/// yes on an iOS 26 device running a build made with an older Xcode, where
-/// `UIGlassEffect` simply does not exist in the binary — and the app would ship
-/// a navigation bar that renders as a transparent hole. Only the native side
-/// can see whether the class is there, so only the native side is asked.
-bool get supportsNativeLiquidGlass => _nativeGlass;
-
-/// Resolve [supportsNativeLiquidGlass] once, alongside [initTvPlatform].
-///
-/// Idempotent, never throws, and returns immediately off iOS. Any failure
-/// leaves the flag false, i.e. today's behaviour.
-Future<void> initNativeGlass() async {
-  if (_nativeGlassResolved) return;
-  _nativeGlassResolved = true;
-  if (kIsWeb || !Platform.isIOS) return;
-  try {
-    _nativeGlass =
-        await _liquidGlassChannel.invokeMethod<bool>('isAvailable') ?? false;
-  } catch (_) {
-    _nativeGlass = false;
-  }
-}
-
 /// Where the app has to *emulate* glass with Flutter shaders.
 ///
 /// This is the axis the shader runtime should have been gated on all along.
-/// `isMobilePlatform` answers "is this a phone", which is the right question
+/// [isMobilePlatform] answers "is this a phone", which is the right question
 /// for layout and the wrong one for "do we need a GLSL glass pipeline" — on
-/// iOS 26 the system provides the material, so compiling shaders and wrapping
-/// the whole app in an adaptive-quality scope is pure cost for a worse result.
-bool get usesFlutterGlass => isMobilePlatform && !supportsNativeLiquidGlass;
+/// iOS 26 the bottom bar is a real `UITabBar` drawn by UIKit, so compiling
+/// shaders and wrapping the whole app in an adaptive-quality scope would be
+/// pure cost for a worse result.
+///
+/// iOS 25 and below still fall through to the Flutter capsule, so they are
+/// deliberately *not* excluded.
+bool get usesFlutterGlass =>
+    isMobilePlatform && !(Platform.isIOS && PlatformInfo.isIOS26OrHigher());
 
 bool get isDesktopPlatform =>
     !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);

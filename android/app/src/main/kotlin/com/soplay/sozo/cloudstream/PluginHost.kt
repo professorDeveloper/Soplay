@@ -65,15 +65,27 @@ class PluginHost(private val appContext: Context) {
     data class Meta(
         val provider: String, val icon: String?, val internalName: String,
         val cs3Path: String, val repo: String? = null,
+        /**
+         * Source language, from the repo's plugin list (`language`).
+         *
+         * Taken there rather than from `MainAPI.lang`, which would be the exact
+         * answer, because reading it means loading the .cs3 — and the whole
+         * point of this metadata is that the provider list is built WITHOUT
+         * loading a single plugin. The repo's own tag is what CloudStream
+         * itself labels a plugin with, and French/Spanish/Arabic packs are the
+         * ones that publish it accurately, which is precisely the case that
+         * needs it. Empty means the repo did not say.
+         */
+        val lang: String = "",
     )
     private val metas = LinkedHashMap<String, Meta>()
 
     /** Register provider metadata WITHOUT loading the plugin (startup path). */
     fun registerMeta(
         provider: String, icon: String?, internalName: String,
-        cs3Path: String, repo: String? = null,
+        cs3Path: String, repo: String? = null, lang: String = "",
     ) {
-        metas[provider] = Meta(provider, icon, internalName, cs3Path, repo)
+        metas[provider] = Meta(provider, icon, internalName, cs3Path, repo, lang)
         if (!icon.isNullOrEmpty()) providerIcons[provider] = icon
     }
 
@@ -82,7 +94,7 @@ class PluginHost(private val appContext: Context) {
         val m = metas[provider] ?: return
         if (loaded.containsKey(m.internalName)) return
         val f = File(m.cs3Path)
-        if (f.exists()) loadCs3(f, m.internalName, m.icon)
+        if (f.exists()) loadCs3(f, m.internalName, m.icon, m.repo, m.lang)
     }
 
     private data class Manifest(
@@ -103,7 +115,10 @@ class PluginHost(private val appContext: Context) {
     }
 
     /** Load a downloaded .cs3; returns the provider names it registered. */
-    fun loadCs3(file: File, internalName: String, iconUrl: String? = null, repo: String? = null): List<String> {
+    fun loadCs3(
+        file: File, internalName: String, iconUrl: String? = null,
+        repo: String? = null, lang: String = "",
+    ): List<String> {
         // Already loaded this process → don't register twice (avoids duplicates).
         loaded[internalName]?.let { return pluginProviders[internalName] ?: emptyList() }
         return try {
@@ -135,7 +150,7 @@ class PluginHost(private val appContext: Context) {
 
             val added = APIHolder.allProviders.map { it.name }.filter { it !in before }
             pluginProviders[internalName] = added
-            added.forEach { metas[it] = Meta(it, iconUrl, internalName, file.absolutePath, repo) }
+            added.forEach { metas[it] = Meta(it, iconUrl, internalName, file.absolutePath, repo, lang) }
             if (!iconUrl.isNullOrEmpty()) added.forEach { providerIcons[it] = iconUrl }
             Log.i(TAG, "loaded ${file.name}: providers=$added")
             added
@@ -189,6 +204,10 @@ class PluginHost(private val appContext: Context) {
             arr.put(JSONObject().apply {
                 put("id", "cs:${m.provider}")
                 put("name", m.provider)
+                // The other three hosts have always sent this; CloudStream was
+                // the one that did not, so its providers arrived in the picker
+                // with no language at all and could not be filtered.
+                if (m.lang.isNotEmpty()) put("lang", m.lang)
                 m.icon?.let { put("icon", it) }
                 m.repo?.let { if (it.isNotEmpty()) put("repo", it) }
             })

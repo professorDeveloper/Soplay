@@ -9,6 +9,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dart_cast/dart_cast.dart';
+import 'package:soplay/core/cast/cast_controller.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/diagnostics/log_viewer_sheet.dart';
 import 'package:soplay/core/diagnostics/player_log.dart';
@@ -59,6 +61,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:soplay/core/player/media_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:soplay/features/history/data/history_sync_service.dart';
+import 'package:soplay/features/live_tv/presentation/widgets/live_guide_sheet.dart';
 import 'package:soplay/core/torrent/torrent_engine.dart';
 import 'package:soplay/core/torrent/torrent_stream_url.dart';
 import 'package:soplay/features/torrent/presentation/torrent_playback.dart';
@@ -74,6 +77,7 @@ part 'player_page.gestures.dart';
 part 'player_page.history.dart';
 part 'player_page.pip.dart';
 part 'player_page.sleep.dart';
+part 'player_page.cast.dart';
 part 'player_page.aniskip.dart';
 part 'player_page.party.dart';
 part 'player_page.tv.dart';
@@ -198,6 +202,13 @@ class _PlayerPageState extends State<PlayerPage>
   List<String> _serverLangs = const [];
 
   List<SubtitleEntity> _subtitles = const [];
+
+  /// Owned by the page, not a singleton.
+  ///
+  /// A cast session belongs to the thing being watched. Leaving one alive after
+  /// the player closes would keep a television playing an episode the app has
+  /// forgotten, with no screen left that can stop it.
+  final CastController _cast = CastController();
   int _activeSubtitleIndex = -1;
 
   /// Cues for the active track, already sorted by start time — see
@@ -416,9 +427,13 @@ class _PlayerPageState extends State<PlayerPage>
 
   @override
   void dispose() {
-    // Before anything else: stop seeding. Fire-and-forget because dispose
-    // cannot await, and the request is a localhost round trip that completes
-    // long before the process would care.
+    // A television left playing an episode the app has forgotten has no screen
+    // left that can stop it, so the session goes before anything else can throw
+    // and skip this.
+    _cast.dispose();
+    // Then stop seeding. Fire-and-forget because dispose cannot await, and the
+    // request is a localhost round trip that completes long before the process
+    // would care.
     final torrentHash = _torrentHash;
     if (torrentHash != null) {
       _torrentEngine.drop(torrentHash).whenComplete(_torrentEngine.dispose);
@@ -531,6 +546,11 @@ class _PlayerPageState extends State<PlayerPage>
                   if (!_locked) _buildSkipButton(),
                   if (!_locked && _panel != _SidePanel.none) _buildSidePanel(),
                   if (!_locked && _inParty) _buildPartyReactionsLayer(),
+                  // Last, so it covers everything: while a television is
+                  // playing this episode the phone is a remote, and leaving the
+                  // local controls reachable underneath would let someone
+                  // scrub a surface nobody is watching.
+                  _buildCastOverlay(),
                 ],
               ),
             )),

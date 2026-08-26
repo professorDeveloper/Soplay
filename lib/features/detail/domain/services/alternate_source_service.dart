@@ -144,6 +144,7 @@ class AlternateSourceService {
     required AlternateSource source,
     required int? episodeNumber,
     required Map<String, String> headers,
+    Duration resumeAt = Duration.zero,
   }) async {
     final playback = (await _episodes(
       source.item.url,
@@ -171,6 +172,11 @@ class AlternateSourceService {
         thumbnail: source.item.thumbnail,
         episodes: episodes,
         initialEpisodeIndex: index,
+        // Switching source mid-episode should not restart it. The new provider
+        // is a different file behind the same minute of the same show, so the
+        // position carries over — that is the whole point of switching rather
+        // than going back and starting again.
+        resumePosition: resumeAt,
       );
     }
 
@@ -183,6 +189,7 @@ class AlternateSourceService {
       thumbnail: source.item.thumbnail,
       videoSources: List.of(playback.videoSources),
       movieUrl: playback.playerSrc,
+      resumePosition: resumeAt,
     );
   }
 

@@ -20,6 +20,7 @@ import android.provider.Settings
 import androidx.annotation.RequiresApi
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONArray
 import org.json.JSONObject
@@ -381,9 +382,9 @@ class MainActivity : FlutterFragmentActivity() {
         )
         aniyomiChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
-                "listProviders" -> csAsync(result) { aniyomiHost.providersJson() }
+                "listProviders" -> csAsync(result) { aniyomiHost.providersJson(call.langs()) }
                 "ensureLoaded" -> csAsync(result) {
-                    aniyomiRepoManager.ensureLoaded(); aniyomiHost.providersJson()
+                    aniyomiRepoManager.ensureLoaded(); aniyomiHost.providersJson(call.langs())
                 }
                 "listRepos" -> csAsync(result) { aniyomiRepoManager.listReposJson() }
                 "removeRepo" -> {
@@ -474,9 +475,9 @@ class MainActivity : FlutterFragmentActivity() {
         )
         mangaChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
-                "listProviders" -> csAsync(result) { mangaHost.providersJson() }
+                "listProviders" -> csAsync(result) { mangaHost.providersJson(call.langs()) }
                 "ensureLoaded" -> csAsync(result) {
-                    mangaRepoManager.ensureLoaded(); mangaHost.providersJson()
+                    mangaRepoManager.ensureLoaded(); mangaHost.providersJson(call.langs())
                 }
                 "listRepos" -> csAsync(result) { mangaRepoManager.listReposJson() }
                 "removeRepo" -> {
@@ -1046,4 +1047,15 @@ class MainActivity : FlutterFragmentActivity() {
             pipReceiver = null
         }
     }
+
+    /**
+     * The picker's language row, as the call carried it.
+     *
+     * Passed per call rather than stored on the Android side: it lives in Hive
+     * and changes from a chip tap, and a second copy in SharedPreferences is a
+     * second thing to keep in sync for no benefit. An absent or empty list is
+     * the no-preference default and collapses exactly as this always did.
+     */
+    private fun MethodCall.langs(): List<String> =
+        argument<List<*>>("languages")?.mapNotNull { it?.toString() } ?: emptyList()
 }

@@ -24,7 +24,8 @@
     "see_all": "Hammasini ko'rish",
     "unknown": "Noma'lum",
     "off": "O‘chiq",
-    "on": "Yoniq"
+    "on": "Yoniq",
+    "new_badge": "YANGI"
   },
   "auth": {
     "login": "Kirish",
@@ -246,7 +247,17 @@
     "alt_none": "Bu nomni boshqa manba topmadi",
     "alt_failed": "Bu manbani ochib bo‘lmadi",
     "alt_no_episode": "Bu manbada {}-qism yo‘q",
-    "alt_search_all": "Barcha manbalarda qidirish"
+    "alt_search_all": "Barcha manbalarda qidirish",
+    "guide": "Dastur",
+    "change_source": "Manbani almashtirish",
+    "cast": "Televizorga uzatish",
+    "cast_to": "Qayerga uzatilsin",
+    "cast_searching": "Shu Wi-Fi dagi qurilmalar qidirilmoqda…",
+    "cast_none": "Qurilma topilmadi. Televizor telefon bilan bir xil Wi-Fi da bo‘lishi kerak.",
+    "cast_failed": "{} ga ulanib bo‘lmadi",
+    "cast_unsupported": "Bu oqimni uzatib bo‘lmaydi",
+    "cast_active": "{} da ijro etilmoqda",
+    "cast_stop": "Uzatishni to‘xtatish"
   },
   "profile": {
     "title": "Profil",
@@ -327,8 +338,8 @@
     "nav_style_solid": "Oddiy",
     "nav_style_classic": "Klassik",
     "section_player": "Pleyer",
-    "player_engine_default": "Standart",
-    "player_engine_default_desc": "O'rnatilgan pleyer. Batareya uchun eng yaxshi va apparatli dekodlash. Audio yo'llarni almashtira olmaydi.",
+    "player_engine_native": "Tizim pleyeri",
+    "player_engine_native_desc": "Platforma pleyeri. Batareya uchun eng yaxshi va apparatli dekodlash. Audio yo'llarni almashtira olmaydi.",
     "player_engine_media_kit": "media_kit",
     "player_engine_media_kit_desc": "Ko'proq formatlarni qo'llab-quvvatlaydi hamda audio va subtitr yo'llarini almashtirish imkonini beradi. Batareyani biroz ko'proq sarflaydi.",
     "player_engine_external": "Tashqi pleyer",
@@ -376,7 +387,8 @@
     "auto_skip_intro": "Openingni avtomatik o‘tkazish",
     "auto_skip_intro_desc": "Anime opening va endinglarini so‘ramasdan o‘tkazish",
     "incognito_active": "Incognito yoniq. Ko‘rganlaringiz tarixga yozilmaydi va AniList/MAL ga yuborilmaydi.",
-    "incognito_turn_off": "O‘chirish"
+    "incognito_turn_off": "O‘chirish",
+    "all_languages": "Barcha tillar"
   },
   "appearance": {
     "title": "Ko'rinish",
@@ -1273,7 +1285,9 @@
     "channel_count": {
       "one": "{} kanal",
       "other": "{} kanal"
-    }
+    },
+    "up_next": "KEYINGI",
+    "minutes_left": "{} daqiqa qoldi"
   },
   "time": {
     "now": "hozirgina",
@@ -1364,5 +1378,35 @@
     "export_failed": "Zaxira yaratib bo‘lmadi",
     "restore_failed": "Zaxirani o‘qib bo‘lmadi",
     "file_subject": "Sozo zaxirasi"
+  },
+  "provider_test": {
+    "title": "Manbalarni tekshirish",
+    "intro": "Haqiqiy qidiruv qiladi, taytl ochadi va CDN dan birinchi baytlarni so‘raydi. Natija shu qurilma va shu tarmoq uchun, hozirgi holatda.",
+    "summary": "{} tadan {} tasi ijro bo‘ldi",
+    "run_all": "Hammasini tekshirish",
+    "run_one": "Tekshirish",
+    "stop": "To‘xtatish",
+    "stage_catalogue": "Katalog",
+    "stage_detail": "Taytl",
+    "stage_stream": "Havola",
+    "stage_playback": "Ijro",
+    "entry": "Manbalarni tekshirish"
+  },
+  "catalog": {
+    "title": "Til bo‘yicha manbalar",
+    "subtitle": "To‘rt ekotizimdagi barcha kengaytma manbalari",
+    "type_all": "Hammasi",
+    "type_anime": "Anime",
+    "type_video": "Kino va seriallar",
+    "type_manga": "Manga",
+    "type_novel": "Novella",
+    "add_repo": "Qo‘shish",
+    "installed": "{} ta manba qo‘shildi ({})",
+    "install_empty": "Bu repozitoriyda o‘rnatiladigan narsa yo‘q.",
+    "install_failed": "O‘rnatib bo‘lmadi: {}",
+    "needs_js": "Dart manbasi — bu yerda ishlamaydi",
+    "android_only": "Faqat Android",
+    "empty": "Hozircha bo‘sh. Boshqa tilni tanlang yoki filtrlarni olib tashlang.",
+    "unreachable": "Manbalar katalogiga ulanib bo‘lmadi."
   }
 }

@@ -25,6 +25,36 @@ class CfBypassService {
     return future;
   }
 
+  /// Whatever [host]'s zone currently holds in the shared WebView cookie jar,
+  /// as a `Cookie:` header — or null when there is no clearance in it.
+  ///
+  /// [solve] earns one headlessly and hands it straight back, so nothing else
+  /// has needed to read the jar. A challenge that wants a *person* — a
+  /// checkbox, a captcha — cannot be answered that way, and the interactive
+  /// `CloudflareSolverPage` earns it in a visible WebView instead. The jar is
+  /// the only trace that leaves; this is how the value reaches a caller that
+  /// keeps cookies of its own.
+  Future<String?> readClearance(String host) async {
+    try {
+      final cookies =
+          await CookieManager.instance().getCookies(url: WebUri('https://$host/'));
+      final hasClearance = cookies.any(
+        (c) => c.name == 'cf_clearance' && '${c.value}'.isNotEmpty,
+      );
+      return hasClearance ? _cookieHeader(cookies) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The jar as one `Cookie:` header. Everything in it travels together —
+  /// Cloudflare pairs cf_clearance with the `__cf_bm` and `_cfuvid` it was
+  /// issued alongside, and sending the clearance on its own gets it refused.
+  static String _cookieHeader(List<Cookie> cookies) => cookies
+      .where((c) => '${c.value}'.isNotEmpty)
+      .map((c) => '${c.name}=${c.value}')
+      .join('; ');
+
   /// Drive a headless WebView until Cloudflare hands out a clearance.
   ///
   /// Written as a plain loop that returns its answer directly. It used to hang
@@ -153,10 +183,7 @@ class CfBypassService {
         // yield is what lets it drain before the value is delivered. One tick
         // against a solve that already took seconds.
         await _yield();
-        return cookies
-            .where((c) => '${c.value}'.isNotEmpty)
-            .map((c) => '${c.name}=${c.value}')
-            .join('; ');
+        return _cookieHeader(cookies);
       }
       JsLog.err('cf', 'no cf_clearance for $host after ${timeout.inSeconds}s');
       await _yield();

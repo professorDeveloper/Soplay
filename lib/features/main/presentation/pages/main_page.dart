@@ -3,9 +3,11 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
+// Narrow on purpose: the package exports its own `BlurStyle`, which shadows
+// Flutter's and broke the capsule's shadow at a distance from this line.
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart'
+    show AdaptiveNavigationDestination, IOS26NativeTabBar, PlatformInfo;
 import 'package:flutter/material.dart';
-// PlatformViewHitTestBehavior — the native bar must not swallow tab touches.
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
@@ -415,12 +417,24 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                               );
                             }
                             // Glass / Solid: a floating capsule inset 16 each side.
+                            final nativeIosBar = PlatformInfo.isIOS &&
+                                PlatformInfo.isIOS26OrHigher();
                             return Padding(
                               padding: EdgeInsets.fromLTRB(
                                 16,
                                 0,
                                 16,
-                                MediaQuery.paddingOf(context).bottom + 12,
+                                // The native bar reserves the home-indicator
+                                // inset itself: the package sizes it from
+                                // `UITabBar.sizeThatFits`, and a UITabBar folds
+                                // the bottom safe area into that height. Adding
+                                // the inset again here counted it twice and
+                                // floated the bar a safe area's worth too high,
+                                // leaving a gap under it. The Flutter capsule
+                                // has no such notion and still needs it.
+                                nativeIosBar
+                                    ? 12
+                                    : MediaQuery.paddingOf(context).bottom + 12,
                               ),
                               // A fixed 16dp inset is a capsule on a phone and a
                               // full-width band on a foldable or a tablet, where
@@ -430,17 +444,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                                 child: ConstrainedBox(
                                   constraints:
                                       const BoxConstraints(maxWidth: 480),
-                                  // iOS 26+ gets the system's own material;
+                                  // iOS 26+ gets the system's own tab bar;
                                   // everywhere else keeps the shader capsule.
                                   // `classic` is handled above and is an
                                   // explicit user choice on every platform.
-                                  child: supportsNativeLiquidGlass
+                                  child: nativeIosBar
                                       ? _SoplayNativeGlassBar(
                                           index: _index,
                                           items: defs,
-                                          glass: style == NavPrefs.glass,
-                                          shortsShowcaseKey:
-                                              _shortsRefreshShowcaseKey,
                                           onTabSelected: _handleTabTap,
                                         )
                                       : _SoplayGlassCapsule(
@@ -715,9 +726,6 @@ class _SoplayGlassCapsule extends StatelessWidget {
             index: index,
             onTabSelected: onTabSelected,
             shortsShowcaseKey: shortsShowcaseKey,
-            // The package is handling touches underneath; this layer must stay
-            // transparent to them.
-            handlePointers: false,
           ),
         ),
       ],
@@ -725,239 +733,162 @@ class _SoplayGlassCapsule extends StatelessWidget {
   }
 }
 
-/// The bottom nav on iOS 26+, backed by the system's own Liquid Glass.
+/// The bottom nav on iOS 26+: a real `UITabBar`, drawn by UIKit.
 ///
-/// ## Why a platform view and not the shader capsule
+/// ## Why the platform's own bar and not a glass surface under Flutter widgets
 ///
-/// Nothing in the Flutter stack can produce real Liquid Glass. Flutter's
-/// `CupertinoTabBar` is still `DecoratedBox` + `BackdropFilter`, the shipped
-/// engine binary carries no `UIGlassEffect` symbols, and `liquid_glass_widgets`
-/// is pure Dart + GLSL with no iOS side at all. So on iOS the app was
-/// *emulating* a material the OS already provides — an approximation that can
-/// never quite match, paid for with a shader and a 270-frame quality benchmark.
+/// Two earlier attempts got this wrong in the same way. The first drew a native
+/// glass background with a Flutter pill on top — a flat rectangle over real
+/// glass, which reads as a sticker. The second made the indicator glass too and
+/// morphed it by hand. Both were rebuilding, badly, something the system
+/// already ships: on iOS 26 a plain `UITabBar` *is* Liquid Glass, with the
+/// selection indicator, its liquid morph, the scrub gesture, the haptics, the
+/// minimise-on-scroll behaviour and VoiceOver all included and all correct.
 ///
-/// Here UIKit draws the material and Flutter draws everything else. The tab
-/// row, its hit targets, its semantics and the Shorts coach-mark are the exact
-/// same widgets the Android capsule uses ([_CapsuleTabTarget]); only what is
-/// behind them differs. That is deliberate — one behaviour, two materials, so a
-/// fix to tab handling cannot land on one platform and miss the other.
-class _SoplayNativeGlassBar extends StatefulWidget {
+/// So the app stops drawing an iOS tab bar and asks for one.
+/// [IOS26NativeTabBar] from `adaptive_platform_ui` is that request: a
+/// `UiKitView` over a real `UITabBar`, which is the approach the package's
+/// author documents and the reason it exists.
+///
+/// ## Icons
+///
+/// UIKit wants SF Symbols, not Material glyphs, so [_sfSymbol] maps the app's
+/// tabs by [TabId] — the ids are stable, the [IconData] are not. A tab with no
+/// mapping falls back to a neutral symbol rather than crashing the bar.
+class _SoplayNativeGlassBar extends StatelessWidget {
   const _SoplayNativeGlassBar({
     required this.index,
     required this.items,
-    required this.glass,
-    required this.shortsShowcaseKey,
     required this.onTabSelected,
   });
 
   final int index;
   final List<AppTabDef> items;
-
-  /// The user's Appearance choice still applies: `glass` asks the system for
-  /// the interactive material, `solid` for a plain dark pad. The setting keeps
-  /// its meaning on iOS 26, so nothing needs migrating.
-  final bool glass;
-
-  final GlobalKey shortsShowcaseKey;
   final ValueChanged<int> onTabSelected;
 
-  @override
-  State<_SoplayNativeGlassBar> createState() => _SoplayNativeGlassBarState();
-}
-
-class _SoplayNativeGlassBarState extends State<_SoplayNativeGlassBar> {
-  /// Where the finger is during a drag, in fractional tab units.
+  /// SF Symbol names for the app's tabs.
   ///
-  /// Forwarded straight to UIKit so the glass indicator sits *under* the
-  /// finger while it moves, then springs to the settled tab on release. Without
-  /// the fractional value a slow swipe shows nothing until it crosses a
-  /// boundary, and the gesture reads as broken.
-  final ValueNotifier<double?> _dragPosition = ValueNotifier<double?>(null);
-
-  /// Per-view channel, bound once the platform view exists.
-  MethodChannel? _channel;
-
-  static const double _barHeight = 62;
-  static const String _viewType = 'soplay/liquid_glass_view';
-
-  @override
-  void initState() {
-    super.initState();
-    _dragPosition.addListener(_onDragChanged);
-  }
-
-  @override
-  void didUpdateWidget(_SoplayNativeGlassBar old) {
-    super.didUpdateWidget(old);
-    // A tap, or a drag that crossed into a new tab: spring to it.
-    if (old.index != widget.index && _dragPosition.value == null) {
-      _push(widget.index.toDouble(), animated: true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _dragPosition
-      ..removeListener(_onDragChanged)
-      ..dispose();
-    super.dispose();
-  }
-
-  void _onDragChanged() {
-    final drag = _dragPosition.value;
-    // Null means the finger lifted — settle on whatever is now selected.
-    _push(drag ?? widget.index.toDouble(), animated: drag == null);
-  }
-
-  void _onViewCreated(int id) {
-    _channel = MethodChannel('${_viewType}_$id');
-    _push(widget.index.toDouble(), animated: false);
-  }
-
-  void _push(double selection, {required bool animated}) {
-    _channel?.invokeMethod<void>('setSelection', <String, dynamic>{
-      'selection': selection,
-      'tabCount': widget.items.length,
-      'animated': animated,
-    });
-  }
+  /// Keyed on [TabId] rather than on the Material icon: the ids are the stable
+  /// contract, and a redesign that swaps an icon must not silently blank the
+  /// iOS bar.
+  static ({String icon, String selected}) _sfSymbol(TabId id) => switch (id) {
+        TabId.home => (icon: 'house', selected: 'house.fill'),
+        TabId.search => (icon: 'magnifyingglass', selected: 'magnifyingglass'),
+        TabId.shorts => (
+            icon: 'play.rectangle',
+            selected: 'play.rectangle.fill'
+          ),
+        TabId.myList => (icon: 'bookmark', selected: 'bookmark.fill'),
+        TabId.profile => (icon: 'person', selected: 'person.fill'),
+        TabId.downloads => (
+            icon: 'arrow.down.circle',
+            selected: 'arrow.down.circle.fill'
+          ),
+        TabId.history => (icon: 'clock', selected: 'clock.fill'),
+        TabId.following => (icon: 'heart', selected: 'heart.fill'),
+        TabId.buff => (icon: 'sparkles', selected: 'sparkles'),
+        TabId.liveTv => (icon: 'tv', selected: 'tv.fill'),
+      };
 
   @override
   Widget build(BuildContext context) {
-    final items = widget.items;
-    final index = widget.index;
-    final selectedColor =
-        AppColors.isNavTinted ? AppColors.primaryLight : Colors.white;
+    // Hidden while another route is ARRIVING or fully arrived over the shell —
+    // never while one is leaving.
+    //
+    // Liquid Glass samples what sits behind it in the *native* view hierarchy.
+    // During a route transition the Flutter content behind this bar is being
+    // re-composited into different layers, so for a few frames the material
+    // has nothing readable to sample. `hidden` is the package's own answer to
+    // this: its doc puts it in terms of modal sheets, but the cause is the same
+    // platform-view compositing. It drives `container.isHidden` natively and
+    // does not touch the Flutter layout, so nothing moves.
+    //
+    // The half that matters is WHEN THE UNHIDE IS ASKED FOR. `!isDismissed`
+    // asked for it on the pop's *last* frame, and `setHidden` is an async
+    // platform-channel round-trip: the bar stayed off screen for however long
+    // that took to land, on a platform thread that has just been handed a
+    // screenful of posters to decode. Coming back to Home that gap was long
+    // enough to read as "the tab bar is gone", and taps in that window hit
+    // nothing. Keying on the status asks for it the moment the pop STARTS
+    // instead, which hands the channel the whole ~350ms of the transition —
+    // and the outgoing page is still covering the bar for nearly all of it.
+    final covering =
+        ModalRoute.of(context)?.secondaryAnimation ?? kAlwaysDismissedAnimation;
 
-    return SizedBox(
-      height: _barHeight,
-      child: Stack(
-        children: [
-          // The bar AND its selection indicator, both native glass. Flutter
-          // does not draw a pill here at all: a flat rectangle laid over real
-          // glass reads as a sticker, and it can never do the thing that makes
-          // the material what it is — two glass shapes merging and separating
-          // like liquid as they approach.
-          Positioned.fill(
-            child: UiKitView(
-              viewType: _viewType,
-              onPlatformViewCreated: _onViewCreated,
-              // Transparent, not opaque: the material is decoration and every
-              // touch belongs to the Flutter tab layer above it. The native
-              // view also disables its own interaction, so this is belt and
-              // braces on the one thing that would silently break the bar.
-              hitTestBehavior: PlatformViewHitTestBehavior.transparent,
-              // No tint is passed, deliberately. `UIGlassEffect.tintColor`
-              // recolours the material rather than washing over it, so handing
-              // it the app's opaque accent turned the whole bar into a flat
-              // purple slab and threw the effect away. The accent still reads
-              // here: the selected icon and label are drawn by Flutter on top,
-              // exactly as on Android, so "Colour the tab bar" keeps working
-              // without repainting the glass.
-              creationParams: <String, dynamic>{
-                'cornerRadius': _barHeight / 2,
-                'interactive': widget.glass,
-                'tabCount': items.length,
-                'selection': index.toDouble(),
-              },
-              creationParamsCodec: const StandardMessageCodec(),
-            ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Row(
-                children: [
-                  for (var i = 0; i < items.length; i++)
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            i == index ? items[i].activeIcon : items[i].icon,
-                            size: 22,
-                            color: i == index
-                                ? selectedColor
-                                : const Color(0xFF949494),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            items[i].labelKey.tr(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: MediaQuery.textScalerOf(context)
-                                  .clamp(maxScaleFactor: 1.2)
-                                  .scale(10.5),
-                              fontWeight: FontWeight.w600,
-                              color: i == index
-                                  ? selectedColor
-                                  : const Color(0xFF949494),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
+    return MediaQuery(
+      // The packaged bar takes its UIKit interface style from
+      // `MediaQuery.platformBrightness` and pushes it to the native container
+      // as `overrideUserInterfaceStyle`. That is the *phone's* Light/Dark
+      // switch, not the app's — and Sozo has exactly one theme, pinned to
+      // ThemeMode.dark. On a phone set to Light the system therefore drew a
+      // light Liquid Glass bar: a white capsule with black labels, floating
+      // under a black app. On iOS 26 the package configures no appearance at
+      // all (`isTranslucent` + direct properties only), so the interface style
+      // is the only lever there is — `unselectedItemTint` and friends are
+      // dropped on that path.
+      //
+      // ios/Runner/Info.plist pins `UIUserInterfaceStyle` to Dark for the same
+      // reason and covers every other native surface (keyboard, share sheet,
+      // alerts). This states it again at the one call site whose *rendering*
+      // depends on it, so the bar cannot silently go white again if the app
+      // ever stops forcing the trait collection.
+      data: MediaQuery.of(context)
+          .copyWith(platformBrightness: Brightness.dark),
+      child: AnimatedBuilder(
+        animation: covering,
+        builder: (context, _) => IOS26NativeTabBar(
+          hidden: covering.status == AnimationStatus.forward ||
+              covering.status == AnimationStatus.completed,
+          destinations: [
+            for (final item in items)
+              AdaptiveNavigationDestination(
+                icon: _sfSymbol(item.id).icon,
+                selectedIcon: _sfSymbol(item.id).selected,
+                label: item.labelKey.tr(),
               ),
-            ),
-          ),
-          Positioned.fill(
-            child: _CapsuleTabLayer(
-              items: items,
-              index: index,
-              onTabSelected: widget.onTabSelected,
-              shortsShowcaseKey: widget.shortsShowcaseKey,
-              // A UIKit visual effect view draws no tabs and handles no
-              // touches, so here the layer really is the input.
-              handlePointers: true,
-              dragPosition: _dragPosition,
-            ),
-          ),
-        ],
+          ],
+          selectedIndex: index,
+          onTap: onTabSelected,
+          // The accent applies to the selected item only; the material itself is
+          // left alone. Tinting the glass recolours it rather than washing over
+          // it, which is how an earlier version turned the whole bar into a flat
+          // slab.
+          tint: AppColors.isNavTinted ? AppColors.primary : null,
+        ),
       ),
     );
   }
 }
 
-/// Taps, drag-to-switch and semantics for a capsule bar.
+/// Per-tab semantics for a capsule bar, laid over the drawn material.
 ///
-/// Sits above whichever material is drawn beneath it — the Android shader
-/// capsule or the iOS native glass — so both platforms get identical tab
-/// behaviour and a fix to one cannot miss the other.
+/// ## Why the app supplies these instead of the package
 ///
-/// ## Why the app owns the gesture instead of the package
+/// Every tab in the packaged bar is built with `onTap: null`, so its semantics
+/// node advertises button+selected while carrying no tap action. TalkBack fell
+/// through to the bar-level node, whose synthesized tap lands at the render
+/// object's centre — so it always selected the middle tab, whichever one the
+/// user asked for. The masking path also mounts both tab layers at once and
+/// marks a *range* selected, which produced 6-9 nodes for a 5-tab bar with up
+/// to three wrongly announced as selected.
 ///
-/// The packaged bar routed a discrete tap through its horizontal-*drag* remap,
-/// which places the slot boundaries at 26/42/58/74% of the bar instead of
-/// 20/40/60/80%. The outer ~27% of the 2nd and 4th tabs opened the neighbour's
-/// page. It also committed on `onTapDown` — sliding off never cancelled — and a
-/// press-then-drag fired the callback twice with two different index formulas.
-/// And every tab was built with `onTap: null`, so its semantics node advertised
-/// button+selected while carrying no tap action: TalkBack fell through to the
-/// bar-level node, whose synthesized tap lands at the render object's centre,
-/// so it always selected the middle tab whichever one the user asked for.
+/// So the packaged bar goes inside `ExcludeSemantics` and this supplies one
+/// correct, activatable node per tab.
 ///
-/// ## Why pointers are only taken on iOS
-///
-/// Owning the gesture also fixed the hit-region arithmetic — but it cost the
-/// drag *feel*. While you slide a finger along the packaged bar it moves its
-/// indicator continuously, and that cannot be driven from outside: the only
-/// input the widget takes is `selectedIndex`, an int, so an app-owned gesture
-/// can do nothing but snap between whole tabs. A slow swipe then looks like
-/// nothing is happening.
-///
-/// So on Android the package keeps the pointers and this layer is semantics
-/// only. On iOS the material underneath is a UIKit effect view that draws no
-/// tabs and handles no touches, so there the layer really is the input and
-/// carries a reimplemented drag.
-class _CapsuleTabLayer extends StatefulWidget {
+/// Pointers are deliberately *not* taken. Owning them would fix the package's
+/// hit-region arithmetic too, but it costs the drag: while you slide a finger
+/// along the bar the package moves its indicator continuously, and that cannot
+/// be driven from outside — the only input the widget takes is `selectedIndex`,
+/// an int, so an app-owned gesture can do nothing but snap between whole tabs.
+/// A slow swipe then looks like nothing is happening. This layer therefore
+/// takes no pointers at all: `Semantics` over an empty `SizedBox` is not a hit
+/// target, so touches pass straight through to the bar beneath.
+class _CapsuleTabLayer extends StatelessWidget {
   const _CapsuleTabLayer({
     required this.items,
     required this.index,
     required this.onTabSelected,
     required this.shortsShowcaseKey,
-    required this.handlePointers,
-    this.dragPosition,
   });
 
   final List<AppTabDef> items;
@@ -965,125 +896,21 @@ class _CapsuleTabLayer extends StatefulWidget {
   final ValueChanged<int> onTabSelected;
   final GlobalKey shortsShowcaseKey;
 
-  /// Whether this layer handles taps and drags, or only declares semantics.
-  ///
-  /// False where something underneath already handles input — the packaged
-  /// Android bar. The semantics row takes no pointers either way, so touches
-  /// fall straight through to it.
-  final bool handlePointers;
-
-  /// Live finger position during a drag, in fractional tab units, or null when
-  /// no drag is in progress.
-  ///
-  /// This is what lets an indicator follow the finger *between* tabs instead of
-  /// snapping at the boundaries. The packaged Android bar does that motion
-  /// itself and never sees this; the iOS bar draws its own pill and does.
-  final ValueNotifier<double?>? dragPosition;
-
-  @override
-  State<_CapsuleTabLayer> createState() => _CapsuleTabLayerState();
-}
-
-class _CapsuleTabLayerState extends State<_CapsuleTabLayer> {
-  /// Last index emitted during the current drag, so sliding across a tab emits
-  /// once per tab rather than once per pointer event.
-  int? _dragIndex;
-
-  /// Equal slots, which is the whole point — this is the arithmetic the package
-  /// got wrong.
-  int _indexAt(double dx, double width) {
-    if (width <= 0) return widget.index;
-    final slot = width / widget.items.length;
-    return (dx / slot).floor().clamp(0, widget.items.length - 1);
-  }
-
-  void _select(int i) {
-    if (i == widget.index) {
-      // A reselect is meaningful — it is what refreshes Shorts — so it is
-      // forwarded rather than swallowed.
-      widget.onTabSelected(i);
-      return;
-    }
-    widget.onTabSelected(i);
-  }
-
-  /// Publishes the finger's fractional position so an indicator can track it.
-  void _publish(double dx, double width) {
-    final n = widget.items.length;
-    if (width <= 0 || n == 0) return;
-    widget.dragPosition?.value =
-        (dx / (width / n) - 0.5).clamp(0.0, (n - 1).toDouble());
-  }
-
-  void _endDrag() {
-    _dragIndex = null;
-    // Back to the selected tab, which the indicator then animates to.
-    widget.dragPosition?.value = null;
-  }
-
-  void _onDrag(double dx, double width) {
-    _publish(dx, width);
-    final i = _indexAt(dx, width);
-    if (i == _dragIndex) return;
-    _dragIndex = i;
-    // Only a real change during a drag, so a slide does not re-fire the Shorts
-    // refresh on the tab it started from.
-    if (i != widget.index) {
-      HapticFeedback.selectionClick();
-      widget.onTabSelected(i);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        return Stack(
-          children: [
-            // Semantics only: one node per tab, each with a working tap action.
-            // These declare rects and actions; they take no pointers, so the
-            // gesture layer above still sees every touch.
-            Row(
-              children: [
-                for (var i = 0; i < widget.items.length; i++)
-                  Expanded(
-                    child: _CapsuleTabSlot(
-                      label: widget.items[i].labelKey.tr(),
-                      selected: i == widget.index,
-                      onTap: () => _select(i),
-                      showcaseKey: widget.items[i].id == TabId.shorts
-                          ? widget.shortsShowcaseKey
-                          : null,
-                    ),
-                  ),
-              ],
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++)
+          Expanded(
+            child: _CapsuleTabSlot(
+              label: items[i].labelKey.tr(),
+              selected: i == index,
+              onTap: () => onTabSelected(i),
+              showcaseKey:
+                  items[i].id == TabId.shorts ? shortsShowcaseKey : null,
             ),
-            // One gesture layer for the whole bar, when this layer is the
-            // input. Excluded from semantics so the per-tab nodes above stay
-            // the only ones a screen reader sees.
-            if (widget.handlePointers)
-              Positioned.fill(
-                child: ExcludeSemantics(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    // Commits on release, so a press can be slid off and
-                    // cancelled.
-                    onTapUp: (d) => _select(_indexAt(d.localPosition.dx, width)),
-                    onHorizontalDragStart: (d) {
-                      _dragIndex = _indexAt(d.localPosition.dx, width);
-                      _publish(d.localPosition.dx, width);
-                    },
-                    onHorizontalDragUpdate: (d) =>
-                        _onDrag(d.localPosition.dx, width),
-                    onHorizontalDragEnd: (_) => _endDrag(),
-                    onHorizontalDragCancel: _endDrag,
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
+          ),
+      ],
     );
   }
 }

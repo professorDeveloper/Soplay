@@ -160,6 +160,29 @@ class HiveService {
 
   bool isFavoriteProvider(String id) => getFavoriteProviders().contains(id);
 
+  /// Source languages the user reads/watches in, most-wanted first.
+  ///
+  /// Empty is the shipped default and means "no preference" — every list then
+  /// behaves exactly as it did before this setting existed. It is deliberately
+  /// NOT seeded from the app locale: the UI language and the language someone
+  /// watches anime in are routinely different, and guessing wrong silently
+  /// hides sources.
+  ///
+  /// Order carries meaning. The extension ecosystems publish one source per
+  /// language for the big aggregators — MangaDex ships 45 entries all called
+  /// "MangaDex" — and only one of them can hold a given name in the picker.
+  /// This list is what decides which, replacing a hard-coded "English, then
+  /// `all`, then whatever" that no French or Spanish user ever agreed to.
+  List<String> getProviderLanguages() {
+    return (_settingsBox.get('provider_languages') as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const <String>[];
+  }
+
+  Future<void> setProviderLanguages(List<String> codes) =>
+      _settingsBox.put('provider_languages', codes);
+
   Future<void> toggleFavoriteProvider(String id) async {
     final list = getFavoriteProviders();
     if (list.contains(id)) {

@@ -40,6 +40,7 @@ import 'package:soplay/features/anilist/data/anilist_tracker.dart';
 import 'package:soplay/features/detail/data/aniskip_service.dart';
 import 'package:soplay/features/profile/data/backup_service.dart';
 import 'package:soplay/features/detail/domain/services/alternate_source_service.dart';
+import 'package:soplay/features/profile/domain/services/provider_probe.dart';
 import 'package:soplay/features/auth/data/services/google_auth_service.dart';
 import 'package:soplay/features/auth/domain/usecases/forgot_password_usecase.dart';
 import 'package:soplay/features/auth/domain/usecases/google_login_usecase.dart';
@@ -68,6 +69,7 @@ import 'package:soplay/features/notifications/data/repositories/notifications_re
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:soplay/features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'package:soplay/features/extensions/data/catalog_repository.dart';
 import 'package:soplay/features/extensions/data/extension_repo_repository.dart';
 import 'package:soplay/features/extensions/data/mangayomi_bridge.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
@@ -231,6 +233,15 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<AniSkipService>(() => AniSkipService());
   getIt.registerLazySingleton<BackupService>(() => BackupService());
+
+  getIt.registerLazySingleton<ProviderProbe>(
+    () => ProviderProbe(
+      engine: getIt<CrossSearchEngine>(),
+      episodes: getIt<GetEpisodesUseCase>(),
+      resolve: getIt<ResolveMediaUseCase>(),
+      dio: getIt<Dio>(),
+    ),
+  );
 
   getIt.registerLazySingleton<AlternateSourceService>(
     () => AlternateSourceService(
@@ -430,6 +441,9 @@ Future<void> configureDependencies() async {
   );
   // Recommended extension repos for the sources pages — backend-curated with a
   // compiled-in fallback, so the list survives an outage.
+  getIt.registerLazySingleton<CatalogRepository>(
+    () => CatalogRepository(dio: getIt<Dio>()),
+  );
   getIt.registerLazySingleton<ExtensionRepoRepository>(
     () => ExtensionRepoRepository(dio: getIt<Dio>()),
   );

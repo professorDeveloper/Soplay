@@ -182,3 +182,67 @@ class HomeSkeletonBox extends StatelessWidget {
     );
   }
 }
+
+/// Press feedback for a section header strip on Home.
+///
+/// Every rail's header is the tap target for its "View all" — a deliberate
+/// earlier fix, since the old `TextButton` was a ~26dp target squeezed into the
+/// row. But the strip was a bare [InkWell], and a bare InkWell across a
+/// full-width header is the wrong feedback twice over: the splash is an
+/// edge-to-edge rectangle with no radius, which reads as a rendering artifact
+/// rather than as a button, and Material's default splash on a near-black
+/// surface is so faint that on most taps nothing visible happens at all.
+///
+/// So the ink is switched off and the row answers instead — it dips and settles
+/// back, the same press language the cards below it already use. The InkWell
+/// itself stays, because it is what carries focus, hover and semantics; only
+/// its painting is replaced.
+class HomeSectionTapTarget extends StatefulWidget {
+  const HomeSectionTapTarget({super.key, required this.child, this.onTap});
+
+  final Widget child;
+
+  /// Null disables the press effect along with the tap, so a header with
+  /// nothing to open does not pretend otherwise.
+  final VoidCallback? onTap;
+
+  @override
+  State<HomeSectionTapTarget> createState() => _HomeSectionTapTargetState();
+}
+
+class _HomeSectionTapTargetState extends State<HomeSectionTapTarget> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+
+    return InkWell(
+      onTap: widget.onTap,
+      // Transparent, not absent: keeping the InkWell keeps focus traversal —
+      // which the TV build depends on — and the semantics that make the strip
+      // announce as a button.
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.white.withValues(alpha: 0.025),
+      onHighlightChanged: enabled
+          ? (value) {
+              if (value != _pressed) setState(() => _pressed = value);
+            }
+          : null,
+      child: AnimatedScale(
+        // Barely there on purpose: a header is a large surface, and a scale big
+        // enough to notice on a button looks like the layout jumped here.
+        scale: _pressed && enabled ? 0.985 : 1,
+        duration: const Duration(milliseconds: 110),
+        curve: Curves.easeOut,
+        child: AnimatedOpacity(
+          opacity: _pressed && enabled ? 0.6 : 1,
+          duration: const Duration(milliseconds: 110),
+          curve: Curves.easeOut,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}

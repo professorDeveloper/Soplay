@@ -87,8 +87,8 @@ class AppConstants {
   static const String defaultMediaLang = 'sub';
 
   /// Playback engine the user picked in Settings → Player. Absent ⇒
-  /// [defaultPlayerEngine], i.e. exactly the engine the app has always used, so
-  /// an existing install that never opens the setting is bit-for-bit unchanged.
+  /// [defaultPlayerEngine].
+  ///
   /// Read through `resolvePlayerEngine()` — never trust this raw value, it only
   /// applies on Android (desktop is always media_kit, iOS always video_player).
   /// Whether the user has accepted the BitTorrent privacy warning.
@@ -106,7 +106,18 @@ class AppConstants {
   static const String torrentIndexersKey = 'torrent_indexers';
 
   static const String playerEngineKey = 'player_engine';
-  static const String defaultPlayerEngine = 'default';
+
+  /// The engine used when the setting has never been touched.
+  ///
+  /// libmpv, not ExoPlayer. The platform player cannot switch audio tracks at
+  /// all — the API does not expose them — and a dual-audio release is the norm
+  /// in this catalogue, so the shipped default was the one engine that could
+  /// not play half of what the app finds. It also refuses containers and
+  /// subtitle formats these sources hand out routinely.
+  ///
+  /// Only ever reached by an install with no stored value: someone who chose
+  /// the system player keeps it, because a stored id wins over this constant.
+  static const String defaultPlayerEngine = 'media_kit';
   static const String telegramPromoSeenKey = 'telegram_promo_seen';
   /// Appearance → "Pure black". Absent ⇒ off, i.e. the greys the app has
   /// always shipped.
@@ -171,6 +182,13 @@ class AppConstants {
 
   /// Skip anime openings/endings without being asked each time.
   static const String autoSkipIntroKey = 'auto_skip_intro';
+
+  /// Last app version whose features the viewer has been shown. Empty on a
+  /// fresh install until [WhatsNew.init] stamps it.
+  static const String whatsNewVersionKey = 'whats_new_version';
+
+  /// Feature ids the viewer has already opened.
+  static const String whatsNewSeenKey = 'whats_new_seen';
 
   static const String streakBox = 'streak_box';
   static const String streakStateKey = 'streak_state';

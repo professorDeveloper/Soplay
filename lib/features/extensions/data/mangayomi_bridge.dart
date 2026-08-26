@@ -1,3 +1,6 @@
+import 'package:soplay/core/di/injection.dart';
+import 'package:soplay/core/extensions/source_language.dart' as srclang;
+import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/features/extensions/data/mangayomi_repo_store.dart';
 import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
 import 'package:soplay/features/extensions/domain/entities/mangayomi_source.dart';
@@ -46,11 +49,15 @@ class MangayomiBridge {
 
   /// Language preference when collapsing same-named sources. Mirrors the
   /// Aniyomi/Manga hosts so all four ecosystems behave identically.
-  static int _langRank(String lang) => switch (lang.trim().toLowerCase()) {
-        'en' => 0,
-        'all' => 1,
-        _ => 2,
-      };
+  ///
+  /// Reads the user's languages rather than assuming English. The constant
+  /// `en → all → rest` this replaced was invisible and total: for a source that
+  /// ships one entry per language, the English one held the name and every
+  /// other language was dropped from the picker with nothing to say it had
+  /// happened. With no languages selected the ordering is byte-for-byte the old
+  /// one, so nothing moves for a user who never opens the filter.
+  static int _langRank(String lang, List<String> preferred) =>
+      srclang.langRank(lang, preferred);
 
   /// Installed sources in the provider-list shape `ProviderBloc` consumes.
   ///
@@ -61,13 +68,23 @@ class MangayomiBridge {
   /// (English first, then `all`), exactly as `AniyomiHost.providersJson` and
   /// `MangaHost.providersJson` already do.
   List<Map<String, dynamic>> listProviders({bool includeNsfw = false}) {
+    final preferred = getIt<HiveService>().getProviderLanguages();
     final picked = <String, MangayomiSource>{};
     for (final s in store.sources()) {
       if (s.isNsfw && !includeNsfw) continue;
-      final key = '${s.name.trim().toLowerCase()}|${s.itemType.code}';
+      // Languages the user asked for do not compete for a name — they are all
+      // kept, each under its own key, and the picker labels them apart. Only
+      // the languages nobody asked for still collapse, which is what stops
+      // MangaDex from filling the list with forty-five identical rows.
+      final langPart =
+          srclang.langMatches(s.lang, preferred) && preferred.isNotEmpty
+              ? '|${srclang.normalizeLang(s.lang)}'
+              : '';
+      final key = '${s.name.trim().toLowerCase()}|${s.itemType.code}$langPart';
       if (key.startsWith('|')) continue;
       final current = picked[key];
-      if (current == null || _langRank(s.lang) < _langRank(current.lang)) {
+      if (current == null ||
+          _langRank(s.lang, preferred) < _langRank(current.lang, preferred)) {
         picked[key] = s;
       }
     }

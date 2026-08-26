@@ -215,6 +215,28 @@ extension _PlayerPanels on _PlayerPageState {
                 ),
               ),
               const Divider(color: Colors.white12, height: 1),
+              // Switching provider without losing your place.
+              //
+              // The app carries the same title on several ecosystems at once,
+              // and until now the only way to leave a struggling source was to
+              // back out and start the episode again somewhere else. Offered
+              // here rather than only on the error screen, because a source
+              // that is buffering badly has not failed yet — that is exactly
+              // when someone wants out, and exactly when they have a position
+              // worth keeping.
+              //
+              // Not for live: a channel is one stream, and there is no other
+              // provider carrying the same minute of it.
+              if (!_isLive)
+                _SettingsTile(
+                  icon: Icons.swap_horiz_rounded,
+                  label: 'player.change_source'.tr(),
+                  value: widget.args.provider,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _openAlternateSources(keepPosition: true);
+                  },
+                ),
               _SettingsTile(
                 icon: Icons.speed_rounded,
                 label: 'player.speed_short'.tr(),
@@ -255,6 +277,26 @@ extension _PlayerPanels on _PlayerPageState {
                         duration: const Duration(seconds: 2),
                       ),
                     );
+                  },
+                ),
+              // Hidden rather than disabled when the stream cannot be cast — a
+              // torrent handle or a downloaded file has no address a device on
+              // the network could fetch, and a greyed-out row invites a tap
+              // that can only ever explain itself.
+              if (_canCast)
+                _SettingsTile(
+                  icon: _cast.isCasting
+                      ? Icons.cast_connected_rounded
+                      : Icons.cast_rounded,
+                  label: 'player.cast'.tr(),
+                  value: _cast.device?.name ?? '—',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    if (_cast.isCasting) {
+                      _stopCasting();
+                    } else {
+                      _openCastSheet();
+                    }
                   },
                 ),
               // Not offered for live TV: a broadcast has no end to stop at, and

@@ -32,7 +32,7 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     // reaches here — the player page hands off before building a controller —
     // but if it somehow does, falling through to the native backend is the
     // safe answer, not a crash.
-    if (_useMediaKit()) {
+    if (_useMediaKit() && _mediaKitUsable()) {
       return _MediaKitController(_MediaKitSource.uri(url, httpHeaders));
     }
     return _NativeController(
@@ -49,7 +49,7 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     File file, {
     vp.VideoPlayerOptions? videoPlayerOptions,
   }) {
-    if (_useMediaKit()) {
+    if (_useMediaKit() && _mediaKitUsable()) {
       return _MediaKitController(_MediaKitSource.path(file.path));
     }
     return _NativeController(
@@ -216,11 +216,33 @@ bool _useMediaKit() => resolvePlayerEngine() == PlayerEngine.mediaKit;
 /// actually selected media_kit, and lazily by the first controller otherwise.
 bool _mediaKitReady = false;
 
-void _ensureMediaKitInitialized() {
-  if (_mediaKitReady) return;
+/// Initialise libmpv if it has not been, and report whether it can be used.
+///
+/// Checked before choosing the backend rather than inside the controller's
+/// constructor, because by then the choice is already made and a throw there
+/// leaves the caller holding a controller that will never initialise. Now the
+/// engine that cannot start is never handed out in the first place.
+///
+/// Since media_kit became the default this is no longer the opt-in path it was
+/// built as: a device without a loadable libmpv used to be someone who had
+/// turned it on and could turn it off again, and is now anyone. A caught throw
+/// costs the decoration; an uncaught one costs every playback.
+bool _mediaKitUsable() {
+  if (_mediaKitReady) return !_mediaKitFailed;
   _mediaKitReady = true;
-  mk.MediaKit.ensureInitialized();
+  try {
+    mk.MediaKit.ensureInitialized();
+    return true;
+  } catch (e, stack) {
+    _mediaKitFailed = true;
+    markMediaKitUnavailable();
+    debugPrint('[player] libmpv did not load, using the platform player: $e');
+    debugPrintStack(stackTrace: stack);
+    return false;
+  }
 }
+
+bool _mediaKitFailed = false;
 
 /// Loads libmpv ahead of the first playback, but only when media_kit is the
 /// selected engine.
@@ -231,14 +253,18 @@ void _ensureMediaKitInitialized() {
 /// — the user taps play and the UI locks up for the load. Doing it at startup
 /// moves that cost to a moment where nothing is waiting on it.
 ///
-/// Deliberately conditional: a user on the default engine never pays the memory
-/// or load cost of a backend they are not using. Someone who switches to
-/// media_kit mid-session still gets the lazy path once, which is why
-/// [_ensureMediaKitInitialized] stays where it is.
+/// Conditional on the resolved engine: someone who picked the platform player,
+/// and every iOS install, never pays the memory or load cost of a backend they
+/// are not using. Someone who switches mid-session gets the lazy path once,
+/// which is why [_mediaKitUsable] does the work rather than this.
+///
+/// Doing it here also means a device where libmpv will not load finds out at
+/// startup, with nothing waiting on the answer, instead of at the moment
+/// someone taps play.
 Future<void> warmUpPlayerEngine() async {
   if (kIsWeb) return;
   if (!_useMediaKit()) return;
-  _ensureMediaKitInitialized();
+  _mediaKitUsable();
 }
 
 
@@ -306,8 +332,10 @@ class _MediaKitSource {
 class _MediaKitController extends PlayerController {
   _MediaKitController(this._src) {
     // Must precede the first Player(): a field initializer would run before
-    // this body, so _player is deliberately late.
-    _ensureMediaKitInitialized();
+    // this body, so _player is deliberately late. Both factories check this
+    // first, so by here it is a cheap already-done flag — kept because a
+    // controller built any other way still has to initialise before Player().
+    _mediaKitUsable();
     _player = mk.Player();
     _videoController = mkv.VideoController(_player);
   }

@@ -21,6 +21,7 @@ import 'package:soplay/features/anilist/data/airing_reminders.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/core/system/platform_utils.dart';
+import 'package:soplay/core/system/whats_new.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/deeplink/deeplink_service.dart';
 import 'package:soplay/core/di/injection.dart';
@@ -44,11 +45,8 @@ void main() async {
     MediaKit.ensureInitialized();
     await windowManager.ensureInitialized();
   }
-  // Resolved before the first glass decision, for the same reason
-  // initTvPlatform is: both answer "which bottom nav does this device get".
-  await initNativeGlass();
-  // Not `isMobilePlatform`: on iOS 26 the system draws the bar, so compiling a
-  // GLSL glass pipeline is cost with nothing to show for it.
+  // Not `isMobilePlatform`: on iOS 26 the bar is a real UITabBar, so compiling
+  // a GLSL glass pipeline is cost with nothing to show for it.
   if (usesFlutterGlass) {
      try {
       await LiquidGlassWidgets.initialize();
@@ -66,6 +64,9 @@ void main() async {
     // device's WebView is a mismatch the challenge never clears.
     initSozoUserAgent(),
   ]);
+  // After Hive, before the first frame: it reads and may stamp a settings key,
+  // and a first run must be stamped before anything can be called new.
+  await WhatsNew.init();
   if (isDesktopPlatform) {
     final native = Hive.box(AppConstants.settingsBox)
         .get('use_native_title_bar', defaultValue: false) == true;

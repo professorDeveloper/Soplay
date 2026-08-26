@@ -1,4 +1,6 @@
 PODS:
+  - adaptive_platform_ui (0.1.0):
+    - Flutter
   - app_links (6.4.1):
     - Flutter
   - AppAuth (2.1.0):
@@ -296,6 +298,7 @@ PODS:
     - Flutter
 
 DEPENDENCIES:
+  - adaptive_platform_ui (from `.symlinks/plugins/adaptive_platform_ui/ios`)
   - app_links (from `.symlinks/plugins/app_links/ios`)
   - file_picker (from `.symlinks/plugins/file_picker/ios`)
   - firebase_analytics (from `.symlinks/plugins/firebase_analytics/ios`)
@@ -362,6 +365,8 @@ SPEC REPOS:
     - SwiftyGif
 
 EXTERNAL SOURCES:
+  adaptive_platform_ui:
+    :path: ".symlinks/plugins/adaptive_platform_ui/ios"
   app_links:
     :path: ".symlinks/plugins/app_links/ios"
   file_picker:
@@ -420,6 +425,7 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/wakelock_plus/ios"
 
 SPEC CHECKSUMS:
+  adaptive_platform_ui: cd3c5a2997126f138a1e7f12e8376d3ca3fdbfad
   app_links: 3dbc685f76b1693c66a6d9dd1e9ab6f73d97dc0a
   AppAuth: ef4da5a3fc2e10b90c09a0a94a9baeaedc0341d5
   AppCheckCore: e215d35177a9cf469927863e69c13e220df32a8b

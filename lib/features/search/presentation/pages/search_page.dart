@@ -161,6 +161,9 @@ class _SearchViewState extends State<_SearchView> {
                 hasActiveFilter: state.criteria.genre.isNotEmpty,
                 showFilter: state.hasGenres,
                 onFilterTap: _openFilter,
+                onTorrentTap: _torrentsAvailable
+                    ? () => _openTorrents(_controller.text)
+                    : null,
                 onMultiSearchTap: _openCrossSearch,
                 onQueryChanged: (q) =>
                     context.read<SearchBloc>().add(SearchQueryChanged(q)),

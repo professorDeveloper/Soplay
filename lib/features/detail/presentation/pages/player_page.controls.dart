@@ -1427,6 +1427,21 @@ extension _PlayerControls on _PlayerPageState {
             ),
           ),
           const Spacer(),
+          // Only when the channel is identified — a live stream reached any
+          // other way has no guide to ask for.
+          if ((widget.args.liveChannelId ?? '').isNotEmpty) ...[
+            _BottomTextButton(
+              icon: Icons.calendar_month_rounded,
+              label: 'player.guide'.tr(),
+              enabled: true,
+              onTap: () => LiveGuideSheet.show(
+                context,
+                channelId: widget.args.liveChannelId!,
+                channelName: widget.args.title,
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
           _BottomTextButton(
             icon: Icons.fiber_manual_record_rounded,
             label: 'player.go_live'.tr(),

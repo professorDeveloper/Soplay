@@ -1,6 +1,18 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Casting. Discovery is mDNS over multicast, which the radio drops by
+         default to save power, and the receiver fetches the media from this
+         phone over the local network. Android 12+ additionally gates seeing
+         nearby devices behind its own permission; neverForLocation says what is
+         true, that this is about a television and not about where anyone is. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <!-- Voice search. The <queries> entry below is what makes it work on

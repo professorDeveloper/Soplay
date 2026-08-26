@@ -35,7 +35,7 @@ class MovieSection extends StatelessWidget {
         children: [
           // The padding is INSIDE the InkWell: outside it, the tappable strip
           // was only as tall as the title text (~19dp).
-          InkWell(
+          HomeSectionTapTarget(
             onTap: () {
               if (onSeeAll != null) {
                 onSeeAll!();

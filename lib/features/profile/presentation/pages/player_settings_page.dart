@@ -701,7 +701,7 @@ class _EngineRow extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (engine == PlayerEngine.native) ...[
+                        if (engine == PlayerEngine.defaultEngine) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(

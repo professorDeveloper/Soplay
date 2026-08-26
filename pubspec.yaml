@@ -126,6 +126,8 @@ dependencies:
   xml: ^6.6.1
   file_picker: ^11.0.3
   speech_to_text: ^7.4.0
+  adaptive_platform_ui: ^0.1.111
+  dart_cast: ^0.7.4
 
 dev_dependencies:
   flutter_test:
