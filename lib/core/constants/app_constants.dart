@@ -242,6 +242,14 @@ class AppConstants {
   /// in the app that makes something private visible to other people.
   static const String discordPresenceKey = 'discord_presence_enabled';
   static const String volumeGestureKey = 'volume_gesture';
+
+  /// Explicit on/off per player-info row, as `{fieldId: bool}`. Explicit rather
+  /// than a list of enabled ids so a row added in a later release can be told
+  /// apart from one the viewer switched off — see `PlayerInfoFields.fromStored`.
+  static const String playerInfoFieldsKey = 'player_info_fields';
+
+  /// The player bar arrangement, as `{slotName: [controlId, ...]}`.
+  static const String playerControlsLayoutKey = 'player_controls_layout';
   static const String keepScreenOnKey = 'keep_screen_on';
 
   /// Incognito: watch without leaving a record of *what* was watched.

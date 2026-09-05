@@ -1,8 +1,12 @@
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
+import 'package:soplay/features/detail/domain/playback/player_info_fields.dart';
 
 /// One labelled fact about what is playing.
 class PlaybackReadoutRow {
-  const PlaybackReadoutRow(this.labelKey, this.value);
+  const PlaybackReadoutRow(this.id, this.labelKey, this.value);
+
+  /// Which switchable field this row is, from [PlayerInfoFields].
+  final String id;
 
   /// Translation key. The value beside it is data, never a sentence, so it is
   /// the same in every language.
@@ -47,41 +51,48 @@ abstract final class PlaybackReadout {
     String? mediaType,
     VideoSourceEntity? source,
     String? streamUrl,
+    Set<String>? fields,
   }) {
     final out = <PlaybackReadoutRow>[];
+    // Null means "whatever the viewer has not chosen against" — the shipped
+    // set. An EMPTY set is a real answer (every row switched off) and must not
+    // be confused with it, which `??` alone would do.
+    final enabled = fields ?? PlayerInfoFields.defaults;
 
-    void add(String key, String? value) {
+    void add(String id, String? value) {
       if (value == null || value.isEmpty) return;
-      out.add(PlaybackReadoutRow(key, value));
+      if (!enabled.contains(id)) return;
+      final field = PlayerInfoFields.byId(id);
+      if (field == null) return;
+      out.add(PlaybackReadoutRow(id, field.labelKey, value));
     }
 
-    add('player.info_resolution', resolution(videoWidth, videoHeight));
-    add('player.info_engine', engineId);
-    add('player.info_provider', providerId);
-    add('player.info_server', serverLabel);
-    add('player.info_quality', source?.quality);
+    add('resolution', resolution(videoWidth, videoHeight));
+    add('engine', engineId);
+    add('provider', providerId);
+    add('server', serverLabel);
+    add('quality', source?.quality);
 
     // The three that decide whether a device can play a file at all, and the
     // three most worth having in a screenshot when it cannot.
-    add('player.info_codec', source?.codec);
-    add('player.info_hdr', source?.hdr);
-    if (source?.atmos ?? false) add('player.info_audio', 'Atmos');
+    add('codec', source?.codec);
+    add('hdr', source?.hdr);
+    if (source?.atmos ?? false) add('audio', 'Atmos');
 
-    add('player.info_container', containerOf(mediaType, source?.type));
-    add('player.info_size', formatBytes(source?.sizeBytes));
-    add('player.info_host', hostOf(streamUrl));
+    add('container', containerOf(mediaType, source?.type));
+    add('size', formatBytes(source?.sizeBytes));
+    add('host', hostOf(streamUrl));
 
     if (isLive) {
-      add('player.info_position', formatClock(position));
+      add('position', formatClock(position));
     } else {
-      add('player.info_position',
-          '${formatClock(position)} / ${formatClock(duration)}');
-      add('player.info_buffer', bufferAhead(position, bufferedTo));
+      add('position', '${formatClock(position)} / ${formatClock(duration)}');
+      add('buffer', bufferAhead(position, bufferedTo));
     }
     if (playbackSpeed != 1.0) {
-      add('player.info_speed', '${trimZeros(playbackSpeed)}×');
+      add('speed', '${trimZeros(playbackSpeed)}×');
     }
-    if (isBuffering) add('player.info_state', 'buffering');
+    if (isBuffering) add('state', 'buffering');
 
     return out;
   }

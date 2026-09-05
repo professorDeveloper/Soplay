@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soplay/features/detail/domain/entities/video_source_entity.dart';
+import 'package:soplay/features/detail/domain/playback/player_info_fields.dart';
 import 'package:soplay/features/detail/domain/playback/playback_readout.dart';
 
 VideoSourceEntity src({
@@ -39,8 +40,13 @@ List<PlaybackReadoutRow> build({
   String? mediaType,
   VideoSourceEntity? source,
   String? streamUrl = 'https://cdn.example.test/x/a.m3u8?token=secret',
+  // Every field switched on unless a test says otherwise: these exercise what
+  // the readout can COMPUTE, which is a separate question from what a viewer
+  // has chosen to see. The picker has its own tests for that.
+  Set<String>? fields,
 }) =>
     PlaybackReadout.rows(
+      fields: fields ?? {for (final f in PlayerInfoFields.all) f.id},
       videoWidth: width,
       videoHeight: height,
       position: position,

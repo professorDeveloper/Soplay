@@ -630,6 +630,43 @@ class HiveService {
     await _settingsBox.put(AppConstants.volumeGestureKey, value);
   }
 
+  /// Explicit on/off answers for the player info overlay, or null when the
+  /// viewer has never opened the picker.
+  ///
+  /// Hive hands back `Map<dynamic, dynamic>`, so the cast is not optional —
+  /// reading it as `Map<String, bool>` throws on the first launch after a
+  /// write, which is the one path a debug run never takes.
+  Map<String, bool>? getPlayerInfoFields() {
+    final raw = _settingsBox.get(AppConstants.playerInfoFieldsKey);
+    if (raw is! Map) return null;
+    final out = <String, bool>{};
+    raw.forEach((k, v) {
+      if (k is String && v is bool) out[k] = v;
+    });
+    return out.isEmpty ? null : out;
+  }
+
+  Future<void> setPlayerInfoFields(Map<String, bool> value) =>
+      _settingsBox.put(AppConstants.playerInfoFieldsKey, value);
+
+  /// The stored bar arrangement, or an empty map when it has never been edited.
+  Map<String, List<String>> getPlayerControlsLayout() {
+    final raw = _settingsBox.get(AppConstants.playerControlsLayoutKey);
+    if (raw is! Map) return const {};
+    final out = <String, List<String>>{};
+    raw.forEach((k, v) {
+      if (k is! String || v is! List) return;
+      out[k] = [for (final e in v) if (e is String) e];
+    });
+    return out;
+  }
+
+  Future<void> setPlayerControlsLayout(Map<String, List<String>> value) =>
+      _settingsBox.put(AppConstants.playerControlsLayoutKey, value);
+
+  Future<void> clearPlayerControlsLayout() =>
+      _settingsBox.delete(AppConstants.playerControlsLayoutKey);
+
   bool get keepScreenOn {
     return _settingsBox.get(
           AppConstants.keepScreenOnKey,

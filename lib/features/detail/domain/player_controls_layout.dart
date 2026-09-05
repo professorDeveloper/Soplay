@@ -192,11 +192,21 @@ class PlayerControlsLayout {
   /// How many controls fit across the top bar.
   ///
   /// A real ceiling, not a style rule. The bar shares its width with the title,
-  /// and its overflow behaviour is a `FittedBox` — a seventh button does not
-  /// wrap or scroll, it shrinks every button until none of them can be hit.
-  /// Refusing the move is the honest answer; silently accepting it and letting
-  /// the row scale to nothing is how the bar got into trouble before.
-  static const int topBarCapacity = 5;
+  /// and its overflow behaviour is a `FittedBox` — an extra button does not wrap
+  /// or scroll, it shrinks every button until none of them can be hit. Refusing
+  /// the move is the honest answer; silently accepting it and letting the row
+  /// scale to nothing is how the bar got into trouble before.
+  ///
+  /// Six, from the geometry rather than taste: `_IconButton` is 38pt with ~3pt
+  /// between, and the action group is `flex: 5` of 7 beside the title. On the
+  /// narrowest phone this ships to, six come to ~243pt in ~234pt of room — a
+  /// 4% scale, invisible. Seven is ~284pt, an 18% scale, and that is where the
+  /// glyphs start to read as smudges.
+  ///
+  /// The shipped default fills five of the six on purpose. A default that sits
+  /// exactly on the ceiling makes the editor refuse the first move anybody
+  /// tries, which reads as a broken screen rather than a full bar.
+  static const int topBarCapacity = 6;
 
   /// The arrangement for a viewer who has never edited it.
   factory PlayerControlsLayout.defaults() {
