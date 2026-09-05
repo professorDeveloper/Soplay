@@ -266,7 +266,7 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
   /// slot has to be cleared explicitly, which is what the rest of this does.
   Widget _searchField() => Container(
         height: 42,
-        margin: const EdgeInsets.only(right: 4),
+        margin: const EdgeInsetsDirectional.only(end: 4),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: AppColors.surfaceVariant,
@@ -341,7 +341,7 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
           children: [
             for (final category in categories)
               Padding(
-                padding: const EdgeInsets.only(right: 8, bottom: 8),
+                padding: const EdgeInsetsDirectional.only(end: 8, bottom: 8),
                 child: ChoiceChip(
                   label: Text(_categoryLabel(category)),
                   selected: _controller.query.category == category,
@@ -482,7 +482,7 @@ class _TorrentSearchPageState extends State<TorrentSearchPage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
           child: Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: Text(
               // While trackers are still answering the count is a running
               // total, not a final one. Saying so stops "12 results" from

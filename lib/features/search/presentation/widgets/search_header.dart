@@ -114,7 +114,7 @@ class SearchStickyHeader extends StatelessWidget {
                   builder: (context, value, _) => value.text.trim().isEmpty
                       ? const SizedBox.shrink()
                       : Padding(
-                          padding: const EdgeInsets.only(left: 10),
+                          padding: const EdgeInsetsDirectional.only(start: 10),
                           child: _HeaderIconButton(
                             icon: Icons.hub_rounded,
                             onTap: onTorrentTap!,

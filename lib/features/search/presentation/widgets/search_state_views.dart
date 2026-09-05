@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/core/widgets/item_appear.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/detail_args.dart';
 import 'package:soplay/features/home/domain/entities/movie.dart';
@@ -87,6 +88,8 @@ class SearchContentView extends StatelessWidget {
             hasScrollBody: false,
             child: _SearchEmptyView(
               criteria: state.criteria,
+              suggestions: state.suggestions,
+              onSuggestion: onSuggestion,
               onTryAllSources: onTryAllSources,
               onSearchTorrents: onSearchTorrents,
             ),
@@ -109,6 +112,22 @@ class SearchContentView extends StatelessWidget {
       case SearchStatus.loaded:
       case SearchStatus.refreshing:
         return [
+          // Results that do not answer the question still get shown — one of
+          // them may be the aliased match no scorer can recognise — but they
+          // get shown with the way out attached. Without this the search tab
+          // was a dead end: a grid of the wrong thing, no error, and the "try
+          // all sources" offer locked behind an empty result the source was
+          // never going to return.
+          if (state.weakResults)
+            SliverToBoxAdapter(
+              child: _WeakResultsBanner(
+                query: state.criteria.label,
+                suggestions: state.suggestions,
+                onSuggestion: onSuggestion,
+                onTryAllSources: onTryAllSources,
+                onSearchTorrents: onSearchTorrents,
+              ),
+            ),
           SearchResultsGrid(items: state.items),
           if (state.isLoadingMore)
             SliverToBoxAdapter(
@@ -141,8 +160,14 @@ class SearchResultsGrid extends StatelessWidget {
         delegate: SliverChildBuilderDelegate(
           (context, i) {
             final movie = items[i];
-            return SearchResultCard(
+            return ItemAppear(
+              index: i,
+              columns: searchGridColumns(MediaQuery.sizeOf(context).width),
+              child: SearchResultCard(
               movie: movie,
+              // Position, not url: cross-search merges several sources, so the
+              // same title legitimately appears more than once in one grid.
+              heroTag: 'search:$i',
               // Results can carry a provider of their own — opening them
               // against the app's "current" provider is how a result that
               // looked fine in the grid failed to load its detail page.
@@ -155,9 +180,11 @@ class SearchResultsGrid extends StatelessWidget {
                     contentUrl: movie.url,
                     preview: movie,
                     provider: movie.provider.isEmpty ? null : movie.provider,
+                    heroTag: 'search:$i',
                   ),
                 );
               },
+              ),
             );
           },
           childCount: items.length,
@@ -310,11 +337,15 @@ class _SearchIdleView extends StatelessWidget {
 class _SearchEmptyView extends StatelessWidget {
   const _SearchEmptyView({
     required this.criteria,
+    required this.suggestions,
+    required this.onSuggestion,
     required this.onTryAllSources,
     this.onSearchTorrents,
   });
 
   final SearchCriteria criteria;
+  final List<String> suggestions;
+  final ValueChanged<String> onSuggestion;
   final VoidCallback onTryAllSources;
   final VoidCallback? onSearchTorrents;
 
@@ -336,6 +367,12 @@ class _SearchEmptyView extends StatelessWidget {
             style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
             textAlign: TextAlign.center,
           ),
+          // Titles that exist, before the sources that might carry them. A
+          // misspelling is the most common reason a search finds nothing, and
+          // no amount of asking more sources fixes a word — where "narutoo"
+          // returns nothing everywhere, "Naruto" returns everything.
+          if (suggestions.isNotEmpty)
+            _DidYouMean(suggestions: suggestions, onTap: onSuggestion),
           if (criteria.text.isNotEmpty) ...[
             const SizedBox(height: 20),
             _ActionChip(
@@ -356,6 +393,145 @@ class _SearchEmptyView extends StatelessWidget {
               ),
             ],
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown above results that the source returned but that do not match.
+///
+/// Deliberately not an error and not a dismissal of what is below it. The
+/// source answered; it just answered with something else, and the honest thing
+/// is to say so once and point at the sources that were not asked.
+class _WeakResultsBanner extends StatelessWidget {
+  const _WeakResultsBanner({
+    required this.query,
+    required this.suggestions,
+    required this.onSuggestion,
+    required this.onTryAllSources,
+    this.onSearchTorrents,
+  });
+
+  final String query;
+  final List<String> suggestions;
+  final ValueChanged<String> onSuggestion;
+  final VoidCallback onTryAllSources;
+  final VoidCallback? onSearchTorrents;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.info_outline_rounded,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'search.weak_results'.tr(namedArgs: {'query': query}),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12.5,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (suggestions.isNotEmpty)
+            _DidYouMean(
+              suggestions: suggestions,
+              onTap: onSuggestion,
+              compact: true,
+            ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _ActionChip(
+                icon: Icons.travel_explore_rounded,
+                label: 'search.try_all_sources'.tr(),
+                onTap: onTryAllSources,
+              ),
+              if (onSearchTorrents != null)
+                _ActionChip(
+                  icon: Icons.hub_rounded,
+                  label: 'search.try_torrents'.tr(),
+                  onTap: onSearchTorrents!,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Real titles for a query that found nothing useful.
+///
+/// These come from metadata catalogues, not from the sources — AniList and
+/// TMDB know what things are called, which is the question actually being
+/// answered here. A source can only ever say "not here"; only a catalogue can
+/// say "the word is Naruto".
+///
+/// Capped at four. This appears under an unhelpful result, and a long list of
+/// alternatives at that moment reads as the app arguing rather than helping.
+class _DidYouMean extends StatelessWidget {
+  const _DidYouMean({
+    required this.suggestions,
+    required this.onTap,
+    this.compact = false,
+  });
+
+  final List<String> suggestions;
+  final ValueChanged<String> onTap;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(top: compact ? 10 : 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'search.did_you_mean'.tr(),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: compact ? WrapAlignment.start : WrapAlignment.center,
+            children: [
+              for (final title in suggestions.take(4))
+                _ActionChip(
+                  icon: Icons.north_east_rounded,
+                  label: title,
+                  onTap: () => onTap(title),
+                ),
+            ],
+          ),
         ],
       ),
     );

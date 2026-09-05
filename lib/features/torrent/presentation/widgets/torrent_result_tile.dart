@@ -46,14 +46,14 @@ class TorrentResultTile extends StatelessWidget {
         // there and wondering why it is not.
         opacity: dead ? 0.45 : 1,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 14, 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 3,
                 height: 38,
-                margin: const EdgeInsets.only(top: 2, right: 12),
+                margin: const EdgeInsetsDirectional.only(top: 2, end: 12),
                 decoration: BoxDecoration(
                   color: _healthColor,
                   borderRadius: BorderRadius.circular(2),
@@ -86,7 +86,7 @@ class TorrentResultTile extends StatelessWidget {
       children: [
         if (result.trusted)
           Padding(
-            padding: const EdgeInsets.only(top: 2, right: 5),
+            padding: const EdgeInsetsDirectional.only(top: 2, end: 5),
             child: Tooltip(
               message: 'torrent.trusted'.tr(),
               child: Icon(
@@ -98,7 +98,7 @@ class TorrentResultTile extends StatelessWidget {
           ),
         if (result.remake)
           Padding(
-            padding: const EdgeInsets.only(top: 2, right: 5),
+            padding: const EdgeInsetsDirectional.only(top: 2, end: 5),
             child: Tooltip(
               message: 'torrent.remake'.tr(),
               child: Icon(

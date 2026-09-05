@@ -162,9 +162,9 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (widget.showLabel) ...[
-            _SectionLabel('profile.section_appearance'.tr()),
+            SettingsLabel('profile.section_appearance'.tr()),
           ],
-          _SectionCard(
+          SettingsCard(
             children: [
               if (isDesktopPlatform)
                 SwitchListTile(
@@ -257,8 +257,44 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                           fontSize: 12,
                         ),
                       ),
-                      trailing: const _TileChevron(),
+                      trailing: const SettingsChevron(),
                       onTap: () => showTabCustomizer(context),
+                    ),
+                  ),
+                ),
+                // Next to the tab customizer, because they are the same
+                // question asked about two surfaces — what is on screen, and
+                // in what order. Splitting them across two sections is how
+                // somebody finds one and never learns the other exists.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Material(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(14),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      leading: const Icon(
+                        Icons.dashboard_customize_outlined,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: Text(
+                        'home_rails.entry_title'.tr(),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'home_rails.entry_subtitle'.tr(),
+                        style: const TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 12,
+                        ),
+                      ),
+                      trailing: const SettingsChevron(),
+                      onTap: () => showHomeRailCustomizer(context),
                     ),
                   ),
                 ),

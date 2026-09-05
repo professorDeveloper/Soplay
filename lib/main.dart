@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:soplay/core/analytics/analytics.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:media_kit/media_kit.dart';
@@ -31,7 +32,7 @@ import 'package:soplay/core/js/js_runtime_service.dart';
 import 'package:soplay/core/player/media_controller.dart' show warmUpPlayerEngine;
 import 'package:soplay/core/system/app_orientation.dart';
 import 'package:soplay/core/js/provider_registry.dart';
-import 'package:soplay/features/download/data/download_service.dart';
+import 'package:soplay/features/download/domain/repositories/download_repository.dart';
 import 'package:soplay/features/notifications/data/services/notification_service.dart';
 
 import 'package:soplay/core/network/user_agent.dart';
@@ -86,7 +87,25 @@ void main() async {
   if (!Platform.isAndroid) {
     ExtensionBridge.setUrl(getIt<HiveService>().getBridgeUrl());
   }
-  _fireAndForget(getIt<DownloadService>().resumeIncomplete(), 'download');
+  // After the graph exists, and off the critical path: nothing on screen waits
+  // on it, and whether it may send at all is a Hive setting that had to be
+  // open first.
+  _fireAndForget(
+    getIt<Analytics>().start().then((live) {
+      if (live) getIt<Analytics>().track(AnalyticsEvent.appOpened);
+    }),
+    'analytics',
+  );
+  // Storage root, integrity sweep, then whatever was interrupted. Off the
+  // critical path: it walks the downloads folder, and nothing on screen waits
+  // for it — but it has to run before the Downloads screen can be trusted,
+  // which is why it is here rather than in that screen's initState.
+  _fireAndForget(
+    getIt<DownloadRepository>().initialize().then(
+          (_) => getIt<DownloadRepository>().resumeInterrupted(),
+        ),
+    'download',
+  );
   _fireAndForget(getIt<ProviderRegistry>().preload(), 'providers');
   // setup(), not just ensureInitialized(): registering the device is what makes
   // it reachable, and it belongs to opening the app rather than to signing in.
@@ -113,6 +132,14 @@ void main() async {
       Locale('en'),
       Locale('uz'),
       Locale('ru'),
+      // Arabic reads right-to-left. Flutter mirrors the framework's own
+      // widgets — Row, ListView, Drawer, back buttons — off the locale alone;
+      // what it cannot mirror is a hard-coded `EdgeInsets.only(left:)`, so the
+      // app's own chrome was converted to the directional forms alongside this.
+      // Deliberately not mirrored: the player's brightness/volume swipe zones
+      // and its seek bar, which are physical geometry rather than reading
+      // order and read the same in every language.
+      Locale('ar'),
     ],
     path: 'assets/translations',
     fallbackLocale: const Locale('en'),

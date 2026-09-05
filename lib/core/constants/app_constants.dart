@@ -26,6 +26,7 @@ class AppConstants {
   static const String authBox = 'auth_box';
   static const String settingsBox = 'settings_box';
   static const String historyBox = 'history_box';
+
   static const String downloadBox = 'download_box';
   static const String productsBox = 'products_box';
   static const String cartBox = 'cart_box';
@@ -43,6 +44,44 @@ class AppConstants {
   static const String themeModeKey = 'theme_mode';
   static const String languageKey = 'language';
   static const String currentProviderKey = 'current_provider';
+
+  /// Which kind of catalogue the app is showing — video, manga or novel.
+  /// Absent ⇒ video, which is what every install had before modes existed.
+  static const String contentModeKey = 'content_mode';
+
+  /// Which bands the home screen shows, and in what order. See [HomeRail].
+  static const String homeRailOrderKey = 'home_rail_order';
+  static const String homeRailHiddenKey = 'home_rail_hidden';
+
+  /// Accumulated watch time and completions. See [WatchStatsStore] — it cannot
+  /// be derived from history, which is a rolling fifty-item window.
+  static const String watchStatsKey = 'watch_stats';
+
+  /// When this device last wrote a backup file. Device-local on purpose — it
+  /// answers "have I backed this phone up", so a value carried in from another
+  /// phone's backup would be a lie. Excluded from the backup for that reason.
+  static const String lastBackupAtKey = 'backup_last_export_at';
+
+  /// Hold downloads until the device is on Wi-Fi. Off by default, because a
+  /// download that silently does not start is worse than one that costs data
+  /// somebody chose to spend.
+  static const String downloadWifiOnlyKey = 'download_wifi_only';
+
+  /// Which volume downloads are kept on.
+  ///
+  /// Holds the VOLUME's base path, not the downloads folder itself, so the
+  /// layout under it stays the app's business. Absent ⇒ the app's own
+  /// directory, which is where every install has always kept them.
+  ///
+  /// Checked rather than trusted on read: an SD card can be removed, and a
+  /// stored path that no longer exists must fall back rather than leave the
+  /// feature unable to start.
+  static const String downloadLocationKey = 'download_location';
+
+  /// Pair pages in landscape. Off by default: a spread is right for comics
+  /// drawn as spreads and wrong for a webtoon, and the app cannot tell which
+  /// it is holding.
+  static const String readerSpreadKey = 'reader_spread';
   static const String liveTvFavouritesKey = 'live_tv_favourites';
   static const String liveTvRecentKey = 'live_tv_recent';
   static const String liveTvCardsKey = 'live_tv_cards';
@@ -106,6 +145,20 @@ class AppConstants {
   static const String torrentIndexersKey = 'torrent_indexers';
 
   static const String playerEngineKey = 'player_engine';
+
+  /// The picture profile, by [ColorProfile.id]. Absent ⇒ natural, which is the
+  /// untouched picture — so an existing install sees no change at all.
+  static const String colorProfileKey = 'player_color_profile';
+
+  /// Per-title playback choices — the audio language and server somebody picked
+  /// for one show, which must not be overwritten by what they picked for
+  /// another. See [TitlePrefsStore].
+  static const String titlePrefsKey = 'title_prefs';
+
+  /// Anime4K preset and GPU tier. Absent ⇒ off, so nothing is downloaded and
+  /// nothing runs until somebody asks for it.
+  static const String shaderPresetKey = 'player_shader_preset';
+  static const String shaderTierKey = 'player_shader_tier';
 
   /// The engine used when the setting has never been touched.
   ///
@@ -174,6 +227,20 @@ class AppConstants {
   static const String doubleTapSeekSecondsKey = 'double_tap_seek_seconds';
   static const String longPressBoostKey = 'long_press_boost';
   static const String brightnessGestureKey = 'brightness_gesture';
+
+  /// Whether the detail header plays a title's trailer by itself.
+  ///
+  /// A preview is a video that starts without being asked for, on a screen
+  /// somebody opened to read about a film — worth having on by default,
+  /// worth being able to turn off. It also costs mobile data nobody agreed
+  /// to spend.
+  static const String heroTrailerAutoplayKey = 'hero_trailer_autoplay';
+
+  /// Whether what somebody is watching is published to their Discord profile.
+  ///
+  /// Off by default and stays off until switched on: this is the one setting
+  /// in the app that makes something private visible to other people.
+  static const String discordPresenceKey = 'discord_presence_enabled';
   static const String volumeGestureKey = 'volume_gesture';
   static const String keepScreenOnKey = 'keep_screen_on';
 

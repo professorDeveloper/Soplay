@@ -1455,7 +1455,7 @@ class _TvRailButtonState extends State<_TvRailButton> {
                     duration: const Duration(milliseconds: 180),
                     opacity: widget.expanded ? 1 : 0,
                     child: Padding(
-                      padding: const EdgeInsets.only(left: 12),
+                      padding: const EdgeInsetsDirectional.only(start: 12),
                       child: Text(
                         widget.item.labelKey.tr(),
                         maxLines: 1,

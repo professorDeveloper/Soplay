@@ -1,12 +1,9 @@
-// ignore_for_file: unused_element
 part of 'profile_page.dart';
 
-/// Profile header: who is signed in, and getting out.
-///
-/// Split out of the page for the same reason the player is: one file holding
-/// nine sections is a file nobody can hold in their head.
+/// Who is signed in, and getting out.
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({required this.user});
+
   final UserEntity? user;
 
   @override
@@ -33,6 +30,7 @@ class _ProfileHeader extends StatelessWidget {
 
 class _GuestContent extends StatelessWidget {
   const _GuestContent({required this.onLogin});
+
   final VoidCallback onLogin;
 
   @override
@@ -94,6 +92,21 @@ class _GuestContent extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          _Benefit(
+            icon: Icons.sync_rounded,
+            text: 'profile.guest_benefit_sync'.tr(),
+          ),
+          const SizedBox(height: 8),
+          _Benefit(
+            icon: Icons.local_fire_department_rounded,
+            text: 'profile.guest_benefit_streak'.tr(),
+          ),
+          const SizedBox(height: 8),
+          _Benefit(
+            icon: Icons.link_rounded,
+            text: 'profile.guest_benefit_trackers'.tr(),
+          ),
           const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
@@ -115,12 +128,64 @@ class _GuestContent extends StatelessWidget {
   }
 }
 
-class _UserContent extends StatelessWidget {
-  const _UserContent({required this.user});
-  final UserEntity user;
+class _Benefit extends StatelessWidget {
+  const _Benefit({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.primaryLight),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12.5,
+              height: 1.3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _UserContent extends StatelessWidget {
+  const _UserContent({required this.user});
+
+  final UserEntity user;
+
+  String _joined(BuildContext context, DateTime date) {
+    String text;
+    try {
+      text = DateFormat.yMMM(context.locale.toString()).format(date);
+    } catch (_) {
+      text = DateFormat.yMMM('en').format(date);
+    }
+    return 'profile.joined_on'.tr(args: [text]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final display = user.displayName?.trim();
+    final name = display != null && display.isNotEmpty
+        ? display
+        : user.displayIdentifier;
+    final username = user.username?.trim();
+    final handle = username != null && username.isNotEmpty
+        ? '@$username'
+        : user.email;
+    final created = user.createdAt;
+    final meta = <String>[
+      if (created != null) _joined(context, created),
+      if (user.authProvider != 'local') 'Google',
+    ].join(' · ');
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -132,19 +197,19 @@ class _UserContent extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user.displayIdentifier,
+                  name,
                   style: const TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 18,
+                    fontSize: 19,
                     fontWeight: FontWeight.w800,
-                    height: 1.2,
+                    height: 1.15,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
-                  user.email,
+                  handle,
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
@@ -152,6 +217,18 @@ class _UserContent extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (meta.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    meta,
+                    style: const TextStyle(
+                      color: AppColors.textHint,
+                      fontSize: 11.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),
@@ -164,8 +241,8 @@ class _UserContent extends StatelessWidget {
 }
 
 /// Editing is what someone reaches for on their own profile; signing out is
-/// something they do once and go looking for. The header carries the first, and
-/// the last section of the page carries the second.
+/// something they do once. The header carries the first, the last section of
+/// the page the second.
 class _EditProfileButton extends StatelessWidget {
   const _EditProfileButton({required this.user});
 
@@ -194,9 +271,9 @@ class _SignOutSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: _SectionCard(
+      child: SettingsCard(
         children: [
-          _Tile(
+          SettingsNavTile(
             icon: Icons.logout_rounded,
             title: 'profile.sign_out'.tr(),
             destructive: true,
@@ -252,9 +329,9 @@ class _SignOutSection extends StatelessWidget {
   }
 }
 
-/// Compact summary of the active provider; the picker itself is [ProvidersPage].
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.user});
+
   final UserEntity user;
 
   @override
@@ -262,19 +339,19 @@ class _Avatar extends StatelessWidget {
     final photoUrl = user.photoURL;
     final initials = _initials(user.displayIdentifier);
 
-    // No coloured ring. A Google picture already arrives as a saturated tile,
+    // No coloured ring: a Google picture already arrives as a saturated tile,
     // and a red band around it read as an error state rather than a frame.
     return Container(
-      width: 66,
-      height: 66,
+      width: 72,
+      height: 72,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(17),
+          borderRadius: BorderRadius.circular(19),
         ),
         clipBehavior: Clip.antiAlias,
         child: photoUrl != null && photoUrl.isNotEmpty
@@ -299,6 +376,7 @@ class _Avatar extends StatelessWidget {
 
 class _Initials extends StatelessWidget {
   const _Initials({required this.initials});
+
   final String initials;
 
   @override
@@ -308,7 +386,7 @@ class _Initials extends StatelessWidget {
         initials,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 22,
+          fontSize: 24,
           fontWeight: FontWeight.w800,
         ),
       ),

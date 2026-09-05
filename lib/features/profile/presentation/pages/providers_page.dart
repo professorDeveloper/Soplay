@@ -123,7 +123,7 @@ class _ProvidersPageState extends State<ProvidersPage> {
           BlocBuilder<ProviderBloc, ProviderState>(
             builder: (context, state) => state is ProviderLoaded
                 ? Padding(
-                    padding: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsetsDirectional.only(end: 6),
                     child: _CategoryFilterButton(
                       providers: state.providers,
                       selected: _selectedCategory,
@@ -221,9 +221,9 @@ class _ProvidersPageState extends State<ProvidersPage> {
                 ),
               if (state is ProviderLoaded)
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
+                    padding: const EdgeInsetsDirectional.fromSTEB(20, 0, 16, 6),
                     child: Text(
                       _query.isEmpty
                           ? 'profile.count_of_total_shown'.tr(
@@ -632,7 +632,7 @@ class _CategoryFilterButton extends StatelessWidget {
           ),
       ],
       child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 7, 8, 7),
+        padding: const EdgeInsetsDirectional.fromSTEB(10, 7, 8, 7),
         decoration: BoxDecoration(
           color: AppColors.surfaceVariant.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(10),

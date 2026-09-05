@@ -51,6 +51,7 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
   late double _boost;
   late bool _brightnessGesture;
   late bool _volumeGesture;
+  late bool _heroTrailer;
   late bool _keepScreenOn;
   late bool _incognito;
   late bool _autoSkipIntro;
@@ -91,6 +92,7 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
     _boost = _hive.getLongPressBoost();
     _brightnessGesture = _hive.brightnessGestureEnabled;
     _volumeGesture = _hive.volumeGestureEnabled;
+    _heroTrailer = _hive.heroTrailerAutoplay;
     _keepScreenOn = _hive.keepScreenOn;
     _subtitle = _hive.getSubtitleStyle();
     _autoTranslate = _hive.getSubtitleAutoTranslate();
@@ -317,6 +319,21 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
                   _hive.setVolumeGestureEnabled(v);
                 },
               ),
+              const SettingsDivider(),
+              // A video that starts on its own, on a page somebody opened to
+              // read — worth offering, worth being able to refuse. Turning it
+              // off stops a preview that is already playing, not just the next
+              // one.
+              SettingsSwitchTile(
+                icon: Icons.movie_filter_rounded,
+                title: 'profile.hero_trailer'.tr(),
+                subtitle: 'profile.hero_trailer_desc'.tr(),
+                value: _heroTrailer,
+                onChanged: (v) {
+                  setState(() => _heroTrailer = v);
+                  _hive.setHeroTrailerAutoplay(v);
+                },
+              ),
             ],
           ),
 
@@ -472,6 +489,7 @@ class _SubtitlePreview extends StatelessWidget {
           style: TextStyle(
             color: color,
             fontSize: style.fontSize,
+        fontFamily: style.font.family,
             fontWeight: style.bold ? FontWeight.w700 : FontWeight.w400,
             shadows: switch (style.edge) {
               SubtitleEdge.none => const <Shadow>[],
@@ -533,7 +551,7 @@ class _SubtitleColorRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 11, 12, 11),
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 11, 12, 11),
       child: Row(
         children: [
           Container(
@@ -566,7 +584,7 @@ class _SubtitleColorRow extends StatelessWidget {
               child: Container(
                 width: 22,
                 height: 22,
-                margin: const EdgeInsets.only(left: 7),
+                margin: const EdgeInsetsDirectional.only(start: 7),
                 decoration: BoxDecoration(
                   color: Color(c),
                   shape: BoxShape.circle,
@@ -592,7 +610,7 @@ class _SubtitleOpacityRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 4, 12, 4),
       child: Row(
         children: [
           Container(
@@ -665,7 +683,7 @@ class _EngineRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 14, 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

@@ -371,6 +371,32 @@ class MangayomiBridge {
   Future<Map<String, dynamic>> pageList(String id, String chapterUrl) async {
     final src = _source(id);
     if (src == null) return const {};
+
+    // A novel chapter is prose, not a list of images, and the extension API
+    // says so: novel sources implement `getHtmlContent` and comic sources
+    // implement `getPageList`. Calling the wrong one returned nothing, which
+    // arrived as an empty reader — the app offered novel sources, labelled them
+    // "Novel", and could not open a single chapter of one.
+    if (src.itemType == MangayomiItemType.novel) {
+      final html = await runtime.call(
+        id,
+        'getHtmlContent',
+        // Both arguments, in the order the extensions declare
+        // `getHtmlContent(name, url)`. The name is unused by every source seen
+        // so far, but a missing positional argument is a JS TypeError rather
+        // than a default.
+        args: [src.name, chapterUrl],
+      );
+      return {
+        'provider': src.providerId,
+        'headers': <String, String>{
+          if (src.baseUrl.isNotEmpty) 'Referer': src.baseUrl,
+        },
+        'pages': const <Map<String, dynamic>>[],
+        'html': html is String ? html : html?.toString(),
+      };
+    }
+
     final raw = await runtime.call(id, 'getPageList', args: [chapterUrl]);
     final pages = <Map<String, dynamic>>[];
     Map<String, String> headers = {

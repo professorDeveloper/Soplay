@@ -1,29 +1,13 @@
-import 'package:soplay/core/network/user_agent.dart';
+import 'package:soplay/core/network/image_headers.dart';
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:soplay/core/system/platform_utils.dart';
 import 'package:soplay/core/theme/app_colors.dart';
-
-class ShimmerWrapper extends StatelessWidget {
-  const ShimmerWrapper({super.key, required this.child});
-  final Widget child;
-
-  // Subtle, but not invisible: eleven levels of separation on a dark panel read
-  // as a frozen screen rather than as loading, which is the one thing a skeleton
-  // exists to avoid.
-  static const _base = Color(0xFF1E1E1E);
-  static const _highlight = Color(0xFF333333);
-
-  @override
-  Widget build(BuildContext context) => Shimmer.fromColors(
-    baseColor: _base,
-    highlightColor: _highlight,
-    period: const Duration(milliseconds: 1650),
-    child: child,
-  );
-}
+// Re-exported so the dozen existing `ShimmerWrapper` call sites in this
+// feature keep working while the definition lives in core.
+export 'package:soplay/core/widgets/shimmer_wrapper.dart';
 
 class HomeNetworkImage extends StatelessWidget {
   const HomeNetworkImage({
@@ -33,6 +17,7 @@ class HomeNetworkImage extends StatelessWidget {
     required this.placeholderIcon,
     this.fit = BoxFit.cover,
     this.headers,
+    this.memCacheWidth,
   });
 
   final String? url;
@@ -42,17 +27,18 @@ class HomeNetworkImage extends StatelessWidget {
 
   final Map<String, String>? headers;
 
-  static Map<String, String>? _defaultHeaders(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
-    return {
-      'Referer': '${uri.scheme}://${uri.host}/',
-      // Must be the app's one agent: a cf_clearance cookie is bound to the exact
-      // agent that earned it, so a poster asking under a different one is
-      // challenged and never loads.
-      'User-Agent': kSozoUserAgent,
-    };
-  }
+  /// Overrides the width this decodes at, instead of measuring it.
+  ///
+  /// Exists so a caller can hand the SAME value to a [PosterHero] wrapped
+  /// around this widget. `memCacheWidth` becomes a `ResizeImage` wrapper and
+  /// therefore part of the image-cache key, so a shuttle that computes its own
+  /// width misses the cache the grid already filled — and flies a blank frame.
+  final int? memCacheWidth;
+
+  /// Moved to core/network/image_headers.dart so the hero shuttle and the
+  /// detail header send byte-identical headers to the same host.
+  static Map<String, String>? _defaultHeaders(String url) =>
+      posterImageHeaders(url);
 
   @override
   Widget build(BuildContext context) {
@@ -86,32 +72,62 @@ class HomeNetworkImage extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final dpr = MediaQuery.devicePixelRatioOf(context);
-          final w = (!isDesktopPlatform && constraints.maxWidth.isFinite)
-              ? (constraints.maxWidth * dpr).round()
-              : null;
-          return Image.network(
-            imageUrl,
-            headers: headers ?? _defaultHeaders(imageUrl),
+          final w =
+              memCacheWidth ??
+              ((!isDesktopPlatform && constraints.maxWidth.isFinite)
+                  ? (constraints.maxWidth * dpr).round()
+                  : null);
+          // CachedNetworkImage, not Image.network.
+          //
+          // `Image.network` caches in memory only. Flutter's image cache is
+          // bounded and cleared with the process, so every cold start — and
+          // every return after the OS trimmed the app — re-downloaded all
+          // forty-odd posters on the home screen. On a slow connection that is
+          // a screen of grey placeholders filling in one by one, which is what
+          // "the app is slow" looks like when the app itself is doing nothing
+          // wrong.
+          //
+          // The disk cache makes the second launch instant. The package was
+          // already a dependency and already used in thirty other places; home,
+          // the most image-heavy screen in the app, was the one that was not.
+          return CachedNetworkImage(
+            imageUrl: imageUrl,
+            httpHeaders: headers ?? _defaultHeaders(imageUrl),
             fit: fit,
             width: double.infinity,
             height: double.infinity,
-            cacheWidth: (w != null && w > 0) ? w : null,
+            // Decoded at the size it is drawn at, not at the size it was
+            // published at. A 500px poster in a 110px tile costs twenty times
+            // the memory it needs, and the cost is paid per tile.
+            memCacheWidth: (w != null && w > 0) ? w : null,
             filterQuality:
                 isDesktopPlatform ? FilterQuality.medium : FilterQuality.low,
-            errorBuilder: (_, _, _) =>
+            // Same widget for both, so a tile that is loading and a tile that
+            // failed do not jump between two different shapes.
+            errorWidget: (_, _, _) =>
                 HomeImagePlaceholder(icon: placeholderIcon),
-            loadingBuilder: (_, child, chunk) => chunk == null
-                ? child
-                : HomeImagePlaceholder(icon: placeholderIcon),
+            placeholder: (_, _) => HomeImagePlaceholder(icon: placeholderIcon),
+            // No cross-fade: these arrive in a scrolling rail, and forty tiles
+            // fading in at slightly different times is more distracting than
+            // forty tiles appearing.
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
           );
         },
       ),
     );
   }
 
+  /// A Windows drive letter, compiled once.
+  ///
+  /// This is checked from [build], once per poster. Compiling the pattern there
+  /// allocated a fresh RegExp for every tile on every rebuild — forty-odd of
+  /// them per home scroll frame — to answer a question whose answer is fixed.
+  static final RegExp _windowsPath = RegExp(r'^[A-Za-z]:[\\/]');
+
   bool _isLocalPath(String value) {
     if (value.startsWith('file://')) return true;
-    return value.startsWith('/') || RegExp(r'^[A-Za-z]:[\\/]').hasMatch(value);
+    return value.startsWith('/') || _windowsPath.hasMatch(value);
   }
 }
 

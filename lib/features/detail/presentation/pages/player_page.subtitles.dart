@@ -78,6 +78,62 @@ extension _PlayerSubtitles on _PlayerPageState {
     return true;
   }
 
+  /// Downloads and parses one track's cues, or null with a toast already shown.
+  ///
+  /// Split out of [_loadSubtitle] so the second track can reuse it: the
+  /// download, the charset handling and the failure messages are the same work,
+  /// and the only difference is which field the cues land in.
+  Future<List<Caption>?> _fetchCaptions(
+    SubtitleEntity sub, {
+    String declaredFormat = '',
+  }) async {
+    // AI tracks carry their cues in memory, not at a url.
+    if (sub.file.startsWith('ai:')) {
+      final cues = _aiCaptions[sub.file];
+      return (cues == null || cues.isEmpty) ? null : cues;
+    }
+
+    SubtitleParseResult result;
+    try {
+      // ResponseType.bytes: Dio's string transformer always runs
+      // utf8.decode(..., allowMalformed: true) and ignores the declared
+      // charset, which destroys every cp1251/latin1 subtitle.
+      final response = await Dio().get<List<int>>(
+        sub.file,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: sub.headers.isEmpty ? null : sub.headers,
+          validateStatus: (s) => s != null && s < 500,
+        ),
+      );
+      if (!mounted) return null;
+      final status = response.statusCode ?? 0;
+      if (status < 200 || status >= 300) {
+        _plog('subtitle http $status for ${sub.file}', level: LogLevel.warn);
+        _toast('player.subtitle_failed_download'.tr());
+        return null;
+      }
+      result = parseSubtitleBytes(
+        response.data ?? const <int>[],
+        url: sub.file,
+        declaredFormat: declaredFormat,
+      );
+    } catch (e) {
+      _plog('subtitle load error: $e', level: LogLevel.warn);
+      if (!mounted) return null;
+      _toast('player.subtitle_failed_download'.tr());
+      return null;
+    }
+
+    if (!mounted) return null;
+    if (!result.isSuccess) {
+      _plog('subtitle parse failed: ${result.failure}', level: LogLevel.warn);
+      _toast(_subtitleFailureMessage(result.failure));
+      return null;
+    }
+    return result.captions;
+  }
+
   String _subtitleFailureMessage(SubtitleParseFailure? failure) {
     switch (failure) {
       case SubtitleParseFailure.archive:
@@ -97,6 +153,10 @@ extension _PlayerSubtitles on _PlayerPageState {
     setState(() {
       _activeSubtitleIndex = -1;
       _captionFile = null;
+      // Off means off. Leaving the second track drawn over a video with
+      // subtitles turned off is the kind of thing nobody can explain or undo.
+      _secondarySubtitleIndex = -1;
+      _secondaryCaptionFile = null;
     });
   }
 
@@ -146,11 +206,38 @@ extension _PlayerSubtitles on _PlayerPageState {
               for (var i = 0; i < _subtitles.length; i++)
                 _OptionTile(
                   label: _subtitles[i].label,
+                  // Named only when it IS the second track, so the row reads
+                  // normally for everyone who never uses this.
+                  subtitle: i == _secondarySubtitleIndex
+                      ? 'player.second_track'.tr()
+                      : null,
                   selected: i == _activeSubtitleIndex,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     _loadSubtitle(i);
                   },
+                  // Long-press adds it as a SECOND track rather than replacing
+                  // the first — the two languages side by side, which is what
+                  // somebody learning one of them is here for. A separate
+                  // picker would have been a second list of the same tracks.
+                  onLongPress: () {
+                    Navigator.of(sheetContext).pop();
+                    _toggleSecondarySubtitle(i);
+                  },
+                ),
+              // Otherwise the gesture is undiscoverable: nothing on a list of
+              // track names suggests that holding one does something else.
+              if (_subtitles.length > 1)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                  child: Text(
+                    'player.second_track_hint'.tr(),
+                    style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 11.5,
+                      height: 1.35,
+                    ),
+                  ),
                 ),
               const Divider(color: Colors.white12, height: 1),
               ListTile(
@@ -285,10 +372,10 @@ extension _PlayerSubtitles on _PlayerPageState {
     // Read the episode number from the entity — parsing the '<title> · <label>'
     // string picked up a digit in the TITLE (e.g. '3 Body Problem') instead of
     // the episode, querying the wrong episode's subtitles.
-    if (_episodeIndex < 0 || _episodeIndex >= widget.args.episodes.length) {
+    if (_episodeIndex < 0 || _episodeIndex >= _episodes.length) {
       return null;
     }
-    return widget.args.episodes[_episodeIndex].episode;
+    return _episodes[_episodeIndex].episode;
   }
 
   /// Season markers the providers put in episode labels / titles. The app has no
@@ -304,8 +391,8 @@ extension _PlayerSubtitles on _PlayerPageState {
   int? _currentSeasonNumber() {
     if (!widget.args.isSerial) return null;
     final label = (_episodeIndex >= 0 &&
-            _episodeIndex < widget.args.episodes.length)
-        ? widget.args.episodes[_episodeIndex].label
+            _episodeIndex < _episodes.length)
+        ? _episodes[_episodeIndex].label
         : '';
     for (final source in [label, widget.args.title]) {
       if (source.isEmpty) continue;
@@ -990,7 +1077,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+                      padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 8, 4),
                       child: Row(
                         children: [
                           const Icon(Icons.av_timer_rounded,
@@ -1165,7 +1252,7 @@ extension _PlayerSubtitles on _PlayerPageState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+                      padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 8, 8),
                       child: Row(
                         children: [
                           const Icon(
@@ -1291,6 +1378,33 @@ extension _PlayerSubtitles on _PlayerPageState {
                         ],
                       ),
                     ),
+                    // Typeface before colour: the face decides whether a
+                    // caption is readable over moving footage, and the colour
+                    // only trims the last of it.
+                    _SheetSectionLabel('player.font_family'.tr()),
+                    SizedBox(
+                      height: 40,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsetsDirectional.only(
+                          start: 16,
+                          end: 16,
+                        ),
+                        children: [
+                          for (final f in SubtitleFont.values) ...[
+                            _FontChip(
+                              label: f.labelKey.tr(),
+                              family: f.family,
+                              selected: f.id == _subtitleStyle.font.id,
+                              onTap: () =>
+                                  apply(_subtitleStyle.copyWith(font: f)),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
                     _SheetSectionLabel('player.text_color'.tr()),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
@@ -1458,10 +1572,43 @@ extension _PlayerSubtitles on _PlayerPageState {
     );
   }
 
+  /// Adds [index] as the second track, or removes it if it already is.
+  ///
+  /// Refuses the track that is already primary: the same subtitle drawn twice,
+  /// once above the other, is not a feature.
+  Future<void> _toggleSecondarySubtitle(int index) async {
+    if (index == _secondarySubtitleIndex) {
+      setState(() {
+        _secondarySubtitleIndex = -1;
+        _secondaryCaptionFile = null;
+      });
+      return;
+    }
+    if (index < 0 || index >= _subtitles.length) return;
+    if (index == _activeSubtitleIndex) {
+      _toast('player.second_track_same'.tr());
+      return;
+    }
+
+    final cues = await _fetchCaptions(_subtitles[index]);
+    if (!mounted) return;
+    if (cues == null || cues.isEmpty) {
+      _toast('player.subtitle_failed_empty'.tr());
+      return;
+    }
+    setState(() {
+      _secondarySubtitleIndex = index;
+      _secondaryCaptionFile = cues;
+    });
+    _toast('player.second_track_on'.tr(args: [_subtitles[index].label]));
+  }
+
   Widget _buildSubtitleOverlay() {
     final c = _controller;
     final captions = _captionFile;
-    if (c == null || !c.value.isInitialized || captions == null) {
+    if (c == null ||
+        !c.value.isInitialized ||
+        (captions == null && _secondaryCaptionFile == null)) {
       return const SizedBox.shrink();
     }
     return Positioned(
@@ -1484,13 +1631,35 @@ extension _PlayerSubtitles on _PlayerPageState {
                 microseconds: (position.inMicroseconds / rate).round(),
               );
             }
-            final active = _captionAt(captions, position);
-            if (active == null || active.text.isEmpty) {
+            final active =
+                captions == null ? null : _captionAt(captions, position);
+            final second = _secondaryCaptionFile == null
+                ? null
+                : _captionAt(_secondaryCaptionFile!, position);
+
+            final primary = active?.text ?? '';
+            final secondary = second?.text ?? '';
+            if (primary.isEmpty && secondary.isEmpty) {
               return const SizedBox.shrink();
             }
             return Align(
               alignment: Alignment.bottomCenter,
-              child: _styledSubtitle(active.text),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // The second track sits ABOVE the first, and smaller. The
+                  // primary is the one being read along with the audio and
+                  // keeps the position the eye is trained on; a translation
+                  // pushed underneath it would move the line everyone actually
+                  // reads every time the other track has something to say.
+                  if (secondary.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: _styledSubtitle(secondary, secondary: true),
+                    ),
+                  if (primary.isNotEmpty) _styledSubtitle(primary),
+                ],
+              ),
             );
           },
         ),
@@ -1536,10 +1705,25 @@ extension _PlayerSubtitles on _PlayerPageState {
     }
   }
 
-  Widget _styledSubtitle(String text) {
-    final style = _subtitleStyle;
-    final color = Color(style.textColor);
-    final weight = style.bold ? FontWeight.w800 : FontWeight.w500;
+  /// One line of subtitle, in the reader's chosen style.
+  ///
+  /// [secondary] is the learner's second track: smaller and slightly dimmer, so
+  /// the eye still lands on the line that goes with the audio. Same font, same
+  /// outline and background — a second track drawn in a different style reads
+  /// as a rendering fault rather than as a second track.
+  Widget _styledSubtitle(String text, {bool secondary = false}) {
+    // Same style, one step quieter. Everything else — font, outline,
+    // background, position — is shared, because two tracks styled differently
+    // read as a rendering fault rather than as two tracks.
+    final style = secondary
+        ? _subtitleStyle.copyWith(fontSize: _subtitleStyle.fontSize * 0.82)
+        : _subtitleStyle;
+    final color = secondary
+        ? Color(style.textColor).withValues(alpha: 0.82)
+        : Color(style.textColor);
+    final weight = style.bold && !secondary
+        ? FontWeight.w800
+        : (secondary ? FontWeight.w500 : FontWeight.w500);
     final hasBg = style.bgOpacity > 0.01;
 
     List<Shadow>? shadows;
@@ -1568,6 +1752,7 @@ extension _PlayerSubtitles on _PlayerPageState {
       style: TextStyle(
         color: color,
         fontSize: style.fontSize,
+        fontFamily: style.font.family,
         fontWeight: weight,
         height: 1.3,
         shadows: shadows,
@@ -1583,6 +1768,7 @@ extension _PlayerSubtitles on _PlayerPageState {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: style.fontSize,
+        fontFamily: style.font.family,
               fontWeight: weight,
               height: 1.3,
               foreground: strokePaint,

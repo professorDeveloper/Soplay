@@ -192,8 +192,13 @@ class _LiveTvPageState extends State<LiveTvPage> {
       );
       if (!mounted || seq != _seq) return;
       setState(() {
+        // Appended by id, not blindly concatenated. A page boundary is where a
+        // channel added or removed between two requests shifts everything after
+        // it, and the same row arriving twice would render two cards for one
+        // channel — and, since the grid keys on the id, throw on the duplicate
+        // key rather than merely look wrong.
         _channels = append
-            ? [..._channels, ...result.channels]
+            ? _mergeChannels(_channels, result.channels)
             : result.channels;
         _page = result.page;
         _hasMore = result.hasMore;
@@ -215,6 +220,23 @@ class _LiveTvPageState extends State<LiveTvPage> {
       // and stopping without a word looks like the list simply ended.
       if (hasContent) _toast('live_tv.load_failed'.tr());
     }
+  }
+
+  /// Existing channels plus whatever is new, in arrival order.
+  ///
+  /// Deliberately keeps the copy already on screen for anything seen twice: a
+  /// card the user is looking at must not be replaced under them by an
+  /// identical one, and there is nothing in a later copy worth having.
+  static List<LiveChannel> _mergeChannels(
+    List<LiveChannel> current,
+    List<LiveChannel> incoming,
+  ) {
+    final seen = {for (final c in current) c.id};
+    return [
+      ...current,
+      for (final c in incoming)
+        if (seen.add(c.id)) c,
+    ];
   }
 
   void _toast(String message) {
@@ -1356,7 +1378,7 @@ class _ChannelCard extends StatelessWidget {
                             child: Container(
                               color: Colors.white.withValues(alpha: 0.08),
                               child: FractionallySizedBox(
-                                alignment: Alignment.centerLeft,
+                                alignment: AlignmentDirectional.centerStart,
                                 widthFactor: bar,
                                 heightFactor: 1,
                                 child: Container(color: AppColors.primary),

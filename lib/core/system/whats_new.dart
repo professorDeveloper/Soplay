@@ -28,6 +28,12 @@ abstract final class WhatsNew {
   /// must survive reordering. Add a row here when a feature lands; there is
   /// nothing else to wire.
   static const Map<String, String> features = {
+    // Landing together in the next build. Every one of these is somewhere in
+    // Profile that nobody has a reason to open unprompted.
+    'stats': '3.0.4',
+    'home_rails': '3.0.4',
+    'relations': '3.0.4',
+    'shaders': '3.0.4',
     'torrents': '3.0.3',
     'change_source': '3.0.3',
     'live_guide': '3.0.3',

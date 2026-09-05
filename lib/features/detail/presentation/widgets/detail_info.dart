@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/system/responsive.dart';
 import 'package:soplay/core/theme/app_colors.dart';
+import 'package:soplay/features/detail/presentation/widgets/trailer_action.dart';
 import 'package:soplay/core/theme/app_theme.dart';
 import 'package:soplay/core/tv/tv.dart';
 import 'package:soplay/features/detail/domain/entities/detail_entity.dart';
@@ -110,6 +111,10 @@ class _DetailContentHeaderState extends State<DetailContentHeader> {
                     onTap: widget.onDownload!,
                   ),
                 ],
+                // Appears on its own once a trailer has been found, and takes
+                // no space at all when there is none — so a title without one
+                // never shows a button that cannot do anything.
+                TrailerAction(detail: widget.detail),
               ],
             ),
         ],
@@ -342,7 +347,7 @@ class _GenresRow extends StatelessWidget {
             .take(8)
             .map(
               (g) => Padding(
-                padding: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsetsDirectional.only(end: 6),
                 child: _Chip(
                   label: g,
                   onTap: () {

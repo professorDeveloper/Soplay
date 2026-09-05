@@ -692,7 +692,7 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
           for (final leg in legs)
             ListTile(
               dense: true,
-              contentPadding: const EdgeInsets.only(left: 16, right: 8),
+              contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
               title: Text(leg.provider.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -723,7 +723,7 @@ class _CrossSearchPageState extends State<CrossSearchPage> {
           for (final name in pending)
             ListTile(
               dense: true,
-              contentPadding: const EdgeInsets.only(left: 16, right: 8),
+              contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
               title: Text(name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

@@ -19,8 +19,11 @@ extension _PlayerMedia on _PlayerPageState {
       await _loadEpisode(_episodeIndex, resumeAt: resume);
     } else {
       _videoSources = List.of(widget.args.videoSources);
-      _currentSourceIndex = _pickInitialMovieSourceIndex(_videoSources);
-      _autoFallbackUsed = false;
+      _resetLadder();
+      _currentSourceIndex =
+          _ladder(_videoSources, hasDirective: widget.args.extractor != null)
+                  .initialPick() ??
+              -1;
       // A serial re-resolves inside _loadEpisode and picks the directive up
       // there. A movie was resolved back on the detail page, so the only copy
       // of it is the one that travelled in the args — and without it
@@ -41,109 +44,312 @@ extension _PlayerMedia on _PlayerPageState {
     }
   }
 
-  int _pickInitialMovieSourceIndex(List<VideoSourceEntity> sources) {
-    if (sources.isEmpty) return -1;
-    for (var i = 0; i < sources.length; i++) {
-      if (sources[i].isDefault && sources[i].accessible) return i;
+  /// Loads the page holding [absoluteIndex] and plays that episode.
+  ///
+  /// The window is REPLACED rather than appended to. Appending would grow the
+  /// list without bound across a long binge, and every index the player holds
+  /// is relative to the window — so a window that changes length underneath
+  /// them is worse than one that moves wholesale with `_windowStart`.
+  ///
+  /// A failure leaves everything as it was. Half-applying this — moving
+  /// `_windowStart` without the episodes, or the reverse — would make every
+  /// later index point at the wrong episode, and the first visible symptom
+  /// would be the wrong title written to history.
+  Future<void> _loadAcrossPage(
+    int absoluteIndex, {
+    Duration resumeAt = Duration.zero,
+  }) async {
+    final size = widget.args.pageSize;
+    final contentUrl = widget.args.contentUrl;
+    if (size <= 0 || contentUrl == null || contentUrl.isEmpty) return;
+
+    final page = absoluteIndex ~/ size + 1;
+    setState(() {
+      _initializing = true;
+      _stage = _LoadingStage.resolving;
+      _errorMessage = null;
+    });
+
+    final result = await getIt<GetEpisodesUseCase>()(
+      contentUrl,
+      page: page,
+      size: size,
+      sort: widget.args.sort,
+      provider: widget.args.provider,
+    );
+    if (!mounted) return;
+
+    switch (result) {
+      case Success(:final value):
+        final fetched = value.episodes;
+        if (fetched.isEmpty) {
+          setState(() {
+            _initializing = false;
+            _errorMessage = 'player.episode_page_failed'.tr();
+          });
+          return;
+        }
+        // One operation. The old pair set the list and the offset separately
+        // and then recomputed the window-relative index at the call below —
+        // three chances to disagree about where the playhead is.
+        setState(() {
+          _window = _window.withPage(
+            fetched,
+            page: value.page,
+            pageSize: size,
+            absoluteIndex: absoluteIndex,
+          );
+        });
+        await _loadEpisode(_window.index, resumeAt: resumeAt);
+      case Failure():
+        setState(() {
+          _initializing = false;
+          _errorMessage = 'player.episode_page_failed'.tr();
+        });
     }
-    for (var i = 0; i < sources.length; i++) {
-      if (sources[i].accessible) return i;
-    }
-    return 0;
   }
 
+  /// Plays the episode at window-relative [index].
+  ///
+  /// Five steps, each its own method. They were one 127-line function, and the
+  /// order between them was an unwritten condition: `_resetForEpisode` has to
+  /// run BEFORE the teardown, or the retry path resets the very state it just
+  /// set and walks back onto the mirror that failed. Naming the steps is what
+  /// makes that order visible at the call site instead of implied by position
+  /// inside a long body.
   Future<void> _loadEpisode(
     int index, {
     Duration resumeAt = Duration.zero,
     bool keepRetryCount = false,
   }) async {
-    if (index < 0 || index >= widget.args.episodes.length) return;
+    if (await _pageAcrossIfNeeded(index, resumeAt: resumeAt)) return;
+
+    _resetForEpisode(index, keepRetryCount: keepRetryCount);
+    await _tearDownForEpisode();
+    if (!mounted) return;
+
+    final ep = _episodes[index];
+    final resolved = await _resolveEpisode(ep);
+    if (!mounted || resolved == null) return;
+
+    await _startPlayback(ep, resolved.value, lang: resolved.lang, resumeAt: resumeAt);
+  }
+
+  /// Handles an index outside the loaded window.
+  ///
+  /// Returns true when it took over — the caller is done, because paging
+  /// re-enters `_loadEpisode` against the new window.
+  ///
+  /// This is what turns "Next is greyed out at episode 100" into a series that
+  /// actually plays through. It costs a network call between episodes, which is
+  /// why it happens only when the window genuinely runs out.
+  Future<bool> _pageAcrossIfNeeded(
+    int index, {
+    required Duration resumeAt,
+  }) async {
+    if (_window.contains(index)) return false;
+    final absolute = _windowStart + index;
+    // Off the end of the SERIES, or a provider that cannot page: nothing to
+    // fetch, and returning true stops the caller playing a nonexistent episode.
+    if (!_window.containsAbsolute(absolute)) return true;
+    if (!widget.args.isWindowed) return true;
+    await _loadAcrossPage(absolute, resumeAt: resumeAt);
+    return true;
+  }
+
+  /// Everything that must NOT survive from the previous episode.
+  ///
+  /// [keepRetryCount] is what separates "a new episode" from "another attempt
+  /// at this one": the retry path passes true precisely so the ladder and the
+  /// counters are left alone, and resetting them there would loop between the
+  /// first two mirrors forever.
+  void _resetForEpisode(int index, {required bool keepRetryCount}) {
     if (!keepRetryCount) {
       _retryAttempts = 0;
       _lifetimeRetries = 0;
+      _resetLadder();
+      // A crop tuned for a 2.39:1 film is wrong for the 16:9 episode after it.
+      _resetZoom();
     }
     // The previous episode's opening/ending times do not apply to this one,
     // and leaving them would offer a skip at the wrong minute.
     _resetSkipTimes();
+    // A new episode is a new thing to finish. Without this, watching six in a
+    // row would count as one.
+    _countedComplete = false;
     setState(() {
       _initializing = true;
       _stage = _LoadingStage.resolving;
       _errorMessage = null;
       _isCodecError = false;
-      _episodeIndex = index;
+      _window = _window.at(index);
       _panel = _SidePanel.none;
     });
+  }
+
+  /// Closes the previous stream and lets the engine settle.
+  ///
+  /// The delay is not decoration: disposing and immediately re-initialising a
+  /// native surface is how a black frame survives into the next episode.
+  Future<void> _tearDownForEpisode() async {
     // Sync is per-episode: a shift/rate tuned for the previous episode is wrong
     // here, so drop it and load whatever was saved for this one (0 / 1.0 when
     // nothing was).
     _restoreSubtitleSync();
     await _disposeController();
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    if (!mounted) return;
+  }
 
-    final ep = widget.args.episodes[index];
+  /// Resolves [ep], or reports why it could not be played and returns null.
+  Future<({MediaResolveEntity value, String? lang})?> _resolveEpisode(
+    EpisodeEntity ep,
+  ) async {
     if (ep.mediaRef.isEmpty) {
       setState(() {
         _initializing = false;
-        _errorMessage = 'No source for this episode';
+        _errorMessage = PlaybackFaultKind.noSourceForEpisode.messageKey.tr();
       });
-      return;
+      return null;
     }
 
     final lang = _resolveLangForEpisode(ep);
-
     final resolveSw = Stopwatch()..start();
-    final provider = widget.args.provider;
     _plog('resolving ref=${ep.mediaRef} lang=$lang');
     final result = await _resolve(
       ref: ep.mediaRef,
-      provider: provider,
+      provider: widget.args.provider,
       lang: lang,
     );
     _plog('resolve completed in ${resolveSw.elapsedMilliseconds}ms');
-    if (!mounted) return;
+    if (!mounted) return null;
 
     switch (result) {
       case Success(:final value):
-        final sources = value.videoSources;
-        final useSources = sources.isNotEmpty;
-        final pickedIdx = useSources ? 0 : -1;
-        final url = useSources ? sources[pickedIdx].videoUrl : value.videoUrl;
-        final subs = value.subtitles;
-        setState(() {
-          _stage = _LoadingStage.loading;
-          _serverLangs = value.languagesAvailable;
-          _currentLang = lang ?? value.activeLang ?? _currentLang;
-          _videoSources = useSources ? List.of(sources) : const [];
-          _currentSourceIndex = pickedIdx;
-          _currentQuality = useSources ? sources[pickedIdx].quality : null;
-          _autoFallbackUsed = false;
-          _subtitles = subs;
-          _activeSubtitleIndex = -1;
-          _captionFile = null;
-          _extractorConfig = value.extractor;
-        });
-        unawaited(_loadThumbnails(value.thumbnails));
-        await _initializeWith(
-          url: url,
-          headers: value.headers,
-          type: value.type,
-          resumeAt: resumeAt,
-        );
-        // Host announces the new episode identity (never a video URL).
-        if (_errorMessage == null) _partyEmitContent(ep, _currentLang);
-        if (subs.isNotEmpty) {
-          final defaultIdx = subs.indexWhere((s) => s.isDefault);
-          if (defaultIdx >= 0) {
-            unawaited(_loadSubtitle(defaultIdx));
-          }
-        }
+        return (value: value, lang: lang);
       case Failure(:final error):
         setState(() {
           _initializing = false;
           _errorMessage = error.toString().replaceFirst('Exception: ', '');
         });
+        return null;
     }
+  }
+
+  /// Picks a mirror, publishes the new episode's state, and starts the stream.
+  Future<void> _startPlayback(
+    EpisodeEntity ep,
+    MediaResolveEntity value, {
+    required String? lang,
+    required Duration resumeAt,
+  }) async {
+    final sources = value.videoSources;
+    // `sources[0]` was taken outright here, so the remembered quality was
+    // honoured on a movie and ignored on every episode of a serial — and an
+    // iframe entry, which some providers put first, went straight to the
+    // decoder as if it were a stream.
+    final pickedIdx = _ladder(
+          sources,
+          hasDirective: value.extractor != null,
+        ).initialPick() ??
+        -1;
+    final useSources = pickedIdx >= 0;
+    final url = useSources ? sources[pickedIdx].videoUrl : value.videoUrl;
+    final subs = value.subtitles;
+
+    setState(() {
+      _stage = _LoadingStage.loading;
+      _serverLangs = value.languagesAvailable;
+      _currentLang = lang ?? value.activeLang ?? _currentLang;
+      _videoSources = useSources ? List.of(sources) : const [];
+      _currentSourceIndex = pickedIdx;
+      _currentQuality = useSources ? sources[pickedIdx].quality : null;
+      _subtitles = subs;
+      _activeSubtitleIndex = -1;
+      _captionFile = null;
+      _secondarySubtitleIndex = -1;
+      _secondaryCaptionFile = null;
+      _extractorConfig = value.extractor;
+    });
+
+    unawaited(_loadThumbnails(value.thumbnails));
+    await _initializeWith(
+      url: url,
+      headers: value.headers,
+      type: value.type,
+      resumeAt: resumeAt,
+    );
+    // Host announces the new episode identity (never a video URL).
+    if (_errorMessage == null) _partyEmitContent(ep, _currentLang);
+    if (subs.isNotEmpty) {
+      final defaultIdx = subs.indexWhere((s) => s.isDefault);
+      if (defaultIdx >= 0) {
+        unawaited(_loadSubtitle(defaultIdx));
+      }
+    }
+  }
+
+  /// The index of the source this title was last watched on, if it is still
+  /// offered.
+  ///
+  /// Null rather than a fallback, so the caller keeps its own default: a
+  /// remembered mirror that has since disappeared must not silently become
+  /// "whatever is at that position now", which would be a different server
+  /// with the same index.
+  /// The ladder over [sources], carrying everything already tried.
+  SourceLadder _ladder(
+    List<VideoSourceEntity> sources, {
+    required bool hasDirective,
+  }) =>
+      SourceLadder(
+        sources: sources,
+        hasDirective: hasDirective,
+        rememberedQuality: SourceLadder.rememberedQualityFor(
+          _titlePrefs,
+          provider: widget.args.provider,
+          contentUrl: widget.args.contentUrl ?? '',
+        ),
+        avoidCodec: _decoderAvoidCodec,
+        triedUrls: _triedSourceUrls,
+      );
+
+  /// Starts a fresh walk. Called wherever what is playing genuinely changes —
+  /// a new episode, a new movie, an explicit pick — never on a retry, which is
+  /// the whole point of keeping the set.
+  void _resetLadder() {
+    _triedSourceUrls.clear();
+    _decoderAvoidCodec = null;
+  }
+
+  /// Whether any mirror is left. This is the condition an error screen should
+  /// wait for; a single failure never was one.
+  bool get _hasUntriedSource =>
+      _ladder(_videoSources, hasDirective: _extractorConfig != null).next() !=
+      null;
+
+  /// Marks what is on screen as attempted, so the ladder moves past it.
+  void _markCurrentTried() {
+    if (_currentSourceIndex >= 0 && _currentSourceIndex < _videoSources.length) {
+      _triedSourceUrls.add(_videoSources[_currentSourceIndex].videoUrl);
+    }
+  }
+
+  /// Downloads the chain if needed, then hands it to the player.
+  ///
+  /// Silent on every failure. Somebody who turned this on with no connection
+  /// gets the picture they had yesterday, not an episode that will not start —
+  /// and a chain that is only half fetched is never applied at all, because a
+  /// missing link makes mpv fail to initialise video output, which presents as
+  /// a black screen rather than as a missing enhancement.
+  Future<void> _applyShaders(PlayerController controller) async {
+    if (!controller.supportsShaders) return;
+    if (_shaderPreset.isOff) {
+      await controller.setShaders(const []);
+      return;
+    }
+    final paths = await _shaders.ensure(_shaderPreset, _shaderTier);
+    if (paths == null || paths.isEmpty || !mounted) return;
+    if (!identical(controller, _controller)) return;
+    await controller.setShaders(paths);
   }
 
   String? _resolveLangForEpisode(EpisodeEntity ep) {
@@ -157,10 +363,10 @@ extension _PlayerMedia on _PlayerPageState {
 
   List<String> _availableLangsForCurrentEpisode() {
     if (!widget.args.isSerial) return const [];
-    if (_episodeIndex < 0 || _episodeIndex >= widget.args.episodes.length) {
+    if (_episodeIndex < 0 || _episodeIndex >= _episodes.length) {
       return const [];
     }
-    final epLangs = widget.args.episodes[_episodeIndex].availableLangs;
+    final epLangs = _episodes[_episodeIndex].availableLangs;
     if (epLangs.isNotEmpty) return epLangs;
     return _serverLangs;
   }
@@ -170,6 +376,14 @@ extension _PlayerMedia on _PlayerPageState {
     if (lang == _currentLang) return;
     final keepPosition = _controller?.value.position ?? Duration.zero;
     setState(() => _currentLang = lang);
+    // Both: for this title, because that is the choice being made, and as the
+    // global default, because changing it here almost always means "this is
+    // what I want from now on" for anything new.
+    await _titlePrefs.rememberLang(
+      widget.args.provider,
+      widget.args.contentUrl ?? '',
+      lang,
+    );
     await _hive.savePreferredMediaLang(lang);
     await _loadEpisode(_episodeIndex, resumeAt: keepPosition);
   }
@@ -179,10 +393,26 @@ extension _PlayerMedia on _PlayerPageState {
       setState(() => _panel = _SidePanel.none);
       return;
     }
+    // Remembered for this title. Plenty of shows only play on their third
+    // mirror, and re-picking it every episode is the kind of chore that reads
+    // as the app not working.
+    unawaited(
+      _titlePrefs.rememberQuality(
+        widget.args.provider,
+        widget.args.contentUrl ?? '',
+        source.quality,
+      ),
+    );
     final keepPosition = _controller?.value.position ?? Duration.zero;
     final idx = _videoSources.indexWhere((s) => s.quality == source.quality);
     _retryAttempts = 0;
     _lifetimeRetries = 0;
+    // A deliberate pick is a fresh walk — the same reset the retry counters get
+    // on this line, and what `_autoFallbackUsed = false` used to do here.
+    // Without it the tried-set from a failed auto-walk survives, so the next
+    // recoverable hiccup re-resolves and drops the viewer back onto sources[0],
+    // a mirror already known to fail, off the one they just chose by hand.
+    _resetLadder();
     setState(() {
       _initializing = true;
       _stage = _LoadingStage.loading;
@@ -190,7 +420,6 @@ extension _PlayerMedia on _PlayerPageState {
       _isCodecError = false;
       _currentQuality = source.quality;
       _currentSourceIndex = idx >= 0 ? idx : _currentSourceIndex;
-      _autoFallbackUsed = false;
       _panel = _SidePanel.none;
     });
     await _disposeController();
@@ -439,6 +668,16 @@ extension _PlayerMedia on _PlayerPageState {
         // a player this protected does work.
         _plog('sniff found no stream in ${sw.elapsedMilliseconds}ms',
             level: LogLevel.warn);
+        // One embed page that hid its stream used to end playback outright,
+        // with every sibling mirror untried. It is one failed candidate: mark
+        // it and walk on. The error below is what happens once the ladder is
+        // genuinely exhausted.
+        _markCurrentTried();
+        if (_hasUntriedSource) {
+          _autoRetrying = true;
+          unawaited(_autoRetry());
+          return;
+        }
         setState(() {
           _initializing = false;
           _isCodecError = true;
@@ -467,7 +706,7 @@ extension _PlayerMedia on _PlayerPageState {
     if (url.isEmpty) {
       setState(() {
         _initializing = false;
-        _errorMessage = 'Empty video URL';
+        _errorMessage = PlaybackFaultKind.emptyUrl.messageKey.tr();
       });
       return;
     }
@@ -570,6 +809,16 @@ extension _PlayerMedia on _PlayerPageState {
         _plog('  $k: $v');
       });
 
+      // The source being played decides whether this stream is encrypted, so
+      // it is read here rather than carried on the page: switching quality or
+      // mirror can move between an encrypted rendition and a clear one, and the
+      // backend has to follow.
+      final drm = _currentSourceIndex >= 0 &&
+              _currentSourceIndex < _videoSources.length
+          ? _videoSources[_currentSourceIndex].drm
+          : null;
+      if (drm != null) _plog('drm: $drm');
+
       controller = PlayerController.networkUrl(
         uri,
         httpHeaders: mergedHeaders,
@@ -581,6 +830,7 @@ extension _PlayerMedia on _PlayerPageState {
         videoPlayerOptions: VideoPlayerOptions(
           allowBackgroundPlayback: false,
         ),
+        drm: drm,
       );
       _headers = mergedHeaders;
     }
@@ -604,10 +854,21 @@ extension _PlayerMedia on _PlayerPageState {
       if (controller.value.hasError) {
         final raw = controller.value.errorDescription;
         _plog('init error: $raw', level: LogLevel.error);
+        // The other half of the pair. Only the CATEGORY of failure travels —
+        // "codec", "network" — never the url or the message, which carry the
+        // token and the title.
+        getIt<Analytics>().track(
+          AnalyticsEvent.playbackFailed,
+          props: {
+            AnalyticsProp.provider: widget.args.provider,
+            AnalyticsProp.engine: resolvePlayerEngine().id,
+            AnalyticsProp.reason: _isCodecError ? 'codec' : 'load',
+          },
+        );
         setState(() {
           _initializing = false;
           _errorMessage = raw == null
-              ? 'Could not load video'
+              ? PlaybackFaultKind.unknown.messageKey.tr()
               : _humanizeError(raw);
         });
         return;
@@ -625,6 +886,19 @@ extension _PlayerMedia on _PlayerPageState {
         'duration': _isLive ? 'live' : dur.toString(),
       });
       _plog('initialized — ${_isLive ? 'LIVE stream' : 'duration $dur'}');
+
+      // Counted here, where a decoded frame actually exists — not where play
+      // was tapped. The gap between the two is the whole failure surface this
+      // app has, and an event fired on the tap would report every black screen
+      // as a successful play.
+      getIt<Analytics>().track(
+        AnalyticsEvent.playbackStarted,
+        props: {
+          AnalyticsProp.provider: widget.args.provider,
+          AnalyticsProp.engine: resolvePlayerEngine().id,
+          AnalyticsProp.kind: _isLive ? 'live' : (widget.args.type ?? 'video'),
+        },
+      );
 
       // Engine = External player. Sozo still does the hard part — extraction,
       // header-gated proxying, picking the quality — and then hands the
@@ -679,10 +953,27 @@ extension _PlayerMedia on _PlayerPageState {
         await controller.play();
       }
       _plog('play started — total ${stopwatch.elapsedMilliseconds}ms');
+      // Guarded, because everything between initialize() and here is awaited —
+      // a seek, a speed change, the play itself — and a slow source spends
+      // seconds in that stretch. Seconds spent staring at a spinner is exactly
+      // when someone backs out, and coming back to a disposed State throws.
+      if (!mounted) return;
+      // After play, not before: mpv rejects equalizer properties until a video
+      // output exists, so applying it any earlier silently does nothing and the
+      // profile appears not to work on the first episode of a session.
+      if (!_colorProfile.isNeutral) {
+        unawaited(controller.setColorProfile(_colorProfile));
+      }
+      // Unawaited, and deliberately after playback is running: the first use
+      // downloads up to 300 KB of shader source, and making the episode wait
+      // on that would turn an enhancement into a delay. The picture sharpens a
+      // moment in, which is the right trade — nobody notices the transition,
+      // everybody notices a player that will not start.
+      unawaited(_applyShaders(controller));
       setState(() {
         _initializing = false;
         _errorMessage = null;
-      _isCodecError = false;
+        _isCodecError = false;
       });
       _scheduleHide();
       // After the duration is known: AniSkip uses episode length to reject
@@ -696,19 +987,29 @@ extension _PlayerMedia on _PlayerPageState {
       final raw = e.message ?? '';
       String msg;
       if (e.code == 'channel-error') {
-        msg = 'Player not ready — please fully restart the app';
-      } else if (raw.contains('Cannot Decode') ||
-          raw.contains('-12906') ||
-          raw.contains('-12939') ||
-          raw.contains('CoreMediaError')) {
-        if (!_autoFallbackUsed && _videoSources.length > 1) {
+        msg = PlaybackFaultKind.engineUnavailable.messageKey.tr();
+      } else if (_isDecoderError(raw)) {
+        // The codec is the likeliest culprit, so siblings encoded the same way
+        // go to the back of the ladder rather than being tried in turn.
+        _decoderAvoidCodec = _currentSourceIndex >= 0 &&
+                _currentSourceIndex < _videoSources.length
+            ? _videoSources[_currentSourceIndex].codec
+            : null;
+        // Marked first: _hasUntriedSource asks whether anything is LEFT, and
+        // the mirror that just failed to decode is not. Testing before marking
+        // counted it as a candidate, so a single-mirror codec failure spent a
+        // snackbar, a teardown and a full re-resolve arriving back at the same
+        // undecodable file instead of saying so immediately.
+        _markCurrentTried();
+        if (_hasUntriedSource) {
+          _retryAttempts++;
+          _lifetimeRetries++;
           _autoRetrying = true;
           _autoRetry();
           return;
         }
         _isCodecError = true;
-        msg =
-            'This video format is not supported on your device. You can try playing it in your browser.';
+        msg = PlaybackFaultKind.unsupportedFormat.messageKey.tr();
       } else if (_isLive && _lifetimeRetries < _kMaxLiveRetries) {
         // A channel that would not open is very often a channel that will open
         // in a moment — the origin was mid-restart, or the playlist rolled. The
@@ -729,7 +1030,9 @@ extension _PlayerMedia on _PlayerPageState {
         _autoRetry();
         return;
       } else {
-        msg = raw.isEmpty ? 'Could not load video' : _humanizeError(raw);
+        msg = raw.isEmpty
+            ? PlaybackFaultKind.unknown.messageKey.tr()
+            : _humanizeError(raw);
       }
       setState(() {
         _initializing = false;
@@ -745,52 +1048,42 @@ extension _PlayerMedia on _PlayerPageState {
     }
   }
 
-  String _humanizeError(String raw) {
-    final lower = raw.toLowerCase();
-    if (lower.contains('mediacodec') ||
-        lower.contains('decoder') ||
-        lower.contains('renderer')) {
-      return 'This device couldn\'t decode the video. Try a different quality or retry.';
+  /// A failure, in the viewer's language.
+  ///
+  /// Classification lives in [PlaybackFault] where it can be tested without a
+  /// widget; this only renders it. `unknown` keeps the engine's own words —
+  /// an untranslated detail is more use than a translated non-answer.
+  String _faultMessage(PlaybackFault fault) {
+    if (fault.kind == PlaybackFaultKind.unknown && fault.raw.isNotEmpty) {
+      return fault.raw;
     }
-    if (lower.contains('source error') ||
-        lower.contains('unrecognizedinputformat') ||
-        lower.contains('nodeclaredbrand')) {
-      return 'Couldn\'t open the video source (the server may have blocked it). Try a different quality.';
-    }
-    if (lower.contains('http data source')) {
-      return 'Network error — check your connection';
-    }
-    if (lower.contains('cannot decode') ||
-        lower.contains('-12906') ||
-        lower.contains('coremediaerror')) {
-      return 'This video format is not supported on your device. Try a different quality.';
-    }
-    return raw;
+    return fault.messageKey.tr();
   }
 
-  bool _isRecoverableError(String msg) {
-    final l = msg.toLowerCase();
-    if (l.contains('-12939') ||
-        l.contains('-12938') ||
-        l.contains('-12660') ||
-        l.contains('404') ||
-        l.contains('403') ||
-        l.contains('not found') ||
-        l.contains('forbidden') ||
-        l.contains('coremediaerror') ||
-        l.contains('cannot decode') ||
-        l.contains('-12906')) {
-      return false;
-    }
-    return l.contains('timed out') ||
-        l.contains('timeout') ||
-        l.contains('-1001') ||
-        l.contains('-1005') ||
-        l.contains('source error') ||
-        l.contains('mediacodec') ||
-        l.contains('decoder') ||
-        l.contains('renderer');
-  }
+  String _humanizeError(String raw) =>
+      _faultMessage(PlaybackFault.classify(raw));
+
+  /// Whether the device simply cannot decode this stream.
+  ///
+  /// Distinct from a recoverable error, and the distinction is the whole point:
+  /// a decoder that lacks the profile will lack it again in a second, so
+  /// retrying the same url is a guaranteed second failure and a wasted wait.
+  /// The right move is a different source, which is what the caller does with
+  /// this.
+  ///
+  /// Both platforms are covered here. Only the iOS spellings were, so on
+  /// Android a 4K HEVC Main10 file on a device with no such decoder fell
+  /// through to the retry branch and was fetched twice — the log reads
+  /// "recoverable error, retrying (attempt 1)" against
+  /// `format_supported=NO_EXCEEDS_CAPABILITIES`, which is precisely the one
+  /// thing that cannot be recovered by trying again.
+  /// Both classifiers moved to [RetryPolicy], where they are testable without
+  /// a controller. These forward so the twenty-odd call sites did not have to
+  /// change in the same commit.
+  static bool _isDecoderError(String raw) => RetryPolicy.isDecoderError(raw);
+
+  bool _isRecoverableError(String msg) =>
+      RetryPolicy.isRecoverableError(msg);
 
   void _onMajorChange() {
     final c = _controller;
@@ -822,6 +1115,26 @@ extension _PlayerMedia on _PlayerPageState {
             _autoRetry();
           }
           return;
+        }
+        // A decoder failure mid-playback is the same fault as one at init: this
+        // encode does not play on this device, another mirror may. _isRecoverable
+        // deliberately returns false for it, so without this the walk stopped
+        // here with untried mirrors left and the viewer had to open Quality and
+        // pick one by hand.
+        if (!_autoRetrying && _isDecoderError(msg)) {
+          _decoderAvoidCodec = _currentSourceIndex >= 0 &&
+                  _currentSourceIndex < _videoSources.length
+              ? _videoSources[_currentSourceIndex].codec
+              : null;
+          _markCurrentTried();
+          if (_hasUntriedSource && _lifetimeRetries < _kMaxLifetimeRetries) {
+            _retryAttempts++;
+            _lifetimeRetries++;
+            _autoRetrying = true;
+            _autoRetry();
+            return;
+          }
+          setState(() => _isCodecError = true);
         }
         setState(() => _errorMessage = _humanizeError(msg));
       }
@@ -859,9 +1172,15 @@ extension _PlayerMedia on _PlayerPageState {
     }
 
     if (v.isInitialized && v.duration.inMilliseconds > 0) {
-      if (v.position.inMilliseconds >=
-          v.duration.inMilliseconds * _kTrackerThreshold) {
+      if (WatchProgress.isWatched(v.position, v.duration)) {
         _maybeReportTrackers();
+        // Counted at the same threshold the trackers use, and once per
+        // episode: a viewer who scrubs back and forth across the 85% mark must
+        // not add a completion each time they cross it.
+        if (!_countedComplete) {
+          _countedComplete = true;
+          if (!_hive.isIncognito) unawaited(_watchStats.recordCompleted());
+        }
       }
 
       _updateActiveSkip(v.position);
@@ -884,7 +1203,7 @@ extension _PlayerMedia on _PlayerPageState {
             !_sleepAtEpisodeEnd &&
             _hive.autoPlayNextEpisode &&
             widget.args.isSerial &&
-            _episodeIndex + 1 < widget.args.episodes.length) {
+            _hasNextEpisode) {
           _saveHistoryForNextEpisode();
           _loadEpisode(_episodeIndex + 1);
           return;
@@ -936,13 +1255,12 @@ extension _PlayerMedia on _PlayerPageState {
   Future<void> _autoRetry() async {
     if (!mounted) return;
 
-    if (!_autoFallbackUsed &&
-        _videoSources.length > 1 &&
-        _currentSourceIndex >= 0 &&
-        _currentSourceIndex + 1 < _videoSources.length) {
-      final nextIdx = _currentSourceIndex + 1;
+    // Every remaining mirror, in ladder order — not `+ 1` once and done.
+    _markCurrentTried();
+    final nextIdx =
+        _ladder(_videoSources, hasDirective: _extractorConfig != null).next();
+    if (nextIdx != null) {
       final next = _videoSources[nextIdx];
-      _autoFallbackUsed = true;
       setState(() {
         _initializing = true;
         _stage = _LoadingStage.loading;
@@ -954,7 +1272,8 @@ extension _PlayerMedia on _PlayerPageState {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Switching to ${next.quality}...'),
+            content:
+                Text('player.switching_to'.tr(args: [next.quality])),
             backgroundColor: Colors.black87,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
@@ -1017,7 +1336,7 @@ extension _PlayerMedia on _PlayerPageState {
 
   String _episodeTitle() {
     if (!widget.args.isSerial) return widget.args.title;
-    final ep = widget.args.episodes[_episodeIndex];
+    final ep = _episodes[_episodeIndex];
     final fallback = 'Episode ${ep.episode}';
     final label = ep.label.trim().isEmpty ? fallback : ep.label;
     return '${widget.args.title} · $label';

@@ -80,6 +80,18 @@ class _VoiceSearchDialogState extends State<VoiceSearchDialog>
   }
 
   Future<void> _start() async {
+    try {
+      await _listen();
+    } catch (e) {
+      // A recogniser that refuses to start — no permission, no service, another
+      // app holding the microphone. Closing beats a dialog with a flat
+      // waveform that never explains itself.
+      debugPrint('[voice] could not start listening: $e');
+      if (mounted && !_done) _finish('');
+    }
+  }
+
+  Future<void> _listen() async {
     await widget.speech.listen(
       onResult: (r) {
         final words = r.recognizedWords.trim();
@@ -105,14 +117,58 @@ class _VoiceSearchDialogState extends State<VoiceSearchDialog>
         pauseFor: const Duration(seconds: 3),
       ),
     );
-    // listen() returns when the session ends — including when it ends because
-    // nothing was said. Without this the dialog would sit on a dead microphone.
-    if (mounted && !_done) _finish(_words);
+    // NOT the end of the session.
+    //
+    // `listen()` completes as soon as the platform has STARTED listening — it
+    // stamps the start time, arms its pause timers and returns. Treating that
+    // as the end closed this dialog on the frame it opened, with an empty
+    // transcript, while the recogniser carried on running: the microphone
+    // indicator lit up and no dialog was ever visible.
+    //
+    // The session ends when a final result arrives (handled in onResult), when
+    // the user stops it, or when the recogniser gives up on its own — and the
+    // last of those is only observable through `isListening`, which [_advance]
+    // already watches on every frame.
+    //
+    // A start that never happens is the other failure. `listen()` can return
+    // without the platform ever entering the listening state, and the watchdog
+    // in [_advance] only fires once it has seen listening begin — so without
+    // this the dialog would wait forever on a microphone that was never opened.
+    Future<void>.delayed(_startDeadline, () {
+      if (mounted && !_done && !_everListened) {
+        debugPrint('[voice] the recogniser never started listening');
+        _finish('');
+      }
+    });
   }
 
+  /// How long to wait for the microphone to actually open before giving up.
+  ///
+  /// Generous, because a cold recogniser on a slow device genuinely takes a
+  /// second or two, and closing on somebody who was about to be heard is worse
+  /// than a moment of blank waveform.
+  static const Duration _startDeadline = Duration(seconds: 6);
+
+  /// Whether the recogniser has actually started. Until it has, `isListening`
+  /// is false for an ordinary reason and must not be read as "it stopped".
+  bool _everListened = false;
+
   /// Shift the strip one step and ease the newest bar toward the live level.
+  ///
+  /// Also the session watchdog. The recogniser can end on its own — the
+  /// `listenFor` ceiling, a `pauseFor` silence, a permanent error — and none of
+  /// those calls back into this dialog. Without noticing, the dialog would sit
+  /// over a dead microphone until somebody dismissed it.
   void _advance() {
     if (!mounted) return;
+    if (widget.speech.isListening) {
+      _everListened = true;
+    } else if (_everListened && !_done) {
+      // Ended by itself. Whatever was heard is the answer; nothing is the
+      // answer too, and _finish turns that into a dismissal.
+      _finish(_words);
+      return;
+    }
     for (var i = 0; i < _barCount - 1; i++) {
       _levels[i] = _levels[i + 1];
     }

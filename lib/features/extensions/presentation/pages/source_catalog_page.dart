@@ -490,7 +490,7 @@ class _CatalogTile extends StatelessWidget {
       // see rather than inferring from an unexplained gap.
       opacity: installable ? 1 : 0.45,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 11, 10, 11),
+        padding: const EdgeInsetsDirectional.fromSTEB(14, 11, 10, 11),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),

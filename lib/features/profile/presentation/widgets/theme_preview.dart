@@ -220,7 +220,7 @@ class _SampleRow extends StatelessWidget {
     return Padding(
       // The metrics from settings_tiles.dart, so the sample row and the real
       // rows under it sit on one grid.
-      padding: const EdgeInsets.fromLTRB(14, 11, 12, 11),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 11, 12, 11),
       child: Row(
         children: [
           Container(

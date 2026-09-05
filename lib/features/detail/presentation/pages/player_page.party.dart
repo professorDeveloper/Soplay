@@ -109,7 +109,7 @@ extension _PlayerParty on _PlayerPageState {
   /// each device resolves its own from this. For a serial it is the current
   /// episode; for a movie it is the retained args mediaRef.
   PartyContent _currentPartyContent() {
-    final eps = widget.args.episodes;
+    final eps = _episodes;
     final ep =
         (eps.isNotEmpty && _episodeIndex >= 0 && _episodeIndex < eps.length)
         ? eps[_episodeIndex]
@@ -339,19 +339,35 @@ extension _PlayerParty on _PlayerPageState {
     switch (result) {
       case Success(:final value):
         final sources = value.videoSources;
-        final useSources = sources.isNotEmpty;
-        final url = useSources ? sources[0].videoUrl : value.videoUrl;
+        // A guest took `sources[0]`, so a party could be watching an embed
+        // page while the host watched the stream. Same ladder as everywhere.
+        _resetLadder();
+        final pickedIdx = _ladder(
+              sources,
+              hasDirective: value.extractor != null,
+            ).initialPick() ??
+            -1;
+        final useSources = pickedIdx >= 0;
+        final url = useSources ? sources[pickedIdx].videoUrl : value.videoUrl;
         setState(() {
           _stage = _LoadingStage.loading;
           _serverLangs = value.languagesAvailable;
           _currentLang = content.lang ?? value.activeLang ?? _currentLang;
           _videoSources = useSources ? List.of(sources) : const [];
-          _currentSourceIndex = useSources ? 0 : -1;
-          _currentQuality = useSources ? sources[0].quality : null;
-          _autoFallbackUsed = false;
+          _currentSourceIndex = pickedIdx;
+          _currentQuality = useSources ? sources[pickedIdx].quality : null;
+          // The ladder above was told a directive exists; _initializeWith
+          // reads THIS to decide whether to sniff. Leaving it stale meant the
+          // pick assumed a sniff that never ran, and an embed page went
+          // straight to the decoder.
+          _extractorConfig = value.extractor;
           _subtitles = value.subtitles;
           _activeSubtitleIndex = -1;
           _captionFile = null;
+          // The title changed under the guest; the old one's second track
+          // would otherwise keep rendering over the new video.
+          _secondarySubtitleIndex = -1;
+          _secondaryCaptionFile = null;
         });
         unawaited(_loadThumbnails(value.thumbnails));
         await _initializeWith(

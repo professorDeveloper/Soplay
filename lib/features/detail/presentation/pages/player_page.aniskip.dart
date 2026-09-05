@@ -15,13 +15,6 @@ part of 'player_page.dart';
 /// episode is a much worse first impression than a button they chose not to
 /// press. Once someone trusts it, the setting is there.
 extension _PlayerAniSkip on _PlayerPageState {
-  /// How long the button stays offered after an interval starts.
-  ///
-  /// The interval itself can run 90 seconds, and a Skip button pinned over the
-  /// video for that whole time is clutter long after the viewer has decided not
-  /// to use it. Ten seconds is the window where the offer is useful.
-  static const Duration _offerWindow = Duration(seconds: 10);
-
   bool get _aniSkipEligible =>
       _hive.providerCategory(widget.args.provider) == 'anime';
 
@@ -36,10 +29,10 @@ extension _PlayerAniSkip on _PlayerPageState {
 
     final int episodeNumber;
     if (widget.args.isSerial) {
-      if (_episodeIndex < 0 || _episodeIndex >= widget.args.episodes.length) {
+      if (_episodeIndex < 0 || _episodeIndex >= _episodes.length) {
         return;
       }
-      episodeNumber = widget.args.episodes[_episodeIndex].episode;
+      episodeNumber = _episodes[_episodeIndex].episode;
     } else {
       // A film is episode 1 as far as AniSkip is concerned, the same way it is
       // for the trackers.
@@ -61,17 +54,17 @@ extension _PlayerAniSkip on _PlayerPageState {
     );
     if (!mounted) return;
     setState(() {
-      _skipIntervals = intervals;
+      // load() drops the unusable ones, so nothing downstream has to remember
+      // that a two-second interval is a bad submission rather than an opening.
+      _skips.load(intervals);
       _activeSkip = null;
-      _skipsTaken.clear();
     });
   }
 
   /// Clear per-episode state. Called when the episode changes.
   void _resetSkipTimes() {
-    _skipIntervals = const [];
+    _skips.clear();
     _activeSkip = null;
-    _skipsTaken.clear();
   }
 
   /// Decide whether a Skip offer belongs on screen at [position].
@@ -80,17 +73,11 @@ extension _PlayerAniSkip on _PlayerPageState {
   /// that listener already fires on every frame update the player receives, and
   /// a second timer would only be a second thing to keep in sync.
   void _updateActiveSkip(Duration position) {
-    if (_skipIntervals.isEmpty) return;
+    if (_skips.intervals.isEmpty) return;
 
-    SkipInterval? active;
-    for (final s in _skipIntervals) {
-      if (!s.contains(position)) continue;
-      // Already used, or declined by watching past the offer window.
-      if (_skipsTaken.contains(s.type)) break;
-      if (position - s.start > _PlayerAniSkip._offerWindow) break;
-      active = s;
-      break;
-    }
+    // Inside the interval, not already taken, not watched past — all three in
+    // one place now, with fourteen tests over them.
+    final active = _skips.offerAt(position);
 
     if (identical(active, _activeSkip)) return;
     if (active == null && _activeSkip == null) return;
@@ -108,10 +95,10 @@ extension _PlayerAniSkip on _PlayerPageState {
   /// it, or because the viewer overshot — does not re-arm the same offer and,
   /// with auto-skip on, does not fight the viewer for control of the position.
   Future<void> _takeSkip(SkipInterval interval) async {
-    _skipsTaken.add(interval.type);
+    _skips.take(interval);
     if (mounted) setState(() => _activeSkip = null);
     try {
-      await _controller?.seekTo(interval.end);
+      await _controller?.seekTo(_skips.targetFor(interval));
     } catch (_) {
       // A failed seek leaves playback where it was, which is survivable; the
       // offer stays retired so it does not loop.
@@ -183,10 +170,10 @@ extension _PlayerAlternateSources on _PlayerPageState {
   /// The episode number to look for on the other source, or null for a film.
   int? get _currentEpisodeNumber {
     if (!widget.args.isSerial) return null;
-    if (_episodeIndex < 0 || _episodeIndex >= widget.args.episodes.length) {
+    if (_episodeIndex < 0 || _episodeIndex >= _episodes.length) {
       return null;
     }
-    final n = widget.args.episodes[_episodeIndex].episode;
+    final n = _episodes[_episodeIndex].episode;
     return n > 0 ? n : null;
   }
 

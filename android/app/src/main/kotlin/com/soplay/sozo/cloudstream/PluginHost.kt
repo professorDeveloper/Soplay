@@ -16,6 +16,7 @@ import com.lagradost.cloudstream3.TorrentLoadResponse
 import com.lagradost.cloudstream3.TvSeriesLoadResponse
 import com.lagradost.cloudstream3.plugins.BasePlugin
 import com.lagradost.cloudstream3.plugins.Plugin
+import com.lagradost.cloudstream3.plugins.PluginManager as CsPluginManager
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import dalvik.system.PathClassLoader
@@ -147,6 +148,9 @@ class PluginHost(private val appContext: Context) {
             }
             if (instance is Plugin) instance.load(appContext) else instance.load()
             loaded[internalName] = instance
+            // So a plugin walking PluginManager.getPluginsOnline() to find its
+            // own .cs3 — the usual reason to call it — gets a real answer.
+            CsPluginManager.record(internalName, file.absolutePath)
 
             val added = APIHolder.allProviders.map { it.name }.filter { it !in before }
             pluginProviders[internalName] = added
@@ -155,8 +159,50 @@ class PluginHost(private val appContext: Context) {
             Log.i(TAG, "loaded ${file.name}: providers=$added")
             added
         } catch (t: Throwable) {
+            // Kept, not just logged.
+            //
+            // Every failure here used to become an empty list and a line in
+            // logcat. The plugin installed, registered nothing, appeared
+            // nowhere, and the app had nothing to say about it — which is
+            // indistinguishable from the plugin having no sources. The commonest
+            // cause is a NoClassDefFoundError for a CloudStream class that lives
+            // in its app module rather than the `library` artifact this depends
+            // on, and that is a sentence a user can act on.
+            lastErrors[internalName] = describeLoadFailure(t)
             Log.e(TAG, "failed to load ${file.name}: ${Log.getStackTraceString(t)}")
             emptyList()
+        }
+    }
+
+    /** The last load failure per plugin, for the UI to surface. */
+    private val lastErrors = mutableMapOf<String, String>()
+
+    fun lastError(internalName: String): String? = lastErrors[internalName]
+
+    fun lastErrorsJson(): String = JSONObject(lastErrors as Map<*, *>).toString()
+
+    /**
+     * A one-line reason a person could act on.
+     *
+     * A stack trace is the right thing in logcat and the wrong thing in a
+     * dialog. The three cases below are almost all of them in practice, and
+     * they need different actions from the reader: an incompatible plugin, a
+     * corrupt download, and everything else.
+     */
+    private fun describeLoadFailure(t: Throwable): String {
+        val root = generateSequence(t) { it.cause }.last()
+        val name = root.message?.trim().orEmpty()
+        return when (root) {
+            is NoClassDefFoundError, is ClassNotFoundException ->
+                "This plugin needs a part of CloudStream that Sozo does not include" +
+                    (if (name.isNotEmpty()) " ($name)" else "") + "."
+            is NoSuchMethodError, is NoSuchFieldError, is AbstractMethodError ->
+                "This plugin was built against a newer CloudStream than Sozo bundles" +
+                    (if (name.isNotEmpty()) " ($name)" else "") + "."
+            is java.util.zip.ZipException, is java.io.IOException ->
+                "The plugin file could not be read — try removing and adding the repo again."
+            else ->
+                "${root.javaClass.simpleName}${if (name.isNotEmpty()) ": $name" else ""}"
         }
     }
 
@@ -168,7 +214,9 @@ class PluginHost(private val appContext: Context) {
         names.forEach { providerIcons.remove(it); metas.remove(it) }
         // Drop any loaded plugins whose providers are now all gone.
         val internalNames = pluginProviders.filterValues { it.any { n -> n in set } }.keys.toList()
-        internalNames.forEach { loaded.remove(it); pluginProviders.remove(it) }
+        internalNames.forEach {
+            loaded.remove(it); pluginProviders.remove(it); CsPluginManager.forget(it)
+        }
         Log.i(TAG, "removed providers=$names")
     }
 

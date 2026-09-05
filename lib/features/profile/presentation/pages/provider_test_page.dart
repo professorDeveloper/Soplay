@@ -200,7 +200,7 @@ class _ProviderTestTile extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
       ),
-      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 12, 8, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -284,7 +284,7 @@ class _StepRow extends StatelessWidget {
     };
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4, right: 6),
+      padding: const EdgeInsetsDirectional.only(bottom: 4, end: 6),
       child: Row(
         children: [
           Icon(icon, size: 15, color: colour),

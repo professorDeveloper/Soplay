@@ -5,7 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart' as mk;
 import 'package:media_kit_video/media_kit_video.dart' as mkv;
+import 'package:soplay/core/player/color_profile.dart';
+import 'package:soplay/core/player/drm_config.dart';
+import 'package:soplay/core/player/player_video_track.dart';
+import 'package:soplay/core/player/drm_controller.dart';
 import 'package:soplay/core/player/player_engine.dart';
+import 'package:soplay/core/system/platform_utils.dart';
 import 'package:video_player/video_player.dart' as vp;
 
 export 'package:video_player/video_player.dart'
@@ -26,7 +31,42 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
     Map<String, String> httpHeaders = const <String, String>{},
     vp.VideoFormat? formatHint,
     vp.VideoPlayerOptions? videoPlayerOptions,
+    DrmConfig? drm,
   }) {
+    // Encryption decides the backend before anything else does. libmpv cannot
+    // decrypt CENC at all and `video_player` exposes no way to configure it, so
+    // an encrypted stream on either of them is a black screen — and the user's
+    // engine preference is not a preference about that.
+    if (DrmController.canPlay(drm)) {
+      return DrmController(
+        url: url.toString(),
+        drm: drm!,
+        headers: httpHeaders,
+      );
+    }
+
+    // DASH goes to the platform player, whatever engine is selected.
+    //
+    // ExoPlayer has a first-class DASH extractor — media3-exoplayer-dash, which
+    // ships with video_player_android and is on the classpath. libmpv's DASH
+    // support depends on how ffmpeg was configured in the build, and media_kit
+    // makes no guarantee about it; a manifest it cannot demux fails as a blank
+    // player rather than as an unsupported format, which is indistinguishable
+    // from a dead channel.
+    //
+    // This is the same reasoning as the DRM branch above, and the same reason
+    // it overrides a preference: the engine setting is a choice between two
+    // players that can both play the stream, and here only one can.
+    if (formatHint == vp.VideoFormat.dash && !isDesktopPlatform) {
+      return _NativeController(
+        vp.VideoPlayerController.networkUrl(
+          url,
+          httpHeaders: httpHeaders,
+          formatHint: formatHint,
+          videoPlayerOptions: videoPlayerOptions,
+        ),
+      );
+    }
     // media_kit on desktop unconditionally (no native backend there); on
     // Android only when the user asked for it. PlayerEngine.external never
     // reaches here — the player page hands off before building a controller —
@@ -86,6 +126,59 @@ abstract class PlayerController extends ValueNotifier<vp.VideoPlayerValue> {
 
   /// No-op on backends where [supportsAudioTracks] is false.
   Future<void> setAudioTrack(String id) async {}
+
+  /// Whether this backend can enumerate and switch VIDEO renditions.
+  ///
+  /// False for `video_player` for the same reason as audio: ExoPlayer selects
+  /// HLS variants internally and the plugin exposes no API for it. There,
+  /// adaptive selection is the behaviour and there is no list to offer — which
+  /// is a different thing from having no choice, and the UI should say so by
+  /// omitting the control rather than showing an empty one.
+  bool get supportsVideoTracks => false;
+
+  /// Selectable video renditions, empty when unsupported or when the stream
+  /// carries a single one. Only meaningful after [initialize] has completed.
+  List<PlayerVideoTrack> get videoTracks => const <PlayerVideoTrack>[];
+
+  /// [PlayerVideoTrack.id] of the rendition being decoded, if known. `auto`
+  /// while the engine is choosing for itself.
+  String? get activeVideoTrackId => null;
+
+  /// No-op on backends where [supportsVideoTracks] is false.
+  Future<void> setVideoTrack(String id) async {}
+
+  /// Whether this backend can adjust the picture while playing.
+  ///
+  /// libmpv only. The platform player exposes no runtime video equalizer at
+  /// all, so the UI hides the control rather than offering a menu that silently
+  /// does nothing — the same rule the audio-track control follows, and for the
+  /// same reason: a setting that appears to work and does not is worse than an
+  /// absent one, because the viewer concludes the app is broken rather than
+  /// that the feature is unavailable.
+  bool get supportsColorProfile => false;
+
+  /// Applies [profile], or restores the untouched picture for a neutral one.
+  Future<void> setColorProfile(ColorProfile profile) async {}
+
+  /// Whether this backend can run GLSL shaders over the video.
+  ///
+  /// libmpv only, and the same rule as everywhere else in this class: a
+  /// backend that cannot do it says so, and the UI removes the control rather
+  /// than offering one that silently does nothing.
+  bool get supportsShaders => false;
+
+  /// Runs [paths] as the shader chain, in order. An empty list clears it.
+  ///
+  /// Paths, not names: they are handed to mpv and must already exist on disk.
+  Future<void> setShaders(List<String> paths) async {}
+
+  /// The frame on screen right now, as JPEG bytes, or null.
+  ///
+  /// Null on backends that cannot do it, and the UI hides the control rather
+  /// than offering a share button that produces nothing. `video_player` has no
+  /// frame-grab API at all — the pixels live in a platform texture the Dart
+  /// side never sees.
+  Future<Uint8List?> grabFrame() async => null;
 
   Widget buildView({BoxFit fit = BoxFit.contain});
 
@@ -321,6 +414,7 @@ class _NativeController extends PlayerController {
   @override
   bool get letterboxesInternally => false;
 
+
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) => vp.VideoPlayer(_inner);
 
@@ -378,6 +472,8 @@ class _MediaKitController extends PlayerController {
   late final mkv.VideoController _videoController;
   List<PlayerAudioTrack> _audioTracks = const <PlayerAudioTrack>[];
   String? _activeAudioTrackId;
+  List<PlayerVideoTrack> _videoTracks = const <PlayerVideoTrack>[];
+  String? _activeVideoTrackId;
   final List<StreamSubscription<dynamic>> _subs = <StreamSubscription<dynamic>>[];
   bool _disposed = false;
   bool _mpvGone = false;
@@ -488,9 +584,16 @@ class _MediaKitController extends PlayerController {
           .listen((c) => _emit(value.copyWith(isCompleted: c))))
       ..add(_player.stream.width.listen((_) => _emitSize()))
       ..add(_player.stream.height.listen((_) => _emitSize()))
-      ..add(_player.stream.tracks.listen((t) => _syncAudioTracks(t.audio)))
+      // Both halves. This subscription existed and read only `t.audio`, so
+      // every HLS rendition mpv reported was thrown away and the quality list
+      // had nothing to offer but the provider's separate mirrors.
+      ..add(_player.stream.tracks.listen((t) {
+        _syncAudioTracks(t.audio);
+        _syncVideoTracks(t.video);
+      }))
       ..add(_player.stream.track.listen((t) {
         _activeAudioTrackId = t.audio.id;
+        _activeVideoTrackId = t.video.id;
       }))
       ..add(_player.stream.error.listen((e) {
         _error = e;
@@ -509,6 +612,49 @@ class _MediaKitController extends PlayerController {
           a[i].language != b[i].language) {
         return false;
       }
+    }
+    return true;
+  }
+
+  /// Keeps [videoTracks] in step with mpv.
+  ///
+  /// `no` is dropped — it is mpv's "video off" entry and means nothing in a
+  /// quality list. `auto` is KEPT, unlike the audio side: it is the default and
+  /// the only way back to adaptive once a rendition has been pinned.
+  ///
+  /// A single real rendition is reported as none at all. One entry beside Auto
+  /// is not a choice, and a quality control that opens onto one row reads as
+  /// broken.
+  void _syncVideoTracks(List<mk.VideoTrack> tracks) {
+    final filtered = tracks.where((t) => t.id != 'no').toList();
+    final real = <PlayerVideoTrack>[
+      for (var i = 0; i < filtered.length; i++)
+        PlayerVideoTrack(
+          id: filtered[i].id,
+          width: filtered[i].w,
+          height: filtered[i].h,
+          bitrate: filtered[i].bitrate,
+          codec: filtered[i].codec,
+          ordinal: i + 1,
+        ),
+    ];
+    final selectable = real.where((t) => !t.isAuto).length;
+    final next = selectable > 1 ? sortVideoTracks(real) : const <PlayerVideoTrack>[];
+    // Same lesson as the audio list: mpv probes in stages and reports the same
+    // renditions twice, bare then described. Comparing by value rather than
+    // length is what stops the sheet keeping the un-probed copy.
+    if (_sameVideoTracks(next, _videoTracks)) return;
+    _videoTracks = next;
+    _emit(value.copyWith());
+  }
+
+  static bool _sameVideoTracks(
+    List<PlayerVideoTrack> a,
+    List<PlayerVideoTrack> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
     }
     return true;
   }
@@ -618,6 +764,72 @@ class _MediaKitController extends PlayerController {
   // control must disappear rather than sit there doing nothing.
   bool get supportsAudioTracks => _fallback?.supportsAudioTracks ?? true;
 
+  /// True unless libmpv had to be swapped out mid-playback for the platform
+  /// backend, which is a fallback that carries none of this.
+  @override
+  bool get supportsColorProfile => _fallback == null;
+
+  @override
+  bool get supportsShaders => _fallback == null;
+
+  @override
+  Future<Uint8List?> grabFrame() async {
+    if (_fallback != null) return null;
+    try {
+      // Without subtitles: the point of sharing a frame is the frame, and a
+      // burnt-in line of dialogue makes it somebody else's screenshot of a
+      // moment rather than the moment.
+      return await _player.screenshot(format: 'image/jpeg');
+    } catch (e) {
+      debugPrint('[player] could not grab a frame: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<void> setShaders(List<String> paths) async {
+    if (_fallback != null) return;
+    final platform = _player.platform;
+    if (platform is! mk.NativePlayer) return;
+    try {
+      if (paths.isEmpty) {
+        // Cleared by setting the property empty rather than by leaving it —
+        // switching a preset off has to actually remove the chain, and mpv
+        // keeps whatever it was last given.
+        await platform.setProperty('glsl-shaders', '');
+        return;
+      }
+      // Separated by ':', which is what mpv's list properties take on every
+      // platform this runs on. A path containing one would break the list, and
+      // these are filenames this app chose, so none can.
+      await platform.setProperty('glsl-shaders', paths.join(':'));
+    } catch (e) {
+      // An enhancement is never worth losing the episode over. A shader that
+      // will not compile on this GPU should cost the sharpening, not playback.
+      debugPrint('[player] shader chain not applied: $e');
+    }
+  }
+
+  @override
+  Future<void> setColorProfile(ColorProfile profile) async {
+    if (_fallback != null) return;
+    final platform = _player.platform;
+    if (platform is! mk.NativePlayer) return;
+    try {
+      // One property at a time, because mpv has no combined call and a partial
+      // application still leaves a coherent picture — the properties are
+      // independent of one another.
+      for (final entry in profile.properties.entries) {
+        await platform.setProperty(entry.key, '${entry.value}');
+      }
+    } catch (e) {
+      // A picture adjustment is never worth interrupting playback for. An
+      // older libmpv missing one of these properties should cost that
+      // property, not the episode.
+      debugPrint('[player] colour profile ${profile.id} not applied: $e');
+    }
+  }
+
   @override
   List<PlayerAudioTrack> get audioTracks =>
       _fallback?.audioTracks ?? _audioTracks;
@@ -626,6 +838,30 @@ class _MediaKitController extends PlayerController {
   String? get activeAudioTrackId =>
       _fallback != null ? null : _activeAudioTrackId ?? _player.state.track.audio.id;
 
+
+  @override
+  @override
+  bool get supportsVideoTracks => _fallback == null;
+
+  @override
+  List<PlayerVideoTrack> get videoTracks =>
+      _fallback != null ? const <PlayerVideoTrack>[] : _videoTracks;
+
+  @override
+  String? get activeVideoTrackId =>
+      _fallback != null ? null : _activeVideoTrackId;
+
+  @override
+  Future<void> setVideoTrack(String id) async {
+    if (_fallback != null) return;
+    final match = _player.state.tracks.video
+        .where((t) => t.id == id)
+        .cast<mk.VideoTrack?>()
+        .firstWhere((_) => true, orElse: () => null);
+    if (match == null) return;
+    await _player.setVideoTrack(match);
+    _activeVideoTrackId = id;
+  }
 
   @override
   Future<void> setAudioTrack(String id) async {

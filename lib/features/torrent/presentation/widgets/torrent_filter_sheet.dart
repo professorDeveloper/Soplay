@@ -177,7 +177,7 @@ class _TorrentFilterSheetState extends State<TorrentFilterSheet> {
   }
 
   Widget _header() => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 12, 8),
+        padding: const EdgeInsetsDirectional.fromSTEB(20, 4, 12, 8),
         child: Row(
           children: [
             Expanded(

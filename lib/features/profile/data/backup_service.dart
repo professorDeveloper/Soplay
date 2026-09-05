@@ -75,6 +75,7 @@ class BackupService {
   static const Set<String> _settingsDenyList = {
     AppConstants.cachedProvidersKey,
     AppConstants.cachedProvidersAtKey,
+    AppConstants.lastBackupAtKey,
     'desktop_bridge_url',
   };
 
@@ -122,8 +123,30 @@ class BackupService {
         .first;
     final file = File('${dir.path}/sozo-backup-$stamp.json');
     await file.writeAsString(jsonEncode(payload));
+    await _rememberExport();
     debugPrint('$_tag exported ${boxes.length} boxes, $skipped values skipped');
     return file;
+  }
+
+  /// The moment of the last successful export, or null if this device has
+  /// never made one.
+  DateTime? get lastExportAt {
+    try {
+      final raw = Hive.box(
+        AppConstants.settingsBox,
+      ).get(AppConstants.lastBackupAtKey);
+      if (raw is int) return DateTime.fromMillisecondsSinceEpoch(raw);
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> _rememberExport() async {
+    try {
+      await Hive.box(AppConstants.settingsBox).put(
+        AppConstants.lastBackupAtKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
+    } catch (_) {}
   }
 
   /// Restore from a file written by [export].

@@ -63,6 +63,13 @@ bool get usesFlutterGlass =>
 bool get isDesktopPlatform =>
     !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
+/// True on EVERY Android build, television included — unlike [isMobilePlatform],
+/// which deliberately excludes leanback. Always pair it with the surrounding
+/// `!isTvPlatform` branch, or an Android-only affordance comes back on a TV that
+/// removed it on purpose (player_page.controls.dart drops PiP, the touch lock
+/// and orientation lock there).
+bool get isAndroidPlatform => !kIsWeb && Platform.isAndroid;
+
 // Android TV reports Platform.isAndroid, but it is not a phone: the liquid-glass
 // bottom nav and its shader pre-warm are phone affordances that are wrong on a
 // television. Phone and iOS evaluation is unchanged — _isTv is false there, so

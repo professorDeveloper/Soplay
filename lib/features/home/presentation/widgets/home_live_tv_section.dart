@@ -101,7 +101,7 @@ class _LiveTvSectionState extends State<LiveTvSection> {
           HomeSectionTapTarget(
             onTap: () => context.push('/live-tv'),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
+              padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 20, 14),
               child: Row(
                 children: [
                   const Icon(

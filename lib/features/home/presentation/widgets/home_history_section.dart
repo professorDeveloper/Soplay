@@ -47,7 +47,7 @@ class HistorySection extends StatelessWidget {
           HomeSectionTapTarget(
             onTap: showViewAll ? () => context.push('/history') : null,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(17, 18, 20, 14),
+              padding: const EdgeInsetsDirectional.fromSTEB(17, 18, 20, 14),
               child: Row(
                 children: [
                   const Icon(

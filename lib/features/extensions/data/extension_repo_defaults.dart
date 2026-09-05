@@ -7,10 +7,21 @@ import 'package:soplay/features/extensions/domain/entities/extension_repo_entity
 /// backend list wins whenever it has anything for that kind — that is the point
 /// of moving these server-side.
 ///
-/// The urls here are the *current* ones as of this build. Notably the manga
-/// entries point at `index.pb`: `yuzono/manga-repo` never published an
-/// `index.min.json`, and Keiyoushi's is now a two-entry "Outdated App" stub, so
-/// the old `.json` urls resolved to zero installable sources.
+/// The urls here are the *current* ones as of this build. The manga entry
+/// points at `index.pb`, which is what Keiyoushi publishes; its `index.min.json`
+/// is a two-entry "Outdated App" stub, so the `.json` url resolves to zero
+/// installable sources.
+///
+/// `yuzono/manga-repo` used to be listed here alongside it and is gone.
+/// Verified 2026-08-31: its `index.pb` now 404s, its `index.min.json` is the
+/// same "Outdated App" / "Update to Mihon 0.20.1+" stub, and its README is
+/// Keiyoushi's — the project folded into Keiyoushi, which this list already
+/// carries. Recommending it did not fail loudly; it installed the two stub
+/// entries, which is why the report was that the wrong thing appeared rather
+/// than that nothing did.
+///
+/// The anime repo is a different story and stays: `yuzono/anime-repo` is alive
+/// (253 extensions, apks served from `repo/apk/`, both checked the same day).
 class ExtensionRepoDefaults {
   const ExtensionRepoDefaults._();
 
@@ -55,18 +66,11 @@ class ExtensionRepoDefaults {
     // --- Manga ------------------------------------------------------------
     ExtensionRepoEntity(
       kind: ExtensionRepoKind.manga,
-      name: 'Yuzono Manga',
-      description: 'Largest collection · 1300+ extensions',
-      url: 'https://raw.githubusercontent.com/yuzono/manga-repo/repo/index.pb',
+      name: 'Keiyoushi',
+      description: 'Manga / manhwa / webtoon · 1300+ extensions',
+      url: 'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb',
       badge: '1300+',
       order: 0,
-    ),
-    ExtensionRepoEntity(
-      kind: ExtensionRepoKind.manga,
-      name: 'Keiyoushi',
-      description: 'Community manga / manhwa / webtoon sources',
-      url: 'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb',
-      order: 1,
     ),
 
     // --- Mangayomi (JavaScript extensions — work on iOS too) --------------

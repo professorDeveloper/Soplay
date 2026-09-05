@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -10,41 +9,36 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soplay/core/di/injection.dart';
-import 'package:soplay/features/profile/presentation/widgets/backup_sheet.dart';
+import 'package:soplay/core/error/result.dart';
+import 'package:soplay/features/stats/presentation/watch_stats_page.dart';
+import 'package:soplay/features/profile/presentation/widgets/home_rail_customizer_sheet.dart';
 import 'package:soplay/features/profile/presentation/widgets/tab_customizer_sheet.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:soplay/core/aniyomi/aniyomi_channel.dart';
-import 'package:soplay/core/cloudstream/cloudstream_channel.dart';
 import 'package:soplay/core/bridge/bridge_control.dart';
-import 'package:soplay/core/system/whats_new.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
-import 'package:soplay/core/theme/theme_controller.dart';
 import 'package:soplay/features/profile/presentation/pages/appearance_page.dart';
-import 'package:soplay/features/extensions/data/mangayomi_runtime.dart';
-import 'package:soplay/features/extensions/presentation/pages/mangayomi_sources_page.dart';
-import 'package:soplay/features/extensions/presentation/pages/source_catalog_page.dart';
-import 'package:soplay/features/aniyomi/presentation/pages/aniyomi_sources_page.dart';
-import 'package:soplay/core/manga/manga_channel.dart';
 import 'package:soplay/core/storage/hive_service.dart';
 import 'package:soplay/core/system/desktop_window.dart';
 import 'package:soplay/core/system/nav_prefs.dart';
 import 'package:soplay/core/system/responsive.dart';
-import 'package:soplay/features/manga/presentation/pages/manga_sources_page.dart';
-import 'package:soplay/features/cloudstream/presentation/pages/cloudstream_sources_page.dart';
 import 'package:soplay/features/app_lock/domain/repositories/app_lock_repository.dart';
 import 'package:soplay/features/private_list/presentation/private_unlock.dart';
 import 'package:soplay/features/auth/domain/entities/user_entity.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_event.dart';
 import 'package:soplay/features/auth/presentation/bloc/auth_state.dart';
-import 'package:soplay/features/download/data/download_service.dart';
+import 'package:soplay/features/download/domain/usecases/get_downloads_usecase.dart';
 import 'package:soplay/features/history/data/history_service.dart';
 import 'package:soplay/features/streak/presentation/widgets/streak_card.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_bloc.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_event.dart';
 import 'package:soplay/features/profile/presentation/bloc/provider_state.dart';
+import 'package:soplay/features/notifications/domain/repositories/notifications_repository.dart';
+import 'package:soplay/features/profile/presentation/pages/about_page.dart';
 import 'package:soplay/features/profile/presentation/pages/providers_page.dart';
+import 'package:soplay/features/profile/presentation/pages/sources_page.dart';
+import 'package:soplay/features/profile/presentation/widgets/settings_tiles.dart';
+import 'package:soplay/features/stats/data/watch_stats_store.dart';
 import 'package:soplay/features/anilist/data/anilist_service.dart';
 import 'package:soplay/features/mal/data/mal_service.dart';
 import 'package:soplay/features/mal/presentation/widgets/mal_brand.dart';
@@ -57,10 +51,9 @@ import 'package:soplay/features/watch_party/presentation/party_entry.dart';
 // anything in it. Parts keep every `_private` name private, so nothing had
 // to be renamed or made public to move it.
 part 'profile_page.header.dart';
+part 'profile_page.hub.dart';
 part 'profile_page.sections.dart';
 part 'profile_page.appearance.dart';
-part 'profile_page.about.dart';
-part 'profile_page.tiles.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -171,19 +164,26 @@ class _ProfileViewState extends State<_ProfileView> {
                       builder: (context, state) {
                         final signedIn = state is AuthLoaded;
                         final user = signedIn ? state.token.user : null;
+                        // Mobile is a hub: who you are, what you have done,
+                        // then one row per area. Each row owns a screen, so
+                        // this list stays short enough to read in one glance
+                        // no matter how much the app grows behind it.
                         final sections = <Widget>[
                           _ProfileHeader(user: user),
+                          // Watch counters are local, so a guest who has
+                          // watched something has real numbers; a guest who
+                          // has not would only get three zeroes.
+                          if (signedIn || _StatsStripState.hasNumbers)
+                            const _StatsStrip(),
                           if (signedIn) const StreakCard(),
-                          if (signedIn) const _ConnectionsSection(),
-                          const _ContentSection(),
+                          const _HubOverview(),
                           // signedIn is passed rather than read inside: a
-                          // `const _WatchHistorySection()` is the same widget
-                          // instance every build, so Flutter would skip
-                          // rebuilding it and the Watch Party row would not
-                          // appear until something else disturbed the tree.
-                          _WatchHistorySection(signedIn: signedIn),
-                          const _SettingsEntriesSection(),
-                          const _AboutSection(),
+                          // const widget is the same instance every build, so
+                          // Flutter would skip rebuilding it and the Watch
+                          // Party row would not appear until something else
+                          // disturbed the tree.
+                          _HubWatch(signedIn: signedIn),
+                          const _HubApp(),
                           if (signedIn) const _SignOutSection(),
                         ];
                         return Column(
@@ -235,7 +235,7 @@ class _ProfileViewState extends State<_ProfileView> {
                   ),
                 );
                 final content = Container(
-                  padding: EdgeInsets.fromLTRB(20, topPad + 14, 16, 14),
+                  padding: EdgeInsetsDirectional.fromSTEB(20, topPad + 14, 16, 14),
                   decoration: BoxDecoration(
                     color: AppColors.navBackground.withValues(
                       alpha: 0.78 * progress,
@@ -256,15 +256,27 @@ class _ProfileViewState extends State<_ProfileView> {
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 760),
                             child: Padding(
-                              padding: const EdgeInsets.only(left: 16),
+                              padding: const EdgeInsetsDirectional.only(start: 16),
                               child: Align(
-                                alignment: Alignment.centerLeft,
+                                alignment: AlignmentDirectional.centerStart,
                                 child: title,
                               ),
                             ),
                           ),
                         )
-                      : title,
+                      // Mobile: the inbox lives beside the title. It is the
+                      // one thing on this page that changes on its own, and
+                      // a row buried in a card cannot say "3 unread".
+                      : Row(
+                          children: [
+                            Expanded(child: title),
+                            BlocBuilder<AuthBloc, AuthState>(
+                              builder: (context, state) => state is AuthLoaded
+                                  ? const _HubBell()
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
+                        ),
                 );
                 if (progress < 0.01) return content;
                 return ClipRect(
@@ -388,7 +400,7 @@ class _ProfileViewState extends State<_ProfileView> {
           ],
         );
       default:
-        return const _AboutSection();
+        return const AboutSection();
     }
   }
 }
@@ -596,14 +608,3 @@ class NavbarPage extends StatelessWidget {
     );
   }
 }
-
-/// Everything the user can configure, in ONE card.
-///
-/// Appearance, the navigation bar and the player used to be a three-row card
-/// with app lock and the private list in a separate labelled "Security" card
-/// directly above it. Two labels for five rows that are all "settings" made the
-/// page read as longer than it is; one label reads as one place to look.
-///
-/// The Player row is unconditional — the page behind it owns playback defaults
-/// and subtitle appearance, which apply everywhere; only its engine block is
-/// platform-gated.
