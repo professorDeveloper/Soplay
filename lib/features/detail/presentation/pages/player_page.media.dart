@@ -177,6 +177,9 @@ extension _PlayerMedia on _PlayerPageState {
     // A new episode is a new thing to finish. Without this, watching six in a
     // row would count as one.
     _countedComplete = false;
+    // And a new episode is a new question for the auto-translator: episode 4
+    // may carry a subtitle in the viewer's language when episode 3 did not.
+    _autoTranslateDone = false;
     setState(() {
       _initializing = true;
       _stage = _LoadingStage.resolving;
@@ -930,7 +933,12 @@ extension _PlayerMedia on _PlayerPageState {
       await controller.setLooping(false);
       if (party != null) {
         // Watch2Gether: ignore the local resume point and align to the party.
-        if ((party.rate - _playbackSpeed).abs() > 0.01) {
+        //
+        // A bare assignment, unlike the one in _applyRemoteSync, and only
+        // because this method ends in a setState of its own a few lines below —
+        // the Speed button's label is repainted by that. It is written here
+        // rather than there because the awaits in between read it.
+        if (PartyRules.needsRateChange(_playbackSpeed, party.rate)) {
           _playbackSpeed = party.rate;
         }
         await controller.setPlaybackSpeed(_playbackSpeed);
@@ -980,6 +988,10 @@ extension _PlayerMedia on _PlayerPageState {
       // submissions timed against a different cut. Unawaited because a skip
       // offer is an extra — playback must never wait on a third-party lookup.
       unawaited(_loadSkipTimes());
+      // After the provider's own tracks have been set, so it can see whether
+      // one of them already reads in the viewer's language. Unawaited and
+      // silent unless it finds something: playback must never wait on it.
+      unawaited(_maybeAutoTranslate());
     } on PlatformException catch (e) {
       _plog('platform exception ${e.code}: ${e.message}',
           level: LogLevel.error);

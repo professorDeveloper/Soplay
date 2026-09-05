@@ -25,7 +25,8 @@
     "unknown": "غير معروف",
     "off": "معطّل",
     "on": "مُفعّل",
-    "new_badge": "جديد"
+    "new_badge": "جديد",
+    "reset": "إعادة الضبط"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -327,7 +328,27 @@
     "save_frame_denied": "مطلوب الوصول إلى المعرض للحفظ",
     "switching_server": "جارٍ تبديل الخادم…",
     "recommended": "موصى به",
-    "episode_page_failed": "تعذر تحميل الجزء التالي من المسلسل"
+    "episode_page_failed": "تعذر تحميل الجزء التالي من المسلسل",
+    "info_fields_desc": "اختر ما يظهر فوق الفيديو. يظهر مع عناصر التحكم.",
+    "layout_title": "عناصر التحكم",
+    "layout_desc": "اسحب لإعادة الترتيب، أو انقل عنصرًا إلى جزء آخر.",
+    "layout_top_bar": "الشريط العلوي",
+    "layout_bottom_left": "أسفل اليسار",
+    "layout_bottom_right": "أسفل اليمين",
+    "layout_hidden": "مخفي",
+    "layout_hidden_desc": "لا يزال متاحًا من الإعدادات.",
+    "layout_pinned": "الإعدادات تبقى مكانها.",
+    "layout_top_bar_full": "الشريط العلوي ممتلئ. أزل شيئًا أولاً.",
+    "layout_unknown_control": "هذا العنصر لم يعد متاحًا.",
+    "layout_move_to": "نقل",
+    "layout_empty": "لا شيء هنا.",
+    "rotate": "تدوير",
+    "lock": "قفل",
+    "enhance": "تحسين",
+    "fit": "ملاءمة",
+    "pip": "صورة داخل صورة",
+    "layout_pinned_badge": "مثبّت",
+    "info_fields_title": "صفوف لوحة المعلومات"
   },
   "profile": {
     "title": "حسابي",

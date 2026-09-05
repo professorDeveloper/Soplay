@@ -258,9 +258,22 @@ class _LoadingOverlay extends StatelessWidget {
 }
 
 class _IconButton extends StatelessWidget {
-  const _IconButton({required this.icon, required this.onTap, this.color});
+  const _IconButton({
+    required this.icon,
+    required this.onTap,
+    this.color,
+    this.enabled = true,
+  });
   final IconData icon;
   final VoidCallback onTap;
+
+  /// Dimmed and inert rather than absent.
+  ///
+  /// Previous on the first episode and Next on the last are the cases. A button
+  /// that vanishes shifts every other button under the finger that was aiming
+  /// at one of them, and it tells the viewer nothing about why. A dim one says
+  /// "this exists, not here".
+  final bool enabled;
 
   /// When set, tints the icon (and gives a subtle matching background) — used
   /// to show an "active" state, e.g. the Watch Party button while in a party.
@@ -271,6 +284,8 @@ class _IconButton extends StatelessWidget {
     final fill = color != null
         ? color!.withValues(alpha: 0.22)
         : Colors.black.withValues(alpha: 0.35);
+    final tint = (color ?? Colors.white)
+        .withValues(alpha: enabled ? 1.0 : 0.38);
 
     // The disc stays 38 and the TAP TARGET is 44 — Apple's minimum, and near
     // Material's 48. It used to be 38 both ways, which is under every
@@ -290,7 +305,7 @@ class _IconButton extends StatelessWidget {
           color: Colors.transparent,
           shape: const CircleBorder(),
           child: InkWell(
-            onTap: onTap,
+            onTap: enabled ? onTap : null,
             customBorder: const CircleBorder(),
             child: Center(
               child: Container(
@@ -299,7 +314,7 @@ class _IconButton extends StatelessWidget {
                 decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
                 child: Icon(
                   icon,
-                  color: color ?? Colors.white,
+                  color: tint,
                   size: 18,
                   shadows: _kControlShadow,
                 ),

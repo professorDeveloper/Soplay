@@ -816,6 +816,67 @@ extension _PlayerSubtitles on _PlayerPageState {
     return map[code];
   }
 
+  /// Acts on Settings → Player → "Auto translate" once an episode is playing.
+  ///
+  /// That switch was written to Hive and read back only by the settings screen.
+  /// Nothing in the player ever consulted it, so it persisted its own state and
+  /// changed nothing — the worst kind of dead control, because the viewer
+  /// believes they have turned something on.
+  ///
+  /// Unawaited by its caller and silent unless it finds something: this runs on
+  /// every episode, and an episode that already has subtitles in the viewer's
+  /// language must not produce a toast saying so.
+  Future<void> _maybeAutoTranslate() async {
+    final target = _hive.getSubtitleTranslateLang();
+    if (target.isEmpty || _isLive || _autoTranslateDone) return;
+    // Already readable. Checked before the network call, not after — the
+    // common case must cost nothing.
+    if (SubtitleAutoTranslate.anyMatches(
+      _subtitles.map((s) => s.label),
+      target,
+    )) {
+      return;
+    }
+
+    // Latched before the await, so a second episode-load landing while this is
+    // in flight cannot start a second attempt.
+    _autoTranslateDone = true;
+
+    ReadySubtitle? ready;
+    final ref = _tmdbRef();
+    if (ref != null) {
+      final all = await const SubtitleTranslationService().fetchReady(
+        tmdbId: ref.id,
+        type: ref.type,
+        season: _currentSeasonNumber(),
+        episode: _currentEpisodeNumber(),
+      );
+      if (!mounted) return;
+      for (final r in all) {
+        if (r.targetLang.toLowerCase() == target.toLowerCase()) {
+          ready = r;
+          break;
+        }
+      }
+    }
+
+    switch (SubtitleAutoTranslate.decide(
+      enabled: _hive.getSubtitleAutoTranslate(),
+      isLive: _isLive,
+      alreadyRan: false,
+      hasTargetTrack: false,
+      hasReadyTranslation: ready != null,
+    )) {
+      case AutoTranslateAction.loadReady:
+        await _applyReadyTranslation(ready!);
+      case AutoTranslateAction.translateNow:
+        await _autoTranslateBestSubtitle();
+      case AutoTranslateAction.none:
+        break;
+    }
+  }
+
+
   /// One-tap AI translate: finds the best source subtitle and translates it.
   ///
   /// The menu entry lands here directly so the person does not have to open the
@@ -970,19 +1031,50 @@ extension _PlayerSubtitles on _PlayerPageState {
       if (mounted) {
         _toast(e.message);
         // A partial translation is better than none — keep what arrived.
-        if (applied == 0) {
-          setState(() {
-            _subtitles = [..._subtitles]..removeWhere((x) => x.file == marker);
-            _activeSubtitleIndex = -1;
-            _captionFile = null;
-          });
-          _aiCaptions.remove(marker);
-        }
+        if (applied == 0) _discardAiTrack(marker);
       }
     } catch (e) {
       _plog('subtitle translate error: $e', level: LogLevel.warn);
-      if (mounted && applied == 0) _toast('player.translate_failed'.tr());
+      if (mounted && applied == 0) {
+        _toast('player.translate_failed'.tr());
+        // The same cleanup the limit branch does, which this one did not.
+        //
+        // The track is seeded with a COPY OF THE SOURCE so cues can be filled
+        // in as slices return. If the first slice fails — one timeout is
+        // enough — nothing is ever filled in, and what was left on screen was a
+        // selected track labelled "AI · UZ" playing the untranslated English,
+        // beside a toast saying the translation failed. The marker's cues stayed
+        // in _aiCaptions too, so every retry added another copy of the whole
+        // subtitle to memory.
+        _discardAiTrack(marker);
+      }
     }
+  }
+
+  /// Removes a half-built AI track and the cues held for it.
+  ///
+  /// Deselects only if it is still the active track: by the time a slow request
+  /// fails the viewer may have picked something else, and resetting the index
+  /// then would take away the track they chose.
+  void _discardAiTrack(String marker) {
+    // The active track is remembered by its FILE, not its index. Removing an
+    // entry shifts every later one down, so an index kept across the removal
+    // silently points at a different subtitle — and by the time a slow request
+    // fails, the viewer may well have picked one of those.
+    final activeFile = _activeSubtitleIndex >= 0 &&
+            _activeSubtitleIndex < _subtitles.length
+        ? _subtitles[_activeSubtitleIndex].file
+        : null;
+    final next = [..._subtitles]..removeWhere((x) => x.file == marker);
+    final restored = (activeFile == null || activeFile == marker)
+        ? -1
+        : next.indexWhere((x) => x.file == activeFile);
+    setState(() {
+      _subtitles = next;
+      _activeSubtitleIndex = restored;
+      if (restored < 0) _captionFile = null;
+    });
+    _aiCaptions.remove(marker);
   }
 
   String _fmtSubtitleOffset(int ms) {

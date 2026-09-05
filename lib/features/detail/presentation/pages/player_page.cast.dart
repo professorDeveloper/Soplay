@@ -37,12 +37,12 @@ extension _PlayerCast on _PlayerPageState {
     final active = _subtitles.where((s) => s.isDefault).toList();
     final subtitles = [
       for (final s in active)
-        if (s.file.isNotEmpty)
+        if (CastHandoff.isSendable(s.file))
           CastSubtitle(
             url: s.file,
             label: s.label,
             language: s.label,
-            format: s.file.toLowerCase().contains('.srt') ? 'srt' : 'vtt',
+            format: CastHandoff.subtitleFormatFor(s.file),
           ),
     ];
 
@@ -54,7 +54,10 @@ extension _PlayerCast on _PlayerPageState {
       imageUrl: widget.args.thumbnail,
       // Where they are, not where the episode starts. Casting mid-episode is
       // the common case — the phone was the wrong screen all along.
-      startPosition: _isLive ? null : _controller?.value.position,
+      startPosition: CastHandoff.startPositionFor(
+        isLive: _isLive,
+        position: _controller?.value.position,
+      ),
       subtitles: subtitles,
       defaultSubtitle: subtitles.isEmpty ? null : subtitles.first,
     );

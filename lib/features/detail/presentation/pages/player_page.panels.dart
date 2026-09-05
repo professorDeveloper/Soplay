@@ -2,6 +2,35 @@
 part of 'player_page.dart';
 
 extension _PlayerPanels on _PlayerPageState {
+  /// Opens the info-row picker over the player.
+  ///
+  /// The overlay is switched on as it opens: a checklist whose effect is
+  /// invisible is a checklist people tick at random. `onChanged` then re-renders
+  /// behind the sheet, so each tap shows its own result.
+  void _openInfoFieldsPicker() {
+    if (!_showPlayerInfo) setState(() => _showPlayerInfo = true);
+    PlayerInfoFieldsSheet.show(
+      context,
+      onChanged: (next) {
+        if (!mounted) return;
+        setState(() => _infoFields = next);
+      },
+    );
+  }
+
+  /// Opens the bar editor. The layout is re-read on return rather than pushed
+  /// back through a result, because the page saves on every edit and a viewer
+  /// who backs out has still made those edits.
+  Future<void> _openControlsLayoutPage() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => const PlayerControlsPage()),
+    );
+    if (!mounted) return;
+    setState(() {
+      _layout = PlayerControlsLayout.fromStored(_hive.getPlayerControlsLayout());
+    });
+  }
+
   String _langLabel(String lang) {
     switch (lang.toLowerCase()) {
       case _kSubLang:
@@ -525,6 +554,24 @@ extension _PlayerPanels on _PlayerPageState {
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   setState(() => _showPlayerInfo = !_showPlayerInfo);
+                },
+              ),
+              _SettingsTile(
+                icon: Icons.tune_rounded,
+                label: 'player.info_fields_title'.tr(),
+                value: '',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _openInfoFieldsPicker();
+                },
+              ),
+              _SettingsTile(
+                icon: Icons.dashboard_customize_outlined,
+                label: 'player.layout_title'.tr(),
+                value: '',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _openControlsLayoutPage();
                 },
               ),
               _SettingsTile(

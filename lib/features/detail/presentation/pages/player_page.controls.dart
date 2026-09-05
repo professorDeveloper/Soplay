@@ -911,59 +911,24 @@ extension _PlayerControls on _PlayerPageState {
                                   ),
                                 ],
                               ] else if (!isDesktopPlatform) ...[
-                                // Every phone control stays ON the bar.
+                                // Phone: the viewer's arrangement, in their
+                                // order. Every control stays ON a bar — a
+                                // previous pass filed six of them behind a ⋯
+                                // sheet to buy room and had to undo it, because
+                                // a control one tap away is a control people
+                                // use and one two taps away is a control they
+                                // stop reaching for. What changed is only that
+                                // WHICH controls sit here is now a preference
+                                // instead of an argument about a Row.
                                 //
-                                // A previous pass filed six of these behind a
-                                // ⋯ sheet to buy room. That was the wrong
-                                // trade: a control one tap away is a control
-                                // people use, and one two taps away is a
-                                // control they stop reaching for. Room is not
-                                // the scarce thing here — reach is.
-                                _IconButton(
-                                  icon: _isPortrait
-                                      ? Icons.screen_lock_landscape_rounded
-                                      : Icons.screen_lock_portrait_rounded,
-                                  onTap: _toggleOrientation,
+                                // The capacity that PlayerControlsLayout
+                                // enforces is this bar's: the group is wrapped
+                                // in a FittedBox, so an extra button does not
+                                // wrap or scroll, it shrinks all of them.
+                                ..._controlsFor(
+                                  PlayerControlSlot.topBar,
+                                  topBar: true,
                                 ),
-                                if (!_isPortrait)
-                                  _IconButton(
-                                    icon: Icons.lock_outline_rounded,
-                                    onTap: () => setState(() {
-                                      _locked = true;
-                                      _controlsVisible = false;
-                                      _controlsAnimation.reverse();
-                                      _hideTimer?.cancel();
-                                    }),
-                                  ),
-                                // `floating: ^6.0.0` ships an Android plugin
-                                // and nothing else, and _enterPip swallows the
-                                // MissingPluginException in a bare catch, so on
-                                // iOS this was a tap that did nothing.
-                                // PiP, download and Watch Party live in the
-                                // BOTTOM row on a phone. Nothing is hidden —
-                                // the top bar simply ran out of room, and a
-                                // row that overflows is a row whose last
-                                // buttons get scaled to nothing.
-                                _IconButton(
-                                  icon: Icons.subtitles_outlined,
-                                  onTap: _openSubtitleSheet,
-                                ),
-                                _IconButton(
-                                  icon: Icons.settings_outlined,
-                                  onTap: _openSettingsSheet,
-                                ),
-                                // Quality and episodes used to share one slot,
-                                // so on a serial the quality panel was
-                                // unreachable, and with neither available the
-                                // HQ icon opened Settings — a button that says
-                                // one thing and does another. They are gone
-                                // from this bar now rather than resized: both
-                                // already render in the bottom row, episodes
-                                // under a different icon, so every serial was
-                                // showing two buttons for each of two panels.
-                                // The bottom row keeps them because its labels
-                                // carry live state these bare icons cannot —
-                                // the current server and the resolved quality.
                               ],
                             ],
                           ),
@@ -1362,6 +1327,284 @@ extension _PlayerControls on _PlayerPageState {
   bool get _compactBottomBar =>
       _isPortrait && !isTvPlatform && !isDesktopPlatform;
 
+  // ── the bars, built from the viewer's arrangement ──────────────────────────
+  //
+  // Phone only. A television's top bar is where the D-pad lands first and a
+  // desktop window has its own row, so both keep the arrangement they were
+  // built with — an editor shaped like a phone must not govern them.
+  //
+  // Layout answers WHERE a control goes. It does not answer whether the control
+  // can exist: a film has no episodes, a device without shader support has no
+  // Anime4K, a `cs:` provider cannot join a party. Those are affordances, they
+  // are checked here, and a control that fails one renders nothing rather than
+  // an inert button. See PlayerControlsLayout's own note on the distinction.
+
+  /// Whether the viewer's arrangement drives the bars on this platform.
+  bool get _layoutDrivesBars => !isTvPlatform && !isDesktopPlatform;
+
+  /// One control as it appears on the TOP bar: a bare icon, no label.
+  Widget? _topBarControl(String id) {
+    final a = _affordances;
+    switch (id) {
+      case 'language':
+        if (!a.hasLangs) return null;
+        // Its own gap: every other control on this bar is an _IconButton, whose
+        // 44pt tap target already carries 3pt of transparent padding a side.
+        // The pill has none, so without this it sits flush against its
+        // neighbour.
+        return Padding(
+          padding: const EdgeInsets.only(right: 5),
+          child: _LangPill(
+            label: (_currentLang ?? _kSubLang).toUpperCase(),
+            onTap: _openLangSheet,
+          ),
+        );
+      case 'subtitles':
+        return _IconButton(
+          icon: Icons.subtitles_outlined,
+          onTap: _openSubtitleSheet,
+        );
+      case 'settings':
+        return _IconButton(
+          icon: Icons.settings_outlined,
+          onTap: _openSettingsSheet,
+        );
+      case 'orientation':
+        return _IconButton(
+          icon: _isPortrait
+              ? Icons.screen_lock_landscape_rounded
+              : Icons.screen_lock_portrait_rounded,
+          onTap: _toggleOrientation,
+        );
+      case 'lock':
+        // Portrait only ever had one way out of the lock overlay and it is a
+        // tap target the D-pad cannot reach; the button is landscape-only for
+        // that reason, not for room.
+        if (_isPortrait) return null;
+        return _IconButton(
+          icon: Icons.lock_outline_rounded,
+          onTap: () => setState(() {
+            _locked = true;
+            _controlsVisible = false;
+            _controlsAnimation.reverse();
+            _hideTimer?.cancel();
+          }),
+        );
+      case 'stats':
+        return _IconButton(
+          icon: Icons.info_outline_rounded,
+          color: _showPlayerInfo ? AppColors.primary : null,
+          onTap: () => setState(() => _showPlayerInfo = !_showPlayerInfo),
+        );
+      case 'speed':
+        return _IconButton(icon: Icons.speed_rounded, onTap: _openSpeedSheet);
+      case 'server':
+        if (!a.hasServers) return null;
+        return _IconButton(icon: Icons.dns_outlined, onTap: _openServerSheet);
+      case 'quality':
+        if (!a.hasQualities) return null;
+        return _IconButton(
+          icon: Icons.high_quality_rounded,
+          onTap: () => _openPanel(_SidePanel.quality),
+        );
+      case 'episodes':
+        if (!a.hasEpisodes) return null;
+        return _IconButton(
+          icon: Icons.video_library_rounded,
+          onTap: () => _openPanel(_SidePanel.episodes),
+        );
+      case 'previous':
+        if (!a.hasEpisodes) return null;
+        return _IconButton(
+          icon: Icons.skip_previous_rounded,
+          enabled: _hasPrevEpisode,
+          onTap: () => _partyEpisodeNav(_episodeIndex - 1),
+        );
+      case 'next':
+        if (!a.hasEpisodes) return null;
+        return _IconButton(
+          icon: Icons.skip_next_rounded,
+          enabled: _hasNextEpisode,
+          onTap: () => _partyEpisodeNav(_episodeIndex + 1),
+        );
+      case 'shader':
+        if (!(_controller?.supportsShaders ?? false)) return null;
+        return _IconButton(
+          icon: Icons.auto_awesome_rounded,
+          color: _shaderPreset.isOff ? null : AppColors.primary,
+          onTap: _openShaderSheet,
+        );
+      case 'fit':
+        return _IconButton(
+          icon: Icons.aspect_ratio_rounded,
+          onTap: _openFitSheet,
+        );
+      case 'sleep':
+        if (_isLive) return null;
+        return _IconButton(icon: Icons.bedtime_outlined, onTap: _openSleepSheet);
+      case 'cast':
+        if (!_canCast) return null;
+        return _IconButton(
+          icon: Icons.cast_rounded,
+          color: _cast.isCasting ? AppColors.primary : null,
+          onTap: _openCastSheet,
+        );
+      case 'party':
+        // CloudStream sources need an on-device plugin per peer, so they are
+        // out of Watch2Gether until every peer can resolve them.
+        if (!_inParty && widget.args.provider.startsWith('cs:')) return null;
+        return _IconButton(
+          icon: _inParty ? Icons.groups_rounded : Icons.groups_2_outlined,
+          color: _inParty ? AppColors.primary : null,
+          onTap: _openWatchParty,
+        );
+      case 'pip':
+        // `floating: ^6.0.0` ships an Android plugin and nothing else, and
+        // _enterPip swallows the MissingPluginException, so on iOS this was a
+        // tap that did nothing.
+        if (!isAndroidPlatform) return null;
+        return _IconButton(
+          icon: Icons.picture_in_picture_alt_rounded,
+          onTap: _enterPip,
+        );
+      case 'download':
+        if (!a.canDownload) return null;
+        return _IconButton(
+          icon: Icons.download_rounded,
+          onTap: _startDownload,
+        );
+    }
+    return null;
+  }
+
+  /// One control as it appears on the BOTTOM row.
+  ///
+  /// Labelled where the label carries live state the icon cannot — the current
+  /// server, the resolved quality, the speed, the sleep countdown. Everything
+  /// else falls back to the same icon the top bar uses, so a control keeps its
+  /// identity wherever the viewer puts it.
+  Widget? _bottomControl(String id) {
+    final a = _affordances;
+    final compact = _compactBottomBar;
+    switch (id) {
+      case 'previous':
+        if (!a.hasEpisodes) return null;
+        return _BottomTextButton(
+          icon: Icons.skip_previous_rounded,
+          label: 'player.previous'.tr(),
+          compact: compact,
+          enabled: _hasPrevEpisode,
+          onTap: () => _partyEpisodeNav(_episodeIndex - 1),
+        );
+      case 'next':
+        if (!a.hasEpisodes) return null;
+        return _BottomTextButton(
+          icon: Icons.skip_next_rounded,
+          label: 'general.next'.tr(),
+          compact: compact,
+          enabled: _hasNextEpisode,
+          onTap: () => _partyEpisodeNav(_episodeIndex + 1),
+        );
+      case 'speed':
+        return _BottomTextButton(
+          icon: Icons.speed_rounded,
+          label:
+              '${_playbackSpeed.toStringAsFixed(_playbackSpeed == _playbackSpeed.roundToDouble() ? 0 : 2)}x',
+          compact: compact,
+          enabled: true,
+          onTap: _openSpeedSheet,
+        );
+      case 'server':
+        if (isTvPlatform || !a.hasServers) return null;
+        return _BottomTextButton(
+          icon: Icons.dns_outlined,
+          label: _currentServer ?? '—',
+          compact: compact,
+          enabled: true,
+          onTap: _openServerSheet,
+        );
+      case 'quality':
+        if (isTvPlatform || !a.hasQualities) return null;
+        return _BottomTextButton(
+          icon: Icons.high_quality_rounded,
+          label: _currentQuality == null
+              ? 'player.quality'.tr()
+              : _qualityLabel(_currentQuality!),
+          compact: compact,
+          enabled: true,
+          onTap: () => _openPanel(_SidePanel.quality),
+        );
+      case 'episodes':
+        if (isTvPlatform || !a.hasEpisodes) return null;
+        return _BottomTextButton(
+          icon: Icons.list_rounded,
+          label: 'player.episodes'.tr(),
+          compact: compact,
+          enabled: true,
+          onTap: () => _openPanel(_SidePanel.episodes),
+        );
+      case 'shader':
+        if (!_roomForExtras) return null;
+        if (!(_controller?.supportsShaders ?? false)) return null;
+        return _BottomTextButton(
+          icon: Icons.auto_awesome_rounded,
+          label: _shaderPreset.isOff
+              ? 'general.off'.tr()
+              : _shaderPreset.labelKey.tr(),
+          enabled: true,
+          onTap: _openShaderSheet,
+        );
+      case 'fit':
+        if (!_roomForExtras) return null;
+        return _BottomTextButton(
+          icon: Icons.aspect_ratio_rounded,
+          label: _fitLabel(_fit),
+          enabled: true,
+          onTap: _openFitSheet,
+        );
+      case 'sleep':
+        if (!_roomForExtras || _isLive) return null;
+        return _BottomTextButton(
+          icon: Icons.bedtime_outlined,
+          label: _sleepValueLabel,
+          enabled: true,
+          onTap: _openSleepSheet,
+        );
+      case 'party':
+      case 'pip':
+      case 'download':
+        // Phone only in this row: a television reaches all three from its own
+        // top bar, and rendering them here as well is the duplication the
+        // `&& !isTvPlatform` guards used to prevent.
+        if (isTvPlatform || isDesktopPlatform) return null;
+        return _topBarControl(id);
+      default:
+        // No live value to print, so the icon form is the honest one and the
+        // top bar already builds it.
+        return _topBarControl(id);
+    }
+  }
+
+  /// The controls for [slot], in the viewer's order, minus the ones that cannot
+  /// exist right now.
+  List<Widget> _controlsFor(
+    PlayerControlSlot slot, {
+    required bool topBar,
+  }) {
+    // A television's top bar is where the D-pad lands first and a desktop
+    // window has its own row; the editor is a phone screen and must not govern
+    // either. They render the shipped arrangement instead — which is also why
+    // the defaults are worth keeping correct rather than treating as a seed.
+    final layout =
+        _layoutDrivesBars ? _layout : PlayerControlsLayout.defaults();
+    final out = <Widget>[];
+    for (final id in layout.of(slot)) {
+      final w = topBar ? _topBarControl(id) : _bottomControl(id);
+      if (w != null) out.add(w);
+    }
+    return out;
+  }
+
   /// A landscape phone has room the portrait one does not, so it shows more.
   ///
   /// Aspect, sleep timer and cast are playback-time decisions — you make them
@@ -1405,6 +1648,7 @@ extension _PlayerControls on _PlayerPageState {
             mediaType: _mediaType,
             source: source,
             streamUrl: _videoUrl,
+            fields: _infoFields,
           ),
           onClose: () => setState(() => _showPlayerInfo = false),
         );
@@ -1510,156 +1754,42 @@ extension _PlayerControls on _PlayerPageState {
               // with long labels still scrolls instead of overflowing. Spacer
               // and Expanded cannot be used here for exactly that reason —
               // they throw against an unbounded main axis.
-              LayoutBuilder(
-                builder: (context, box) => SingleChildScrollView(
+              Builder(builder: (context) {
+                final left = _controlsFor(
+                  PlayerControlSlot.bottomLeft,
+                  topBar: false,
+                );
+                final right = _controlsFor(
+                  PlayerControlSlot.bottomRight,
+                  topBar: false,
+                );
+                return LayoutBuilder(
+                  builder: (context, box) => SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minWidth: box.maxWidth),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       // spaceBetween only makes sense with something on BOTH
-                      // sides. Previous/Next are the left group and they exist
-                      // only on a serial, so on a film the left group was empty
-                      // and every remaining control was pinned to the right
-                      // edge with the whole width blank beside it.
-                      mainAxisAlignment: hasEpisodes
-                          ? MainAxisAlignment.spaceBetween
-                          : MainAxisAlignment.start,
+                      // sides. The left group is the transport pair and it
+                      // exists only on a serial, so on a film it was empty and
+                      // every remaining control ended up pinned to the right
+                      // edge with the whole width blank beside it. Emptiness is
+                      // now read off the built widgets rather than guessed from
+                      // hasEpisodes: the viewer can move Previous and Next out
+                      // of that group entirely, and can move other controls in.
+                      mainAxisAlignment: left.isEmpty
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (hasEpisodes)
-                              _BottomTextButton(
-                                icon: Icons.skip_previous_rounded,
-                                label: 'player.previous'.tr(),
-                                compact: _compactBottomBar,
-                                enabled: hasPrev,
-                                onTap: () => _partyEpisodeNav(_episodeIndex - 1),
-                              ),
-                            if (hasEpisodes)
-                              _BottomTextButton(
-                                icon: Icons.skip_next_rounded,
-                                label: 'general.next'.tr(),
-                                compact: _compactBottomBar,
-                                enabled: hasNext,
-                                onTap: () => _partyEpisodeNav(_episodeIndex + 1),
-                              ),
-                          ],
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                    _BottomTextButton(
-                      icon: Icons.speed_rounded,
-                      label:
-                          '${_playbackSpeed.toStringAsFixed(_playbackSpeed == _playbackSpeed.roundToDouble() ? 0 : 2)}x',
-                      compact: _compactBottomBar,
-                      enabled: true,
-                      onTap: _openSpeedSheet,
-                    ),
-                    // Server, quality and episodes are already in the TV top
-                    // bar, so on a television this row was rendering all three
-                    // a second time. They drop out here rather than there
-                    // because the top bar is where a D-pad lands first.
-                    // Previous, next and speed stay on every platform: the TV
-                    // top bar has no equivalent for them, and dropping the
-                    // whole row would leave a remote no way to change episode.
-                    if (hasServers && !isTvPlatform)
-                      _BottomTextButton(
-                        icon: Icons.dns_outlined,
-                        label: _currentServer ?? '—',
-                        compact: _compactBottomBar,
-                        enabled: true,
-                        onTap: _openServerSheet,
-                      ),
-                    if (hasQualities && !isTvPlatform)
-                      _BottomTextButton(
-                        icon: Icons.high_quality_rounded,
-                        label: _currentQuality == null
-                            ? 'player.quality'.tr()
-                            : _qualityLabel(_currentQuality!),
-                        compact: _compactBottomBar,
-                        enabled: true,
-                        onTap: () => _openPanel(_SidePanel.quality),
-                      ),
-                    if (hasEpisodes && !isTvPlatform)
-                      _BottomTextButton(
-                        icon: Icons.list_rounded,
-                        label: 'player.episodes'.tr(),
-                        compact: _compactBottomBar,
-                        enabled: true,
-                        onTap: () => _openPanel(_SidePanel.episodes),
-                      ),
-                    // The three that came down from the top bar. Icons rather
-                    // than labelled buttons because, unlike speed or quality,
-                    // they carry no value worth printing — and the row has to
-                    // stay within a phone's width.
-                    // Landscape only — see _roomForExtras.
-                    if (_roomForExtras) ...[
-                      // Anime4K and the sharpen / deblur / denoise chains, one
-                      // tap instead of two. Only where they can actually run —
-                      // the settings sheet carries the disabled row that
-                      // explains why when they cannot, and repeating that here
-                      // would spend bar width on a control nobody can use.
-                      if (_controller?.supportsShaders ?? false)
-                        _BottomTextButton(
-                          icon: Icons.auto_awesome_rounded,
-                          label: _shaderPreset.isOff
-                              ? 'general.off'.tr()
-                              : _shaderPreset.labelKey.tr(),
-                          enabled: true,
-                          onTap: _openShaderSheet,
-                        ),
-                      _BottomTextButton(
-                        icon: Icons.aspect_ratio_rounded,
-                        label: _fitLabel(_fit),
-                        enabled: true,
-                        onTap: _openFitSheet,
-                      ),
-                      if (!_isLive)
-                        _BottomTextButton(
-                          icon: Icons.bedtime_outlined,
-                          label: _sleepValueLabel,
-                          enabled: true,
-                          onTap: _openSleepSheet,
-                        ),
-                      if (_canCast)
-                        _IconButton(
-                          icon: Icons.cast_rounded,
-                          color: _cast.isCasting ? AppColors.primary : null,
-                          onTap: _openCastSheet,
-                        ),
-                    ],
-                    if (!isTvPlatform && !isDesktopPlatform) ...[
-                      if (_inParty || !widget.args.provider.startsWith('cs:'))
-                        _IconButton(
-                          icon: _inParty
-                              ? Icons.groups_rounded
-                              : Icons.groups_2_outlined,
-                          color: _inParty ? AppColors.primary : null,
-                          onTap: _openWatchParty,
-                        ),
-                      if (isAndroidPlatform)
-                        _IconButton(
-                          icon: Icons.picture_in_picture_alt_rounded,
-                          onTap: _enterPip,
-                        ),
-                      // Read off the shared value object rather than threaded
-                      // in as a seventh parameter — this is what it is for.
-                      if (_affordances.canDownload)
-                        _IconButton(
-                          icon: Icons.download_rounded,
-                          onTap: _startDownload,
-                        ),
-                    ],
-                          ],
-                        ),
+                        Row(mainAxisSize: MainAxisSize.min, children: left),
+                        Row(mainAxisSize: MainAxisSize.min, children: right),
                       ],
                     ),
                   ),
-                ),
-              ),
+                  ),
+                );
+              }),
             ],
           ),
         ),

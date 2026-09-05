@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:soplay/features/detail/presentation/pages/player_controls_page.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_info_fields_sheet.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/player/media_controller.dart'
     show warmUpPlayerEngine;
@@ -296,6 +298,26 @@ class _PlayerSettingsPageState extends State<PlayerSettingsPage> {
                   setState(() => _boost = v);
                   _hive.saveLongPressBoost(v);
                 },
+              ),
+              const SettingsDivider(),
+              // Reachable from Settings as well as from inside the player. A
+              // viewer who has hidden a control is looking for the screen that
+              // brings it back, and the player is the one place they may not
+              // want to be while they look.
+              SettingsNavTile(
+                icon: Icons.dashboard_customize_outlined,
+                title: 'player.layout_title'.tr(),
+                subtitle: 'player.layout_desc'.tr(),
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute(builder: (_) => const PlayerControlsPage()),
+                ),
+              ),
+              const SettingsDivider(),
+              SettingsNavTile(
+                icon: Icons.info_outline_rounded,
+                title: 'player.info_fields_title'.tr(),
+                subtitle: 'player.info_fields_desc'.tr(),
+                onTap: () => PlayerInfoFieldsSheet.show(context),
               ),
               const SettingsDivider(),
               SettingsSwitchTile(

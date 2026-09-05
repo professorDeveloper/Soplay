@@ -20,6 +20,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dart_cast/dart_cast.dart';
 import 'package:soplay/core/cast/cast_controller.dart';
+import 'package:soplay/core/cast/cast_handoff.dart';
+import 'package:soplay/core/subtitles/subtitle_auto_translate.dart';
 import 'package:soplay/core/di/injection.dart';
 import 'package:soplay/core/discord/discord_activity.dart';
 import 'package:soplay/core/discord/discord_presence_service.dart';
@@ -38,6 +40,9 @@ import 'package:soplay/features/detail/domain/playback/playback_fault.dart';
 import 'package:soplay/features/detail/domain/playback/retry_policy.dart';
 import 'package:soplay/features/detail/domain/playback/skip_offers.dart';
 import 'package:soplay/features/detail/domain/playback/watch_progress.dart';
+import 'package:soplay/features/detail/domain/player_controls_layout.dart';
+import 'package:soplay/features/detail/domain/playback/party_rules.dart';
+import 'package:soplay/features/detail/domain/playback/player_info_fields.dart';
 import 'package:soplay/features/detail/domain/playback/playback_readout.dart';
 import 'package:soplay/core/player/stream_warnings.dart';
 import 'package:soplay/core/player/webview_stream_extractor.dart';
@@ -66,7 +71,9 @@ import 'package:soplay/features/detail/domain/entities/video_source_entity.dart'
 import 'package:soplay/features/detail/domain/video_option_groups.dart';
 import 'package:soplay/features/detail/domain/usecases/resolve_media_usecase.dart';
 import 'package:soplay/features/detail/data/aniskip_service.dart';
+import 'package:soplay/features/detail/presentation/pages/player_controls_page.dart';
 import 'package:soplay/features/detail/presentation/widgets/alternate_source_sheet.dart';
+import 'package:soplay/features/detail/presentation/widgets/player_info_fields_sheet.dart';
 import 'package:soplay/features/streak/data/streak_service.dart';
 import 'package:soplay/features/streak/presentation/dialogs/streak_milestone_dialog.dart';
 import 'package:soplay/features/download/domain/entities/download_request.dart';
@@ -241,6 +248,22 @@ class _PlayerPageState extends State<PlayerPage>
   /// Whether the live readout is on screen. Session-only on purpose: it is a
   /// diagnostic, and nobody wants to find it still there next week.
   bool _showPlayerInfo = false;
+
+  /// Whether the automatic translation attempt has been made for the episode
+  /// on screen. Per episode, not per session — reset in _resetForEpisode.
+  bool _autoTranslateDone = false;
+
+  /// Which rows the info overlay may show. Read once at open and updated when
+  /// the picker changes it, rather than re-read on every frame — the overlay
+  /// rebuilds on every position tick and a Hive read there is pure waste.
+  Set<String> _infoFields =
+      PlayerInfoFields.fromStored(getIt<HiveService>().getPlayerInfoFields());
+
+  /// The viewer's bar arrangement. Read once at open: it can only change from
+  /// the editor, and returning from that re-reads it.
+  PlayerControlsLayout _layout = PlayerControlsLayout.fromStored(
+    getIt<HiveService>().getPlayerControlsLayout(),
+  );
 
   String? _errorMessage;
   bool _isCodecError = false;
